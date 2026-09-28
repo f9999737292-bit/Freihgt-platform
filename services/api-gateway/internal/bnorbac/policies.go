@@ -80,7 +80,7 @@ func policyDenyMessage(policy Policy) string {
 	case PolicySearchConsolidation:
 		return "insufficient permission to search consolidation"
 	case PolicyEvaluateRoutePlan:
-		return "insufficient permission to evaluate a route plan"
+		return "insufficient permission to evaluate, accept, or activate a route plan"
 	case PolicyViewMarketplaceCapacities:
 		return "insufficient permission to view marketplace capacity"
 	case PolicyReadCompatibility:

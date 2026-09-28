@@ -83,5 +83,7 @@ func NewRouterWithCatalog(log *slog.Logger, svc *service.Service, ready func(htt
 	r.Post("/v1/network/consolidation/search", h.SearchConsolidation)
 	r.Post("/v1/network/route-plans/evaluate", h.EvaluateRoutePlan)
 	r.Get("/v1/network/route-plans/{id}", h.GetRoutePlan)
+	r.Post("/v1/network/route-plans/{id}/accept", h.AcceptRoutePlan)
+	r.Post("/v1/network/route-plans/{id}/activate", h.ActivateRoutePlan)
 	return r
 }

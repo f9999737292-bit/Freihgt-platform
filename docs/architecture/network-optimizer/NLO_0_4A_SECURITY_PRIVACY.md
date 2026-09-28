@@ -26,7 +26,7 @@ Accept and activate send `plan_id` and the `version` the caller read. The depend
 
 ## Idempotency
 
-`Idempotency-Key` is required for evaluate, accept, and activate. Same key and same body replays. Same key and different body conflicts. Activate after `EXECUTION_LINKED` does not create a second driver-task request even if a new key is presented. The existing activation is returned.
+`Idempotency-Key` is required for evaluate, accept, and activate. Same key and same body replays. Same key and different body conflicts. A new activate key while an activation already exists returns that activation and does not create a second row or a driver-task request.
 
 ## Marketplace projection
 

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -114,13 +115,14 @@ func (t *pgTx) GetRoutePlan(ctx context.Context, tenant, id uuid.UUID) (RoutePla
 		SELECT id, tenant_id, version, status, planning_mode, result_status,
 			capacity_id, capacity_version, shipment_id, shipment_version, vehicle_id,
 			context_fingerprint, evaluation_fingerprint, algorithm_policy_version, routing_policy_version,
-			supersedes_plan_id, execution_supported, reason_codes, created_at
+			supersedes_plan_id, execution_supported, reason_codes, created_at, accepted_at, cancelled_at, superseded_at
 		FROM network_optimizer.route_plans
 		WHERE id=$1 AND tenant_id=$2`, id, tenant).Scan(
 		&graph.Plan.ID, &graph.Plan.TenantID, &graph.Plan.Version, &graph.Plan.Status, &graph.Plan.PlanningMode, &graph.Plan.ResultStatus,
 		&graph.Plan.CapacityID, &graph.Plan.CapacityVersion, &graph.Plan.ShipmentID, &graph.Plan.ShipmentVersion, &graph.Plan.VehicleID,
 		&graph.Plan.ContextFingerprint, &graph.Plan.EvaluationFingerprint, &graph.Plan.AlgorithmPolicyVersion, &graph.Plan.RoutingPolicyVersion,
 		&graph.Plan.SupersedesPlanID, &graph.Plan.ExecutionSupported, &graph.Plan.ReasonCodes, &graph.Plan.CreatedAt,
+		&graph.Plan.AcceptedAt, &graph.Plan.CancelledAt, &graph.Plan.SupersededAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -236,4 +238,141 @@ func (t *pgTx) GetRoutePlan(ctx context.Context, tenant, id uuid.UUID) (RoutePla
 		graph.Dependencies = append(graph.Dependencies, dep)
 	}
 	return graph, nil
+}
+
+func (t *pgTx) LockRoutePlan(ctx context.Context, tenant, id uuid.UUID) error {
+	var shipmentID *uuid.UUID
+	err := t.tx.QueryRow(ctx, `
+		SELECT shipment_id FROM network_optimizer.route_plans WHERE id=$1 AND tenant_id=$2`, id, tenant).Scan(&shipmentID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil
+		}
+		return err
+	}
+	rows, err := t.tx.Query(ctx, `
+		SELECT id FROM network_optimizer.route_plans
+		WHERE tenant_id=$1 AND (id=$2 OR ($3::uuid IS NOT NULL AND shipment_id=$3))
+		ORDER BY id
+		FOR UPDATE`, tenant, id, shipmentID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var locked uuid.UUID
+		if err := rows.Scan(&locked); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
+}
+
+func (t *pgTx) MarkRoutePlanAccepted(ctx context.Context, tenant, id uuid.UUID, version int, at time.Time) error {
+	tag, err := t.tx.Exec(ctx, `
+		UPDATE network_optimizer.route_plans
+		SET status='ACCEPTED', accepted_at=$4
+		WHERE id=$1 AND tenant_id=$2 AND version=$3 AND status='EVALUATED'`,
+		id, tenant, version, at.UTC())
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 1 {
+		return nil
+	}
+	graph, err := t.GetRoutePlan(ctx, tenant, id)
+	if err != nil {
+		return err
+	}
+	if graph.Plan.Version == version && graph.Plan.Status == "ACCEPTED" {
+		return nil
+	}
+	return ErrConflict
+}
+
+func (t *pgTx) MarkRoutePlanSuperseded(ctx context.Context, tenant, id uuid.UUID, at time.Time) error {
+	tag, err := t.tx.Exec(ctx, `
+		UPDATE network_optimizer.route_plans
+		SET status='SUPERSEDED', superseded_at=$3
+		WHERE id=$1 AND tenant_id=$2 AND status IN ('EVALUATED', 'ACCEPTED')`,
+		id, tenant, at.UTC())
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 1 {
+		return nil
+	}
+	graph, err := t.GetRoutePlan(ctx, tenant, id)
+	if err != nil {
+		return err
+	}
+	if graph.Plan.Status == "SUPERSEDED" {
+		return nil
+	}
+	return ErrConflict
+}
+
+func (t *pgTx) InsertRoutePlanActivation(ctx context.Context, row RoutePlanActivationRow) error {
+	tag, err := t.tx.Exec(ctx, `
+		INSERT INTO network_optimizer.route_plan_activations (
+			id, tenant_id, route_plan_id, plan_version, version, idempotency_key,
+			execution_shipment_id, effective_shipment_id, execution_id, execution_revision_id, status, created_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		ON CONFLICT ON CONSTRAINT route_plan_activations_tenant_id_route_plan_id_key DO NOTHING`,
+		row.ID, row.TenantID, row.RoutePlanID, row.PlanVersion, row.Version, row.IdempotencyKey,
+		row.ExecutionShipmentID, row.EffectiveShipmentID, row.ExecutionID, row.ExecutionRevisionID, row.Status, row.CreatedAt,
+	)
+	if err != nil {
+		if isConstraint(err, "route_plan_activations_tenant_id_idempotency_key_key") || isConstraint(err, "route_plan_activations_one_effective_shipment_idx") {
+			return ErrConflict
+		}
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrConflict
+	}
+	return nil
+}
+
+func (t *pgTx) ClearRoutePlanActivationEffect(ctx context.Context, tenant, planID uuid.UUID) error {
+	_, err := t.tx.Exec(ctx, `
+		UPDATE network_optimizer.route_plan_activations
+		SET effective_shipment_id=NULL
+		WHERE tenant_id=$1 AND route_plan_id=$2`, tenant, planID)
+	return err
+}
+
+func (t *pgTx) GetRoutePlanActivation(ctx context.Context, tenant, planID uuid.UUID) (RoutePlanActivationRow, error) {
+	var row RoutePlanActivationRow
+	err := t.tx.QueryRow(ctx, `
+		SELECT id, tenant_id, route_plan_id, plan_version, version, idempotency_key, execution_shipment_id, effective_shipment_id, execution_id, execution_revision_id, status, created_at
+		FROM network_optimizer.route_plan_activations
+		WHERE tenant_id=$1 AND route_plan_id=$2`, tenant, planID).Scan(
+		&row.ID, &row.TenantID, &row.RoutePlanID, &row.PlanVersion, &row.Version, &row.IdempotencyKey, &row.ExecutionShipmentID, &row.EffectiveShipmentID, &row.ExecutionID, &row.ExecutionRevisionID, &row.Status, &row.CreatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return RoutePlanActivationRow{}, ErrNotFound
+		}
+		return RoutePlanActivationRow{}, err
+	}
+	return row, nil
+}
+
+func (t *pgTx) LinkedActivationForShipment(ctx context.Context, tenant, shipment uuid.UUID) (RoutePlanActivationRow, error) {
+	var row RoutePlanActivationRow
+	err := t.tx.QueryRow(ctx, `
+		SELECT id, tenant_id, route_plan_id, plan_version, version, idempotency_key, execution_shipment_id, effective_shipment_id, execution_id, execution_revision_id, status, created_at
+		FROM network_optimizer.route_plan_activations
+		WHERE tenant_id=$1 AND effective_shipment_id=$2 AND status='EXECUTION_LINKED'`,
+		tenant, shipment).Scan(
+		&row.ID, &row.TenantID, &row.RoutePlanID, &row.PlanVersion, &row.Version, &row.IdempotencyKey, &row.ExecutionShipmentID, &row.EffectiveShipmentID, &row.ExecutionID, &row.ExecutionRevisionID, &row.Status, &row.CreatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return RoutePlanActivationRow{}, ErrNotFound
+		}
+		return RoutePlanActivationRow{}, err
+	}
+	return row, nil
 }
