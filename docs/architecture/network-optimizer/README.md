@@ -60,11 +60,11 @@ Not a second freight exchange, not a second RFx engine, not a second freight-cos
 | [FINAL_ARCHITECTURE_REPORT.md](FINAL_ARCHITECTURE_REPORT.md) | Freeze verdict |
 | [NLO_0_3_CURRENT_STATE_INVENTORY.md](NLO_0_3_CURRENT_STATE_INVENTORY.md) | Code-backed inventory for current-trip fill |
 | [NLO_0_3_IMPLEMENTATION_ROADMAP.md](NLO_0_3_IMPLEMENTATION_ROADMAP.md) | Frozen waves, traceability, and acceptance |
-| [NLO_0_4_IMPLEMENTATION_ROADMAP.md](NLO_0_4_IMPLEMENTATION_ROADMAP.md) | NLO-0.4B IMPLEMENTED_CLOSED on main. Accept and activate remain NLO-0.4C |
+| [NLO_0_4_IMPLEMENTATION_ROADMAP.md](NLO_0_4_IMPLEMENTATION_ROADMAP.md) | NLO-0.4B IMPLEMENTED_CLOSED on main. NLO-0.4C accept and activate is implemented and not yet accepted |
 | [NLO_0_4A_CURRENT_STATE_INVENTORY.md](NLO_0_4A_CURRENT_STATE_INVENTORY.md) | Route-plan discovery inventory |
 | [adr/](adr/) | ADR-NET-001 … ADR-NET-021 |
 
-ADR numbering follows the repository convention of a domain prefix (`ADR-EDO-*`, `ADR-RFX-*`, `ADR-PLAT-*`). ADR-NET-001 through ADR-NET-012 remain Proposed. ADR-NET-013 through ADR-NET-021 are Accepted. NLO-0.3 is complete. NLO-0.4A architecture is frozen. NLO-0.4B is IMPLEMENTED_CLOSED on main `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c` (PR #184, migration `000085_nlo_route_plan_bounded_planner_v0_4b`). `NLO_0_4_IMPLEMENTATION_STARTED=YES`. `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`. `NLO_0_4C_STARTED=NO`. `NLO_0_4D_STARTED=NO`.
+ADR numbering follows the repository convention of a domain prefix (`ADR-EDO-*`, `ADR-RFX-*`, `ADR-PLAT-*`). ADR-NET-001 through ADR-NET-012 remain Proposed. ADR-NET-013 through ADR-NET-021 are Accepted. NLO-0.3 is complete. NLO-0.4A architecture is frozen. NLO-0.4B is IMPLEMENTED_CLOSED on main `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c` (PR #184, migration `000085_nlo_route_plan_bounded_planner_v0_4b`). `NLO_0_4_IMPLEMENTATION_STARTED=YES`. `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`. `NLO_0_4C_STARTED=YES`. `NLO_0_4C_ACCEPTED=NO`. `NLO_0_4D_STARTED=NO`.
 
 ## Status labels used in discovery
 

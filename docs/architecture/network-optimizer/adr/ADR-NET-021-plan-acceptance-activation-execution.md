@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Architecture freeze. Accept and activate are not started. NLO-0.4B does not implement this ADR.
+Accepted. Architecture freeze. NLO-0.4C implements accept and activate. NLO-0.4D is not started. NLO-0.4B does not implement this ADR.
 
 ```text
 ADR_NET_021=ACCEPTED
@@ -37,4 +37,4 @@ Public caller-visible reasons and the idempotency rule are in `NLO_0_4A_EXECUTIO
 
 ## Consequences
 
-NLO-0.4C is the accept/activate implementation wave. Production activation stays blocked until an authoritative or versioned server-owned service-duration source exists. NLO-0.4D is the shipment and driver integration. Neither starts in this acceptance.
+NLO-0.4C is the accept/activate implementation wave. It writes `route_plan_activations` and does not mutate shipment stops. Production activation stays blocked until an authoritative or versioned server-owned service-duration source exists. NLO-0.4D is the shipment and driver integration and is not started.

@@ -1,6 +1,6 @@
 # NLO-0.4 implementation roadmap
 
-Discovery baseline: `origin/main` `b108c6cc62a23aaa9f5f866cf53c8d281fc14783`. NLO-0.3 is complete. NLO-0.4A architecture is accepted. NLO-0.4B is IMPLEMENTED_CLOSED on main in PR #184 at `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`. Feature head `b2d3b16bdcb30d1918b6bcc5074ee1d651c2739b`. CI run `36403539278` succeeded on that feature head. NLO-0.4C and NLO-0.4D are not started.
+Discovery baseline: `origin/main` `b108c6cc62a23aaa9f5f866cf53c8d281fc14783`. NLO-0.3 is complete. NLO-0.4A architecture is accepted. NLO-0.4B is IMPLEMENTED_CLOSED on main in PR #184 at `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`. Feature head `b2d3b16bdcb30d1918b6bcc5074ee1d651c2739b`. CI run `36403539278` succeeded on that feature head. NLO-0.4C accept and activate is implemented and not yet accepted. NLO-0.4D is not started.
 
 ```text
 NLO_0_4_STARTED=YES
@@ -14,7 +14,9 @@ NLO_0_4B_PR=184
 NLO_0_4B_FEATURE_HEAD=b2d3b16bdcb30d1918b6bcc5074ee1d651c2739b
 NLO_0_4B_MERGE_SHA=0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c
 NLO_0_4B_CI=36403539278
-NLO_0_4C_STARTED=NO
+NLO_0_4C_STARTED=YES
+NLO_0_4C_STATUS=IMPLEMENTED
+NLO_0_4C_ACCEPTED=NO
 NLO_0_4D_STARTED=NO
 ARCHITECTURE_FROZEN=YES
 TEST_STRATEGY_FROZEN=YES
@@ -43,7 +45,7 @@ This publication. Route plan, stop, action, leg, bounded insertion, and the acce
 
 ### NLO-0.4B — persistent plan and bounded planner
 
-Status: IMPLEMENTED_CLOSED. Merged to main in PR #184. Feature head `b2d3b16bdcb30d1918b6bcc5074ee1d651c2739b`. Merge SHA `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`. CI run `36403539278` succeeded on that feature head, including `network-optimizer-nlo04b-integration`. Controller acceptance passed after privacy remediation R2. `NLO_0_4B_IMPLEMENTED=YES` and `NLO_0_4B_ACCEPTED=YES`. `CONTROLLER_REVIEW_PENDING=NO`. `NLO_0_4C_STARTED=NO` and `NLO_0_4D_STARTED=NO`. The route-plan public load snapshot omits foreign owner tenant ids and commercial terms. Migration `000085_nlo_route_plan_bounded_planner_v0_4b` persists planning tables only and was corrected in place. `route_plan_activations` is not created. `execution_supported` stays false. An unknown routing profile or unknown service duration keeps the plan advisory and indeterminate. A known late first stop is still a hard reject. `CURRENT_TRIP_FILL` stays at one additional load. `EXISTING_FUTURE_ROUTE_LOAD_SOURCE_IN_0_4B=NONE`. The evaluate API is the multi-stop entry. Accept and activate remain NLO-0.4C.
+Status: IMPLEMENTED_CLOSED. Merged to main in PR #184. Feature head `b2d3b16bdcb30d1918b6bcc5074ee1d651c2739b`. Merge SHA `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`. CI run `36403539278` succeeded on that feature head, including `network-optimizer-nlo04b-integration`. Controller acceptance passed after privacy remediation R2. `NLO_0_4B_IMPLEMENTED=YES` and `NLO_0_4B_ACCEPTED=YES`. `CONTROLLER_REVIEW_PENDING=NO`. `NLO_0_4C_STARTED=YES` and `NLO_0_4D_STARTED=NO`. The route-plan public load snapshot omits foreign owner tenant ids and commercial terms. Migration `000085_nlo_route_plan_bounded_planner_v0_4b` persists planning tables only and was corrected in place. `route_plan_activations` is not created. `execution_supported` stays false. An unknown routing profile or unknown service duration keeps the plan advisory and indeterminate. A known late first stop is still a hard reject. `CURRENT_TRIP_FILL` stays at one additional load. `EXISTING_FUTURE_ROUTE_LOAD_SOURCE_IN_0_4B=NONE`. The evaluate API is the multi-stop entry. Accept and activate remain NLO-0.4C.
 
 ```text
 NLO04B_IMPL_F001=CLOSED
@@ -62,7 +64,9 @@ CONTROLLER_ACCEPTANCE=PASS
 
 ### NLO-0.4C — accept and activate contract
 
-Accept freezes the plan. Activate writes the activation row and enforces `PLAN_STALE`, routing expiry, and idempotency. It still does not mutate shipment stops. Production activation stays blocked until a service-duration source exists. `NLO_0_4C_ACTIVATION_RELEASE_BLOCKED_UNTIL_SERVICE_DURATION_SOURCE=YES`.
+Status: IMPLEMENTED. Controller acceptance is not claimed. `NLO_0_4C_STARTED=YES`. `NLO_0_4C_ACCEPTED=NO`. `NLO_0_4D_STARTED=NO`.
+
+Accept freezes an evaluated plan at `ACCEPTED` when dependency versions and the current-trip context fingerprint still match. Activate writes one append-only `route_plan_activations` row, enforces `PLAN_STALE`, routing expiry, shipment-status eligibility, and idempotency, and supersedes the predecessor in the same transaction. It does not mutate shipment stops or set `execution_supported`. Unknown service duration refuses activation. `NLO_0_4C_ACTIVATION_RELEASE_BLOCKED_UNTIL_SERVICE_DURATION_SOURCE=YES`. Migration `000086_nlo_route_plan_accept_activate_v0_4c`.
 
 ### NLO-0.4D — shipment and driver execution
 

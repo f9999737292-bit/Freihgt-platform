@@ -17827,8 +17827,8 @@ paths:
   /api/v1/network/route-plans/{id}:
     get:
       tags: [Network Optimizer]
-      summary: Get an owned evaluated route plan
-      operationId: get_get_an_owned_evaluated_route_plan
+      summary: Get an owned route plan
+      operationId: get_get_an_owned_route_plan
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -17850,6 +17850,160 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RoutePlan'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/network/route-plans/{id}/accept:
+    post:
+      tags: [Network Optimizer]
+      summary: Accept an evaluated route plan
+      operationId: post_accept_an_evaluated_route_plan
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Required. Same key and body replay. A different body conflicts. A new activate key after execution is linked returns the existing activation.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoutePlanDecisionRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutePlan'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/network/route-plans/{id}/activate:
+    post:
+      tags: [Network Optimizer]
+      summary: Activate an accepted route plan
+      operationId: post_activate_an_accepted_route_plan
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Required. Same key and body replay. A different body conflicts. A new activate key after execution is linked returns the existing activation.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoutePlanDecisionRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutePlanActivationResult'
         '400':
           description: Validation error
           content:
@@ -19422,6 +19576,28 @@ components:
           maxItems: 2
           uniqueItems: true
           items: {type: string, format: uuid}
+    RoutePlanDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: {type: integer, minimum: 1, description: Plan version the caller read. The server compares stored dependencies and does not accept a caller-supplied match.}
+    RoutePlanActivation:
+      type: object
+      required: [id, route_plan_id, plan_version, status, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        route_plan_id: {type: string, format: uuid}
+        plan_version: {type: integer, minimum: 1}
+        status: {type: string, enum: [PENDING_EXECUTION, EXECUTION_LINKED, REJECTED]}
+        execution_shipment_id: {type: string, format: uuid, nullable: true}
+        created_at: {type: string, format: date-time}
+    RoutePlanActivationResult:
+      type: object
+      required: [plan, activation]
+      properties:
+        plan: {$ref: '#/components/schemas/RoutePlan'}
+        activation: {$ref: '#/components/schemas/RoutePlanActivation'}
     RoutePlanResultStatus:
       type: string
       enum: [FEASIBLE_PLAN_FOUND, INDETERMINATE_PLAN_FOUND]
@@ -19548,7 +19724,7 @@ components:
       properties:
         id: {type: string, format: uuid}
         version: {type: integer, minimum: 1}
-        status: {type: string, enum: [EVALUATED]}
+        status: {type: string, enum: [EVALUATED, ACCEPTED, SUPERSEDED, CANCELLED]}
         planning_mode: {type: string, enum: [CURRENT_TRIP, DEPOT_START]}
         result_status: {$ref: '#/components/schemas/RoutePlanResultStatus'}
         execution_supported: {type: boolean, enum: [false]}
@@ -19562,6 +19738,9 @@ components:
         algorithm_policy_version: {type: string}
         routing_policy_version: {type: string}
         created_at: {type: string, format: date-time}
+        accepted_at: {type: string, format: date-time}
+        cancelled_at: {type: string, format: date-time}
+        superseded_at: {type: string, format: date-time}
         reason_codes:
           type: array
           items: {$ref: '#/components/schemas/RoutePlanReasonCode'}

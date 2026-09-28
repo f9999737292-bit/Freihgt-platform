@@ -335,8 +335,7 @@ func (s *Service) prepareRoutePlan(ctx context.Context, actor Actor, cmd RoutePl
 		deps.capacityID = &capacity.ID
 		deps.capacityVersion = &version
 		deps.vehicleID = capacity.VehicleID
-		sum := sha256.Sum256([]byte(capacity.ID.String()))
-		deps.contextFingerprint = hex.EncodeToString(sum[:])
+		deps.contextFingerprint = capacityContextFingerprint(capacity.ID)
 	}
 	input.Groupage = func(items []compat.GroupageItem) compat.Result {
 		ctxUsed := compat.Context{}
@@ -710,7 +709,21 @@ func marshalRoutePlan(graph repository.RoutePlanGraph) ([]byte, error) {
 		"created_at": graph.Plan.CreatedAt, "reason_codes": graph.Plan.ReasonCodes,
 		"stops": stops, "legs": graph.Legs, "capacity_snapshots": graph.Snapshots, "dependencies": graph.Dependencies,
 	}
+	if graph.Plan.AcceptedAt != nil {
+		body["accepted_at"] = graph.Plan.AcceptedAt
+	}
+	if graph.Plan.CancelledAt != nil {
+		body["cancelled_at"] = graph.Plan.CancelledAt
+	}
+	if graph.Plan.SupersededAt != nil {
+		body["superseded_at"] = graph.Plan.SupersededAt
+	}
 	return json.Marshal(body)
+}
+
+func capacityContextFingerprint(id uuid.UUID) string {
+	sum := sha256.Sum256([]byte(id.String()))
+	return hex.EncodeToString(sum[:])
 }
 
 func publicActions(graph repository.RoutePlanGraph, stop repository.RouteStopRow) []map[string]any {

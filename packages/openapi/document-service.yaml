@@ -1098,6 +1098,28 @@ components:
           maxItems: 2
           uniqueItems: true
           items: {type: string, format: uuid}
+    RoutePlanDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: {type: integer, minimum: 1, description: Plan version the caller read. The server compares stored dependencies and does not accept a caller-supplied match.}
+    RoutePlanActivation:
+      type: object
+      required: [id, route_plan_id, plan_version, status, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        route_plan_id: {type: string, format: uuid}
+        plan_version: {type: integer, minimum: 1}
+        status: {type: string, enum: [PENDING_EXECUTION, EXECUTION_LINKED, REJECTED]}
+        execution_shipment_id: {type: string, format: uuid, nullable: true}
+        created_at: {type: string, format: date-time}
+    RoutePlanActivationResult:
+      type: object
+      required: [plan, activation]
+      properties:
+        plan: {$ref: '#/components/schemas/RoutePlan'}
+        activation: {$ref: '#/components/schemas/RoutePlanActivation'}
     RoutePlanResultStatus:
       type: string
       enum: [FEASIBLE_PLAN_FOUND, INDETERMINATE_PLAN_FOUND]
@@ -1224,7 +1246,7 @@ components:
       properties:
         id: {type: string, format: uuid}
         version: {type: integer, minimum: 1}
-        status: {type: string, enum: [EVALUATED]}
+        status: {type: string, enum: [EVALUATED, ACCEPTED, SUPERSEDED, CANCELLED]}
         planning_mode: {type: string, enum: [CURRENT_TRIP, DEPOT_START]}
         result_status: {$ref: '#/components/schemas/RoutePlanResultStatus'}
         execution_supported: {type: boolean, enum: [false]}
@@ -1238,6 +1260,9 @@ components:
         algorithm_policy_version: {type: string}
         routing_policy_version: {type: string}
         created_at: {type: string, format: date-time}
+        accepted_at: {type: string, format: date-time}
+        cancelled_at: {type: string, format: date-time}
+        superseded_at: {type: string, format: date-time}
         reason_codes:
           type: array
           items: {$ref: '#/components/schemas/RoutePlanReasonCode'}

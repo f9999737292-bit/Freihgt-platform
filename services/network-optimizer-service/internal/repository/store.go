@@ -83,6 +83,13 @@ type Tx interface {
 
 	InsertRoutePlan(context.Context, RoutePlanGraph) error
 	GetRoutePlan(context.Context, uuid.UUID, uuid.UUID) (RoutePlanGraph, error)
+	LockRoutePlan(context.Context, uuid.UUID, uuid.UUID) error
+	MarkRoutePlanAccepted(context.Context, uuid.UUID, uuid.UUID, int, time.Time) error
+	MarkRoutePlanSuperseded(context.Context, uuid.UUID, uuid.UUID, time.Time) error
+	InsertRoutePlanActivation(context.Context, RoutePlanActivationRow) error
+	GetRoutePlanActivation(context.Context, uuid.UUID, uuid.UUID) (RoutePlanActivationRow, error)
+	ClearRoutePlanActivationEffect(context.Context, uuid.UUID, uuid.UUID) error
+	LinkedActivationForShipment(context.Context, uuid.UUID, uuid.UUID) (RoutePlanActivationRow, error)
 }
 
 type Store interface {

@@ -11,7 +11,8 @@ OWNERSHIP_DECISION_FROZEN=YES
 NLO_0_4_IMPLEMENTATION_STARTED=YES
 NLO_0_4B_STATUS=IMPLEMENTED_CLOSED
 NLO_0_4B_MERGE_SHA=0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c
-NLO_0_4C_STARTED=NO
+NLO_0_4C_STARTED=YES
+NLO_0_4C_ACCEPTED=NO
 ```
 
 ## Context
@@ -35,4 +36,4 @@ OWNERSHIP_DECISION_FROZEN=YES
 
 ## Consequences
 
-This ADR is accepted. NLO-0.4B persists evaluated plans on main in PR #184, migration `000085_nlo_route_plan_bounded_planner_v0_4b`. NLO-0.3 APIs stay unchanged. Accept and activate remain NLO-0.4C. `route_plan_activations` is not created.
+This ADR is accepted. NLO-0.4B persists evaluated plans on main in PR #184, migration `000085_nlo_route_plan_bounded_planner_v0_4b`. NLO-0.3 APIs stay unchanged. NLO-0.4C creates `route_plan_activations`. It does not mutate shipment stops.

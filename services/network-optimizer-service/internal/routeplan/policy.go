@@ -10,7 +10,19 @@ const (
 	ModeCurrentTrip = "CURRENT_TRIP"
 	ModeDepotStart  = "DEPOT_START"
 
-	StatusEvaluated = "EVALUATED"
+	StatusEvaluated  = "EVALUATED"
+	StatusAccepted   = "ACCEPTED"
+	StatusSuperseded = "SUPERSEDED"
+	StatusCancelled  = "CANCELLED"
+
+	ActivationPending  = "PENDING_EXECUTION"
+	ActivationLinked   = "EXECUTION_LINKED"
+	ActivationRejected = "REJECTED"
+
+	ReasonPlanStale                = "PLAN_STALE"
+	ReasonShipmentStatusIneligible = "SHIPMENT_STATUS_NOT_ELIGIBLE"
+	ReasonActivationNotFeasible    = "ACTIVATION_NOT_FEASIBLE"
+	ReasonActivationNotAccepted    = "ACTIVATION_NOT_ACCEPTED"
 
 	ResultFeasible      = "FEASIBLE_PLAN_FOUND"
 	ResultIndeterminate = "INDETERMINATE_PLAN_FOUND"
@@ -73,3 +85,38 @@ const (
 // Future shipment multi-stop execution is NLO-0.4D.
 // This wave has no authoritative future-route load list.
 const ExistingFutureRouteLoadSource = "NONE"
+
+// ProductionActivationRequiresServiceDurationSource stays true until an
+// authoritative or versioned server-owned service-duration source exists.
+// Unknown duration refuses activation. This wave does not invent that source
+// and does not mutate shipment stops.
+const ProductionActivationRequiresServiceDurationSource = true
+
+func DepotStartActivationAllowed(status string) bool {
+	switch status {
+	case "CARRIER_ASSIGNED", "ACCEPTED_BY_CARRIER", "VEHICLE_ASSIGNED", "DRIVER_ASSIGNED", "PICKUP_SLOT_BOOKED":
+		return true
+	default:
+		return false
+	}
+}
+
+func CurrentTripActivationAllowed(status string) bool {
+	switch status {
+	case "IN_PICKUP", "LOADED", "IN_TRANSIT":
+		return true
+	default:
+		return false
+	}
+}
+
+func ActivationStatusAllowed(mode, status string) bool {
+	switch mode {
+	case ModeDepotStart:
+		return DepotStartActivationAllowed(status)
+	case ModeCurrentTrip:
+		return CurrentTripActivationAllowed(status)
+	default:
+		return false
+	}
+}
