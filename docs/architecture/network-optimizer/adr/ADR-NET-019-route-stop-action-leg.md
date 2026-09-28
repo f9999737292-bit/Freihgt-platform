@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Architecture freeze. Implementation is not started.
+Accepted. NLO-0.4B persists stops, actions, and legs. Execution remains NLO-0.4D.
 
 ```text
 ADR_NET_019=ACCEPTED
