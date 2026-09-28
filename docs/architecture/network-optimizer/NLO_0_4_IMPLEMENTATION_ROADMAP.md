@@ -1,13 +1,19 @@
 # NLO-0.4 implementation roadmap
 
-Discovery baseline: `origin/main` `b108c6cc62a23aaa9f5f866cf53c8d281fc14783`. NLO-0.3 is complete. NLO-0.4A architecture is accepted. NLO-0.4B is authorized only after PR #182 merges and is not started here.
+Discovery baseline: `origin/main` `b108c6cc62a23aaa9f5f866cf53c8d281fc14783`. NLO-0.3 is complete. NLO-0.4A architecture is accepted. NLO-0.4B is IMPLEMENTED_CLOSED on main in PR #184 at `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`. Feature head `b2d3b16bdcb30d1918b6bcc5074ee1d651c2739b`. CI run `36403539278` succeeded on that feature head. NLO-0.4C and NLO-0.4D are not started.
 
 ```text
 NLO_0_4_STARTED=YES
 NLO_0_4A=ARCHITECTURE_FROZEN_ACCEPTED
-NLO_0_4_IMPLEMENTATION_STARTED=NO
+NLO_0_4_IMPLEMENTATION_STARTED=YES
 NLO_0_4B_IMPLEMENTATION_AUTHORIZED_AFTER_PR182_MERGE=YES
 NLO_0_4B_IMPLEMENTATION_STARTED=YES
+NLO_0_4B_STATUS=IMPLEMENTED_CLOSED
+NLO_0_4B_MERGED=YES
+NLO_0_4B_PR=184
+NLO_0_4B_FEATURE_HEAD=b2d3b16bdcb30d1918b6bcc5074ee1d651c2739b
+NLO_0_4B_MERGE_SHA=0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c
+NLO_0_4B_CI=36403539278
 NLO_0_4C_STARTED=NO
 NLO_0_4D_STARTED=NO
 ARCHITECTURE_FROZEN=YES
@@ -22,6 +28,7 @@ NLO_0_4A_CLOSED=YES
 NLO_0_4B_IMPLEMENTATION_AUTHORIZED=YES
 NLO_0_4B_IMPLEMENTED=YES
 NLO_0_4B_ACCEPTED=YES
+NLO_0_4B_CLOSED=YES
 CONTROLLER_REVIEW_PENDING=NO
 EXISTING_FUTURE_ROUTE_LOAD_SOURCE_IN_0_4B=NONE
 ```
@@ -36,7 +43,7 @@ This publication. Route plan, stop, action, leg, bounded insertion, and the acce
 
 ### NLO-0.4B — persistent plan and bounded planner
 
-Controller acceptance passed after privacy remediation R2. `NLO_0_4B_IMPLEMENTED=YES` and `NLO_0_4B_ACCEPTED=YES`. `CONTROLLER_REVIEW_PENDING=NO`. Closure waits for the merge. `NLO_0_4C_STARTED=NO` and `NLO_0_4D_STARTED=NO`. The route-plan public load snapshot omits foreign owner tenant ids and commercial terms. Migration `000085_nlo_route_plan_bounded_planner_v0_4b` persists planning tables only and was corrected in place. `route_plan_activations` is not created. `execution_supported` stays false. An unknown routing profile or unknown service duration keeps the plan advisory and indeterminate. A known late first stop is still a hard reject. `CURRENT_TRIP_FILL` stays at one additional load. `EXISTING_FUTURE_ROUTE_LOAD_SOURCE_IN_0_4B=NONE`. The evaluate API is the multi-stop entry. Accept and activate remain NLO-0.4C.
+Status: IMPLEMENTED_CLOSED. Merged to main in PR #184. Feature head `b2d3b16bdcb30d1918b6bcc5074ee1d651c2739b`. Merge SHA `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`. CI run `36403539278` succeeded on that feature head, including `network-optimizer-nlo04b-integration`. Controller acceptance passed after privacy remediation R2. `NLO_0_4B_IMPLEMENTED=YES` and `NLO_0_4B_ACCEPTED=YES`. `CONTROLLER_REVIEW_PENDING=NO`. `NLO_0_4C_STARTED=NO` and `NLO_0_4D_STARTED=NO`. The route-plan public load snapshot omits foreign owner tenant ids and commercial terms. Migration `000085_nlo_route_plan_bounded_planner_v0_4b` persists planning tables only and was corrected in place. `route_plan_activations` is not created. `execution_supported` stays false. An unknown routing profile or unknown service duration keeps the plan advisory and indeterminate. A known late first stop is still a hard reject. `CURRENT_TRIP_FILL` stays at one additional load. `EXISTING_FUTURE_ROUTE_LOAD_SOURCE_IN_0_4B=NONE`. The evaluate API is the multi-stop entry. Accept and activate remain NLO-0.4C.
 
 ```text
 NLO04B_IMPL_F001=CLOSED

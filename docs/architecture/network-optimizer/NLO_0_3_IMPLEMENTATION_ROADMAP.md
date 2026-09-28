@@ -1,6 +1,6 @@
 # NLO-0.3 implementation roadmap
 
-Architecture baseline: `origin/main` `6d47cc92`. Current implementation main before this acceptance: `e9cecbb21566285393dc72fbdbf5de032344819c`. NLO-0.3A is FROZEN_ACCEPTED and CLOSED. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is IMPLEMENTED_CLOSED. NLO-0.3D is IMPLEMENTED_CLOSED. NLO-0.3E architecture is FROZEN_ACCEPTED. ADR-NET-017 is Accepted. Implementation is accepted. `NLO_0_3E_IMPLEMENTED=YES`. `NLO_0_3E_ACCEPTED=YES`. `IMPLEMENTATION_CONTROLLER_ACCEPTANCE=PASS`. `RUNTIME_BLOCKING_FINDINGS=0`. `NLO_0_3_COMPLETE=YES`. NLO-0.4A architecture is FROZEN_ACCEPTED in [NLO_0_4_IMPLEMENTATION_ROADMAP.md](NLO_0_4_IMPLEMENTATION_ROADMAP.md). `NLO_0_4_IMPLEMENTATION_STARTED=NO`. `NLO_0_4B_IMPLEMENTATION_AUTHORIZED_AFTER_PR182_MERGE=YES`. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
+Architecture baseline: `origin/main` `6d47cc92`. Current implementation main before this acceptance: `e9cecbb21566285393dc72fbdbf5de032344819c`. NLO-0.3A is FROZEN_ACCEPTED and CLOSED. NLO-0.3B is IMPLEMENTED / CLOSED. NLO-0.3C is IMPLEMENTED_CLOSED. NLO-0.3D is IMPLEMENTED_CLOSED. NLO-0.3E architecture is FROZEN_ACCEPTED. ADR-NET-017 is Accepted. Implementation is accepted. `NLO_0_3E_IMPLEMENTED=YES`. `NLO_0_3E_ACCEPTED=YES`. `IMPLEMENTATION_CONTROLLER_ACCEPTANCE=PASS`. `RUNTIME_BLOCKING_FINDINGS=0`. `NLO_0_3_COMPLETE=YES`. NLO-0.4A architecture is FROZEN_ACCEPTED in [NLO_0_4_IMPLEMENTATION_ROADMAP.md](NLO_0_4_IMPLEMENTATION_ROADMAP.md). NLO-0.4B is IMPLEMENTED_CLOSED on main `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c` (PR #184). `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`. `NLO_0_4C_STARTED=NO`. `NLO_0_4D_STARTED=NO`. GPS is not an NLO-0.2 dependency. Current-trip residual capacity is NLO-0.3.
 
 ## What NLO-0.3 will implement
 
@@ -13,7 +13,7 @@ Both stay `PROPOSED`. Neither mutates a shipment.
 
 ## What NLO-0.4 owns
 
-Persistent `RoutePlan` / `RouteStop` execution, multi-stop shipment representation, shared route legs, accepted-plan activation, and driver multi-stop tasks. ADR-NET-005 stays the gate. NLO-0.3 does not pull that work forward.
+Persistent `RoutePlan` / `RouteStop` execution, multi-stop shipment representation, shared route legs, accepted-plan activation, and driver multi-stop tasks. ADR-NET-005 stays the gate. NLO-0.3 does not pull that work forward. NLO-0.4B planning persistence is IMPLEMENTED_CLOSED. Accept, activate, and shipment execution stay later waves.
 
 ## What stays NLO-0.5 and later
 

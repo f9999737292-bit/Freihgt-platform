@@ -2,20 +2,21 @@
 
 ## Status
 
-Accepted. Architecture freeze. Implementation is not started.
+Accepted. NLO-0.4B persists evaluated plans. Accept and activate remain NLO-0.4C.
 
 ```text
 ADR_STATUS=ACCEPTED
 ADR_NET_018=ACCEPTED
 OWNERSHIP_DECISION_FROZEN=YES
-NLO_0_4_IMPLEMENTATION_STARTED=NO
-NLO_0_4_IMPLEMENTATION_AUTHORIZED=NO
-NLO_0_4B_IMPLEMENTATION_AUTHORIZED_AFTER_PR182_MERGE=YES
+NLO_0_4_IMPLEMENTATION_STARTED=YES
+NLO_0_4B_STATUS=IMPLEMENTED_CLOSED
+NLO_0_4B_MERGE_SHA=0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c
+NLO_0_4C_STARTED=NO
 ```
 
 ## Context
 
-NLO-0.3 is closed. Shipments still have one origin and one destination. ADR-NET-005 already says a route plan is not a shipment and that multi-stop execution cannot become active until an execution model exists. There is no `route_plans` table.
+NLO-0.3 is closed. Shipments still have one origin and one destination. ADR-NET-005 already says a route plan is not a shipment and that multi-stop execution cannot become active until an execution model exists. The architecture freeze found no `route_plans` table. NLO-0.4B created migration `000085_nlo_route_plan_bounded_planner_v0_4b`.
 
 ## Decision
 
@@ -34,4 +35,4 @@ OWNERSHIP_DECISION_FROZEN=YES
 
 ## Consequences
 
-This ADR is accepted. NLO-0.4B may persist this artifact after PR #182 merges. That wave is not started here. NLO-0.3 APIs stay unchanged. No migration is created here.
+This ADR is accepted. NLO-0.4B persists evaluated plans on main in PR #184, migration `000085_nlo_route_plan_bounded_planner_v0_4b`. NLO-0.3 APIs stay unchanged. Accept and activate remain NLO-0.4C. `route_plan_activations` is not created.

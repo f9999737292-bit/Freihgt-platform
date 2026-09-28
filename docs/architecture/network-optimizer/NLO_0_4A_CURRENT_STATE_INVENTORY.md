@@ -1,6 +1,6 @@
 # NLO-0.4A current-state inventory
 
-Baseline: `origin/main` `b108c6cc62a23aaa9f5f866cf53c8d281fc14783` (PR #181). Migration head `000084_nlo_bounded_n_member_search_v0_3e`. This document cites code. It does not add a table or a service.
+Baseline: `origin/main` `b108c6cc62a23aaa9f5f866cf53c8d281fc14783` (PR #181). Migration head `000084_nlo_bounded_n_member_search_v0_3e`. This document cites code at that baseline. It does not add a table or a service. Current closure is in [NLO_0_4_IMPLEMENTATION_ROADMAP.md](NLO_0_4_IMPLEMENTATION_ROADMAP.md): `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`.
 
 ```text
 NLO_0_3_COMPLETE=YES
@@ -58,4 +58,4 @@ No slot-booking service or reservation table was found. The shipment status mach
 
 ## What is absent
 
-No `route_plans`, `route_stops`, `route_stop_actions`, or `route_legs` table. ADR-NET-005 is still Proposed and says a plan is not a shipment, and that multi-stop execution must not become active until shipment or an equivalent model can represent stops. That gate is still true. NLO-0.4A does not create migration `000085`.
+At this baseline there is no `route_plans`, `route_stops`, `route_stop_actions`, or `route_legs` table. ADR-NET-005 is still Proposed and says a plan is not a shipment, and that multi-stop execution must not become active until shipment or an equivalent model can represent stops. That execution gate is still true. NLO-0.4A does not create migration `000085`. NLO-0.4B later created that migration for planning tables only.

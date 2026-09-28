@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Architecture freeze. Implementation is not started.
+Accepted. NLO-0.4B applies this heuristic as runtime policy.
 
 ```text
 ADR_NET_020=ACCEPTED
@@ -44,4 +44,4 @@ Time is forward propagation. Waiting until a window opens is allowed. Late arriv
 
 ## Consequences
 
-No solver is introduced. These caps are accepted. They are not runtime policy until NLO-0.4B.
+No solver is introduced. These caps are accepted. NLO-0.4B applies them as runtime policy. `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`.
