@@ -30810,7 +30810,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
-            "description": "Required. Same key and body replay. A different body conflicts. A new activate key after execution is linked returns the existing activation.",
+            "description": "Required. Same key and body replay. A different body conflicts.",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -30903,6 +30903,16 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Request is syntactically valid but the route-plan lifecycle or activation prerequisites do not allow the operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -30943,7 +30953,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": true,
-            "description": "Required. Same key and body replay. A different body conflicts. A new activate key after execution is linked returns the existing activation.",
+            "description": "Required. Same key and body replay. A different body conflicts. A new key while an activation already exists returns that activation and does not create another row.",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -31029,6 +31039,16 @@
           },
           "500": {
             "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request is syntactically valid but the route-plan lifecycle or activation prerequisites do not allow the operation.",
             "content": {
               "application/json": {
                 "schema": {
@@ -33801,6 +33821,7 @@
           "id",
           "route_plan_id",
           "plan_version",
+          "version",
           "status",
           "created_at"
         ],
@@ -33817,18 +33838,37 @@
             "type": "integer",
             "minimum": 1
           },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Activation row version. Public activate starts at 1."
+          },
           "status": {
             "type": "string",
             "enum": [
               "PENDING_EXECUTION",
               "EXECUTION_LINKED",
               "REJECTED"
-            ]
+            ],
+            "description": "Public activate persists PENDING_EXECUTION. EXECUTION_LINKED requires stored execution identifiers from a later projection."
           },
           "execution_shipment_id": {
             "type": "string",
             "format": "uuid",
-            "nullable": true
+            "nullable": true,
+            "description": "Planning context shipment. Not TransportExecution.id."
+          },
+          "execution_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "TransportExecution id. Null while PENDING_EXECUTION."
+          },
+          "execution_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Execution revision id. Null while PENDING_EXECUTION."
           },
           "created_at": {
             "type": "string",

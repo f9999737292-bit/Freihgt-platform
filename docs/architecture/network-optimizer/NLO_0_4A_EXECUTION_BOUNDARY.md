@@ -48,7 +48,7 @@ CURRENT_TRIP_ACTIVATION_RESETS_SHIPMENT_STATUS=NO
 
 Activation still requires a valid trusted current-trip context and valid onboard evidence. Slot validity, when the shipment already has it, remains that shipment's booked-slot status. The optimizer does not reserve a slot.
 
-The activation row is append-only: `PENDING_EXECUTION`, then `EXECUTION_LINKED` or `REJECTED`. A second activate with the same key replays the row. A second activate with a new key after `EXECUTION_LINKED` returns the existing link and does not create another driver task. That is the double-activation rule.
+The activation row is append-only: public activate persists `PENDING_EXECUTION`. `EXECUTION_LINKED` or `REJECTED` are later transitions. A second activate with the same key replays the row. A new key while any activation already exists returns that row and does not create another one. `EXECUTION_LINKED` requires stored `execution_id` and `execution_revision_id`. Public activate does not create that linkage and does not create a driver task.
 
 NLO-0.4A does not implement the shipment write. NLO-0.4D is the proposed wave that would perform it.
 
@@ -88,12 +88,12 @@ Current-trip successor order:
 1. evaluate successor
 2. accept successor
 3. validate current trusted trip state
-4. activate successor
+4. activate successor as `PENDING_EXECUTION`
 5. execution projection switches future stops
-6. previous plan becomes superseded
+6. previous plan becomes superseded only after that projection commits and linkage is stored
 ```
 
-Steps 4 and 6 commit together. There is no window in which both plans are independently execution-linked. `MAX_EXECUTION_LINKED_PLANS_PER_SHIPMENT=1`. The same idempotency key replays that transition. A new key after the successor is linked returns the existing link and does not create a second driver task or a second linked plan. Shipment operational status is not moved backward.
+Public activate is step 4 only. It does not supersede the predecessor and does not clear the previous effective activation. Step 6 belongs to the later projection transaction, which is not implemented in NLO-0.4C. There is no window in which both plans are independently execution-linked. `MAX_EXECUTION_LINKED_PLANS_PER_SHIPMENT=1`. Shipment operational status is not moved backward.
 
 ## Events (catalog only)
 

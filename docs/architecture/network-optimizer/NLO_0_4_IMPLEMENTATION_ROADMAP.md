@@ -15,7 +15,7 @@ NLO_0_4B_FEATURE_HEAD=b2d3b16bdcb30d1918b6bcc5074ee1d651c2739b
 NLO_0_4B_MERGE_SHA=0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c
 NLO_0_4B_CI=36403539278
 NLO_0_4C_STARTED=YES
-NLO_0_4C_STATUS=IMPLEMENTED
+NLO_0_4C_STATUS=IMPLEMENTED_REMEDIATED_PENDING_CONTROLLER_REVIEW
 NLO_0_4C_ACCEPTED=NO
 NLO_0_4D_STARTED=NO
 ARCHITECTURE_FROZEN=YES
@@ -64,9 +64,9 @@ CONTROLLER_ACCEPTANCE=PASS
 
 ### NLO-0.4C — accept and activate contract
 
-Status: IMPLEMENTED. Controller acceptance is not claimed. `NLO_0_4C_STARTED=YES`. `NLO_0_4C_ACCEPTED=NO`. `NLO_0_4D_STARTED=NO`.
+Status: IMPLEMENTED_REMEDIATED_PENDING_CONTROLLER_REVIEW. Controller acceptance is not claimed. `NLO_0_4C_STARTED=YES`. `NLO_0_4C_ACCEPTED=NO`. `NLO_0_4D_STARTED=NO`.
 
-Accept freezes an evaluated plan at `ACCEPTED` when dependency versions and the current-trip context fingerprint still match. Activate writes one append-only `route_plan_activations` row, enforces `PLAN_STALE`, routing expiry, shipment-status eligibility, and idempotency, and supersedes the predecessor in the same transaction. It does not mutate shipment stops or set `execution_supported`. Unknown service duration refuses activation. `NLO_0_4C_ACTIVATION_RELEASE_BLOCKED_UNTIL_SERVICE_DURATION_SOURCE=YES`. Migration `000086_nlo_route_plan_accept_activate_v0_4c`.
+Accept freezes an evaluated plan at `ACCEPTED` when dependency versions and the current-trip context fingerprint still match. Public activate writes one `route_plan_activations` row with status `PENDING_EXECUTION`. The plan status stays `ACCEPTED`. `execution_id` and `execution_revision_id` stay null. A pending successor does not supersede a previous execution-linked plan. `EXECUTION_LINKED` is reached only after a future execution projection stores those ids. `TMS_PROJECTION_HANDSHAKE_IMPLEMENTED=NO`. `NETWORK_ROUTE_PLAN_EXECUTION_LINKED_IMPLEMENTED=NO`. `NLO_ACTIVATION_SCHEMA_READY_FOR_FUTURE_HANDSHAKE=YES`. It does not mutate shipment stops or set `execution_supported`. Unknown service duration refuses activation. `NLO_0_4C_ACTIVATION_RELEASE_BLOCKED_UNTIL_SERVICE_DURATION_SOURCE=YES`. Migration `000086_nlo_route_plan_accept_activate_v0_4c`.
 
 ### NLO-0.4D — shipment and driver execution
 

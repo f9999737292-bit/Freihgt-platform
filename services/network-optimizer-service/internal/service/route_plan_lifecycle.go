@@ -18,7 +18,6 @@ import (
 const (
 	routePlanAcceptedEvent            = "network.route_plan.accepted"
 	routePlanActivationRequestedEvent = "network.route_plan.activation_requested"
-	routePlanSupersededEvent          = "network.route_plan.superseded"
 )
 
 func (s *Service) AcceptRoutePlan(ctx context.Context, actor Actor, idempotencyKey string, id uuid.UUID, raw []byte) (Result, error) {
@@ -121,7 +120,7 @@ func (s *Service) ActivateRoutePlan(ctx context.Context, actor Actor, idempotenc
 		if err != nil && !errors.Is(err, repository.ErrNotFound) {
 			return err
 		}
-		if err == nil && existing.Status == routeplan.ActivationLinked {
+		if err == nil {
 			body, err := marshalActivationResult(graph, existing)
 			if err != nil {
 				return err
@@ -151,42 +150,10 @@ func (s *Service) ActivateRoutePlan(ctx context.Context, actor Actor, idempotenc
 		if !routeplan.ActivationStatusAllowed(graph.Plan.PlanningMode, shipmentStatus) {
 			return activationRefused(routeplan.ReasonShipmentStatusIneligible)
 		}
-		if graph.Plan.SupersedesPlanID != nil {
-			prev, err := tx.GetRoutePlan(ctx, actor.TenantID, *graph.Plan.SupersedesPlanID)
-			if err != nil {
-				if errors.Is(err, repository.ErrNotFound) {
-					return apperrors.Conflict("predecessor route plan is not available", nil)
-				}
-				return err
-			}
-			if prev.Plan.Status != routeplan.StatusSuperseded {
-				if err := tx.MarkRoutePlanSuperseded(ctx, actor.TenantID, prev.Plan.ID, now); err != nil {
-					return err
-				}
-				if err := s.audit(ctx, tx, actor, "route_plan", prev.Plan.ID, "superseded", prev.Plan.Status, routeplan.StatusSuperseded, domain.VisPrivate, prev.Plan.PlanningMode, nil, now); err != nil {
-					return err
-				}
-				if err := s.emit(ctx, tx, routePlanSupersededEvent, actor.TenantID, prev.Plan.ID, prev.Plan.Version, routeplan.StatusSuperseded, domain.VisPrivate, nil, now); err != nil {
-					return err
-				}
-			}
-			if err := tx.ClearRoutePlanActivationEffect(ctx, actor.TenantID, prev.Plan.ID); err != nil {
-				return err
-			}
-		}
-		if graph.Plan.ShipmentID != nil {
-			linked, err := tx.LinkedActivationForShipment(ctx, actor.TenantID, *graph.Plan.ShipmentID)
-			if err != nil && !errors.Is(err, repository.ErrNotFound) {
-				return err
-			}
-			if err == nil && linked.RoutePlanID != graph.Plan.ID {
-				return apperrors.Conflict("shipment already has an execution-linked route plan", nil)
-			}
-		}
 		row := repository.RoutePlanActivationRow{
 			ID: uuid.New(), TenantID: actor.TenantID, RoutePlanID: graph.Plan.ID, PlanVersion: graph.Plan.Version,
-			IdempotencyKey: idempotencyKey, ExecutionShipmentID: graph.Plan.ShipmentID, EffectiveShipmentID: graph.Plan.ShipmentID,
-			Status: routeplan.ActivationLinked, CreatedAt: now,
+			Version: 1, IdempotencyKey: idempotencyKey, ExecutionShipmentID: graph.Plan.ShipmentID,
+			Status: routeplan.ActivationPending, CreatedAt: now,
 		}
 		if err := tx.InsertRoutePlanActivation(ctx, row); err != nil {
 			if !errors.Is(err, repository.ErrConflict) {
@@ -197,10 +164,10 @@ func (s *Service) ActivateRoutePlan(ctx context.Context, actor Actor, idempotenc
 				return err
 			}
 		} else {
-			if err := s.audit(ctx, tx, actor, "route_plan", id, "activation_requested", routeplan.StatusAccepted, routeplan.ActivationLinked, domain.VisPrivate, graph.Plan.PlanningMode, graph.Plan.ShipmentID, now); err != nil {
+			if err := s.audit(ctx, tx, actor, "route_plan", id, "activation_requested", routeplan.StatusAccepted, routeplan.ActivationPending, domain.VisPrivate, graph.Plan.PlanningMode, graph.Plan.ShipmentID, now); err != nil {
 				return err
 			}
-			if err := s.emit(ctx, tx, routePlanActivationRequestedEvent, actor.TenantID, id, graph.Plan.Version, routeplan.ActivationLinked, domain.VisPrivate, nil, now); err != nil {
+			if err := s.emit(ctx, tx, routePlanActivationRequestedEvent, actor.TenantID, id, graph.Plan.Version, routeplan.ActivationPending, domain.VisPrivate, nil, now); err != nil {
 				return err
 			}
 		}
@@ -416,10 +383,16 @@ func marshalActivationResult(graph repository.RoutePlanGraph, row repository.Rou
 	}
 	activation := map[string]any{
 		"id": row.ID, "route_plan_id": row.RoutePlanID, "plan_version": row.PlanVersion,
-		"status": row.Status, "created_at": row.CreatedAt,
+		"version": row.Version, "status": row.Status, "created_at": row.CreatedAt,
 	}
 	if row.ExecutionShipmentID != nil {
 		activation["execution_shipment_id"] = row.ExecutionShipmentID
+	}
+	if row.ExecutionID != nil {
+		activation["execution_id"] = row.ExecutionID
+	}
+	if row.ExecutionRevisionID != nil {
+		activation["execution_revision_id"] = row.ExecutionRevisionID
 	}
 	return json.Marshal(map[string]any{"plan": json.RawMessage(plan), "activation": activation})
 }

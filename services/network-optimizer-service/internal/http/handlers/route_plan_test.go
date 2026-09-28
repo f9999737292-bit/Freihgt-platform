@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
 	"github.com/freight-platform/network-optimizer-service/internal/service"
 )
@@ -64,5 +65,23 @@ func TestNLO04BHandlerRejectsCallerStateAndMissingKey(t *testing.T) {
 	h.ActivateRoutePlan(rec, blank)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("blank key %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestNLO04CHandlerMapsDomainValidationTo422(t *testing.T) {
+	h := New(slog.New(slog.DiscardHandler), service.New(repository.NewMemory(), nil))
+	for _, reason := range []string{"ACTIVATION_NOT_ACCEPTED", "SERVICE_DURATION_UNKNOWN", "SHIPMENT_STATUS_NOT_ELIGIBLE"} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/v1/network/route-plans/"+uuid.NewString()+"/activate", nil)
+		h.finishRoutePlan(rec, req, "route_plan_activate", apperrors.Validation("route plan cannot be activated", map[string]any{"reason": reason}))
+		if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), reason) {
+			t.Fatalf("%s -> %d %s", reason, rec.Code, rec.Body.String())
+		}
+	}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/network/route-plans/"+uuid.NewString()+"/accept", nil)
+	h.finishRoutePlan(rec, req, "route_plan_accept", apperrors.Conflict("route plan is stale", map[string]any{"reason": "PLAN_STALE"}))
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "PLAN_STALE") {
+		t.Fatalf("stale -> %d %s", rec.Code, rec.Body.String())
 	}
 }

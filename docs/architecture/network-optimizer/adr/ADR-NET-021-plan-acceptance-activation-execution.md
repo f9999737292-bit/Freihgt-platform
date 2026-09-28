@@ -17,9 +17,9 @@ Choosing a suggested plan is not the same as starting a trip. Shipment status, d
 
 `ACCEPT` sets an evaluated plan to `ACCEPTED` after dependency versions match. It does not reserve a slot or create a driver task. It does not change plan structure.
 
-`ACTIVATE` writes an append-only activation row for an accepted plan. It checks version freshness (`409` `PLAN_STALE`), routing expiry, and that the plan is not indeterminate. Unknown service duration blocks activation. It does not edit stops. A repeated activation does not create a second driver task.
+`ACTIVATE` persists one append-only activation row as `PENDING_EXECUTION` for an accepted plan. The route plan status stays `ACCEPTED`. It checks version freshness (`409` `PLAN_STALE`), routing expiry, and that the plan is not indeterminate. Unknown service duration blocks activation. It does not edit stops and does not call shipment-service. `EXECUTION_LINKED` is reserved for a later transition after Agent D stores `execution_id` and `execution_revision_id` returned by the execution projection. Public activate does not create that linkage and does not emit `network.route_plan.execution_linked`.
 
-Depot-start activation allows only `CARRIER_ASSIGNED`, `ACCEPTED_BY_CARRIER`, `VEHICLE_ASSIGNED`, `DRIVER_ASSIGNED`, and `PICKUP_SLOT_BOOKED`. Current-trip activation allows `IN_PICKUP`, `LOADED`, and `IN_TRANSIT`. It does not move shipment status backward. Successor activation and supersede of the previous plan commit together, so two plans are not independently execution-linked.
+Depot-start activation allows only `CARRIER_ASSIGNED`, `ACCEPTED_BY_CARRIER`, `VEHICLE_ASSIGNED`, `DRIVER_ASSIGNED`, and `PICKUP_SLOT_BOOKED`. Current-trip activation allows `IN_PICKUP`, `LOADED`, and `IN_TRANSIT`. It does not move shipment status backward. A successor activation may be `PENDING_EXECUTION` while the previous execution-linked activation stays effective. Public activate does not supersede the predecessor and does not emit `network.route_plan.superseded`. Supersession waits until the successor projection commits. This matches ADR-TMS-003.
 
 ```text
 PLAN_ACCEPT_SEPARATE_FROM_ACTIVATE=YES
@@ -37,4 +37,4 @@ Public caller-visible reasons and the idempotency rule are in `NLO_0_4A_EXECUTIO
 
 ## Consequences
 
-NLO-0.4C is the accept/activate implementation wave. It writes `route_plan_activations` and does not mutate shipment stops. Production activation stays blocked until an authoritative or versioned server-owned service-duration source exists. NLO-0.4D is the shipment and driver integration and is not started.
+NLO-0.4C remediation R1 writes `route_plan_activations` as `PENDING_EXECUTION` and stores nullable `execution_id` and `execution_revision_id` for the future handshake. `TMS_PROJECTION_HANDSHAKE_IMPLEMENTED=NO`. `NETWORK_ROUTE_PLAN_EXECUTION_LINKED_IMPLEMENTED=NO`. `NLO_ACTIVATION_SCHEMA_READY_FOR_FUTURE_HANDSHAKE=YES`. It does not mutate shipment stops. Production activation stays blocked until an authoritative or versioned server-owned service-duration source exists. NLO-0.4D is not started. `NLO_0_4C_ACCEPTED=NO`.

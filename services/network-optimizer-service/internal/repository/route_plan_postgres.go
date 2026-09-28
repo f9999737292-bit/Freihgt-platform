@@ -315,12 +315,12 @@ func (t *pgTx) MarkRoutePlanSuperseded(ctx context.Context, tenant, id uuid.UUID
 func (t *pgTx) InsertRoutePlanActivation(ctx context.Context, row RoutePlanActivationRow) error {
 	tag, err := t.tx.Exec(ctx, `
 		INSERT INTO network_optimizer.route_plan_activations (
-			id, tenant_id, route_plan_id, plan_version, idempotency_key,
-			execution_shipment_id, effective_shipment_id, status, created_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+			id, tenant_id, route_plan_id, plan_version, version, idempotency_key,
+			execution_shipment_id, effective_shipment_id, execution_id, execution_revision_id, status, created_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 		ON CONFLICT ON CONSTRAINT route_plan_activations_tenant_id_route_plan_id_key DO NOTHING`,
-		row.ID, row.TenantID, row.RoutePlanID, row.PlanVersion, row.IdempotencyKey,
-		row.ExecutionShipmentID, row.EffectiveShipmentID, row.Status, row.CreatedAt,
+		row.ID, row.TenantID, row.RoutePlanID, row.PlanVersion, row.Version, row.IdempotencyKey,
+		row.ExecutionShipmentID, row.EffectiveShipmentID, row.ExecutionID, row.ExecutionRevisionID, row.Status, row.CreatedAt,
 	)
 	if err != nil {
 		if isConstraint(err, "route_plan_activations_tenant_id_idempotency_key_key") || isConstraint(err, "route_plan_activations_one_effective_shipment_idx") {
@@ -345,10 +345,10 @@ func (t *pgTx) ClearRoutePlanActivationEffect(ctx context.Context, tenant, planI
 func (t *pgTx) GetRoutePlanActivation(ctx context.Context, tenant, planID uuid.UUID) (RoutePlanActivationRow, error) {
 	var row RoutePlanActivationRow
 	err := t.tx.QueryRow(ctx, `
-		SELECT id, tenant_id, route_plan_id, plan_version, idempotency_key, execution_shipment_id, effective_shipment_id, status, created_at
+		SELECT id, tenant_id, route_plan_id, plan_version, version, idempotency_key, execution_shipment_id, effective_shipment_id, execution_id, execution_revision_id, status, created_at
 		FROM network_optimizer.route_plan_activations
 		WHERE tenant_id=$1 AND route_plan_id=$2`, tenant, planID).Scan(
-		&row.ID, &row.TenantID, &row.RoutePlanID, &row.PlanVersion, &row.IdempotencyKey, &row.ExecutionShipmentID, &row.EffectiveShipmentID, &row.Status, &row.CreatedAt,
+		&row.ID, &row.TenantID, &row.RoutePlanID, &row.PlanVersion, &row.Version, &row.IdempotencyKey, &row.ExecutionShipmentID, &row.EffectiveShipmentID, &row.ExecutionID, &row.ExecutionRevisionID, &row.Status, &row.CreatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -362,11 +362,11 @@ func (t *pgTx) GetRoutePlanActivation(ctx context.Context, tenant, planID uuid.U
 func (t *pgTx) LinkedActivationForShipment(ctx context.Context, tenant, shipment uuid.UUID) (RoutePlanActivationRow, error) {
 	var row RoutePlanActivationRow
 	err := t.tx.QueryRow(ctx, `
-		SELECT id, tenant_id, route_plan_id, plan_version, idempotency_key, execution_shipment_id, effective_shipment_id, status, created_at
+		SELECT id, tenant_id, route_plan_id, plan_version, version, idempotency_key, execution_shipment_id, effective_shipment_id, execution_id, execution_revision_id, status, created_at
 		FROM network_optimizer.route_plan_activations
 		WHERE tenant_id=$1 AND effective_shipment_id=$2 AND status='EXECUTION_LINKED'`,
 		tenant, shipment).Scan(
-		&row.ID, &row.TenantID, &row.RoutePlanID, &row.PlanVersion, &row.IdempotencyKey, &row.ExecutionShipmentID, &row.EffectiveShipmentID, &row.Status, &row.CreatedAt,
+		&row.ID, &row.TenantID, &row.RoutePlanID, &row.PlanVersion, &row.Version, &row.IdempotencyKey, &row.ExecutionShipmentID, &row.EffectiveShipmentID, &row.ExecutionID, &row.ExecutionRevisionID, &row.Status, &row.CreatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {

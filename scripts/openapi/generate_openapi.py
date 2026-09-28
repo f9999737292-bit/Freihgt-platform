@@ -1411,12 +1411,23 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
-    elif profile in {"bno_route_plan_accept", "bno_route_plan_activate"}:
+    elif profile == "bno_route_plan_accept":
         lines.extend([
             "        - name: Idempotency-Key",
             "          in: header",
             "          required: true",
-            "          description: Required. Same key and body replay. A different body conflicts. A new activate key after execution is linked returns the existing activation.",
+            "          description: Required. Same key and body replay. A different body conflicts.",
+            "          schema:",
+            "            type: string",
+            "            minLength: 1",
+            "            maxLength: 128",
+        ])
+    elif profile == "bno_route_plan_activate":
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: true",
+            "          description: Required. Same key and body replay. A different body conflicts. A new key while an activation already exists returns that activation and does not create another row.",
             "          schema:",
             "            type: string",
             "            minLength: 1",
@@ -2254,6 +2265,17 @@ def render_operation(
             [
                 "        '422':",
                 "          description: Unprocessable entity",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErrorResponse'",
+            ]
+        )
+    elif profile in {"bno_route_plan_accept", "bno_route_plan_activate"}:
+        lines.extend(
+            [
+                "        '422':",
+                "          description: Request is syntactically valid but the route-plan lifecycle or activation prerequisites do not allow the operation.",
                 "          content:",
                 "            application/json:",
                 "              schema:",
@@ -4165,13 +4187,16 @@ components:
         version: {type: integer, minimum: 1, description: Plan version the caller read. The server compares stored dependencies and does not accept a caller-supplied match.}
     RoutePlanActivation:
       type: object
-      required: [id, route_plan_id, plan_version, status, created_at]
+      required: [id, route_plan_id, plan_version, version, status, created_at]
       properties:
         id: {type: string, format: uuid}
         route_plan_id: {type: string, format: uuid}
         plan_version: {type: integer, minimum: 1}
-        status: {type: string, enum: [PENDING_EXECUTION, EXECUTION_LINKED, REJECTED]}
-        execution_shipment_id: {type: string, format: uuid, nullable: true}
+        version: {type: integer, minimum: 1, description: Activation row version. Public activate starts at 1.}
+        status: {type: string, enum: [PENDING_EXECUTION, EXECUTION_LINKED, REJECTED], description: Public activate persists PENDING_EXECUTION. EXECUTION_LINKED requires stored execution identifiers from a later projection.}
+        execution_shipment_id: {type: string, format: uuid, nullable: true, description: Planning context shipment. Not TransportExecution.id.}
+        execution_id: {type: string, format: uuid, nullable: true, description: TransportExecution id. Null while PENDING_EXECUTION.}
+        execution_revision_id: {type: string, format: uuid, nullable: true, description: Execution revision id. Null while PENDING_EXECUTION.}
         created_at: {type: string, format: date-time}
     RoutePlanActivationResult:
       type: object

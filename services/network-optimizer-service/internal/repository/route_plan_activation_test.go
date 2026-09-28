@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestNLO04CSupersedeAndActivationRollBackTogether(t *testing.T) {
+func TestNLO04CPendingSuccessorRollbackPreservesPredecessor(t *testing.T) {
 	store := NewMemory()
 	tenant := uuid.New()
 	shipment := uuid.New()
@@ -22,9 +22,12 @@ func TestNLO04CSupersedeAndActivationRollBackTogether(t *testing.T) {
 		ContextFingerprint: "ctx", EvaluationFingerprint: "eval", AlgorithmPolicyVersion: "alg",
 		RoutingPolicyVersion: "route", CreatedAt: now,
 	}}
+	executionID := uuid.New()
+	revisionID := uuid.New()
 	activationA := RoutePlanActivationRow{
-		ID: uuid.New(), TenantID: tenant, RoutePlanID: planA, PlanVersion: 1, IdempotencyKey: "key-a",
-		ExecutionShipmentID: &shipment, EffectiveShipmentID: &shipment, Status: "EXECUTION_LINKED", CreatedAt: now,
+		ID: uuid.New(), TenantID: tenant, RoutePlanID: planA, PlanVersion: 1, Version: 1, IdempotencyKey: "key-a",
+		ExecutionShipmentID: &shipment, EffectiveShipmentID: &shipment, ExecutionID: &executionID, ExecutionRevisionID: &revisionID,
+		Status: "EXECUTION_LINKED", CreatedAt: now,
 	}
 	if err := store.Within(context.Background(), func(tx Tx) error {
 		if err := tx.InsertRoutePlan(context.Background(), graphA); err != nil {
@@ -43,10 +46,10 @@ func TestNLO04CSupersedeAndActivationRollBackTogether(t *testing.T) {
 		if err := tx.InsertRoutePlan(context.Background(), graphB); err != nil {
 			return err
 		}
-		if err := tx.MarkRoutePlanSuperseded(context.Background(), tenant, planA, now); err != nil {
-			return err
-		}
-		if err := tx.ClearRoutePlanActivationEffect(context.Background(), tenant, planA); err != nil {
+		if err := tx.InsertRoutePlanActivation(context.Background(), RoutePlanActivationRow{
+			ID: uuid.New(), TenantID: tenant, RoutePlanID: planB, PlanVersion: 1, Version: 1, IdempotencyKey: "key-b",
+			ExecutionShipmentID: &shipment, Status: "PENDING_EXECUTION", CreatedAt: now,
+		}); err != nil {
 			return err
 		}
 		return boom

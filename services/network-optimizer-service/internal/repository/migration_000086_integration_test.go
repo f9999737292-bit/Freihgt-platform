@@ -53,9 +53,44 @@ func TestNLO04C_Migration000086(t *testing.T) {
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO network_optimizer.route_plan_activations (
 			id, tenant_id, route_plan_id, plan_version, idempotency_key,
-			execution_shipment_id, effective_shipment_id, status, created_at
-		) VALUES ($1,$2,$3,1,'key-a',$4,$4,'EXECUTION_LINKED',now())`,
+			execution_shipment_id, status, created_at
+		) VALUES ($1,$2,$3,1,'pending-ok',$4,'PENDING_EXECUTION',now())`,
 		uuid.New(), tenant, planID, shipment); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM network_optimizer.route_plan_activations WHERE route_plan_id=$1`, planID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO network_optimizer.route_plan_activations (
+			id, tenant_id, route_plan_id, plan_version, idempotency_key,
+			execution_shipment_id, execution_id, status, created_at
+		) VALUES ($1,$2,$3,1,'pending-bad',$4,$5,'PENDING_EXECUTION',now())`,
+		uuid.New(), tenant, planID, shipment, uuid.New()); err == nil {
+		t.Fatal("pending activation with an execution id inserted")
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO network_optimizer.route_plan_activations (
+			id, tenant_id, route_plan_id, plan_version, idempotency_key,
+			execution_shipment_id, effective_shipment_id, status, created_at
+		) VALUES ($1,$2,$3,1,'linked-missing',$4,$4,'EXECUTION_LINKED',now())`,
+		uuid.New(), tenant, planID, shipment); err == nil {
+		t.Fatal("execution-linked activation without execution ids inserted")
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO network_optimizer.route_plan_activations (
+			id, tenant_id, route_plan_id, plan_version, idempotency_key,
+			execution_shipment_id, execution_id, status, created_at
+		) VALUES ($1,$2,$3,1,'partial',$4,$5,'EXECUTION_LINKED',now())`,
+		uuid.New(), tenant, planID, shipment, uuid.New()); err == nil {
+		t.Fatal("partial execution linkage inserted")
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO network_optimizer.route_plan_activations (
+			id, tenant_id, route_plan_id, plan_version, idempotency_key,
+			execution_shipment_id, effective_shipment_id, execution_id, execution_revision_id, status, created_at
+		) VALUES ($1,$2,$3,1,'key-a',$4,$4,$5,$6,'EXECUTION_LINKED',now())`,
+		uuid.New(), tenant, planID, shipment, uuid.New(), uuid.New()); err != nil {
 		t.Fatal(err)
 	}
 	otherPlan := uuid.New()
@@ -71,9 +106,9 @@ func TestNLO04C_Migration000086(t *testing.T) {
 	_, err := pool.Exec(ctx, `
 		INSERT INTO network_optimizer.route_plan_activations (
 			id, tenant_id, route_plan_id, plan_version, idempotency_key,
-			execution_shipment_id, effective_shipment_id, status, created_at
-		) VALUES ($1,$2,$3,1,'key-b',$4,$4,'EXECUTION_LINKED',now())`,
-		uuid.New(), tenant, otherPlan, shipment)
+			execution_shipment_id, effective_shipment_id, execution_id, execution_revision_id, status, created_at
+		) VALUES ($1,$2,$3,1,'key-b',$4,$4,$5,$6,'EXECUTION_LINKED',now())`,
+		uuid.New(), tenant, otherPlan, shipment, uuid.New(), uuid.New())
 	if err == nil {
 		t.Fatal("second effective activation inserted")
 	}

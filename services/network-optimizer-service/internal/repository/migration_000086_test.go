@@ -17,6 +17,11 @@ func TestNLO04CMigration000086Text(t *testing.T) {
 		"UNIQUE (tenant_id, idempotency_key)",
 		"execution_shipment_id uuid NULL",
 		"effective_shipment_id uuid NULL",
+		"execution_id uuid NULL",
+		"execution_revision_id uuid NULL",
+		"version integer NOT NULL DEFAULT 1",
+		"route_plan_activations_linkage_all_or_nothing_chk",
+		"route_plan_activations_status_linkage_chk",
 		"route_plan_activations_one_effective_shipment_idx",
 	} {
 		if !strings.Contains(up, required) {

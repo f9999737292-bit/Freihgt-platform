@@ -118,19 +118,19 @@ func TestNLO04C_PostgresActivation(t *testing.T) {
 		t.Fatal(err)
 	}
 	activationA := activationID(t, first.Body)
-	if countActivations(t, ctx, pool, carrier) != 1 || planStatus(t, ctx, pool, planA) != routeplan.StatusAccepted || activationStatus(t, ctx, pool, activationA) != routeplan.ActivationLinked {
+	if countActivations(t, ctx, pool, carrier) != 1 || planStatus(t, ctx, pool, planA) != routeplan.StatusAccepted || activationStatus(t, ctx, pool, activationA) != routeplan.ActivationPending || !pendingLinkageNull(t, ctx, pool, activationA) {
 		t.Fatalf("first activation count=%d plan=%s activation=%s", countActivations(t, ctx, pool, carrier), planStatus(t, ctx, pool, planA), activationStatus(t, ctx, pool, activationA))
 	}
 	if supported(t, ctx, pool, planA) {
 		t.Fatal("execution_supported became true")
 	}
 	replay, err := svc.ActivateRoutePlan(ctx, actor, "activate-a", planA, []byte(`{"version":1}`))
-	if err != nil || activationID(t, replay.Body) != activationA || countActivations(t, ctx, pool, carrier) != 1 {
-		t.Fatalf("replay %v count=%d", err, countActivations(t, ctx, pool, carrier))
+	if err != nil || activationID(t, replay.Body) != activationA || countActivations(t, ctx, pool, carrier) != 1 || activationStatus(t, ctx, pool, activationA) != routeplan.ActivationPending || !pendingLinkageNull(t, ctx, pool, activationA) {
+		t.Fatalf("replay %v count=%d status=%s", err, countActivations(t, ctx, pool, carrier), activationStatus(t, ctx, pool, activationA))
 	}
 	again, err := svc.ActivateRoutePlan(ctx, actor, "activate-b", planA, []byte(`{"version":1}`))
-	if err != nil || activationID(t, again.Body) != activationA || countActivations(t, ctx, pool, carrier) != 1 {
-		t.Fatalf("new key %v id=%s count=%d", err, activationID(t, again.Body), countActivations(t, ctx, pool, carrier))
+	if err != nil || activationID(t, again.Body) != activationA || countActivations(t, ctx, pool, carrier) != 1 || activationStatus(t, ctx, pool, activationA) != routeplan.ActivationPending {
+		t.Fatalf("new key %v id=%s count=%d status=%s", err, activationID(t, again.Body), countActivations(t, ctx, pool, carrier), activationStatus(t, ctx, pool, activationA))
 	}
 	if _, err := svc.ActivateRoutePlan(ctx, Actor{TenantID: uuid.New(), UserID: uuid.New()}, "foreign", planA, []byte(`{"version":1}`)); err == nil {
 		t.Fatal("foreign tenant activated")
@@ -144,6 +144,14 @@ func TestNLO04C_PostgresActivation(t *testing.T) {
 		t.Fatalf("shipment mutated %s", src.execution.ShipmentStatus)
 	}
 
+	executionID := uuid.New()
+	revisionID := uuid.New()
+	if _, err := pool.Exec(ctx, `
+		UPDATE network_optimizer.route_plan_activations
+		SET status='EXECUTION_LINKED', execution_id=$2, execution_revision_id=$3, effective_shipment_id=$4
+		WHERE id=$1`, uuid.MustParse(activationA), executionID, revisionID, shipment); err != nil {
+		t.Fatal(err)
+	}
 	planB := evaluateTrip(t, svc, actor, shipment, load.ID, "pg-eval-b")
 	makePlanActivatable(t, ctx, pool, planB, now)
 	if _, err := pool.Exec(ctx, `UPDATE network_optimizer.route_plans SET supersedes_plan_id=$2 WHERE id=$1`, planB, planA); err != nil {
@@ -152,32 +160,25 @@ func TestNLO04C_PostgresActivation(t *testing.T) {
 	if _, err := svc.AcceptRoutePlan(ctx, actor, "accept-b", planB, []byte(`{"version":1}`)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.ActivateRoutePlan(ctx, actor, "activate-successor", planB, []byte(`{"version":1}`)); err != nil {
+	successor, err := svc.ActivateRoutePlan(ctx, actor, "activate-successor", planB, []byte(`{"version":1}`))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if planStatus(t, ctx, pool, planA) != routeplan.StatusSuperseded || effectiveCount(t, ctx, pool, carrier, shipment) != 1 {
-		t.Fatalf("successor planA=%s effective=%d", planStatus(t, ctx, pool, planA), effectiveCount(t, ctx, pool, carrier, shipment))
+	successorID := activationID(t, successor.Body)
+	if activationStatus(t, ctx, pool, successorID) != routeplan.ActivationPending || !pendingLinkageNull(t, ctx, pool, successorID) || planStatus(t, ctx, pool, planA) != routeplan.StatusAccepted || effectiveCount(t, ctx, pool, carrier, shipment) != 1 {
+		t.Fatalf("successor status=%s planA=%s effective=%d", activationStatus(t, ctx, pool, successorID), planStatus(t, ctx, pool, planA), effectiveCount(t, ctx, pool, carrier, shipment))
 	}
 
 	planC := evaluateTrip(t, svc, actor, shipment, load.ID, "pg-eval-c")
 	makePlanActivatable(t, ctx, pool, planC, now)
-	if _, err := pool.Exec(ctx, `UPDATE network_optimizer.route_plans SET supersedes_plan_id=$2 WHERE id=$1`, planC, planB); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := svc.AcceptRoutePlan(ctx, actor, "accept-c", planC, []byte(`{"version":1}`)); err != nil {
 		t.Fatal(err)
 	}
 	boom := errors.New("fail before commit")
 	err = store.Within(ctx, func(tx repository.Tx) error {
-		if err := tx.MarkRoutePlanSuperseded(ctx, carrier, planB, now); err != nil {
-			return err
-		}
-		if err := tx.ClearRoutePlanActivationEffect(ctx, carrier, planB); err != nil {
-			return err
-		}
 		if err := tx.InsertRoutePlanActivation(ctx, repository.RoutePlanActivationRow{
-			ID: uuid.New(), TenantID: carrier, RoutePlanID: planC, PlanVersion: 1, IdempotencyKey: "rolled-back",
-			ExecutionShipmentID: &shipment, EffectiveShipmentID: &shipment, Status: routeplan.ActivationLinked, CreatedAt: now,
+			ID: uuid.New(), TenantID: carrier, RoutePlanID: planC, PlanVersion: 1, Version: 1, IdempotencyKey: "rolled-back",
+			ExecutionShipmentID: &shipment, Status: routeplan.ActivationPending, CreatedAt: now,
 		}); err != nil {
 			return err
 		}
@@ -186,15 +187,12 @@ func TestNLO04C_PostgresActivation(t *testing.T) {
 	if !errors.Is(err, boom) {
 		t.Fatal(err)
 	}
-	if planStatus(t, ctx, pool, planB) != routeplan.StatusAccepted || effectiveCount(t, ctx, pool, carrier, shipment) != 1 || activationExists(t, ctx, pool, planC) {
-		t.Fatalf("rollback leaked planB=%s effective=%d c=%v", planStatus(t, ctx, pool, planB), effectiveCount(t, ctx, pool, carrier, shipment), activationExists(t, ctx, pool, planC))
+	if planStatus(t, ctx, pool, planA) != routeplan.StatusAccepted || effectiveCount(t, ctx, pool, carrier, shipment) != 1 || activationExists(t, ctx, pool, planC) {
+		t.Fatalf("rollback leaked planA=%s effective=%d c=%v", planStatus(t, ctx, pool, planA), effectiveCount(t, ctx, pool, carrier, shipment), activationExists(t, ctx, pool, planC))
 	}
 
 	planD := evaluateTrip(t, svc, actor, shipment, load.ID, "pg-eval-d")
 	makePlanActivatable(t, ctx, pool, planD, now)
-	if _, err := pool.Exec(ctx, `UPDATE network_optimizer.route_plans SET supersedes_plan_id=$2 WHERE id=$1`, planD, planB); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := svc.AcceptRoutePlan(ctx, actor, "accept-d", planD, []byte(`{"version":1}`)); err != nil {
 		t.Fatal(err)
 	}
@@ -226,8 +224,8 @@ func TestNLO04C_PostgresActivation(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM network_optimizer.route_plan_activations WHERE route_plan_id=$1`, planD).Scan(&rows); err != nil || rows != 1 {
 		t.Fatalf("concurrent rows %d %v", rows, err)
 	}
-	if effectiveCount(t, ctx, pool, carrier, shipment) != 1 || planStatus(t, ctx, pool, planB) != routeplan.StatusSuperseded {
-		t.Fatalf("effective after race %d planB=%s", effectiveCount(t, ctx, pool, carrier, shipment), planStatus(t, ctx, pool, planB))
+	if effectiveCount(t, ctx, pool, carrier, shipment) != 1 || planStatus(t, ctx, pool, planA) != routeplan.StatusAccepted || activationStatus(t, ctx, pool, ids[0]) != routeplan.ActivationPending {
+		t.Fatalf("effective after race %d planA=%s", effectiveCount(t, ctx, pool, carrier, shipment), planStatus(t, ctx, pool, planA))
 	}
 
 	left := evaluateTrip(t, svc, actor, shipment, load.ID, "pg-eval-left")
@@ -259,8 +257,8 @@ func TestNLO04C_PostgresActivation(t *testing.T) {
 			wins++
 		}
 	}
-	if wins != 1 || effectiveCount(t, ctx, pool, carrier, shipment) != 1 {
-		t.Fatalf("successor race wins=%d errs=%v effective=%d", wins, pairErr, effectiveCount(t, ctx, pool, carrier, shipment))
+	if wins != 2 || effectiveCount(t, ctx, pool, carrier, shipment) != 1 || planStatus(t, ctx, pool, planA) != routeplan.StatusAccepted {
+		t.Fatalf("successor race wins=%d errs=%v effective=%d planA=%s", wins, pairErr, effectiveCount(t, ctx, pool, carrier, shipment), planStatus(t, ctx, pool, planA))
 	}
 }
 
@@ -352,6 +350,17 @@ func planStatus(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id uuid.U
 		t.Fatal(err)
 	}
 	return status
+}
+
+func pendingLinkageNull(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id string) bool {
+	t.Helper()
+	var executionID, revisionID, effective *uuid.UUID
+	if err := pool.QueryRow(ctx, `
+		SELECT execution_id, execution_revision_id, effective_shipment_id
+		FROM network_optimizer.route_plan_activations WHERE id=$1`, uuid.MustParse(id)).Scan(&executionID, &revisionID, &effective); err != nil {
+		t.Fatal(err)
+	}
+	return executionID == nil && revisionID == nil && effective == nil
 }
 
 func activationStatus(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id string) string {

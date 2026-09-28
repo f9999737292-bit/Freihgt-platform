@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -110,8 +111,13 @@ func TestNLO04CActivateIsIdempotentAndDoesNotMoveShipment(t *testing.T) {
 	first := decidePlan(t, w, created["id"].(string), `{"version":1}`, "activate-live", false)
 	activation := first["activation"].(map[string]any)
 	plan := first["plan"].(map[string]any)
-	if activation["status"] != routeplan.ActivationLinked || plan["execution_supported"] != false || plan["status"] != routeplan.StatusAccepted {
+	if activation["status"] != routeplan.ActivationPending || activation["version"] != float64(1) || activation["execution_id"] != nil || activation["execution_revision_id"] != nil || plan["execution_supported"] != false || plan["status"] != routeplan.StatusAccepted {
 		t.Fatalf("%v", first)
+	}
+	for _, row := range w.store.TestingActivations() {
+		if row.EffectiveShipmentID != nil || row.ExecutionID != nil || row.ExecutionRevisionID != nil || row.Status != routeplan.ActivationPending {
+			t.Fatalf("pending row claimed execution %+v", row)
+		}
 	}
 	if src.execution.ShipmentStatus != "IN_TRANSIT" {
 		t.Fatalf("shipment status moved to %s", src.execution.ShipmentStatus)
@@ -130,8 +136,14 @@ func TestNLO04CActivateIsIdempotentAndDoesNotMoveShipment(t *testing.T) {
 	events, _ := w.store.ListOutbox(context.Background())
 	requested := 0
 	for _, event := range events {
+		if event.EventName == "network.route_plan.superseded" || event.EventName == "network.route_plan.execution_linked" {
+			t.Fatalf("unexpected event %s", event.EventName)
+		}
 		if event.EventName == routePlanActivationRequestedEvent {
 			requested++
+			if !strings.Contains(string(event.Payload), `"status":"PENDING_EXECUTION"`) {
+				t.Fatalf("activation event status %s", event.Payload)
+			}
 		}
 	}
 	if requested != 1 {
@@ -170,7 +182,7 @@ func TestNLO04CRoutingExpiryAndShipmentStatus(t *testing.T) {
 	}
 }
 
-func TestNLO04CSuccessorSupersedesPreviousLink(t *testing.T) {
+func TestNLO04CSuccessorPendingPreservesPredecessor(t *testing.T) {
 	w, src, load := newFill(t)
 	w.svc.UseRouting(&countingRoute{})
 	w.svc.SetClock(func() time.Time { return w.at })
@@ -185,9 +197,26 @@ func TestNLO04CSuccessorSupersedesPreviousLink(t *testing.T) {
 	decidePlan(t, w, firstDoc["id"].(string), `{"version":1}`, "accept-prev", true)
 	decidePlan(t, w, secondDoc["id"].(string), `{"version":1}`, "accept-next", true)
 	decidePlan(t, w, firstDoc["id"].(string), `{"version":1}`, "activate-prev", false)
-	linked := decidePlan(t, w, secondDoc["id"].(string), `{"version":1}`, "activate-next", false)
-	if linked["activation"].(map[string]any)["route_plan_id"] != secondDoc["id"] {
-		t.Fatalf("%v", linked["activation"])
+	executionID := uuid.New()
+	revisionID := uuid.New()
+	shipmentID := src.execution.ShipmentID
+	var linked repository.RoutePlanActivationRow
+	for _, row := range w.store.TestingActivations() {
+		if row.RoutePlanID == firstID {
+			linked = row
+		}
+	}
+	linked.Status = routeplan.ActivationLinked
+	linked.ExecutionID = &executionID
+	linked.ExecutionRevisionID = &revisionID
+	linked.EffectiveShipmentID = &shipmentID
+	if err := w.store.TestingReplaceActivation(linked); err != nil {
+		t.Fatal(err)
+	}
+	pending := decidePlan(t, w, secondDoc["id"].(string), `{"version":1}`, "activate-next", false)
+	activation := pending["activation"].(map[string]any)
+	if activation["status"] != routeplan.ActivationPending || activation["execution_id"] != nil {
+		t.Fatalf("%v", activation)
 	}
 	prev, err := w.svc.GetRoutePlan(context.Background(), w.actor(), firstID)
 	if err != nil {
@@ -197,24 +226,28 @@ func TestNLO04CSuccessorSupersedesPreviousLink(t *testing.T) {
 	if err := json.Unmarshal(prev.Body, &prevDoc); err != nil {
 		t.Fatal(err)
 	}
-	if prevDoc["status"] != routeplan.StatusSuperseded || src.execution.ShipmentStatus != "IN_TRANSIT" {
+	if prevDoc["status"] != routeplan.StatusAccepted || src.execution.ShipmentStatus != "IN_TRANSIT" {
 		t.Fatalf("status %v shipment %s", prevDoc["status"], src.execution.ShipmentStatus)
 	}
 	rows := w.store.TestingActivations()
 	if len(rows) != 2 {
 		t.Fatalf("activations %d", len(rows))
 	}
-	effective := 0
 	for _, row := range rows {
-		if row.EffectiveShipmentID != nil {
-			effective++
-			if row.RoutePlanID != secondID {
-				t.Fatalf("effective plan %s", row.RoutePlanID)
+		if row.RoutePlanID == firstID {
+			if row.Status != routeplan.ActivationLinked || row.EffectiveShipmentID == nil || row.ExecutionID == nil {
+				t.Fatalf("predecessor lost %+v", row)
 			}
 		}
+		if row.RoutePlanID == secondID && (row.Status != routeplan.ActivationPending || row.EffectiveShipmentID != nil) {
+			t.Fatalf("successor claimed execution %+v", row)
+		}
 	}
-	if effective != 1 {
-		t.Fatalf("effective activations %d", effective)
+	events, _ := w.store.ListOutbox(context.Background())
+	for _, event := range events {
+		if event.EventName == "network.route_plan.superseded" || event.EventName == "network.route_plan.execution_linked" {
+			t.Fatalf("unexpected event %s", event.EventName)
+		}
 	}
 }
 
@@ -398,47 +431,72 @@ func TestNLO04CConcurrentActivateAndSuccessor(t *testing.T) {
 			t.Fatalf("activation ids %v", ids)
 		}
 	}
-	if len(w.store.TestingActivations()) != 1 {
-		t.Fatalf("rows %d", len(w.store.TestingActivations()))
+	rows := w.store.TestingActivations()
+	if len(rows) != 1 || rows[0].Status != routeplan.ActivationPending {
+		t.Fatalf("rows %+v", rows)
+	}
+	executionID := uuid.New()
+	revisionID := uuid.New()
+	shipmentID := src.execution.ShipmentID
+	linked := rows[0]
+	linked.Status = routeplan.ActivationLinked
+	linked.ExecutionID = &executionID
+	linked.ExecutionRevisionID = &revisionID
+	linked.EffectiveShipmentID = &shipmentID
+	if err := w.store.TestingReplaceActivation(linked); err != nil {
+		t.Fatal(err)
 	}
 
 	next := evaluatePlan(t, w, body, "eval-race-b")
-	other := evaluatePlan(t, w, body, "eval-race-c")
 	nextID := uuid.MustParse(next["id"].(string))
-	otherID := uuid.MustParse(other["id"].(string))
 	makeActivatable(t, w, nextID)
-	makeActivatable(t, w, otherID)
 	linkSuccessor(t, w, nextID, id)
-	linkSuccessor(t, w, otherID, id)
 	decidePlan(t, w, next["id"].(string), `{"version":1}`, "accept-b", true)
-	decidePlan(t, w, other["id"].(string), `{"version":1}`, "accept-c", true)
 	var succWG sync.WaitGroup
+	succIDs := make([]string, 2)
 	succErr := make([]error, 2)
 	succWG.Add(2)
-	for i, planID := range []uuid.UUID{nextID, otherID} {
-		go func(i int, planID uuid.UUID) {
+	for i := 0; i < 2; i++ {
+		go func(i int) {
 			defer succWG.Done()
-			_, succErr[i] = w.svc.ActivateRoutePlan(context.Background(), w.actor(), "succ-"+string(rune('a'+i)), planID, []byte(`{"version":1}`))
-		}(i, planID)
+			result, err := w.svc.ActivateRoutePlan(context.Background(), w.actor(), "succ-"+string(rune('a'+i)), nextID, []byte(`{"version":1}`))
+			succErr[i] = err
+			if err == nil {
+				var doc map[string]any
+				_ = json.Unmarshal(result.Body, &doc)
+				succIDs[i], _ = doc["activation"].(map[string]any)["id"].(string)
+			}
+		}(i)
 	}
 	succWG.Wait()
-	wins := 0
-	for _, err := range succErr {
-		if err == nil {
-			wins++
+	for i, err := range succErr {
+		if err != nil || succIDs[i] == "" || succIDs[i] != succIDs[0] {
+			t.Fatalf("successor %d %v ids %v", i, err, succIDs)
 		}
 	}
-	if wins != 1 {
-		t.Fatalf("successor wins %d errs %v", wins, succErr)
+	prev, err := w.svc.GetRoutePlan(context.Background(), w.actor(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var prevDoc map[string]any
+	if err := json.Unmarshal(prev.Body, &prevDoc); err != nil {
+		t.Fatal(err)
 	}
 	effective := 0
+	pendingSuccessors := 0
 	for _, row := range w.store.TestingActivations() {
 		if row.EffectiveShipmentID != nil {
 			effective++
+			if row.RoutePlanID != id || row.Status != routeplan.ActivationLinked {
+				t.Fatalf("effective row %+v", row)
+			}
+		}
+		if row.RoutePlanID == nextID && row.Status == routeplan.ActivationPending {
+			pendingSuccessors++
 		}
 	}
-	if effective != 1 || src.execution.ShipmentStatus != "IN_TRANSIT" {
-		t.Fatalf("effective %d status %s", effective, src.execution.ShipmentStatus)
+	if prevDoc["status"] != routeplan.StatusAccepted || effective != 1 || pendingSuccessors != 1 || src.execution.ShipmentStatus != "IN_TRANSIT" {
+		t.Fatalf("status %v effective %d pending %d shipment %s", prevDoc["status"], effective, pendingSuccessors, src.execution.ShipmentStatus)
 	}
 }
 

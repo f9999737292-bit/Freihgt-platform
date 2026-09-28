@@ -38,9 +38,12 @@ type RoutePlanActivationRow struct {
 	TenantID            uuid.UUID  `json:"tenant_id"`
 	RoutePlanID         uuid.UUID  `json:"route_plan_id"`
 	PlanVersion         int        `json:"plan_version"`
+	Version             int        `json:"version"`
 	IdempotencyKey      string     `json:"idempotency_key"`
 	ExecutionShipmentID *uuid.UUID `json:"execution_shipment_id,omitempty"`
 	EffectiveShipmentID *uuid.UUID `json:"effective_shipment_id,omitempty"`
+	ExecutionID         *uuid.UUID `json:"execution_id,omitempty"`
+	ExecutionRevisionID *uuid.UUID `json:"execution_revision_id,omitempty"`
 	Status              string     `json:"status"`
 	CreatedAt           time.Time  `json:"created_at"`
 }
@@ -233,6 +236,9 @@ func (t *memTx) InsertRoutePlanActivation(_ context.Context, row RoutePlanActiva
 	if t.activations == nil {
 		t.activations = map[uuid.UUID]RoutePlanActivationRow{}
 	}
+	if row.Version < 1 {
+		row.Version = 1
+	}
 	for _, existing := range t.activations {
 		if existing.TenantID != row.TenantID {
 			continue
@@ -295,6 +301,20 @@ func (m *Memory) TestingReplaceRoutePlan(graph RoutePlanGraph) error {
 		}
 		copied := cloneRoutePlans(map[uuid.UUID]RoutePlanGraph{graph.Plan.ID: graph})
 		mem.plans[graph.Plan.ID] = copied[graph.Plan.ID]
+		return nil
+	})
+}
+
+func (m *Memory) TestingReplaceActivation(row RoutePlanActivationRow) error {
+	return m.Within(context.Background(), func(tx Tx) error {
+		mem, ok := tx.(*memTx)
+		if !ok {
+			return ErrConflict
+		}
+		if mem.activations == nil {
+			mem.activations = map[uuid.UUID]RoutePlanActivationRow{}
+		}
+		mem.activations[row.RoutePlanID] = row
 		return nil
 	})
 }
