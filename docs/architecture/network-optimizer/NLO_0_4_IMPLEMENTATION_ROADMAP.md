@@ -36,7 +36,7 @@ This publication. Route plan, stop, action, leg, bounded insertion, and the acce
 
 ### NLO-0.4B — persistent plan and bounded planner
 
-Implementation is in controller review after remediation R1. `NLO_0_4B_IMPLEMENTED=YES` and `NLO_0_4B_ACCEPTED=NO`. Migration `000085_nlo_route_plan_bounded_planner_v0_4b` persists planning tables only and was corrected in place. `route_plan_activations` is not created. `execution_supported` stays false. An unknown routing profile or unknown service duration keeps the plan advisory and indeterminate. A known late first stop is still a hard reject. `CURRENT_TRIP_FILL` stays at one additional load. `EXISTING_FUTURE_ROUTE_LOAD_SOURCE_IN_0_4B=NONE`. The evaluate API is the multi-stop entry. Accept and activate remain NLO-0.4C.
+Implementation is in controller review after privacy remediation R2. `NLO_0_4B_IMPLEMENTED=YES` and `NLO_0_4B_ACCEPTED=NO`. The route-plan public load snapshot omits foreign owner tenant ids and commercial terms. Migration `000085_nlo_route_plan_bounded_planner_v0_4b` persists planning tables only and was corrected in place. `route_plan_activations` is not created. `execution_supported` stays false. An unknown routing profile or unknown service duration keeps the plan advisory and indeterminate. A known late first stop is still a hard reject. `CURRENT_TRIP_FILL` stays at one additional load. `EXISTING_FUTURE_ROUTE_LOAD_SOURCE_IN_0_4B=NONE`. The evaluate API is the multi-stop entry. Accept and activate remain NLO-0.4C.
 
 ```text
 NLO04B_IMPL_F001=CLOSED

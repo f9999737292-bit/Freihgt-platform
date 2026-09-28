@@ -213,7 +213,7 @@ func (s *Service) prepareRoutePlan(ctx context.Context, actor Actor, cmd RoutePl
 	deps.evidence = evidence
 	deps.snapshots = map[uuid.UUID][]byte{}
 	for _, load := range loads {
-		raw, err := domain.MarshalMarketplaceLoad(load)
+		raw, err := marshalRoutePlanPublicLoadSnapshot(load)
 		if err != nil {
 			return routeplan.Input{}, planDeps{}, err
 		}
@@ -627,6 +627,44 @@ func routeDependencies(planID uuid.UUID, cmd RoutePlanCommand, deps planDeps) []
 	add("CATALOG", nil, nil, deps.catalogFingerprint)
 	add("RULE_SET", nil, nil, deps.ruleFingerprint)
 	return rows
+}
+
+// marshalRoutePlanPublicLoadSnapshot is the carrier-visible load projection stored on a route plan.
+// It keeps authorized geography and planning characteristics. It never copies owner, commercial, source, or invitation fields.
+func marshalRoutePlanPublicLoadSnapshot(load domain.LoadOpportunity) ([]byte, error) {
+	view := load.MarketplaceView()
+	doc := map[string]any{
+		"id":               load.ID,
+		"version":          load.Version,
+		"status":           load.Status,
+		"visibility_scope": load.VisibilityScope,
+		"pickup_window":    load.PickupWindow,
+		"delivery_window":  load.DeliveryWindow,
+	}
+	if load.VisibilityScope != domain.VisAnonymized || view.Pickup.HasCoarse() {
+		doc["pickup"] = view.Pickup
+	}
+	if load.VisibilityScope != domain.VisAnonymized || view.Delivery.HasCoarse() {
+		doc["delivery"] = view.Delivery
+	}
+	if load.WeightKg != nil {
+		doc["weight_kg"] = load.WeightKg
+	}
+	if load.VolumeM3 != nil {
+		doc["volume_m3"] = load.VolumeM3
+	}
+	if load.BodyType != "" {
+		doc["body_type"] = load.BodyType
+	}
+	if len(load.Equipment) > 0 {
+		doc["equipment"] = append([]string(nil), load.Equipment...)
+	}
+	if cargo, err := json.Marshal(load.Cargo); err != nil {
+		return nil, err
+	} else if string(cargo) != "{}" {
+		doc["cargo"] = json.RawMessage(cargo)
+	}
+	return json.Marshal(doc)
 }
 
 func marshalRoutePlan(graph repository.RoutePlanGraph) ([]byte, error) {

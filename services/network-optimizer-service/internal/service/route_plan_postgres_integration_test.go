@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,7 +65,8 @@ func TestNLO04B_PostgresRoundtrip(t *testing.T) {
 		Delivery:     domain.Place{LocationID: &dest, Latitude: f64(56), Longitude: f64(38)},
 		PickupWindow: win, DeliveryWindow: win, VisibilityScope: domain.VisMarketplace, Status: domain.LoadPublished,
 		Version: 1, WeightKg: f64(100), VolumeM3: f64(1), CrossShipperConsolidationAllowed: true,
-		CreatedAt: now, UpdatedAt: now,
+		Commercial: domain.Commercial{Mode: "SECRET_TEST_MODE", Amount: f64(987654321.12), Currency: "ZZZ"},
+		CreatedAt:  now, UpdatedAt: now,
 	}
 	location := uuid.New()
 	cap := domain.Capacity{
@@ -179,6 +181,15 @@ func TestNLO04B_PostgresRoundtrip(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT public_subject_snapshot FROM network_optimizer.route_stop_actions WHERE route_plan_id=$1 AND public_subject_snapshot IS NOT NULL LIMIT 1`, depotID).Scan(&snapshot); err != nil || len(snapshot) == 0 {
 		t.Fatalf("snapshot roundtrip %v %s", err, snapshot)
 	}
+	if strings.Contains(string(snapshot), shipper.String()) || strings.Contains(string(snapshot), "987654321") || strings.Contains(string(snapshot), "SECRET_TEST_MODE") || strings.Contains(string(snapshot), "ZZZ") || strings.Contains(string(snapshot), "commercial") || strings.Contains(string(snapshot), "owner_tenant_id") {
+		t.Fatalf("unsafe marketplace snapshot %s", snapshot)
+	}
+	if !strings.Contains(string(got.Body), dest.String()) {
+		t.Fatal("authorized marketplace geography missing")
+	}
+	if strings.Contains(string(got.Body), shipper.String()) || strings.Contains(string(got.Body), "SECRET_TEST_MODE") || strings.Contains(string(got.Body), "987654321") {
+		t.Fatalf("unsafe marketplace response %s", got.Body)
+	}
 	var compatFP string
 	if err := pool.QueryRow(ctx, `SELECT compatibility_fingerprint FROM network_optimizer.route_capacity_snapshots WHERE route_plan_id=$1 AND compatibility_fingerprint IS NOT NULL LIMIT 1`, tripID).Scan(&compatFP); err != nil || compatFP == "" {
 		t.Fatalf("compatibility roundtrip %v %s", err, compatFP)
@@ -206,6 +217,49 @@ func TestNLO04B_PostgresRoundtrip(t *testing.T) {
 		FROM network_optimizer.route_plan_stops s WHERE s.route_plan_id=$2 LIMIT 1`, depotID, tripID)
 	if err == nil || tag.RowsAffected() != 0 {
 		t.Fatalf("cross-plan child insert succeeded %v rows %d", err, tag.RowsAffected())
+	}
+	secretID := uuid.MustParse("88888888-8888-8888-8888-888888888888")
+	secretLat := 12.345678
+	anonymized := domain.LoadOpportunity{
+		ID: uuid.New(), OwnerTenantID: shipper, SourceType: domain.SourceTransportOrder, SourceID: uuid.New(),
+		Pickup:       domain.Place{LocationID: &secretID, Latitude: &secretLat, Longitude: f64(77.654321), CountryCode: "RU", Region: "Secret", City: "Hidden"},
+		Delivery:     domain.Place{LocationID: &secretID, Latitude: &secretLat, Longitude: f64(77.654321), CountryCode: "RU", Region: "Secret", City: "Hidden"},
+		PickupWindow: win, DeliveryWindow: win, VisibilityScope: domain.VisAnonymized, Status: domain.LoadPublished,
+		Version: 1, WeightKg: f64(50), VolumeM3: f64(1), CrossShipperConsolidationAllowed: true,
+		Commercial: domain.Commercial{Mode: "SECRET_TEST_MODE", Amount: f64(987654321.12), Currency: "ZZZ"},
+		CreatedAt:  now, UpdatedAt: now,
+	}
+	if err := store.Within(ctx, func(tx repository.Tx) error {
+		return tx.InsertLoad(ctx, anonymized)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	anonBody := `{"planning_mode":"DEPOT_START","capacity_id":"` + cap.ID.String() + `","candidate_load_ids":["` + anonymized.ID.String() + `"]}`
+	var anonCmd RoutePlanCommand
+	if err := json.Unmarshal([]byte(anonBody), &anonCmd); err != nil {
+		t.Fatal(err)
+	}
+	anonCmd.Raw = []byte(anonBody)
+	anonCreated, err := svc.EvaluateRoutePlan(ctx, actor, "pg-anon", anonCmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var anonDoc map[string]any
+	if err := json.Unmarshal(anonCreated.Body, &anonDoc); err != nil {
+		t.Fatal(err)
+	}
+	anonGot, err := svc.GetRoutePlan(ctx, actor, uuid.MustParse(anonDoc["id"].(string)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var anonSnapshot []byte
+	if err := pool.QueryRow(ctx, `SELECT public_subject_snapshot FROM network_optimizer.route_stop_actions WHERE route_plan_id=$1 AND subject_type='LOAD_OPPORTUNITY' LIMIT 1`, uuid.MustParse(anonDoc["id"].(string))).Scan(&anonSnapshot); err != nil {
+		t.Fatal(err)
+	}
+	for _, raw := range []string{string(anonCreated.Body), string(anonGot.Body), string(anonSnapshot)} {
+		if strings.Contains(raw, secretID.String()) || strings.Contains(raw, "12.345678") || strings.Contains(raw, "77.654321") || strings.Contains(raw, shipper.String()) || strings.Contains(raw, "SECRET_TEST_MODE") || strings.Contains(raw, "987654321") {
+			t.Fatalf("anonymized privacy leak %s", raw)
+		}
 	}
 }
 

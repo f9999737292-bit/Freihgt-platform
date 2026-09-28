@@ -732,6 +732,64 @@ components:
         cross_shipper_consolidation_allowed:
           type: boolean
           description: Owner-controlled cross-shipper consolidation opt-in. Independent of consolidation_allowed. Not a search override.
+    RoutePlanPublicLoadSnapshot:
+      type: object
+      additionalProperties: false
+      required: [id, version, status, visibility_scope]
+      description: Immutable evaluation-time load projection returned with a route plan. Foreign owner tenant id, commercial terms, source identifiers, invitations, and private rule text are omitted. Anonymized loads keep coarse geography only.
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        status: {type: string}
+        visibility_scope: {type: string}
+        pickup: {$ref: '#/components/schemas/NetworkPlace'}
+        delivery: {$ref: '#/components/schemas/NetworkPlace'}
+        pickup_window:
+          type: object
+          additionalProperties: false
+          properties:
+            start: {type: string, format: date-time}
+            end: {type: string, format: date-time}
+        delivery_window:
+          type: object
+          additionalProperties: false
+          properties:
+            start: {type: string, format: date-time}
+            end: {type: string, format: date-time}
+        weight_kg: {type: number}
+        volume_m3: {type: number}
+        body_type: {type: string}
+        equipment:
+          type: array
+          items: {type: string}
+        cargo:
+          type: object
+          additionalProperties: false
+          description: Public cargo characteristics used for planning.
+          properties:
+            temperature_min_c: {type: number}
+            temperature_max_c: {type: number}
+            preferred_temperature_setpoint_c: {type: number}
+            temperature_required: {type: boolean}
+            required_body_types: {type: array, items: {type: string}}
+            required_loading_access: {type: array, items: {type: string}}
+            required_unloading_access: {type: array, items: {type: string}}
+            allowed_loading_access: {type: array, items: {type: string}}
+            allowed_unloading_access: {type: array, items: {type: string}}
+            dangerous: {type: boolean}
+            cargo_type_code: {type: string}
+            pallet_count: {type: integer}
+            pallet_type_code: {type: string}
+            linear_meters: {type: number}
+            max_loaded_height_mm: {type: integer}
+            stackable: {type: boolean}
+            fragile: {type: boolean}
+            packaging_type_code: {type: string}
+            food_grade_required: {type: boolean}
+            odor_emission_class: {type: string}
+            odor_sensitive: {type: boolean}
+            contamination_class: {type: string}
+            hazard_classes: {type: array, items: {type: string}}
     RoutePlanEvaluateRequest:
       type: object
       additionalProperties: false
@@ -787,9 +845,7 @@ components:
         evidence_state_version: {type: integer}
         evidence_occurred_at: {type: string, format: date-time}
         public_subject_snapshot:
-          type: object
-          additionalProperties: true
-          description: Immutable marketplace projection captured at evaluation. Exact geography and owner tenant id are omitted for anonymized loads.
+          $ref: '#/components/schemas/RoutePlanPublicLoadSnapshot'
     RouteStop:
       type: object
       required: [id, ordinal, stop_role, point_kind, point_source, actions]
