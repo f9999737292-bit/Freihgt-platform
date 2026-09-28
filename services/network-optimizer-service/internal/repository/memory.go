@@ -26,6 +26,7 @@ type Memory struct {
 	consolidationRuns       map[uuid.UUID]ConsolidationRun
 	consolidationCandidates map[uuid.UUID][]ConsolidationCandidate
 	scoreProfiles           map[string]domain.ScoreProfile
+	routePlans              map[uuid.UUID]RoutePlanGraph
 }
 
 func NewMemory() *Memory {
@@ -49,6 +50,7 @@ func (m *Memory) Within(_ context.Context, fn func(Tx) error) error {
 		idem:   cloneIdem(m.idem),
 		audits: append([]AuditEvent(nil), m.audits...),
 		outbox: append([]OutboxEvent(nil), m.outbox...),
+		plans:  cloneRoutePlans(m.routePlans),
 	}
 	if err := fn(tx); err != nil {
 		return err
@@ -59,6 +61,7 @@ func (m *Memory) Within(_ context.Context, fn func(Tx) error) error {
 	m.idem = tx.idem
 	m.audits = tx.audits
 	m.outbox = tx.outbox
+	m.routePlans = tx.plans
 	return nil
 }
 
@@ -81,6 +84,7 @@ type memTx struct {
 	idem   map[string]IdempotencyRecord
 	audits []AuditEvent
 	outbox []OutboxEvent
+	plans  map[uuid.UUID]RoutePlanGraph
 }
 
 func (t *memTx) InsertLoad(_ context.Context, load domain.LoadOpportunity) error {

@@ -80,7 +80,7 @@ Billing, RFx, and EDO events stay in their namespaces (`freight_settlement.*`, `
 
 ## NLO-0.4A accepted event names
 
-Not emitted. The names are accepted with the architecture and are not published by this acceptance. The v0.1 row `network.route_plan.generated` is not a lifecycle.
+`network.route_plan.evaluated` is emitted by NLO-0.4B when an EVALUATED plan commits. The other names stay accepted and are not emitted in 0.4B. The v0.1 row `network.route_plan.generated` is not a lifecycle.
 
 | Name | Producer | When |
 | --- | --- | --- |

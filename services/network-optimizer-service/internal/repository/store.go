@@ -80,6 +80,9 @@ type Tx interface {
 	PutIdempotency(context.Context, uuid.UUID, IdempotencyRecord) error
 	InsertAudit(context.Context, AuditEvent) error
 	InsertOutbox(context.Context, OutboxEvent) error
+
+	InsertRoutePlan(context.Context, RoutePlanGraph) error
+	GetRoutePlan(context.Context, uuid.UUID, uuid.UUID) (RoutePlanGraph, error)
 }
 
 type Store interface {
