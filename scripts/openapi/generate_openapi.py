@@ -343,7 +343,9 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/network/next-load/search", "post", "Search next-load candidates for an available capacity", "Network Optimizer", True, True, "bno_next_load"),
     ("/api/v1/network/consolidation/search", "post", "Search pairwise same-origin consolidation feasibility", "Network Optimizer", True, True, "bno_consolidation"),
     ("/api/v1/network/route-plans/evaluate", "post", "Evaluate a bounded route plan", "Network Optimizer", True, True, "bno_route_plan"),
-    ("/api/v1/network/route-plans/{id}", "get", "Get an owned evaluated route plan", "Network Optimizer", True, True, "bno_route_plan"),
+    ("/api/v1/network/route-plans/{id}", "get", "Get an owned route plan", "Network Optimizer", True, True, "bno_route_plan"),
+    ("/api/v1/network/route-plans/{id}/accept", "post", "Accept an evaluated route plan", "Network Optimizer", True, True, "bno_route_plan_accept"),
+    ("/api/v1/network/route-plans/{id}/activate", "post", "Activate an accepted route plan", "Network Optimizer", True, True, "bno_route_plan_activate"),
     ("/api/v1/network/marketplace/load-opportunities", "get", "List marketplace load opportunities", "Network Optimizer", True, True, "bno_list"),
     ("/api/v1/network/marketplace/load-opportunities/{id}", "get", "Get marketplace load opportunity", "Network Optimizer", True, True, None),
     ("/api/v1/network/marketplace/capacities", "get", "List marketplace capacities", "Network Optimizer", True, True, "bno_list"),
@@ -1409,6 +1411,28 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
+    elif profile == "bno_route_plan_accept":
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: true",
+            "          description: Required. Same key and body replay. A different body conflicts.",
+            "          schema:",
+            "            type: string",
+            "            minLength: 1",
+            "            maxLength: 128",
+        ])
+    elif profile == "bno_route_plan_activate":
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: true",
+            "          description: Required. Same key and body replay. A different body conflicts. A new key while an activation already exists returns that activation and does not create another row.",
+            "          schema:",
+            "            type: string",
+            "            minLength: 1",
+            "            maxLength: 128",
+        ])
     elif profile in {"bno_foundation_mutation", "bno_prediction"} and method == "post":
         lines.extend([
             "        - name: Idempotency-Key",
@@ -1689,6 +1713,8 @@ def render_operation(
             lines.append("              $ref: '#/components/schemas/ConsolidationSearchRequest'")
         elif profile == "bno_route_plan":
             lines.append("              $ref: '#/components/schemas/RoutePlanEvaluateRequest'")
+        elif profile in {"bno_route_plan_accept", "bno_route_plan_activate"}:
+            lines.append("              $ref: '#/components/schemas/RoutePlanDecisionRequest'")
         else:
             lines.extend(
                 [
@@ -2132,6 +2158,8 @@ def render_operation(
         success_code = "200"
     elif profile == "bno_next_load" or profile == "bno_consolidation":
         success_code = "200"
+    elif profile in {"bno_route_plan_accept", "bno_route_plan_activate"}:
+        success_code = "200"
     elif profile == "bno_compatibility":
         success_code = "200" if method != "post" or path.endswith("/evaluate") or path.endswith("/activate") or path.endswith("/retire") else "201"
     elif method == "post" and tag not in {"Gateway", "Auth"}:
@@ -2153,8 +2181,10 @@ def render_operation(
         response_schema = "NextLoadSearchResponse"
     if profile == "bno_consolidation":
         response_schema = "ConsolidationSearchResponse"
-    if profile == "bno_route_plan":
+    if profile == "bno_route_plan" or profile == "bno_route_plan_accept":
         response_schema = "RoutePlan"
+    if profile == "bno_route_plan_activate":
+        response_schema = "RoutePlanActivationResult"
     if method == "get" and path == "/api/v1/network/marketplace/load-opportunities/{id}":
         response_schema = "NetworkMarketplaceLoad"
     elif method == "get" and path == "/api/v1/network/marketplace/capacities/{id}":
@@ -2235,6 +2265,17 @@ def render_operation(
             [
                 "        '422':",
                 "          description: Unprocessable entity",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErrorResponse'",
+            ]
+        )
+    elif profile in {"bno_route_plan_accept", "bno_route_plan_activate"}:
+        lines.extend(
+            [
+                "        '422':",
+                "          description: Request is syntactically valid but the route-plan lifecycle or activation prerequisites do not allow the operation.",
                 "          content:",
                 "            application/json:",
                 "              schema:",
@@ -4138,6 +4179,31 @@ components:
           maxItems: 2
           uniqueItems: true
           items: {type: string, format: uuid}
+    RoutePlanDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: {type: integer, minimum: 1, description: Plan version the caller read. The server compares stored dependencies and does not accept a caller-supplied match.}
+    RoutePlanActivation:
+      type: object
+      required: [id, route_plan_id, plan_version, version, status, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        route_plan_id: {type: string, format: uuid}
+        plan_version: {type: integer, minimum: 1}
+        version: {type: integer, minimum: 1, description: Activation row version. Public activate starts at 1.}
+        status: {type: string, enum: [PENDING_EXECUTION, EXECUTION_LINKED, REJECTED], description: Public activate persists PENDING_EXECUTION. EXECUTION_LINKED requires stored execution identifiers from a later projection.}
+        execution_shipment_id: {type: string, format: uuid, nullable: true, description: Planning context shipment. Not TransportExecution.id.}
+        execution_id: {type: string, format: uuid, nullable: true, description: TransportExecution id. Null while PENDING_EXECUTION.}
+        execution_revision_id: {type: string, format: uuid, nullable: true, description: Execution revision id. Null while PENDING_EXECUTION.}
+        created_at: {type: string, format: date-time}
+    RoutePlanActivationResult:
+      type: object
+      required: [plan, activation]
+      properties:
+        plan: {$ref: '#/components/schemas/RoutePlan'}
+        activation: {$ref: '#/components/schemas/RoutePlanActivation'}
     RoutePlanResultStatus:
       type: string
       enum: [FEASIBLE_PLAN_FOUND, INDETERMINATE_PLAN_FOUND]
@@ -4264,7 +4330,7 @@ components:
       properties:
         id: {type: string, format: uuid}
         version: {type: integer, minimum: 1}
-        status: {type: string, enum: [EVALUATED]}
+        status: {type: string, enum: [EVALUATED, ACCEPTED, SUPERSEDED, CANCELLED]}
         planning_mode: {type: string, enum: [CURRENT_TRIP, DEPOT_START]}
         result_status: {$ref: '#/components/schemas/RoutePlanResultStatus'}
         execution_supported: {type: boolean, enum: [false]}
@@ -4278,6 +4344,9 @@ components:
         algorithm_policy_version: {type: string}
         routing_policy_version: {type: string}
         created_at: {type: string, format: date-time}
+        accepted_at: {type: string, format: date-time}
+        cancelled_at: {type: string, format: date-time}
+        superseded_at: {type: string, format: date-time}
         reason_codes:
           type: array
           items: {$ref: '#/components/schemas/RoutePlanReasonCode'}

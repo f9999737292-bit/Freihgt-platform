@@ -586,6 +586,23 @@ def _reject_duplicate_mapping_keys(block: str, filename: str) -> None:
             stack.append((indent, set()))
 
 
+def assert_route_plan_activation_422(spec: dict, label: str) -> None:
+    paths = spec.get("paths", {})
+    for path in (
+        "/api/v1/network/route-plans/{id}/accept",
+        "/api/v1/network/route-plans/{id}/activate",
+    ):
+        operation = paths.get(path, {}).get("post", {})
+        response = operation.get("responses", {}).get("422")
+        if not isinstance(response, dict):
+            print(f"{label} missing 422 for {path}", file=sys.stderr)
+            raise SystemExit(1)
+        schema = response.get("content", {}).get("application/json", {}).get("schema", {})
+        if schema.get("$ref") != "#/components/schemas/ErrorResponse":
+            print(f"{label} 422 for {path} must use ErrorResponse", file=sys.stderr)
+            raise SystemExit(1)
+
+
 def main() -> int:
     targets = [
         OPENAPI_DIR / "payment-service.yaml",
@@ -662,6 +679,9 @@ def main() -> int:
 
     assert_next_load_single_request_body()
     assert_consolidation_single_request_body()
+    assert_route_plan_activation_422(unified_spec, "openapi.yaml")
+    nlo_spec = load_yaml(OPENAPI_DIR / "network-optimizer-service.yaml")
+    assert_route_plan_activation_422(nlo_spec, "network-optimizer-service.yaml")
 
     print("OPENAPI_PATH_STRUCTURE_TEST=PASS")
     print("BNO241_OPENAPI_SINGLE_REQUEST_BODY=PASS")
@@ -675,6 +695,7 @@ def main() -> int:
     print("VERSION_LIFECYCLE_V3_0E2_HTTP_STATUS_PARITY=PASS")
     print("GATEWAY_QUESTIONNAIRE_ROUTE_PARITY=PASS")
     print("GATEWAY_CARRIER_RESPONSE_ROUTE_PARITY=PASS")
+    print("OPENAPI_422_PARITY=PASS")
     return 0
 
 

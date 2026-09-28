@@ -28,6 +28,24 @@ type RoutePlanRow struct {
 	ExecutionSupported     bool       `json:"execution_supported"`
 	ReasonCodes            []string   `json:"reason_codes"`
 	CreatedAt              time.Time  `json:"created_at"`
+	AcceptedAt             *time.Time `json:"accepted_at,omitempty"`
+	CancelledAt            *time.Time `json:"cancelled_at,omitempty"`
+	SupersededAt           *time.Time `json:"superseded_at,omitempty"`
+}
+
+type RoutePlanActivationRow struct {
+	ID                  uuid.UUID  `json:"id"`
+	TenantID            uuid.UUID  `json:"tenant_id"`
+	RoutePlanID         uuid.UUID  `json:"route_plan_id"`
+	PlanVersion         int        `json:"plan_version"`
+	Version             int        `json:"version"`
+	IdempotencyKey      string     `json:"idempotency_key"`
+	ExecutionShipmentID *uuid.UUID `json:"execution_shipment_id,omitempty"`
+	EffectiveShipmentID *uuid.UUID `json:"effective_shipment_id,omitempty"`
+	ExecutionID         *uuid.UUID `json:"execution_id,omitempty"`
+	ExecutionRevisionID *uuid.UUID `json:"execution_revision_id,omitempty"`
+	Status              string     `json:"status"`
+	CreatedAt           time.Time  `json:"created_at"`
 }
 
 type RouteStopRow struct {
@@ -171,4 +189,142 @@ func (t *memTx) GetRoutePlan(_ context.Context, tenant, id uuid.UUID) (RoutePlan
 	}
 	copied := cloneRoutePlans(map[uuid.UUID]RoutePlanGraph{id: graph})
 	return copied[id], nil
+}
+
+func (t *memTx) LockRoutePlan(context.Context, uuid.UUID, uuid.UUID) error { return nil }
+
+func (t *memTx) MarkRoutePlanAccepted(_ context.Context, tenant, id uuid.UUID, version int, at time.Time) error {
+	graph, ok := t.plans[id]
+	if !ok || graph.Plan.TenantID != tenant {
+		return ErrNotFound
+	}
+	if graph.Plan.Version != version {
+		return ErrConflict
+	}
+	if graph.Plan.Status == "ACCEPTED" {
+		return nil
+	}
+	if graph.Plan.Status != "EVALUATED" {
+		return ErrConflict
+	}
+	stamp := at.UTC()
+	graph.Plan.Status = "ACCEPTED"
+	graph.Plan.AcceptedAt = &stamp
+	t.plans[id] = graph
+	return nil
+}
+
+func (t *memTx) MarkRoutePlanSuperseded(_ context.Context, tenant, id uuid.UUID, at time.Time) error {
+	graph, ok := t.plans[id]
+	if !ok || graph.Plan.TenantID != tenant {
+		return ErrNotFound
+	}
+	if graph.Plan.Status == "SUPERSEDED" {
+		return nil
+	}
+	if graph.Plan.Status != "EVALUATED" && graph.Plan.Status != "ACCEPTED" {
+		return ErrConflict
+	}
+	stamp := at.UTC()
+	graph.Plan.Status = "SUPERSEDED"
+	graph.Plan.SupersededAt = &stamp
+	t.plans[id] = graph
+	return nil
+}
+
+func (t *memTx) InsertRoutePlanActivation(_ context.Context, row RoutePlanActivationRow) error {
+	if t.activations == nil {
+		t.activations = map[uuid.UUID]RoutePlanActivationRow{}
+	}
+	if row.Version < 1 {
+		row.Version = 1
+	}
+	for _, existing := range t.activations {
+		if existing.TenantID != row.TenantID {
+			continue
+		}
+		if existing.RoutePlanID == row.RoutePlanID || existing.IdempotencyKey == row.IdempotencyKey {
+			return ErrConflict
+		}
+		if row.EffectiveShipmentID != nil && existing.EffectiveShipmentID != nil && *existing.EffectiveShipmentID == *row.EffectiveShipmentID {
+			return ErrConflict
+		}
+	}
+	t.activations[row.RoutePlanID] = row
+	return nil
+}
+
+func (t *memTx) ClearRoutePlanActivationEffect(_ context.Context, tenant, planID uuid.UUID) error {
+	row, ok := t.activations[planID]
+	if !ok || row.TenantID != tenant {
+		return nil
+	}
+	row.EffectiveShipmentID = nil
+	t.activations[planID] = row
+	return nil
+}
+
+func (t *memTx) GetRoutePlanActivation(_ context.Context, tenant, planID uuid.UUID) (RoutePlanActivationRow, error) {
+	row, ok := t.activations[planID]
+	if !ok || row.TenantID != tenant {
+		return RoutePlanActivationRow{}, ErrNotFound
+	}
+	return row, nil
+}
+
+func (t *memTx) LinkedActivationForShipment(_ context.Context, tenant, shipment uuid.UUID) (RoutePlanActivationRow, error) {
+	for _, row := range t.activations {
+		if row.TenantID != tenant || row.Status != "EXECUTION_LINKED" || row.EffectiveShipmentID == nil || *row.EffectiveShipmentID != shipment {
+			continue
+		}
+		return row, nil
+	}
+	return RoutePlanActivationRow{}, ErrNotFound
+}
+
+func cloneActivations(in map[uuid.UUID]RoutePlanActivationRow) map[uuid.UUID]RoutePlanActivationRow {
+	out := make(map[uuid.UUID]RoutePlanActivationRow, len(in))
+	for id, row := range in {
+		out[id] = row
+	}
+	return out
+}
+
+func (m *Memory) TestingReplaceRoutePlan(graph RoutePlanGraph) error {
+	return m.Within(context.Background(), func(tx Tx) error {
+		mem, ok := tx.(*memTx)
+		if !ok {
+			return ErrConflict
+		}
+		if mem.plans == nil {
+			mem.plans = map[uuid.UUID]RoutePlanGraph{}
+		}
+		copied := cloneRoutePlans(map[uuid.UUID]RoutePlanGraph{graph.Plan.ID: graph})
+		mem.plans[graph.Plan.ID] = copied[graph.Plan.ID]
+		return nil
+	})
+}
+
+func (m *Memory) TestingReplaceActivation(row RoutePlanActivationRow) error {
+	return m.Within(context.Background(), func(tx Tx) error {
+		mem, ok := tx.(*memTx)
+		if !ok {
+			return ErrConflict
+		}
+		if mem.activations == nil {
+			mem.activations = map[uuid.UUID]RoutePlanActivationRow{}
+		}
+		mem.activations[row.RoutePlanID] = row
+		return nil
+	})
+}
+
+func (m *Memory) TestingActivations() []RoutePlanActivationRow {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]RoutePlanActivationRow, 0, len(m.routeActivations))
+	for _, row := range m.routeActivations {
+		out = append(out, row)
+	}
+	return out
 }

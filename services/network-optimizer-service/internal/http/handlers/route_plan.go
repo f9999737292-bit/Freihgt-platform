@@ -39,7 +39,7 @@ func (h *Handler) EvaluateRoutePlan(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.svc.EvaluateRoutePlan(r.Context(), actor, key, cmd)
 	if err != nil {
-		h.finishRoutePlan(w, r, err)
+		h.finishRoutePlan(w, r, "route_plan_evaluate", err)
 		return
 	}
 	respond.Bytes(w, result.Status, result.Body)
@@ -64,7 +64,48 @@ func (h *Handler) GetRoutePlan(w http.ResponseWriter, r *http.Request) {
 	respond.Bytes(w, result.Status, result.Body)
 }
 
-func (h *Handler) finishRoutePlan(w http.ResponseWriter, r *http.Request, err error) {
+func (h *Handler) AcceptRoutePlan(w http.ResponseWriter, r *http.Request) {
+	h.decideRoutePlan(w, r, "route_plan_accept", func(actor service.Actor, id uuid.UUID, key string, raw []byte) (service.Result, error) {
+		return h.svc.AcceptRoutePlan(r.Context(), actor, key, id, raw)
+	})
+}
+
+func (h *Handler) ActivateRoutePlan(w http.ResponseWriter, r *http.Request) {
+	h.decideRoutePlan(w, r, "route_plan_activate", func(actor service.Actor, id uuid.UUID, key string, raw []byte) (service.Result, error) {
+		return h.svc.ActivateRoutePlan(r.Context(), actor, key, id, raw)
+	})
+}
+
+func (h *Handler) decideRoutePlan(w http.ResponseWriter, r *http.Request, operation string, decide func(service.Actor, uuid.UUID, string, []byte) (service.Result, error)) {
+	actor, err := actorFrom(r)
+	if err != nil {
+		h.finish(w, r, operation, uuid.Nil, err)
+		return
+	}
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		h.finishStatus(w, r, operation, uuid.Nil, err, http.StatusBadRequest)
+		return
+	}
+	raw, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.finishStatus(w, r, operation, id, apperrors.Validation("request body is invalid", nil), http.StatusBadRequest)
+		return
+	}
+	key, err := requiredIdempotency(r)
+	if err != nil {
+		h.finishStatus(w, r, operation, id, err, http.StatusBadRequest)
+		return
+	}
+	result, err := decide(actor, id, key, raw)
+	if err != nil {
+		h.finishRoutePlan(w, r, operation, err)
+		return
+	}
+	respond.Bytes(w, result.Status, result.Body)
+}
+
+func (h *Handler) finishRoutePlan(w http.ResponseWriter, r *http.Request, operation string, err error) {
 	status := http.StatusBadRequest
 	var appErr *apperrors.AppError
 	if errors.As(err, &appErr) {
@@ -81,7 +122,7 @@ func (h *Handler) finishRoutePlan(w http.ResponseWriter, r *http.Request, err er
 			status = http.StatusInternalServerError
 		}
 	}
-	h.finishStatus(w, r, "route_plan_evaluate", uuid.Nil, err, status)
+	h.finishStatus(w, r, operation, uuid.Nil, err, status)
 }
 
 func requiredIdempotency(r *http.Request) (string, error) {

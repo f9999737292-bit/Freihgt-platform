@@ -27,6 +27,7 @@ type Memory struct {
 	consolidationCandidates map[uuid.UUID][]ConsolidationCandidate
 	scoreProfiles           map[string]domain.ScoreProfile
 	routePlans              map[uuid.UUID]RoutePlanGraph
+	routeActivations        map[uuid.UUID]RoutePlanActivationRow
 }
 
 func NewMemory() *Memory {
@@ -44,13 +45,14 @@ func (m *Memory) Within(_ context.Context, fn func(Tx) error) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	tx := &memTx{
-		loads:  cloneLoads(m.loads),
-		caps:   cloneCaps(m.caps),
-		preds:  clonePreds(m.preds),
-		idem:   cloneIdem(m.idem),
-		audits: append([]AuditEvent(nil), m.audits...),
-		outbox: append([]OutboxEvent(nil), m.outbox...),
-		plans:  cloneRoutePlans(m.routePlans),
+		loads:       cloneLoads(m.loads),
+		caps:        cloneCaps(m.caps),
+		preds:       clonePreds(m.preds),
+		idem:        cloneIdem(m.idem),
+		audits:      append([]AuditEvent(nil), m.audits...),
+		outbox:      append([]OutboxEvent(nil), m.outbox...),
+		plans:       cloneRoutePlans(m.routePlans),
+		activations: cloneActivations(m.routeActivations),
 	}
 	if err := fn(tx); err != nil {
 		return err
@@ -62,6 +64,7 @@ func (m *Memory) Within(_ context.Context, fn func(Tx) error) error {
 	m.audits = tx.audits
 	m.outbox = tx.outbox
 	m.routePlans = tx.plans
+	m.routeActivations = tx.activations
 	return nil
 }
 
@@ -78,13 +81,14 @@ func (m *Memory) ListAudit(context.Context) ([]AuditEvent, error) {
 }
 
 type memTx struct {
-	loads  map[uuid.UUID]domain.LoadOpportunity
-	caps   map[uuid.UUID]domain.Capacity
-	preds  map[uuid.UUID]domain.PredictedCapacity
-	idem   map[string]IdempotencyRecord
-	audits []AuditEvent
-	outbox []OutboxEvent
-	plans  map[uuid.UUID]RoutePlanGraph
+	loads       map[uuid.UUID]domain.LoadOpportunity
+	caps        map[uuid.UUID]domain.Capacity
+	preds       map[uuid.UUID]domain.PredictedCapacity
+	idem        map[string]IdempotencyRecord
+	audits      []AuditEvent
+	outbox      []OutboxEvent
+	plans       map[uuid.UUID]RoutePlanGraph
+	activations map[uuid.UUID]RoutePlanActivationRow
 }
 
 func (t *memTx) InsertLoad(_ context.Context, load domain.LoadOpportunity) error {
