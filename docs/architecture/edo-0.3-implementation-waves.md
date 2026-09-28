@@ -5,24 +5,26 @@
 ```text
 DOCUMENT_STATUS=DISCOVERY
 CONTROLLER_VERDICT=ACCEPT_EDO_0_3_S1
+CONTROLLER_DECISION=ACCEPT_EDO_0_3_W1_I1_TASK_CONTRACT
 EDO_0_3_S1_STATUS=IMPLEMENTED_ACCEPTED
 DOCUMENT_READ_TENANT_ISOLATION_STATUS=REMEDIATED_ACCEPTED
-W1_STATUS=PREPARED_FOR_CONTROLLER_REVIEW
+W1_STATUS=IMPLEMENTATION_CONTRACT_ACCEPTED
 W1_TASK_CONTRACT_PREPARED=YES
-I1_AWAITING_CONTROLLER_AUTHORIZATION=YES
-I1_STATUS=NOT_AUTHORIZED
+IMPLEMENTATION_AUTHORIZED=I1_ONLY
+AUTHORIZED_WAVE=I1
+I1_STATUS=AUTHORIZED_NOT_STARTED
+I1_IMPLEMENTATION_STARTED=NO
 I2_STATUS=NOT_AUTHORIZED
 I3_STATUS=NOT_AUTHORIZED
 I4_STATUS=NOT_AUTHORIZED
-EDO_0_3_I1_I4_STATUS=NOT_AUTHORIZED
-IMPLEMENTATION_AUTHORIZED=NO
 LEGAL_VERIFICATION_STATUS=OPEN
+LEGAL_VERIFICATION_REQUIRED
 EACH_WAVE_REQUIRES=INDEPENDENT_CONTROLLER_REVIEW
 ```
 
-Waves are a review sequence. Completing discovery does not start wave I1. S1 is the accepted product remediation. This W1 change is docs only. I1–I4 stay `NOT_AUTHORIZED` and do not change product code, migrations, OpenAPI, or CI.
+Waves are a review sequence. Completing discovery does not start wave I1. S1 is the accepted product remediation. This W1 closeout is docs only. I1 is authorized and not started. I2, I3, and I4 stay `NOT_AUTHORIZED`. This closeout does not change product code, migrations, OpenAPI, or CI.
 
-Accepted discovery scope is variant A from [edo-0.3-architecture-options.md](edo-0.3-architecture-options.md). The controller verdict for S1 is `ACCEPT_EDO_0_3_S1`. I1–I4 stay `NOT_AUTHORIZED`.
+Accepted discovery scope is variant A from [edo-0.3-architecture-options.md](edo-0.3-architecture-options.md). The controller verdict for S1 is `ACCEPT_EDO_0_3_S1`. The controller decision for the I1 task contract is `ACCEPT_EDO_0_3_W1_I1_TASK_CONTRACT`.
 
 ## Wave register
 
@@ -30,13 +32,13 @@ Accepted discovery scope is variant A from [edo-0.3-architecture-options.md](edo
 |------|------|---------|--------|
 | W0 | Discovery | This document set. Variant A accepted as discovery scope. S1 later closed the product read gap | `DISCOVERY_ACCEPTED` |
 | S1 | Product security remediation | Tenant predicate on `GET /v1/documents/{id}` and on `GetSession`. Separate from EDO 0.3 schema | `IMPLEMENTED_ACCEPTED` |
-| W1 | Decision | Variant A task contract for I1 schema foundation. S1 stays a prerequisite. Controller review is still required before I1 | `PREPARED_FOR_CONTROLLER_REVIEW` |
-| I1 | Schema | Additive `documents` migration for package, semantic relationship, certificate-evidence metadata bound to a revision, and immutability constraints. No other schema. No `PACKAGE_CONTAINS_DOCUMENT` | `NOT_AUTHORIZED` |
+| W1 | Decision | Variant A task contract for I1 schema foundation. S1 stays a prerequisite. Controller accepted the contract. I1 has not started | `IMPLEMENTATION_CONTRACT_ACCEPTED` |
+| I1 | Schema | Additive `documents` migration for package, semantic relationship, certificate-evidence metadata bound to a revision, and immutability constraints. No other schema. No `PACKAGE_CONTAINS_DOCUMENT` | `AUTHORIZED_NOT_STARTED` |
 | I2 | Rules | document-service commands: seal package, append semantic relationship, block signed mutation and signed file attach, trusted tenant predicate on every read including package and relationship | `NOT_AUTHORIZED` |
 | I3 | Edge | Gateway exposure only if I2 needs a public route. Trusted tenant only. OpenAPI source-of-truth update in the same reviewed change | `NOT_AUTHORIZED` |
 | I4 | Verification | Unit, tenant-isolation, security regression, and immutability tests named in [edo-0.3-test-acceptance-strategy.md](edo-0.3-test-acceptance-strategy.md) | `NOT_AUTHORIZED` |
 
-W0 remains accepted discovery. S1 remains the accepted remediation. The I1 task contract is [edo-0.3-w1-i1-task-contract.md](edo-0.3-w1-i1-task-contract.md). That document does not authorize I1. I1–I4 remain `NOT_AUTHORIZED`.
+W0 remains accepted discovery. S1 remains the accepted remediation. The I1 task contract is [edo-0.3-w1-i1-task-contract.md](edo-0.3-w1-i1-task-contract.md). Controller decision `ACCEPT_EDO_0_3_W1_I1_TASK_CONTRACT` authorizes I1 only. I1 has not started. I2, I3, and I4 remain `NOT_AUTHORIZED`.
 
 ```text
 DOCUMENT_READ_TENANT_ISOLATION_REMEDIATION_REQUIRED

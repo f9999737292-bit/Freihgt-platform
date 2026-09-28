@@ -4,13 +4,15 @@
 
 ```text
 DOCUMENT_STATUS=TASK_CONTRACT
-W1_STATUS=PREPARED_FOR_CONTROLLER_REVIEW
-I1_STATUS=NOT_AUTHORIZED
+CONTROLLER_DECISION=ACCEPT_EDO_0_3_W1_I1_TASK_CONTRACT
+W1_STATUS=IMPLEMENTATION_CONTRACT_ACCEPTED
+IMPLEMENTATION_AUTHORIZED=I1_ONLY
+AUTHORIZED_WAVE=I1
+I1_STATUS=AUTHORIZED_NOT_STARTED
+I1_IMPLEMENTATION_STARTED=NO
 I2_STATUS=NOT_AUTHORIZED
 I3_STATUS=NOT_AUTHORIZED
 I4_STATUS=NOT_AUTHORIZED
-IMPLEMENTATION_AUTHORIZED=NO
-I1_IMPLEMENTATION_STARTED=NO
 PRODUCT_CODE_CHANGED=NO
 MIGRATION_CREATED=NO
 OPENAPI_CHANGED=NO
@@ -18,7 +20,7 @@ LEGAL_VERIFICATION_STATUS=OPEN
 LEGAL_VERIFICATION_REQUIRED
 ```
 
-This document freezes the implementation contract for wave I1. It does not authorize Agent B, or any other agent, to execute I1. Before Controller review, the authorization field stays `IMPLEMENTATION_AUTHORIZED=NO`.
+This document freezes the implementation contract for wave I1. Controller review accepted that contract for I1 only. I1 has not started. I2, I3, and I4 stay unauthorized.
 
 ## Purpose
 
@@ -899,33 +901,34 @@ CI_CHANGED=NO
 
 ## Acceptance criteria
 
-W1 is ready for Controller review when:
+W1 was ready for Controller review when:
 
 1. This document contains the sections listed in the W1 assignment, including the decision table and the risk review.
-2. I1 remains `NOT_AUTHORIZED` and implementation has not started.
+2. I1 had not started.
 3. The diff is docs only.
 4. `git diff --check` is clean.
 5. Links in this document resolve to repository files.
 6. The docs contain no secret values.
 
-I1 is accepted only later, under `IMPLEMENTATION_AUTHORIZED=I1_ONLY`, when its migration, tests, and exact-head CI match this contract. That acceptance is not claimed here.
+Controller decision `ACCEPT_EDO_0_3_W1_I1_TASK_CONTRACT` records `IMPLEMENTATION_AUTHORIZED=I1_ONLY`. I1 remains `AUTHORIZED_NOT_STARTED`. This closeout does not claim the I1 migration or tests exist.
 
 ## Controller authorization
 
-Agent B does not fill this decision.
+Recorded from the Controller authorization for EDO-0.3 I1. This closeout does not implement I1.
 
 ```text
-CONTROLLER_DECISION=
-CONTROLLER_REVIEW_REF=
-IMPLEMENTATION_AUTHORIZED=NO
-AUTHORIZED_WAVE=
-I1_STATUS=NOT_AUTHORIZED
+CONTROLLER_DECISION=ACCEPT_EDO_0_3_W1_I1_TASK_CONTRACT
+CONTROLLER_REVIEW_REF=PR187
+IMPLEMENTATION_AUTHORIZED=I1_ONLY
+AUTHORIZED_WAVE=I1
+W1_STATUS=IMPLEMENTATION_CONTRACT_ACCEPTED
+I1_STATUS=AUTHORIZED_NOT_STARTED
 I2_STATUS=NOT_AUTHORIZED
 I3_STATUS=NOT_AUTHORIZED
 I4_STATUS=NOT_AUTHORIZED
+LEGAL_VERIFICATION_STATUS=OPEN
+LEGAL_VERIFICATION_REQUIRED
 ```
-
-A later controller note may replace `IMPLEMENTATION_AUTHORIZED=NO` with `IMPLEMENTATION_AUTHORIZED=I1_ONLY`. Silence, and this W1 document by itself, do not.
 
 ## References
 
