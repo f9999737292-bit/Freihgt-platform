@@ -1,0 +1,312 @@
+package repository
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/freight-platform/shipment-service/internal/domain"
+	apperrors "github.com/freight-platform/shipment-service/internal/platform/errors"
+)
+
+type TransportExecutionRepository struct {
+	pool *pgxpool.Pool
+}
+
+func NewTransportExecutionRepository(pool *pgxpool.Pool) *TransportExecutionRepository {
+	return &TransportExecutionRepository{pool: pool}
+}
+
+func (r *TransportExecutionRepository) Project(ctx context.Context, cmd domain.ProjectionCommand) (domain.ProjectionResult, error) {
+	digest, err := domain.CanonicalDigest(cmd)
+	if err != nil {
+		return domain.ProjectionResult{}, apperrors.Internal("projection digest failed", err)
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.ProjectionResult{}, mapDBError(err)
+	}
+	defer tx.Rollback(ctx)
+
+	storedID, storedExecution, storedDigest, found, err := findActivation(ctx, tx, cmd.OperatingTenantID, cmd.ActivationID)
+	if err != nil {
+		return domain.ProjectionResult{}, err
+	}
+	if err := domain.RejectReplayOrCreate(cmd, storedDigest, found, digest); err != nil {
+		return domain.ProjectionResult{}, err
+	}
+	if found {
+		return domain.ProjectionResult{
+			ExecutionID:  storedExecution,
+			RevisionID:   storedID,
+			ActivationID: cmd.ActivationID,
+			Created:      false,
+		}, nil
+	}
+
+	subjects, err := domainSubjects(cmd)
+	if err != nil {
+		return domain.ProjectionResult{}, err
+	}
+	if err := verifyMaterializedRows(ctx, tx, subjects); err != nil {
+		return domain.ProjectionResult{}, err
+	}
+
+	now := time.Now().UTC()
+	executionID := uuid.New()
+	revisionID := uuid.New()
+	if err := insertExecution(ctx, tx, executionID, cmd, now); err != nil {
+		return domain.ProjectionResult{}, err
+	}
+	if err := insertRevision(ctx, tx, revisionID, executionID, cmd, digest, now); err != nil {
+		if constraintName(err) == "transport_execution_revisions_activation_uq" {
+			return r.replayAfterConflict(ctx, cmd, digest)
+		}
+		return domain.ProjectionResult{}, mapDBError(err)
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE transport.transport_executions
+		SET current_revision_id = $2, updated_at = $3
+		WHERE id = $1 AND operating_tenant_id = $4
+	`, executionID, revisionID, now, cmd.OperatingTenantID); err != nil {
+		return domain.ProjectionResult{}, mapDBError(err)
+	}
+	if err := insertParticipants(ctx, tx, executionID, subjects); err != nil {
+		if constraintName(err) == "transport_execution_active_shipments_pkey" {
+			return domain.ProjectionResult{}, domain.ProjectionConflict(domain.ReasonExecutionPlanConflict)
+		}
+		return domain.ProjectionResult{}, mapDBError(err)
+	}
+	stopIDs, err := insertStops(ctx, tx, executionID, revisionID, cmd, now)
+	if err != nil {
+		return domain.ProjectionResult{}, err
+	}
+	if err := insertActions(ctx, tx, revisionID, cmd, stopIDs); err != nil {
+		return domain.ProjectionResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		if constraintName(err) == "transport_execution_revisions_activation_uq" {
+			return r.replayAfterConflict(ctx, cmd, digest)
+		}
+		return domain.ProjectionResult{}, mapDBError(err)
+	}
+	return domain.ProjectionResult{
+		ExecutionID:  executionID,
+		RevisionID:   revisionID,
+		ActivationID: cmd.ActivationID,
+		Created:      true,
+	}, nil
+}
+
+func (r *TransportExecutionRepository) replayAfterConflict(ctx context.Context, cmd domain.ProjectionCommand, digest string) (domain.ProjectionResult, error) {
+	storedID, storedExecution, storedDigest, found, err := findActivation(ctx, r.pool, cmd.OperatingTenantID, cmd.ActivationID)
+	if err != nil {
+		return domain.ProjectionResult{}, err
+	}
+	if !found {
+		return domain.ProjectionResult{}, domain.ProjectionConflict(domain.ReasonActivationBodyConflict)
+	}
+	if storedDigest != digest {
+		return domain.ProjectionResult{}, domain.ProjectionConflict(domain.ReasonActivationBodyConflict)
+	}
+	return domain.ProjectionResult{
+		ExecutionID:  storedExecution,
+		RevisionID:   storedID,
+		ActivationID: cmd.ActivationID,
+		Created:      false,
+	}, nil
+}
+
+type rowQuery interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func findActivation(ctx context.Context, q rowQuery, operatingTenantID, activationID uuid.UUID) (revisionID, executionID uuid.UUID, digest string, found bool, err error) {
+	err = q.QueryRow(ctx, `
+		SELECT id, execution_id, contract_sha256
+		FROM transport.transport_execution_revisions
+		WHERE operating_tenant_id = $1 AND source_activation_id = $2
+	`, operatingTenantID, activationID).Scan(&revisionID, &executionID, &digest)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, uuid.Nil, "", false, nil
+	}
+	if err != nil {
+		return uuid.Nil, uuid.Nil, "", false, mapDBError(err)
+	}
+	return revisionID, executionID, digest, true, nil
+}
+
+func domainSubjects(cmd domain.ProjectionCommand) ([]domain.MaterializedSubject, error) {
+	if err := domain.ValidateNewProjection(cmd); err != nil {
+		return nil, err
+	}
+	subjects := make([]domain.MaterializedSubject, 0, len(cmd.ExecutionSubjects))
+	for _, row := range cmd.ExecutionSubjects {
+		subjects = append(subjects, domain.MaterializedSubject{
+			RouteSubjectType: row.RouteSubjectType,
+			RouteSubjectID:   row.RouteSubjectID,
+			ShipmentID:       *row.ExecutionShipmentID,
+			ShipmentTenantID: *row.ShipmentTenantID,
+			ShipmentVersion:  *row.ExecutionShipmentVersion,
+			CargoID:          *row.CargoID,
+			CargoVersion:     *row.CargoVersion,
+		})
+	}
+	return subjects, nil
+}
+
+func verifyMaterializedRows(ctx context.Context, tx pgx.Tx, subjects []domain.MaterializedSubject) error {
+	for _, subject := range subjects {
+		var shipmentVersion int
+		err := tx.QueryRow(ctx, `
+			SELECT version
+			FROM transport.shipments
+			WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		`, subject.ShipmentID, subject.ShipmentTenantID).Scan(&shipmentVersion)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ProjectionConflict(domain.ReasonExecutionSubjectUnmaterialized)
+		}
+		if err != nil {
+			return mapDBError(err)
+		}
+		if shipmentVersion != subject.ShipmentVersion {
+			return domain.ProjectionConflict(domain.ReasonPlanStale)
+		}
+		var cargoVersion int
+		err = tx.QueryRow(ctx, `
+			SELECT version
+			FROM transport.cargoes
+			WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		`, subject.CargoID, subject.ShipmentTenantID).Scan(&cargoVersion)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ProjectionConflict(domain.ReasonExecutionSubjectUnmaterialized)
+		}
+		if err != nil {
+			return mapDBError(err)
+		}
+		if cargoVersion != subject.CargoVersion {
+			return domain.ProjectionConflict(domain.ReasonPlanStale)
+		}
+	}
+	return nil
+}
+
+func insertExecution(ctx context.Context, tx pgx.Tx, executionID uuid.UUID, cmd domain.ProjectionCommand, now time.Time) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO transport.transport_executions (
+			id, operating_tenant_id, carrier_company_id, vehicle_id, driver_id,
+			current_revision_id, created_at, updated_at
+		) VALUES ($1,$2,$3,$4,$5,NULL,$6,$6)
+	`, executionID, cmd.OperatingTenantID, cmd.CarrierCompanyID, cmd.VehicleID, cmd.DriverID, now)
+	return mapDBError(err)
+}
+
+func insertRevision(ctx context.Context, tx pgx.Tx, revisionID, executionID uuid.UUID, cmd domain.ProjectionCommand, digest string, now time.Time) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO transport.transport_execution_revisions (
+			id, execution_id, operating_tenant_id, source_route_plan_id, source_route_plan_version,
+			source_activation_id, source_activation_version, evaluation_fingerprint, planning_mode,
+			supersedes_revision_id, status, version, contract_sha256, created_at, updated_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL,$10,1,$11,$12,$12)
+	`, revisionID, executionID, cmd.OperatingTenantID, cmd.RoutePlanID, cmd.RoutePlanVersion,
+		cmd.ActivationID, cmd.ActivationVersion, cmd.EvaluationFingerprint, cmd.PlanningMode,
+		domain.RevisionStatusActive, digest, now)
+	return err
+}
+
+func insertParticipants(ctx context.Context, tx pgx.Tx, executionID uuid.UUID, subjects []domain.MaterializedSubject) error {
+	seenShipment := map[string]struct{}{}
+	for _, subject := range subjects {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO transport.transport_execution_participants (
+				execution_id, shipment_id, shipment_tenant_id, shipment_version,
+				cargo_id, cargo_version, route_subject_type, route_subject_id, provenance
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		`, executionID, subject.ShipmentID, subject.ShipmentTenantID, subject.ShipmentVersion,
+			subject.CargoID, subject.CargoVersion, subject.RouteSubjectType, subject.RouteSubjectID,
+			domain.ParticipantProvenanceTrustedProjection); err != nil {
+			return err
+		}
+		key := subject.ShipmentTenantID.String() + ":" + subject.ShipmentID.String()
+		if _, ok := seenShipment[key]; ok {
+			continue
+		}
+		seenShipment[key] = struct{}{}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO transport.transport_execution_active_shipments (
+				shipment_tenant_id, shipment_id, execution_id
+			) VALUES ($1,$2,$3)
+		`, subject.ShipmentTenantID, subject.ShipmentID, executionID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func insertStops(ctx context.Context, tx pgx.Tx, executionID, revisionID uuid.UUID, cmd domain.ProjectionCommand, now time.Time) (map[uuid.UUID]uuid.UUID, error) {
+	stopIDs := make(map[uuid.UUID]uuid.UUID, len(cmd.Stops))
+	for _, stop := range cmd.Stops {
+		stopID := uuid.New()
+		stopIDs[stop.RoutePlanStopID] = stopID
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO transport.transport_execution_stops (
+				id, execution_id, operating_tenant_id, ordinal, stop_role, point_kind, location_id,
+				latitude, longitude, planned_arrival, planned_departure, service_duration_seconds,
+				status, status_reason, version, arrived_at, service_started_at, completed_at,
+				created_at, updated_at
+			) VALUES (
+				$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULL,1,NULL,NULL,NULL,$14,$14
+			)
+		`, stopID, executionID, cmd.OperatingTenantID, stop.Ordinal, stop.StopRole, stop.PointKind, stop.LocationID,
+			stop.Latitude, stop.Longitude, stop.PlannedArrival, stop.PlannedDeparture, stop.ServiceDurationSeconds,
+			domain.StopStatusPlanned, now); err != nil {
+			return nil, mapDBError(err)
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO transport.transport_execution_revision_stops (
+				revision_id, stop_id, source_route_plan_stop_id, source_ordinal, membership
+			) VALUES ($1,$2,$3,$4,$5)
+		`, revisionID, stopID, stop.RoutePlanStopID, stop.Ordinal, domain.MembershipIntroduced); err != nil {
+			return nil, mapDBError(err)
+		}
+	}
+	return stopIDs, nil
+}
+
+func insertActions(ctx context.Context, tx pgx.Tx, revisionID uuid.UUID, cmd domain.ProjectionCommand, stopIDs map[uuid.UUID]uuid.UUID) error {
+	for _, action := range cmd.Actions {
+		actionID := uuid.New()
+		stopID := stopIDs[action.RoutePlanStopID]
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO transport.transport_execution_actions (
+				id, execution_stop_id, shipment_id, shipment_tenant_id, cargo_id, cargo_version,
+				route_subject_type, route_subject_id, action_type, ordinal, status,
+				evidence_id, completed_at, version
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULL,NULL,1)
+		`, actionID, stopID, *action.ExecutionShipmentID, *action.ShipmentTenantID, *action.CargoID, *action.CargoVersion,
+			action.RouteSubjectType, action.RouteSubjectID, action.ActionType, action.ActionOrdinal, domain.ActionStatusPending); err != nil {
+			return mapDBError(err)
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO transport.transport_execution_revision_actions (
+				revision_id, action_id, source_route_plan_action_id, source_action_ordinal, membership
+			) VALUES ($1,$2,$3,$4,$5)
+		`, revisionID, actionID, action.RoutePlanActionID, action.ActionOrdinal, domain.MembershipIntroduced); err != nil {
+			return mapDBError(err)
+		}
+	}
+	return nil
+}
+
+func constraintName(err error) string {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.ConstraintName
+	}
+	return ""
+}

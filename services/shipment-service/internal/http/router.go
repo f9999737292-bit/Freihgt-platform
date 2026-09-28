@@ -28,6 +28,7 @@ func NewRouter(
 	driverOpsSvc *service.DriverOperationsService,
 	driverTaskSvc *service.DriverTaskService,
 	evidenceSvc *service.ExecutionEvidenceService,
+	executionProjectionSvc *service.TransportExecutionService,
 	internalToken string,
 ) http.Handler {
 	shipmentHandler := handlers.NewShipmentHandler(shipmentSvc)
@@ -44,6 +45,7 @@ func NewRouter(
 	predictionInputHandler := handlers.NewPredictionInputHandler(shipmentSvc)
 	vehicleCapabilityHandler := handlers.NewVehicleCapabilityHandler(vehicleSvc)
 	evidenceHandler := handlers.NewExecutionEvidenceHandler(evidenceSvc)
+	executionProjectionHandler := handlers.NewTransportExecutionHandler(executionProjectionSvc)
 	internalAuth := internalauth.Config{Token: internalToken}
 
 	r := chi.NewRouter()
@@ -118,6 +120,11 @@ func NewRouter(
 
 	r.Route("/internal/v1/vehicles", func(r chi.Router) {
 		r.With(internalAuth.Middleware).Get("/{id}/capability", vehicleCapabilityHandler.Get)
+	})
+
+	r.Route("/internal/v1/transport-executions", func(r chi.Router) {
+		r.Use(internalAuth.Middleware)
+		r.Post("/projections", executionProjectionHandler.CreateFromActivation)
 	})
 
 	r.Route("/internal/v1/driver", func(r chi.Router) {
