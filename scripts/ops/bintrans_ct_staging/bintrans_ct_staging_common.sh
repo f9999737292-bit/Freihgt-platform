@@ -525,6 +525,8 @@ bintrans_validate_migration_target_bounded() {
   target_version="$(bintrans_migration_version_from_target "${target}")"
   [[ "${target_version}" -le "${max_version}" ]] \
     || bintrans_fail "MIGRATION_TARGET ${target} exceeds repository max ${max_target}"
+  # A reserved gap such as 000086 is below a later migration and must still be rejected.
+  bintrans_resolve_migration_file_pair "${target}" >/dev/null
 }
 
 bintrans_extract_gateway_mode() {
