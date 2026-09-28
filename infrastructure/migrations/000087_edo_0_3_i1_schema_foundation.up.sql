@@ -378,18 +378,22 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     pkg_status VARCHAR(16);
-    pkg_id UUID;
 BEGIN
-    IF TG_OP = 'INSERT' THEN
-        pkg_id := NEW.package_id;
-    ELSE
-        pkg_id := OLD.package_id;
+    IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+        SELECT status INTO pkg_status
+        FROM documents.document_packages
+        WHERE id = NEW.package_id;
+        IF pkg_status = 'SEALED' THEN
+            RAISE EXCEPTION 'sealed package membership is immutable';
+        END IF;
     END IF;
-    SELECT status INTO pkg_status
-    FROM documents.document_packages
-    WHERE id = pkg_id;
-    IF pkg_status = 'SEALED' THEN
-        RAISE EXCEPTION 'sealed package membership is immutable';
+    IF TG_OP = 'DELETE' OR TG_OP = 'UPDATE' THEN
+        SELECT status INTO pkg_status
+        FROM documents.document_packages
+        WHERE id = OLD.package_id;
+        IF pkg_status = 'SEALED' THEN
+            RAISE EXCEPTION 'sealed package membership is immutable';
+        END IF;
     END IF;
     IF TG_OP = 'DELETE' THEN
         RETURN OLD;

@@ -133,6 +133,25 @@ func TestI1PackageAndRelationshipInvariants(t *testing.T) {
 	_, err = pool.Exec(ctx, `DELETE FROM documents.document_package_members WHERE package_id = $1`, packageID)
 	deny(t, err)
 
+	var openPackageID uuid.UUID
+	allow(t, pool.QueryRow(ctx, `
+		INSERT INTO documents.document_packages (tenant_id, assembling_company_id)
+		VALUES ($1,$2) RETURNING id`, tenantA, uuid.New()).Scan(&openPackageID))
+	_, err = pool.Exec(ctx, `
+		INSERT INTO documents.document_package_members (package_id, document_id, tenant_id)
+		VALUES ($1,$2,$3)`, openPackageID, docA2, tenantA)
+	allow(t, err)
+	_, err = pool.Exec(ctx, `
+		UPDATE documents.document_package_members
+		SET package_id = $2
+		WHERE package_id = $1 AND document_id = $3`, openPackageID, packageID, docA2)
+	deny(t, err)
+	_, err = pool.Exec(ctx, `
+		UPDATE documents.document_package_members
+		SET package_id = $2
+		WHERE package_id = $1 AND document_id = $3`, packageID, openPackageID, docA)
+	deny(t, err)
+
 	for _, relType := range []string{"CORRECTS", "REPLACES", "RELATED_TO"} {
 		_, err = pool.Exec(ctx, `
 			INSERT INTO documents.document_relationships (
