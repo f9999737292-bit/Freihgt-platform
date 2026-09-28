@@ -1,11 +1,16 @@
 # Implementation roadmap
 
-Architecture only. No wave below is authorized.
+Architecture accepted. No wave below is authorized.
 
 ```text
+CONTROLLER_VERDICT=ACCEPT_TMS_MULTISTOP_ARCHITECTURE_R2
+CONTROLLER_REVIEW_PENDING=NO
+ARCHITECTURE_ACCEPTED=YES
+IMPLEMENTATION_AUTHORIZATION_PENDING=YES
 IMPLEMENTATION_AUTHORIZED=NO
 TMS_MULTISTOP_IMPLEMENTATION_STARTED=NO
 NLO_0_4D_STARTED=NO
+NLO_0_4D_AUTHORIZED=NO
 AGENT_C_MIGRATION_CREATED=NO
 AGENT_C_MIGRATION_RESERVED=NO
 NEXT_TMS_MIGRATION=UNRESERVED
@@ -13,7 +18,7 @@ NEXT_TMS_MIGRATION=UNRESERVED
 
 Agent D may need migration `000086` for NLO-0.4C. This pack does not reserve a number. The implementation wave fetches `origin/main` and takes the next free number.
 
-NLO-0.4D in the optimizer roadmap is the shipment and driver integration. It does not start here. It starts only after this freeze is accepted, Agent D implements the `PENDING_EXECUTION` projection command and the later `network.route_plan.execution_linked` post-link fact (`IMPLEMENTED_TODAY=NO`), and the NLO service-duration gate is open. The event is not the projection trigger.
+NLO-0.4D in the optimizer roadmap is the shipment and driver integration. This architecture is accepted. NLO-0.4D does not start here and is not authorized. A later Agent D task may start it only after Agent D implements the `PENDING_EXECUTION` projection command and the later `network.route_plan.execution_linked` post-link fact (`IMPLEMENTED_TODAY=NO`), and the NLO service-duration gate is open. The event is not the projection trigger. TMS-MSTOP-0.1A remains the next proposed execution wave and is not started.
 
 ```text
 NLO_0_4C_ACTIVATION_RELEASE_BLOCKED_UNTIL_SERVICE_DURATION_SOURCE=YES

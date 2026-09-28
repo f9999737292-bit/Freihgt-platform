@@ -1,13 +1,15 @@
 # TMS multi-stop execution architecture
 
-Status: architecture freeze. Docs only. Runtime implementation is not authorized.
+Status: architecture freeze accepted. Docs only. Runtime implementation is not authorized.
 
 ```text
 TMS_MULTISTOP_ARCHITECTURE_FROZEN=YES
+CONTROLLER_VERDICT=ACCEPT_TMS_MULTISTOP_ARCHITECTURE_R2
+CONTROLLER_REVIEW_PENDING=NO
 TMS_MULTISTOP_IMPLEMENTATION_STARTED=NO
 NLO_0_4D_STARTED=NO
+NLO_0_4D_AUTHORIZED=NO
 IMPLEMENTATION_AUTHORIZED=NO
-CONTROLLER_REVIEW_PENDING=YES
 DOCS_ONLY=YES
 AGENT_D_PLANS=YES
 AGENT_C_EXECUTES=YES
@@ -29,7 +31,7 @@ SUCCESSOR_ROUTEPLAN_STOP_LINEAGE_PRESERVED=YES
 SUCCESSOR_ROUTEPLAN_ACTION_LINEAGE_PRESERVED=YES
 ```
 
-Discovery baseline: `origin/main` `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`, rebased onto `1566c0d30b93bca1016fed6e81620edf277be52f`. Remediation R2 is on `discovery/tms-multistop-execution-v0.1`.
+Discovery baseline: `origin/main` `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`, rebased onto `1566c0d30b93bca1016fed6e81620edf277be52f`. Remediation R2 is on `discovery/tms-multistop-execution-v0.1`. Controller verdict: `ACCEPT_TMS_MULTISTOP_ARCHITECTURE_R2`. Acceptance does not authorize runtime implementation or NLO-0.4D.
 
 `network-optimizer-service` owns planning. `shipment-service` owns execution. The execution aggregate is `TransportExecution`, which can include many materialized shipments and does not require an anchor shipment for `DEPOT_START`. This pack does not modify optimizer files, OpenAPI, or migrations.
 
