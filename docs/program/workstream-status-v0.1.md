@@ -55,6 +55,7 @@ Each workstream row carries:
 - Primary BINTRANS development continues in `D:\Projects\freight-platform` — **untouched by EDO-0.2**.
 - EDO-0.2 discovery/freeze worktree `D:\Projects\freight-platform-wt\edo-ecosystem-architecture-v0.1` remains an archive. Do not treat it as the active EDO-0.3 checkout.
 - EDO-0.3 discovery scope stays accepted (`CONTROLLER_VERDICT=ACCEPT_EDO_0_3_SCOPE`, pull request #162). S1 document-read tenant isolation is `IMPLEMENTED_ACCEPTED` (`CONTROLLER_VERDICT=ACCEPT_EDO_0_3_S1`, pull request #164, product HEAD `dff9eacf04e0fd8c0e381d8716cf5a4039c90ff1`, CI `35991273506`, `TestDocumentReadTenantIsolation` PASS). `DOCUMENT_READ_TENANT_ISOLATION_STATUS=REMEDIATED_ACCEPTED`. OpenAPI and schema were not changed. Blocking findings are absent. I1–I4 remain `NOT_AUTHORIZED`. Legal verification stays open.
+- W1 I1 task contract is prepared for controller review in [edo-0.3-w1-i1-task-contract.md](../architecture/edo-0.3-w1-i1-task-contract.md). `W1_TASK_CONTRACT_PREPARED=YES`. `I1_AWAITING_CONTROLLER_AUTHORIZATION=YES`. `IMPLEMENTATION_AUTHORIZED=NO`. I1 has not started.
 - BASE_SHA for TEDO/MM rows remains discovery baseline `d0005bd8b055b0d2250e5092a0c1c0484decf540`. The EDO row base is the EDO-0.3 discovery base above.
 
 ## Update procedure
