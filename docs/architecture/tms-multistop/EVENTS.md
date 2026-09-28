@@ -2,55 +2,47 @@
 
 ```text
 OUTBOX_SAME_TRANSACTION=YES
+OUTBOX_IS_SERVICE_LOCAL=YES
 EXECUTION_EVENTS_USE_SEPARATE_VERSION_STREAM=YES
+TRACKING_EVENT_USES_SHIPMENT_OUTBOX=NO
+TRACKING_EVENT_OWNER=tracking-service
 ```
 
-Shipment status mutations already insert `transport.shipment_event_outbox` in the same transaction as the row change. Stop and plan mutations follow that function. A failed outbox insert rolls back the stop write. There is no new outbox subsystem.
+`OUTBOX_SAME_TRANSACTION=YES` means the service that mutates a row inserts its own outbox row in that same transaction. It does not mean every service shares `transport.shipment_event_outbox`.
+
+Shipment-service already inserts `transport.shipment_event_outbox` in the same transaction as a shipment mutation. Execution route, revision, stop, and action mutations follow that function, because shipment-service owns those rows. A failed outbox insert rolls back the execution write.
+
+Tracking-service owns position, freshness, live ETA, and `tracking.stop.approaching`. Those events are published from a tracking-owned outbox in the same transaction as the tracking mutation, then onto the event bus. Tracking must not insert `tracking.stop.approaching`, or any new tracking-owned event, into `transport.shipment_event_outbox`.
+
+Today's tracking publisher does insert some driver tracking-loss events into `transport.shipment_event_outbox`. That is existing code. This freeze does not extend it. The approaching event is not added to that table. A tracking-owned outbox is an implementation change and is not started here.
 
 ## Version stream
 
-Control Tower detects gaps on the shipment aggregate version for `shipment.status.changed`. Stop progress must not consume that counter. Otherwise a stop event would look like a missing status change, or a status consumer would have to ignore unknown types inside a version sequence it treats as complete.
+Control Tower detects gaps on the shipment aggregate version for `shipment.status.changed`. Stop progress must not consume that counter.
 
-Execution events use aggregate type `SHIPMENT_EXECUTION_PLAN`, aggregate id of the plan, and the plan version. Status events stay aggregate type `SHIPMENT`. Both rows go into the existing shipment outbox table.
+Execution events use aggregate type `TRANSPORT_EXECUTION`, aggregate id of the route, and the revision version. They still go into `transport.shipment_event_outbox`, because shipment-service is the writer. Status events stay aggregate type `SHIPMENT`. A participant shipment id is inside the payload when the fact is about that shipment. The route id is always present.
 
 ## Names
 
-Existing names stay for the facts they already mean.
+| Event | Owner | When |
+| --- | --- | --- |
+| `shipment.created`, `shipment.status.changed`, `shipment.cancelled` | shipment-service | Unchanged coarse lifecycle of one shipment |
+| `driver.task_created`, `driver.task_completed`, `driver.task_expired`, `driver.task_cancelled` | shipment-service | Notice inbox only |
+| `driver.delay.reported` | shipment-service | Delay, with optional `execution_stop_id` |
+| `driver.problem.reported` | shipment-service | Problem, with optional `execution_stop_id` and `action_id` |
+| `driver.arrived_at_pickup`, `driver.departed_pickup`, `driver.arrived_at_delivery`, `driver.delivery.completed` | shipment-service | Single-leg shipments that are not on an active route |
+| `shipment.execution_plan.created` | shipment-service | Revision created |
+| `shipment.execution_plan.superseded` | shipment-service | Revision superseded |
+| `shipment.route_stop.current` | shipment-service | Current stop on the active revision |
+| `shipment.route_stop.arrived` | shipment-service | Stop arrived |
+| `shipment.route_stop.service_started` | shipment-service | Service started |
+| `shipment.route_stop.completed` | shipment-service | Stop completed |
+| `shipment.route_stop.sequence_overridden` | shipment-service | Operator override |
+| `tracking.stop.approaching` | tracking-service | Advisory. Tracking-owned outbox only |
+| `network.route_plan.execution_linked` | network-optimizer-service | `AGENT_D_CONTRACT_REQUIRED`. `IMPLEMENTED_TODAY=NO` |
+| `network.route_plan.superseded` | network-optimizer-service | Planning audit. Not the execution switch |
 
-| Event | When |
-| --- | --- |
-| `shipment.created`, `shipment.status.changed`, `shipment.cancelled` | Unchanged coarse lifecycle |
-| `driver.task_created`, `driver.task_completed`, `driver.task_expired`, `driver.task_cancelled` | Notice inbox only |
-| `driver.delay.reported` | Delay, with optional `execution_stop_id` |
-| `driver.problem.reported` | Problem, with optional `execution_stop_id` and `action_id`. Legacy `driver.exception_reported` still maps to this in Control Tower |
-| `driver.arrived_at_pickup`, `driver.departed_pickup`, `driver.arrived_at_delivery`, `driver.delivery.completed` | Single-leg shipments that have no execution plan |
-
-New names, shipment-owned:
-
-```text
-shipment.execution_plan.created
-shipment.execution_plan.superseded
-shipment.route_stop.current
-shipment.route_stop.arrived
-shipment.route_stop.service_started
-shipment.route_stop.completed
-shipment.route_stop.sequence_overridden
-```
-
-`shipment.route_stop.arrived` and `shipment.route_stop.completed` match the names NLO-0.4A already reserved for shipment-service. Delayed and problem facts reuse the driver events above instead of `stop.delayed` and `stop.problem` duplicates.
-
-Tracking-owned, advisory:
-
-```text
-tracking.stop.approaching
-```
-
-Planning-owned, not emitted by shipment-service:
-
-```text
-network.route_plan.execution_linked
-network.route_plan.superseded
-```
+`shipment.route_stop.arrived` and `shipment.route_stop.completed` match the names NLO-0.4A reserved for shipment-service. Delay and problem reuse the driver events. The event names stay on the shipment prefix because shipment-service publishes them. The aggregate is the route, not one arbitrary shipment.
 
 ## Diagram E — event flow
 
@@ -58,14 +50,17 @@ network.route_plan.superseded
 flowchart LR
   Driver[Driver command]
   Shipment[shipment-service]
+  ShipOutbox[shipment_event_outbox]
   Tracking[tracking-service]
-  Outbox[Shipment outbox]
+  TrackOutbox[tracking-owned outbox]
+  Bus[event bus]
   Tower[control-tower-read-model-service]
   Driver --> Shipment
-  Tracking -->|advisory position and live ETA| Shipment
-  Shipment --> Outbox
-  Tracking -->|tracking events| Outbox
-  Outbox --> Tower
+  Shipment --> ShipOutbox
+  ShipOutbox --> Bus
+  Tracking --> TrackOutbox
+  TrackOutbox --> Bus
+  Bus --> Tower
 ```
 
-Tracking does not write the shipment stop row. The arrow into shipment-service is the current-stop id shipment publishes for ETA targeting, and the advisory signals tracking publishes back. Completion never originates in tracking or in the optimizer.
+Shipment-service may tell tracking which stop id is current, by its own execution event. Tracking does not write the stop row and does not write the shipment outbox. Completion never originates in tracking or in the optimizer.

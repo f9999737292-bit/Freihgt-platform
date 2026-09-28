@@ -30,15 +30,18 @@ Notice tasks stay as they are, including Control Tower requests for delay reason
 Future relationship, not implemented here:
 
 ```text
-ShipmentExecutionStop → DriverStopTask
+TransportExecutionStop → DriverStopTask
 ```
+
+The route owns the sequence. The task is not parented by an arbitrary participant shipment.
 
 | Field | Rule |
 | --- | --- |
-| `task_id` | Shipment-owned |
-| `driver_id` | Assigned shipment driver at projection, or the driver after an audited reassignment |
-| `vehicle_id` | Shipment vehicle |
-| `shipment_id` | Required |
+| `task_id` | Allocated by `shipment-service` |
+| `execution_id` | The route. Required |
+| `driver_id` | `TransportExecution.driver_id` |
+| `vehicle_id` | Route vehicle |
+| `shipment_id` | Optional. Set only when every action on the stop is for one shipment. Not the owner of the sequence |
 | `execution_stop_id` | Required |
 | `ordinal` | Copy of the stop ordinal |
 | `location_id` | Null only for a position anchor, which is not tasked |
@@ -99,4 +102,4 @@ flowchart LR
   Completed --> NextStop
 ```
 
-Travel between stops is not a stop status. The shipment stays `IN_TRANSIT` and the following stop stays `PLANNED`.
+Travel between stops is not a stop status. Participant shipments that have already departed stay `IN_TRANSIT`. The following stop stays `PLANNED` on the route.

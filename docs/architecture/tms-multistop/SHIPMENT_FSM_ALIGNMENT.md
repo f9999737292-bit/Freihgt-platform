@@ -6,7 +6,9 @@ MULTI_STOP_MUST_NOT_RESET_SHIPMENT_STATUS=YES
 NEW_SHIPMENT_STATES_ADDED=NO
 ```
 
-The existing chain in `allowedStatusTransitions` remains the coarse shipment lifecycle. Stop and action state carry intermediate progress. No new shipment status is added for "second pickup" or "partial delivery".
+The existing chain in `allowedStatusTransitions` remains the coarse lifecycle of each shipment. Stop and action state on `TransportExecution` carry intermediate progress. No new shipment status is added for "second pickup" or "partial delivery". A route does not have a shipment status. `DEPOT_START` without a materialized shipment does not create one and does not move a status.
+
+Each participant shipment is aligned on its own. A pickup for shipment B does not change shipment A.
 
 `DELIVERY_SLOT_BOOKED` stays a named constant outside the transition map. This freeze does not insert it into the chain.
 
@@ -22,7 +24,7 @@ DRIVER_ASSIGNED
 PICKUP_SLOT_BOOKED
 ```
 
-Projecting an execution plan does not set these. They remain assignment and manual slot commands.
+Projecting a `TransportExecution` does not set these. They remain assignment and manual slot commands on each participant shipment that exists.
 
 ## First pickup
 
@@ -74,4 +76,4 @@ If the final stop has several delivery actions, `DELIVERED` is set when the last
 
 ## Shipments without a plan
 
-Driver commands keep today's one-step status map. The multi-stop gate applies only when an `ACTIVE` execution plan exists.
+Driver commands keep today's one-step status map. The multi-stop gate applies only when the shipment is a participant of an `ACTIVE` `TransportExecution` revision.

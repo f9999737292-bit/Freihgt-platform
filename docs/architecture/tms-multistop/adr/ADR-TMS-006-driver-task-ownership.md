@@ -10,7 +10,7 @@ Accepted. Architecture freeze. Implementation is not authorized.
 
 ## Decision
 
-`shipment-service` owns driver stop work. Notice tasks are unchanged. A `DriverStopTask` references `execution_stop_id` and mirrors stop status. The stop is authoritative. The driver API shows the current open stop and the next stop, not the optimizer candidate. Offline retries use the existing idempotency record. The server applies commands in stop order when they arrive.
+`shipment-service` owns driver stop work. Notice tasks are unchanged. A `DriverStopTask` references `TransportExecutionStop` on `TransportExecution`. The route owns the sequence. A participant shipment does not. The stop is authoritative. The driver API shows the current open stop and the next stop, not the optimizer candidate. Offline retries use the existing idempotency record. The server applies commands in stop order when they arrive.
 
 ```text
 DRIVER_TASK_OWNER=shipment-service

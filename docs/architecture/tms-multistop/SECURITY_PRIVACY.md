@@ -15,7 +15,9 @@ RoutePlan marketplace visibility does not grant shipment execution rights. A cal
 SHIPMENT_TENANT_ISOLATION=GATEWAY_JWT_TENANT_ON_EVERY_EXECUTION_QUERY
 ```
 
-`tenant_id` comes from the gateway-established identity, as shipment commands already require. Client-supplied `X-Tenant-ID`, body tenant, or query tenant is not an authorization source. Every plan, stop, action, and driver-task read and write includes `tenant_id` and the shipment predicate. Cross-tenant ids return not found, not a foreign object.
+`tenant_id` comes from the gateway-established identity, as shipment commands already require. Client-supplied `X-Tenant-ID`, body tenant, or query tenant is not an authorization source. Every route, revision, stop, action, and driver-task read and write includes `tenant_id`. Cross-tenant ids return not found.
+
+A `TransportExecution` has one `tenant_id`. Every participant shipment must already belong to that tenant. A `LOAD_OPPORTUNITY` from another tenant is not an execution identity. It becomes executable only after materialization creates a shipment and cargo in this tenant. Projection rejects a contract body that names another tenant. Raw load-opportunity ids are not returned on driver or shipper APIs.
 
 ## Driver authorization
 
@@ -23,7 +25,7 @@ SHIPMENT_TENANT_ISOLATION=GATEWAY_JWT_TENANT_ON_EVERY_EXECUTION_QUERY
 DRIVER_AUTHORIZATION=ASSIGNED_DRIVER_ONLY
 ```
 
-The driver identity is the gateway driver principal already used by driver operations. Commands apply only when `shipment.driver_id` is that driver and the stop's task names that driver. A driver cannot choose another shipment by id guess beyond the existing not-found behavior. Operator override uses actor `OPERATOR` inside the same tenant, not the driver flag.
+The driver identity is the gateway driver principal already used by driver operations. Route commands apply only when `TransportExecution.driver_id` is that driver. The sequence is not authorized by picking one participant shipment. A driver cannot read another tenant's route. Operator override uses actor `OPERATOR` inside the same tenant, not the driver flag.
 
 ## Carrier and shipper
 
@@ -32,9 +34,9 @@ CARRIER_VISIBILITY=CARRIER_COMPANY_ON_THE_SHIPMENT
 SHIPPER_VISIBILITY=OWN_CARGO_ACTIONS_ONLY
 ```
 
-The carrier assigned on the shipment can read the execution plan, stop statuses, and actions for that shipment. A shipper can read stop progress for actions whose cargo belongs to that shipper's shipment. On a vehicle that is also carrying another shipper's cargo, the shipper API does not return the other cargo id, the other shipper identity, or the other commercial terms.
+The carrier on `TransportExecution` can read the route, stop statuses, and actions. A shipper can read stop progress only for actions whose `execution_shipment_id` is that shipper's shipment. On a vehicle that is also carrying another shipper's cargo, the shipper API does not return the other cargo id, the other shipper identity, or the other commercial terms.
 
-The driver receives action summaries for cargo they must pick up or deliver on the assigned shipment's active plan. That is execution-authorized data. It is not the optimizer marketplace projection and it does not include evaluation scores, capacity snapshots, or foreign owner tenant ids.
+The driver receives action summaries for materialized cargo on the assigned route. That includes cargo ids they must pick up or deliver. It does not include raw `LOAD_OPPORTUNITY` records, evaluation scores, capacity snapshots, or foreign owner tenant ids.
 
 ## Control Tower
 
@@ -50,6 +52,4 @@ Operators see execution progress for shipments in their tenant through the read 
 EVENT_PAYLOAD_PRIVACY=EXECUTION_FACTS_ONLY
 ```
 
-Execution events include tenant, shipment, plan, stop, action, status, ordinal, and timestamps. They may include `cargo_id` for the action. They omit optimizer fingerprints beyond the plan's `evaluation_fingerprint` reference, leg geometry, prices, other tenants, and capacity snapshots. Driver APIs omit the same planning-only fields.
-
-Projection rejects a contract body that contains a tenant id other than the shipment tenant.
+Execution events include tenant, route, revision, stop, action, status, ordinal, and timestamps. They may include `execution_shipment_id` and `cargo_id` for a materialized action. They omit raw load-opportunity payloads, optimizer fingerprints beyond the revision's `evaluation_fingerprint` reference, leg geometry, prices, other tenants, and capacity snapshots. Driver APIs omit the same planning-only fields.

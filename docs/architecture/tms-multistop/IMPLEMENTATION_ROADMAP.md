@@ -13,7 +13,14 @@ NEXT_TMS_MIGRATION=UNRESERVED
 
 Agent D may need migration `000086` for NLO-0.4C. This pack does not reserve a number. The implementation wave fetches `origin/main` and takes the next free number.
 
-NLO-0.4D in the optimizer roadmap is the shipment and driver integration. It does not start here. It starts only after this freeze is accepted and the Agent D activation contract is actually emitted.
+NLO-0.4D in the optimizer roadmap is the shipment and driver integration. It does not start here. It starts only after this freeze is accepted, Agent D emits `network.route_plan.execution_linked` (`IMPLEMENTED_TODAY=NO`), and the NLO service-duration gate is open.
+
+```text
+NLO_0_4C_ACTIVATION_RELEASE_BLOCKED_UNTIL_SERVICE_DURATION_SOURCE=YES
+TMS_EXECUTION_DOES_NOT_WEAKEN_NLO_ACTIVATION_GATE=YES
+```
+
+No production execution activation is authorized until an authoritative or versioned service-duration source exists. Accepting this architecture does not bypass that gate. A wave that writes execution rows in production stays blocked while the gate is closed.
 
 ## Waves
 
@@ -21,12 +28,12 @@ The suggested split matches the repository: persistence before commands, command
 
 | Wave | Scope | Depends on |
 | --- | --- | --- |
-| TMS-MSTOP-0.1A | Execution plan, stop, and action tables. `CreateExecutionProjectionFromActivation`. Idempotency on `activation_id`. No driver UI | Accepted freeze. Agent D `network.route_plan.execution_linked` |
+| TMS-MSTOP-0.1A | `TransportExecution`, revision, participant, stop, revision-stop link, and action tables. `CreateExecutionProjectionFromActivation`. Idempotency on `activation_id`. Reject unresolved load opportunities. No driver UI | Accepted freeze. Agent D contract `network.route_plan.execution_linked` (`IMPLEMENTED_TODAY=NO`). NLO service-duration gate still closed for production |
 | TMS-MSTOP-0.1B | Stop and action commands, cargo evidence writes, shipment status alignment, completed-stop immutability | 0.1A |
 | TMS-MSTOP-0.1C | `DriverStopTask` for current and next. Driver API. Offline queue still server-ordered | 0.1B |
 | TMS-MSTOP-0.1D | Tracking target `execution_stop`. `planned_arrival` left intact. Advisory approach event | 0.1B |
 | TMS-MSTOP-0.1E | Control Tower execution projection and stop id on delay and problem events | 0.1B |
-| TMS-MSTOP-0.1F | Successor transaction, in-service lock, supersede of remaining stops | 0.1A and 0.1B. 0.1C before drivers see the switch |
+| TMS-MSTOP-0.1F | Successor revision, inherited links, in-service lock, supersede of remaining planned stops without re-parenting completed rows | 0.1A and 0.1B. 0.1C before drivers see the switch |
 
 0.1D and 0.1E can proceed in parallel after 0.1B. They do not block each other. 0.1F is not folded into 0.1A, because the first projection must be correct for a single plan before successor locking is added.
 
@@ -36,4 +43,4 @@ A new shipment status, a slot-booking service, optimizer writes from shipment-se
 
 ## Single-leg shipments
 
-Waves must leave the current milestone map in place when no `ACTIVE` execution plan exists.
+Waves must leave the current milestone map in place when a shipment is not a participant of an `ACTIVE` `TransportExecution`.

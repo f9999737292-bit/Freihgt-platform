@@ -5,32 +5,52 @@ STOP_ACTION_MODEL=CHILD_OF_EXECUTION_STOP
 ACTION_FSM_REQUIRED=YES
 ONBOARD_CARGO_DELIVERY_ONLY=YES
 STOP_COMPLETION_RULE=ALL_ACTIONS_RESOLVED
+RAW_LOAD_OPPORTUNITY_EXECUTABLE=NO
+EXECUTION_SUBJECT_MATERIALIZATION_REQUIRED=YES
 ```
 
-One stop has many actions. One cargo has a pickup and a delivery when it is not yet onboard. Confirmed onboard cargo has a delivery only.
+One stop has many actions. Each action names one materialized shipment and one cargo. Confirmed onboard cargo has a delivery only.
+
+## Materialization
+
+`transport.shipment_cargo_execution_evidence` requires `shipment_id` and `cargo_id`. A RoutePlan action may still say `subject_type=LOAD_OPPORTUNITY`. That id is not evidence and is not an action row.
+
+```text
+LOAD_OPPORTUNITY
+    → commercial materialization in shipment-service
+    → shipment_id + cargo_id
+    → TransportExecutionAction
+```
+
+Materialization is the existing creation of a shipment and cargo, completed before projection. The projection command does not insert a shipment for a marketplace load. If any cargo action arrives without `execution_shipment_id` and `cargo_id`, the command returns `409 EXECUTION_SUBJECT_UNMATERIALIZED` and writes no route, stop, or action. No driver command may append cargo evidence for a raw load opportunity.
+
+`SHIPMENT_CARGO` still must carry the same execution shipment and cargo fields. The planning subject id is only a reference.
 
 ## Fields
 
 | Field | Rule |
 | --- | --- |
-| `id` | Shipment-owned |
+| `id` | Allocated by shipment-service |
 | `execution_stop_id` | Parent stop |
-| `shipment_id` | Tenant-scoped predicate |
+| `tenant_id` | Route tenant |
+| `shipment_id` | Required. The materialized shipment. Not optional |
+| `cargo_id` | Required. The materialized cargo |
+| `cargo_version` | Version copied from the contract |
 | `source_route_plan_action_id` | External reference only |
-| `cargo_id` | Cargo the action moves |
-| `cargo_version` | Version copied from the activation contract |
+| `route_subject_type` | `LOAD_OPPORTUNITY` or `SHIPMENT_CARGO`, reference only |
+| `route_subject_id` | Planning subject id, reference only |
 | `action_type` | `PICKUP` or `DELIVERY` |
 | `ordinal` | Order inside the stop. Pickup of a cargo is before delivery of that cargo when both share the stop |
 | `status` | Action FSM |
-| `evidence_id` | Set when an append-only cargo evidence row is written |
+| `evidence_id` | Set when an append-only cargo evidence row is written for this `shipment_id` and `cargo_id` |
 | `completed_at` | First completion time |
 | `version` | Optimistic concurrency |
 
 ## Action FSM
 
-Action-level state is required because a stop can hold pickup of cargo A, pickup of cargo B, and delivery of cargo C. Today's shipment status can represent only one of those facts.
+Action-level state is required because a stop can hold pickup of cargo A, pickup of cargo B, and delivery of cargo C, including cargos from different participant shipments. Today's shipment status can represent only one shipment's coarse fact.
 
-`IN_PROGRESS` is not a status. Starting service is the stop command `StartStopService`. An action completes in one driver confirmation, matching today's `PICKUP_COMPLETED` and `DELIVERY_COMPLETED`.
+`IN_PROGRESS` is not a status. Starting service is the stop command `StartStopService`. An action completes in one driver confirmation.
 
 ```text
 PENDING
@@ -41,11 +61,11 @@ CANCELLED
 
 | From | To | Actor | Command | Evidence | Idempotent | Retry |
 | --- | --- | --- | --- | --- | --- | --- |
-| `PENDING` | `COMPLETED` | Assigned driver | `ConfirmPickup` or `ConfirmDelivery` | Append-only cargo evidence. Pickup writes `CONFIRMED_ONBOARD`. Delivery writes `UNLOADED`. `occurred_at` | Yes. Second confirm does not insert a second evidence row for the same action | Replay returns the action and the original evidence id |
-| `PENDING` | `FAILED` | Assigned driver | `FailAction` | Driver exception category already allowed on the shipment, comment optional, reason required | Yes. First failure wins | Replay returns `FAILED` |
-| `PENDING` | `CANCELLED` | System or operator | Plan supersede of a not-started action, or shipment cancel | Link to successor or cancel reason | Yes | Does not cancel `COMPLETED` |
+| `PENDING` | `COMPLETED` | Driver on the route | `ConfirmPickup` or `ConfirmDelivery` | Append-only cargo evidence on the action's shipment. Pickup writes `CONFIRMED_ONBOARD`. Delivery writes `UNLOADED` | Yes. Second confirm does not insert a second evidence row for the same action | Replay returns the action and the original evidence id |
+| `PENDING` | `FAILED` | Driver on the route | `FailAction` | Driver exception category already allowed, reason required | Yes. First failure wins | Replay returns `FAILED` |
+| `PENDING` | `CANCELLED` | System or operator | Supersede of a not-started action, or cancel of that participant | Link to successor or cancel reason | Yes | Does not cancel `COMPLETED` |
 
-No transition leaves `COMPLETED`. `FAILED` is terminal for that action. Recovery is a successor plan or an operator decision, not an in-place reset.
+No transition leaves `COMPLETED`. A driver confirm that names a `LOAD_OPPORTUNITY` id and no shipment is rejected with `EXECUTION_SUBJECT_UNMATERIALIZED`.
 
 ## Completion rule
 
@@ -57,25 +77,22 @@ The stop may move to `COMPLETED` only when every action is `COMPLETED`, `FAILED`
 
 | Outcome | Stop | Shipment coarse status |
 | --- | --- | --- |
-| All actions `COMPLETED` | `COMPLETED` | Follow `SHIPMENT_FSM_ALIGNMENT.md` |
-| Mix of `COMPLETED` and `FAILED` | `COMPLETED` with `status_reason=PARTIAL` | Does not become `DELIVERED`. Problem event is emitted |
+| All actions `COMPLETED` | `COMPLETED` | Each participant follows `SHIPMENT_FSM_ALIGNMENT.md` for its own actions only |
+| Mix of `COMPLETED` and `FAILED` | `COMPLETED` with `status_reason=PARTIAL` | A participant does not become `DELIVERED` because another shipment's action failed. Problem event is emitted |
 | Any action still `PENDING` | Stays `SERVICE_STARTED` | Unchanged |
-
-A failed action is visible as the action status plus the existing driver exception record, with `execution_stop_id` and `action_id` added to that record in the future wave. No parallel exception table.
 
 ## Onboard rule
 
-Projection input includes `evidence_state` from the activation contract.
-
-| Evidence at projection | Actions created |
+| Evidence at projection for that shipment and cargo | Actions created |
 | --- | --- |
 | `CONFIRMED_ONBOARD` | `DELIVERY` only |
 | `UNLOADED` | None |
 | `PLANNED`, `PICKED_UP`, or no row, and the plan has pickup and delivery | Both, on the stops the plan names |
 | Plan omits pickup for onboard cargo | Do not invent one |
+| Subject still only a `LOAD_OPPORTUNITY` | Do not create an action. Block projection |
 
-`PICKED_UP` without `CONFIRMED_ONBOARD` is not treated as onboard. The plan must still show the pickup the optimizer was allowed to emit. Execution does not upgrade evidence during projection.
+`PICKED_UP` without `CONFIRMED_ONBOARD` is not treated as onboard. Execution does not upgrade evidence during projection.
 
 ## Documents
 
-Proof-of-delivery upload stays on the existing document flow. `DELIVERY` completion does not require a new document aggregate. When today's POD gate applies, it applies to the final delivery action that moves the shipment to `DELIVERED`, not to every intermediate delivery.
+Proof-of-delivery upload stays on the existing document flow for the participant shipment. When today's POD gate applies, it applies to the final delivery action that moves that shipment to `DELIVERED`, not to every stop on the route.
