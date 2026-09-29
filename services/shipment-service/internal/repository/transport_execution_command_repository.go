@@ -260,13 +260,22 @@ func arriveStop(ctx context.Context, tx pgx.Tx, scope *commandScope) (domain.Exe
 		if err := requireKnownReason(scope.cmd); err != nil {
 			return domain.ExecutionCommandResult{}, err
 		}
-		scope.skipped, err = plannedOrdinalsBefore(ctx, tx, scope, stop.SourceOrdinal)
-		if err != nil {
+		if err := assertPlannedPredecessors(ctx, tx, scope, stop.SourceOrdinal); err != nil {
 			return domain.ExecutionCommandResult{}, err
 		}
 	}
 	if stop.Version != scope.cmd.ExpectedStopVersion {
 		return domain.ExecutionCommandResult{}, domain.ExecutionCommandError(domain.ReasonVersionConflict, false)
+	}
+	if current != stop.ID {
+		skipped, err := skipPlannedPredecessors(ctx, tx, scope, stop.SourceOrdinal)
+		if err != nil {
+			return domain.ExecutionCommandResult{}, err
+		}
+		scope.skipped = skipped
+		if err := emitExecutionEvent(ctx, tx, *scope, domain.EventRouteStopSequenceOverridden, stop.ID, uuid.Nil, scope.skipped); err != nil {
+			return domain.ExecutionCommandResult{}, err
+		}
 	}
 	occurred := scope.cmd.OccurredAt
 	if err := updateStop(ctx, tx, stop, domain.StopStatusArrived, nil, &occurred, nil, nil); err != nil {
@@ -277,11 +286,6 @@ func arriveStop(ctx context.Context, tx pgx.Tx, scope *commandScope) (domain.Exe
 	}
 	if err := emitExecutionEvent(ctx, tx, *scope, domain.EventRouteStopArrived, stop.ID, uuid.Nil, nil); err != nil {
 		return domain.ExecutionCommandResult{}, err
-	}
-	if current != stop.ID {
-		if err := emitExecutionEvent(ctx, tx, *scope, domain.EventRouteStopSequenceOverridden, stop.ID, uuid.Nil, scope.skipped); err != nil {
-			return domain.ExecutionCommandResult{}, err
-		}
 	}
 	stop.Status = domain.StopStatusArrived
 	return stopResult(stop, ""), nil
@@ -529,15 +533,15 @@ func confirmAction(ctx context.Context, tx pgx.Tx, scope *commandScope, actionTy
 		}
 	}
 	if actionType == domain.ActionTypeDelivery {
-		final, err := isFinalDeliveryStop(ctx, tx, scope, action.ShipmentID, action.TenantID, stop.ID)
+		finalAction, err := isFinalRequiredDelivery(ctx, tx, scope, action)
 		if err != nil {
 			return domain.ExecutionCommandResult{}, err
 		}
-		remaining, err := pendingDeliveriesExcept(ctx, tx, scope, action)
+		pending, failed, err := otherRequiredDeliveries(ctx, tx, scope, action)
 		if err != nil {
 			return domain.ExecutionCommandResult{}, err
 		}
-		if final && remaining == 0 && shipment.Status == domain.ShipmentStatusUnloading {
+		if finalAction && pending == 0 && failed == 0 && shipment.Status == domain.ShipmentStatusUnloading {
 			shipment, err = transitionShipment(ctx, tx, shipment, domain.ShipmentStatusDelivered, scope.cmd.OccurredAt, scope.cmd)
 			if err != nil {
 				return domain.ExecutionCommandResult{}, err
@@ -599,6 +603,9 @@ func failAction(ctx context.Context, tx pgx.Tx, scope *commandScope) (domain.Exe
 	}
 	if err := requireDriverCurrent(ctx, tx, scope, stop.ID); err != nil {
 		return domain.ExecutionCommandResult{}, err
+	}
+	if stop.Version != scope.cmd.ExpectedStopVersion {
+		return domain.ExecutionCommandResult{}, domain.ExecutionCommandError(domain.ReasonVersionConflict, false)
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE transport.transport_execution_actions
@@ -904,30 +911,28 @@ func currentSourceOrdinal(ctx context.Context, tx pgx.Tx, scope *commandScope) (
 	return ordinal, nil
 }
 
-func plannedOrdinalsBefore(ctx context.Context, tx pgx.Tx, scope *commandScope, ordinal int) ([]int, error) {
-	rows, err := tx.Query(ctx, `
-		SELECT link.source_ordinal
-		FROM transport.transport_execution_stops AS stop
+func isFinalRequiredDelivery(ctx context.Context, tx pgx.Tx, scope *commandScope, action actionRow) (bool, error) {
+	var id uuid.UUID
+	err := tx.QueryRow(ctx, `
+		SELECT action.id
+		FROM transport.transport_execution_actions AS action
+		JOIN transport.transport_execution_stops AS stop ON stop.id = action.execution_stop_id
 		JOIN transport.transport_execution_revision_stops AS link
-		  ON link.stop_id = stop.id AND link.revision_id = $2
-		WHERE stop.execution_id = $1
-		  AND stop.status = 'PLANNED'
-		  AND link.source_ordinal < $3
-		ORDER BY link.source_ordinal
-	`, scope.cmd.ExecutionID, scope.revisionID, ordinal)
+		  ON link.stop_id = stop.id AND link.revision_id = $1 AND link.membership <> 'SUPERSEDED'
+		JOIN transport.transport_execution_revision_actions AS alink
+		  ON alink.action_id = action.id AND alink.revision_id = $1 AND alink.membership <> 'SUPERSEDED'
+		WHERE action.shipment_id = $2 AND action.shipment_tenant_id = $3
+		  AND action.action_type = 'DELIVERY' AND action.status <> 'CANCELLED'
+		ORDER BY link.source_ordinal DESC, alink.source_action_ordinal DESC
+		LIMIT 1
+	`, scope.revisionID, action.ShipmentID, action.TenantID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
 	if err != nil {
-		return nil, mapDBError(err)
+		return false, mapDBError(err)
 	}
-	defer rows.Close()
-	var out []int
-	for rows.Next() {
-		var value int
-		if err := rows.Scan(&value); err != nil {
-			return nil, mapDBError(err)
-		}
-		out = append(out, value)
-	}
-	return out, mapDBError(rows.Err())
+	return id == action.ID, nil
 }
 
 func isFirstPickupStop(ctx context.Context, tx pgx.Tx, scope *commandScope, shipmentID, tenantID, stopID uuid.UUID) (bool, error) {
@@ -940,7 +945,8 @@ func isFirstPickupStop(ctx context.Context, tx pgx.Tx, scope *commandScope, ship
 		  ON link.stop_id = stop.id AND link.revision_id = $1 AND link.membership <> 'SUPERSEDED'
 		JOIN transport.transport_execution_revision_actions AS alink
 		  ON alink.action_id = action.id AND alink.revision_id = $1 AND alink.membership <> 'SUPERSEDED'
-		WHERE action.shipment_id = $2 AND action.shipment_tenant_id = $3 AND action.action_type = 'PICKUP'
+		WHERE action.shipment_id = $2 AND action.shipment_tenant_id = $3
+		  AND action.action_type = 'PICKUP' AND action.status <> 'CANCELLED'
 		ORDER BY link.source_ordinal, alink.source_action_ordinal
 		LIMIT 1
 	`, scope.revisionID, shipmentID, tenantID).Scan(&id)
@@ -963,7 +969,8 @@ func isFinalDeliveryStop(ctx context.Context, tx pgx.Tx, scope *commandScope, sh
 		  ON link.stop_id = stop.id AND link.revision_id = $1 AND link.membership <> 'SUPERSEDED'
 		JOIN transport.transport_execution_revision_actions AS alink
 		  ON alink.action_id = action.id AND alink.revision_id = $1 AND alink.membership <> 'SUPERSEDED'
-		WHERE action.shipment_id = $2 AND action.shipment_tenant_id = $3 AND action.action_type = 'DELIVERY'
+		WHERE action.shipment_id = $2 AND action.shipment_tenant_id = $3
+		  AND action.action_type = 'DELIVERY' AND action.status <> 'CANCELLED'
 		ORDER BY link.source_ordinal DESC, alink.source_action_ordinal DESC
 		LIMIT 1
 	`, scope.revisionID, shipmentID, tenantID).Scan(&id)
@@ -976,17 +983,80 @@ func isFinalDeliveryStop(ctx context.Context, tx pgx.Tx, scope *commandScope, sh
 	return id == stopID, nil
 }
 
-func pendingDeliveriesExcept(ctx context.Context, tx pgx.Tx, scope *commandScope, action actionRow) (int, error) {
-	var n int
+func otherRequiredDeliveries(ctx context.Context, tx pgx.Tx, scope *commandScope, action actionRow) (int, int, error) {
+	var pending, failed int
 	err := tx.QueryRow(ctx, `
-		SELECT count(*)
+		SELECT count(*) FILTER (WHERE action.status = 'PENDING'),
+			count(*) FILTER (WHERE action.status = 'FAILED')
 		FROM transport.transport_execution_actions AS action
 		JOIN transport.transport_execution_revision_actions AS link
-		  ON link.action_id = action.id AND link.revision_id = $1
+		  ON link.action_id = action.id AND link.revision_id = $1 AND link.membership <> 'SUPERSEDED'
 		WHERE action.shipment_id = $2 AND action.shipment_tenant_id = $3
-		  AND action.action_type = 'DELIVERY' AND action.status = 'PENDING' AND action.id <> $4
-	`, scope.revisionID, action.ShipmentID, action.TenantID, action.ID).Scan(&n)
-	return n, mapDBError(err)
+		  AND action.action_type = 'DELIVERY' AND action.status <> 'CANCELLED' AND action.id <> $4
+	`, scope.revisionID, action.ShipmentID, action.TenantID, action.ID).Scan(&pending, &failed)
+	return pending, failed, mapDBError(err)
+}
+
+func assertPlannedPredecessors(ctx context.Context, tx pgx.Tx, scope *commandScope, ordinal int) error {
+	rows, err := openPredecessors(ctx, tx, scope, ordinal)
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if row.Status != domain.StopStatusPlanned {
+			return domain.ExecutionCommandError(domain.ReasonStopTransitionDenied, false)
+		}
+	}
+	return nil
+}
+
+func skipPlannedPredecessors(ctx context.Context, tx pgx.Tx, scope *commandScope, ordinal int) ([]int, error) {
+	rows, err := openPredecessors(ctx, tx, scope, ordinal)
+	if err != nil {
+		return nil, err
+	}
+	reason := scope.cmd.ReasonCode
+	ordinals := make([]int, 0, len(rows))
+	for _, row := range rows {
+		if row.Status != domain.StopStatusPlanned {
+			return nil, domain.ExecutionCommandError(domain.ReasonStopTransitionDenied, false)
+		}
+		if err := updateStop(ctx, tx, row, domain.StopStatusSkipped, &reason, nil, nil, nil); err != nil {
+			return nil, err
+		}
+		if err := cancelPendingActions(ctx, tx, row.ID); err != nil {
+			return nil, err
+		}
+		ordinals = append(ordinals, row.SourceOrdinal)
+	}
+	return ordinals, nil
+}
+
+func openPredecessors(ctx context.Context, tx pgx.Tx, scope *commandScope, ordinal int) ([]stopRow, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT stop.id, stop.status, stop.version, link.source_ordinal
+		FROM transport.transport_execution_stops AS stop
+		JOIN transport.transport_execution_revision_stops AS link
+		  ON link.stop_id = stop.id AND link.revision_id = $2 AND link.membership <> 'SUPERSEDED'
+		WHERE stop.execution_id = $1
+		  AND link.source_ordinal < $3
+		  AND stop.status IN ('PLANNED', 'ARRIVED', 'SERVICE_STARTED')
+		ORDER BY link.source_ordinal
+		FOR UPDATE OF stop
+	`, scope.cmd.ExecutionID, scope.revisionID, ordinal)
+	if err != nil {
+		return nil, mapDBError(err)
+	}
+	defer rows.Close()
+	var out []stopRow
+	for rows.Next() {
+		var row stopRow
+		if err := rows.Scan(&row.ID, &row.Status, &row.Version, &row.SourceOrdinal); err != nil {
+			return nil, mapDBError(err)
+		}
+		out = append(out, row)
+	}
+	return out, mapDBError(rows.Err())
 }
 
 func loadShipment(ctx context.Context, tx pgx.Tx, tenantID, shipmentID uuid.UUID) (*domain.Shipment, error) {

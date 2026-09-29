@@ -29,6 +29,8 @@ Pickup confirmation appends `CONFIRMED_ONBOARD` through the existing ledger. Del
 
 Shipment status changes use `ValidateStatusTransition`. Stop-only events use aggregate type `TRANSPORT_EXECUTION`, aggregate id of the execution, and aggregate version of the active revision. `event_seq` orders those events. A shipment status change still writes `shipment.status.changed` at the shipment version.
 
+An operator `ARRIVE_STOP` on a later stop skips earlier `PLANNED` stops, cancels their pending actions, and records those ordinals. It does not pass an earlier `ARRIVED` or `SERVICE_STARTED` stop. A failed required delivery blocks `DELIVERED` for that shipment. A cancelled earlier pickup is not the first required pickup.
+
 Command idempotency is `UNIQUE (operating_tenant_id, idempotency_key)` on `transport.transport_execution_commands`. The same key with a different body conflicts. Audit rows live in `transport.transport_execution_command_audit`.
 
 Migration: `000089_tms_transport_execution_commands_v0_1b`. Down drops only the 0.1B command tables, triggers, functions, and `event_seq`.

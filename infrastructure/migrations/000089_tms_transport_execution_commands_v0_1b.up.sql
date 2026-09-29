@@ -45,6 +45,38 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    IF NEW.status IN ('COMPLETED', 'SKIPPED', 'CANCELLED')
+        AND OLD.status IS DISTINCT FROM NEW.status
+    THEN
+        IF NEW.execution_id IS DISTINCT FROM OLD.execution_id
+            OR NEW.ordinal IS DISTINCT FROM OLD.ordinal
+            OR NEW.stop_role IS DISTINCT FROM OLD.stop_role
+            OR NEW.point_kind IS DISTINCT FROM OLD.point_kind
+            OR NEW.location_id IS DISTINCT FROM OLD.location_id
+            OR NEW.latitude IS DISTINCT FROM OLD.latitude
+            OR NEW.longitude IS DISTINCT FROM OLD.longitude
+            OR NEW.planned_arrival IS DISTINCT FROM OLD.planned_arrival
+            OR NEW.planned_departure IS DISTINCT FROM OLD.planned_departure
+            OR NEW.service_duration_seconds IS DISTINCT FROM OLD.service_duration_seconds
+        THEN
+            RAISE EXCEPTION 'TERMINAL_STOP_IMMUTABLE'
+                USING ERRCODE = '23514';
+        END IF;
+        IF NEW.status = 'COMPLETED' THEN
+            IF NEW.arrived_at IS DISTINCT FROM OLD.arrived_at
+                OR NEW.service_started_at IS DISTINCT FROM OLD.service_started_at
+            THEN
+                RAISE EXCEPTION 'TERMINAL_STOP_IMMUTABLE'
+                    USING ERRCODE = '23514';
+            END IF;
+        ELSIF NEW.arrived_at IS DISTINCT FROM OLD.arrived_at
+            OR NEW.service_started_at IS DISTINCT FROM OLD.service_started_at
+            OR NEW.completed_at IS DISTINCT FROM OLD.completed_at
+        THEN
+            RAISE EXCEPTION 'TERMINAL_STOP_IMMUTABLE'
+                USING ERRCODE = '23514';
+        END IF;
+    END IF;
     IF OLD.status IN ('COMPLETED', 'SKIPPED', 'CANCELLED') THEN
         IF NEW.execution_id IS DISTINCT FROM OLD.execution_id
             OR NEW.ordinal IS DISTINCT FROM OLD.ordinal
@@ -80,6 +112,28 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    IF NEW.status IN ('COMPLETED', 'FAILED', 'CANCELLED')
+        AND OLD.status IS DISTINCT FROM NEW.status
+    THEN
+        IF NEW.execution_stop_id IS DISTINCT FROM OLD.execution_stop_id
+            OR NEW.shipment_id IS DISTINCT FROM OLD.shipment_id
+            OR NEW.shipment_tenant_id IS DISTINCT FROM OLD.shipment_tenant_id
+            OR NEW.cargo_id IS DISTINCT FROM OLD.cargo_id
+            OR NEW.cargo_version IS DISTINCT FROM OLD.cargo_version
+            OR NEW.action_type IS DISTINCT FROM OLD.action_type
+            OR NEW.ordinal IS DISTINCT FROM OLD.ordinal
+        THEN
+            RAISE EXCEPTION 'TERMINAL_ACTION_IMMUTABLE'
+                USING ERRCODE = '23514';
+        END IF;
+        IF NEW.status <> 'COMPLETED'
+            AND (NEW.evidence_id IS DISTINCT FROM OLD.evidence_id
+                OR NEW.completed_at IS DISTINCT FROM OLD.completed_at)
+        THEN
+            RAISE EXCEPTION 'TERMINAL_ACTION_IMMUTABLE'
+                USING ERRCODE = '23514';
+        END IF;
+    END IF;
     IF OLD.status = 'COMPLETED' THEN
         IF NEW.execution_stop_id IS DISTINCT FROM OLD.execution_stop_id
             OR NEW.shipment_id IS DISTINCT FROM OLD.shipment_id

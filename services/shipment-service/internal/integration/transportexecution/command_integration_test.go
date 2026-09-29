@@ -359,7 +359,7 @@ func TestTransportExecutionCommands(t *testing.T) {
 		}
 	})
 
-	t.Run("MULTI_ACTION_FINAL_DELIVERY", func(t *testing.T) {
+	t.Run("MULTI_ACTION_FINAL_DELIVERY_SUCCESS_REGRESSION", func(t *testing.T) {
 		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{
 			{{0, domain.ActionTypePickup}},
 			{{0, domain.ActionTypeDelivery}, {0, domain.ActionTypeDelivery}},
@@ -518,6 +518,223 @@ func TestTransportExecutionCommands(t *testing.T) {
 		}
 	})
 
+	t.Run("FAIL_ACTION_STALE_STOP_VERSION_DENIED", func(t *testing.T) {
+		fx := prepareService(t, env, commands, when, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+		err := execCmd(commands, fx.driverCmd(domain.CommandFailAction, 1, 0, "stale-fail", when.Add(300*time.Minute), 999, "CARGO_ISSUE"))
+		if reason(err) != domain.ReasonVersionConflict {
+			t.Fatalf("reason %s err %v", reason(err), err)
+		}
+		if actionStatusOf(t, env, fx.actions[1][0]) != domain.ActionStatusPending {
+			t.Fatal("stale fail changed the action")
+		}
+		if countWhere(t, env, "transport.shipment_event_outbox", "aggregate_id=$1 AND event_type=$2", fx.ships[0].shipmentID, domain.DriverEventTypeProblemReported) != 0 {
+			t.Fatal("stale fail wrote a problem event")
+		}
+		if countWhere(t, env, "transport.transport_execution_commands", "idempotency_key=$1", "stale-fail") != 0 {
+			t.Fatal("stale fail committed a command row")
+		}
+		if countWhere(t, env, "transport.transport_execution_command_audit a JOIN transport.transport_execution_commands c ON c.id=a.command_id", "c.idempotency_key=$1", "stale-fail") != 0 {
+			t.Fatal("stale fail committed an audit row")
+		}
+	})
+
+	t.Run("OPERATOR_OVERRIDE_PLANNED_PREDECESSORS_TO_SKIPPED", func(t *testing.T) {
+		fx := overrideToLaterPickup(t, env, commands, when.Add(310*time.Minute), "override-skip")
+		if stopStatusOf(t, env, fx.stops[0]) != domain.StopStatusSkipped || stopStatusOf(t, env, fx.stops[1]) != domain.StopStatusSkipped {
+			t.Fatalf("predecessors %s %s", stopStatusOf(t, env, fx.stops[0]), stopStatusOf(t, env, fx.stops[1]))
+		}
+		if stopReason(t, env, fx.stops[1]) != "ROUTE_BLOCKED" {
+			t.Fatalf("reason %s", stopReason(t, env, fx.stops[1]))
+		}
+		if stopStatusOf(t, env, fx.stops[2]) != domain.StopStatusArrived {
+			t.Fatal("target was not arrived")
+		}
+	})
+
+	t.Run("OVERRIDE_CANCELS_SKIPPED_PENDING_ACTIONS", func(t *testing.T) {
+		fx := overrideToLaterPickup(t, env, commands, when.Add(320*time.Minute), "override-cancel-actions")
+		if actionStatusOf(t, env, fx.actions[1][0]) != domain.ActionStatusCancelled {
+			t.Fatalf("skipped pickup action %s", actionStatusOf(t, env, fx.actions[1][0]))
+		}
+	})
+
+	t.Run("OVERRIDE_TARGET_BECOMES_CURRENT", func(t *testing.T) {
+		fx := overrideToLaterPickup(t, env, commands, when.Add(330*time.Minute), "override-current")
+		if currentOpenStop(t, env, fx) != fx.stops[2] {
+			t.Fatal("target is not the current stop")
+		}
+	})
+
+	t.Run("DRIVER_CAN_CONTINUE_AFTER_OVERRIDE", func(t *testing.T) {
+		fx := overrideToLaterPickup(t, env, commands, when.Add(340*time.Minute), "override-continue")
+		if shipmentStatus(t, env, fx.ships[0].shipmentID, fx.ships[0].tenantID) != domain.ShipmentStatusInPickup {
+			t.Fatal("later pickup did not become the first required pickup")
+		}
+		res := mustExec(t, commands, fx.driverCmd(domain.CommandStartStopService, 2, -1, "driver-after-override", when.Add(341*time.Minute), stopVersion(t, env, fx.stops[2]), ""))
+		if res.StopStatus != domain.StopStatusServiceStarted {
+			t.Fatalf("driver start %s", res.StopStatus)
+		}
+		res = mustExec(t, commands, fx.driverCmd(domain.CommandConfirmPickup, 2, 0, "confirm-after-override", when.Add(342*time.Minute), stopVersion(t, env, fx.stops[2]), ""))
+		if res.ShipmentStatus != domain.ShipmentStatusLoaded {
+			t.Fatalf("later pickup status %s", res.ShipmentStatus)
+		}
+	})
+
+	t.Run("OVERRIDE_PAST_ARRIVED_STOP_DENIED", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{
+			{{0, domain.ActionTypePickup}},
+			{{0, domain.ActionTypePickup}},
+		})
+		mustExec(t, commands, fx.operatorCmd(domain.CommandArriveStop, 1, -1, "arrive-blocking", when.Add(350*time.Minute), stopVersion(t, env, fx.stops[1]), "ROUTE_BLOCKED"))
+		err := execCmd(commands, fx.operatorCmd(domain.CommandArriveStop, 2, -1, "arrive-past-arrived", when.Add(351*time.Minute), stopVersion(t, env, fx.stops[2]), "ROUTE_BLOCKED"))
+		if reason(err) != domain.ReasonStopTransitionDenied {
+			t.Fatalf("reason %s", reason(err))
+		}
+		if stopStatusOf(t, env, fx.stops[1]) != domain.StopStatusArrived || stopStatusOf(t, env, fx.stops[2]) != domain.StopStatusPlanned {
+			t.Fatal("arrived predecessor was bypassed")
+		}
+	})
+
+	t.Run("OVERRIDE_PAST_SERVICE_STARTED_STOP_DENIED", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{
+			{{0, domain.ActionTypePickup}},
+			{{0, domain.ActionTypePickup}},
+		})
+		mustExec(t, commands, fx.operatorCmd(domain.CommandArriveStop, 1, -1, "arrive-service-block", when.Add(360*time.Minute), stopVersion(t, env, fx.stops[1]), "ROUTE_BLOCKED"))
+		mustExec(t, commands, fx.driverCmd(domain.CommandStartStopService, 1, -1, "start-service-block", when.Add(361*time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+		err := execCmd(commands, fx.operatorCmd(domain.CommandArriveStop, 2, -1, "arrive-past-service", when.Add(362*time.Minute), stopVersion(t, env, fx.stops[2]), "ROUTE_BLOCKED"))
+		if reason(err) != domain.ReasonStopTransitionDenied {
+			t.Fatalf("reason %s", reason(err))
+		}
+		if stopStatusOf(t, env, fx.stops[1]) != domain.StopStatusServiceStarted || stopStatusOf(t, env, fx.stops[2]) != domain.StopStatusPlanned {
+			t.Fatal("in-service predecessor was bypassed")
+		}
+	})
+
+	t.Run("SEQUENCE_OVERRIDE_AUDIT_ORDINALS_MATCH_ACTUAL_SKIPPED", func(t *testing.T) {
+		fx := overrideToLaterPickup(t, env, commands, when.Add(370*time.Minute), "override-audit")
+		got := auditOrdinals(t, env, "override-audit")
+		want := skippedOrdinals(t, env, fx)
+		if len(got) != len(want) {
+			t.Fatalf("audit %v skipped %v", got, want)
+		}
+		for i := range got {
+			if int(got[i]) != want[i] {
+				t.Fatalf("audit %v skipped %v", got, want)
+			}
+		}
+	})
+
+	t.Run("FAILED_REQUIRED_DELIVERY_BLOCKS_DELIVERED", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{
+			{{0, domain.ActionTypePickup}},
+			{{0, domain.ActionTypeDelivery}, {0, domain.ActionTypeDelivery}},
+		})
+		skipStart(t, env, commands, fx, when.Add(380*time.Minute))
+		walkPickup(t, env, commands, fx, 1, when.Add(381*time.Minute))
+		depart := fx.driverCmd(domain.CommandDepartedPickup, -1, -1, "depart-failed-block-"+fx.execution.String(), when.Add(385*time.Minute), 1, "")
+		depart.ShipmentID = fx.ships[0].shipmentID
+		depart.ShipmentTenantID = fx.ships[0].tenantID
+		mustExec(t, commands, depart)
+		mustExec(t, commands, fx.driverCmd(domain.CommandArriveStop, 2, -1, "arrive-failed-block", when.Add(386*time.Minute), stopVersion(t, env, fx.stops[2]), ""))
+		mustExec(t, commands, fx.driverCmd(domain.CommandStartStopService, 2, -1, "start-failed-block", when.Add(387*time.Minute), stopVersion(t, env, fx.stops[2]), ""))
+		mustExec(t, commands, fx.driverCmd(domain.CommandFailAction, 2, 0, "fail-required-delivery", when.Add(388*time.Minute), stopVersion(t, env, fx.stops[2]), "CARGO_ISSUE"))
+		res := mustExec(t, commands, fx.driverCmd(domain.CommandConfirmDelivery, 2, 1, "complete-after-failed", when.Add(389*time.Minute), stopVersion(t, env, fx.stops[2]), ""))
+		if res.ShipmentStatus == domain.ShipmentStatusDelivered {
+			t.Fatal("failed required delivery still delivered the shipment")
+		}
+		res = mustExec(t, commands, fx.driverCmd(domain.CommandCompleteStop, 2, -1, "partial-after-failed", when.Add(390*time.Minute), stopVersion(t, env, fx.stops[2]), ""))
+		if res.StopStatus != domain.StopStatusCompleted || stopReason(t, env, fx.stops[2]) != domain.StopStatusReasonPartial {
+			t.Fatalf("stop %s reason %s", res.StopStatus, stopReason(t, env, fx.stops[2]))
+		}
+	})
+
+	t.Run("OTHER_SHIPMENT_FAILURE_DOES_NOT_BLOCK_THIS_SHIPMENT", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked, domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{
+			{{0, domain.ActionTypePickup}, {1, domain.ActionTypePickup}},
+			{{0, domain.ActionTypeDelivery}, {1, domain.ActionTypeDelivery}},
+		})
+		skipStart(t, env, commands, fx, when.Add(400*time.Minute))
+		mustExec(t, commands, fx.driverCmd(domain.CommandArriveStop, 1, -1, "iso-arrive", when.Add(401*time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+		mustExec(t, commands, fx.driverCmd(domain.CommandStartStopService, 1, -1, "iso-start", when.Add(402*time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+		mustExec(t, commands, fx.driverCmd(domain.CommandConfirmPickup, 1, 0, "iso-pick-a", when.Add(403*time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+		mustExec(t, commands, fx.driverCmd(domain.CommandConfirmPickup, 1, 1, "iso-pick-b", when.Add(404*time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+		mustExec(t, commands, fx.driverCmd(domain.CommandCompleteStop, 1, -1, "iso-complete-pick", when.Add(405*time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+		for i, ship := range fx.ships {
+			depart := fx.driverCmd(domain.CommandDepartedPickup, -1, -1, fmt.Sprintf("iso-depart-%d-%s", i, fx.execution.String()), when.Add(406*time.Minute), 1, "")
+			depart.ShipmentID = ship.shipmentID
+			depart.ShipmentTenantID = ship.tenantID
+			mustExec(t, commands, depart)
+		}
+		mustExec(t, commands, fx.driverCmd(domain.CommandArriveStop, 2, -1, "iso-arrive-del", when.Add(407*time.Minute), stopVersion(t, env, fx.stops[2]), ""))
+		mustExec(t, commands, fx.driverCmd(domain.CommandStartStopService, 2, -1, "iso-start-del", when.Add(408*time.Minute), stopVersion(t, env, fx.stops[2]), ""))
+		mustExec(t, commands, fx.driverCmd(domain.CommandFailAction, 2, 0, "iso-fail-a", when.Add(409*time.Minute), stopVersion(t, env, fx.stops[2]), "CARGO_ISSUE"))
+		res := mustExec(t, commands, fx.driverCmd(domain.CommandConfirmDelivery, 2, 1, "iso-deliver-b", when.Add(410*time.Minute), stopVersion(t, env, fx.stops[2]), ""))
+		if res.ShipmentStatus != domain.ShipmentStatusDelivered {
+			t.Fatalf("shipment B %s", res.ShipmentStatus)
+		}
+		if shipmentStatus(t, env, fx.ships[0].shipmentID, fx.ships[0].tenantID) == domain.ShipmentStatusDelivered {
+			t.Fatal("shipment A was delivered by shipment B")
+		}
+	})
+
+	t.Run("DIRECT_TERMINALIZE_STOP_PLUS_LOCATION_MUTATION_DENIED", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+		_, err := env.pool.Exec(env.ctx, `UPDATE transport.transport_execution_stops SET status='COMPLETED', location_id=$2 WHERE id=$1`, fx.stops[1], uuid.New())
+		if !constraintHas(err, "TERMINAL_STOP_IMMUTABLE") {
+			t.Fatalf("err %v", err)
+		}
+	})
+
+	t.Run("DIRECT_TERMINALIZE_STOP_PLUS_ORDINAL_MUTATION_DENIED", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+		_, err := env.pool.Exec(env.ctx, `UPDATE transport.transport_execution_stops SET status='SKIPPED', ordinal=90 WHERE id=$1`, fx.stops[1])
+		if !constraintHas(err, "TERMINAL_STOP_IMMUTABLE") {
+			t.Fatalf("err %v", err)
+		}
+	})
+
+	t.Run("DIRECT_COMPLETE_ACTION_PLUS_CARGO_MUTATION_DENIED", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+		_, err := env.pool.Exec(env.ctx, `UPDATE transport.transport_execution_actions SET status='COMPLETED', cargo_id=$2 WHERE id=$1`, fx.actions[1][0], uuid.New())
+		if !constraintHas(err, "TERMINAL_ACTION_IMMUTABLE") {
+			t.Fatalf("err %v", err)
+		}
+	})
+
+	t.Run("DIRECT_COMPLETE_ACTION_PLUS_SHIPMENT_MUTATION_DENIED", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+		_, err := env.pool.Exec(env.ctx, `UPDATE transport.transport_execution_actions SET status='COMPLETED', shipment_id=$2 WHERE id=$1`, fx.actions[1][0], uuid.New())
+		if !constraintHas(err, "TERMINAL_ACTION_IMMUTABLE") {
+			t.Fatalf("err %v", err)
+		}
+	})
+
+	t.Run("NORMAL_COMPLETE_STOP_COMMAND", func(t *testing.T) {
+		fx := prepareService(t, env, commands, when, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+		mustExec(t, commands, fx.driverCmd(domain.CommandConfirmPickup, 1, 0, "normal-complete-confirm", when.Add(420*time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+		res := mustExec(t, commands, fx.driverCmd(domain.CommandCompleteStop, 1, -1, "normal-complete", when.Add(421*time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+		if res.StopStatus != domain.StopStatusCompleted {
+			t.Fatalf("status %s", res.StopStatus)
+		}
+	})
+
+	t.Run("NORMAL_CONFIRM_PICKUP_COMMAND", func(t *testing.T) {
+		fx := prepareService(t, env, commands, when, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+		res := mustExec(t, commands, fx.driverCmd(domain.CommandConfirmPickup, 1, 0, "normal-pickup", when.Add(430*time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+		if res.EvidenceID == nil || evidenceState(t, env, *res.EvidenceID) != domain.CargoEvidenceConfirmedOnboard {
+			t.Fatal("normal pickup did not write confirmed onboard")
+		}
+	})
+
+	t.Run("NORMAL_CONFIRM_DELIVERY_COMMAND", func(t *testing.T) {
+		fx := reachUnloading(t, env, commands, when.Add(440*time.Minute))
+		res := mustExec(t, commands, fx.driverCmd(domain.CommandConfirmDelivery, 2, 0, "normal-delivery", when.Add(450*time.Minute), stopVersion(t, env, fx.stops[2]), ""))
+		if res.ShipmentStatus != domain.ShipmentStatusDelivered || res.EvidenceID == nil || evidenceState(t, env, *res.EvidenceID) != domain.CargoEvidenceUnloaded {
+			t.Fatalf("status %s", res.ShipmentStatus)
+		}
+	})
+
 	t.Run("MIGRATION_DOWN_UP", func(t *testing.T) {
 		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
 		down := filepath.Join(env.migrations, "000089_tms_transport_execution_commands_v0_1b.down.sql")
@@ -654,6 +871,87 @@ func (fx execFixture) baseCmd(name string, stopIndex, actionIndex int, key strin
 		cmd.ActionID = fx.actions[stopIndex][actionIndex]
 	}
 	return cmd
+}
+
+func overrideToLaterPickup(t *testing.T, env *execEnv, commands *service.TransportExecutionCommandService, when time.Time, key string) execFixture {
+	t.Helper()
+	fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{
+		{{0, domain.ActionTypePickup}},
+		{{0, domain.ActionTypePickup}},
+	})
+	mustExec(t, commands, fx.operatorCmd(domain.CommandArriveStop, 2, -1, key, when, stopVersion(t, env, fx.stops[2]), "ROUTE_BLOCKED"))
+	return fx
+}
+
+func actionStatusOf(t *testing.T, env *execEnv, id uuid.UUID) string {
+	t.Helper()
+	var status string
+	if err := env.pool.QueryRow(env.ctx, `SELECT status FROM transport.transport_execution_actions WHERE id=$1`, id).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	return status
+}
+
+func currentOpenStop(t *testing.T, env *execEnv, fx execFixture) uuid.UUID {
+	t.Helper()
+	var id uuid.UUID
+	err := env.pool.QueryRow(env.ctx, `
+		SELECT stop.id
+		FROM transport.transport_execution_stops AS stop
+		JOIN transport.transport_execution_revision_stops AS link
+		  ON link.stop_id = stop.id AND link.revision_id = $2
+		WHERE stop.execution_id = $1
+		  AND stop.status IN ('PLANNED', 'ARRIVED', 'SERVICE_STARTED')
+		ORDER BY link.source_ordinal
+		LIMIT 1
+	`, fx.execution, fx.revision).Scan(&id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func auditOrdinals(t *testing.T, env *execEnv, key string) []int32 {
+	t.Helper()
+	var ordinals []int32
+	err := env.pool.QueryRow(env.ctx, `
+		SELECT audit.skipped_ordinals
+		FROM transport.transport_execution_command_audit AS audit
+		JOIN transport.transport_execution_commands AS command ON command.id = audit.command_id
+		WHERE command.idempotency_key = $1
+	`, key).Scan(&ordinals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ordinals
+}
+
+func skippedOrdinals(t *testing.T, env *execEnv, fx execFixture) []int {
+	t.Helper()
+	rows, err := env.pool.Query(env.ctx, `
+		SELECT link.source_ordinal
+		FROM transport.transport_execution_stops AS stop
+		JOIN transport.transport_execution_revision_stops AS link
+		  ON link.stop_id = stop.id AND link.revision_id = $2
+		WHERE stop.execution_id = $1 AND stop.status = 'SKIPPED'
+		ORDER BY link.source_ordinal
+	`, fx.execution, fx.revision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var out []int
+	for rows.Next() {
+		var ordinal int
+		if err := rows.Scan(&ordinal); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, ordinal)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 func skipStart(t *testing.T, env *execEnv, commands *service.TransportExecutionCommandService, fx execFixture, when time.Time) {
