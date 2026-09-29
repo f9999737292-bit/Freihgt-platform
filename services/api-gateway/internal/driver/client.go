@@ -91,6 +91,30 @@ func (c *Client) RevokeDevice(ctx context.Context, reqCtx RequestContext, device
 	return c.doJSON(ctx, reqCtx, http.MethodDelete, "/v1/driver/me/devices/"+deviceID, nil)
 }
 
+func (c *Client) ListStops(ctx context.Context, reqCtx RequestContext) (json.RawMessage, int, error) {
+	return c.doJSON(ctx, reqCtx, http.MethodGet, "/v1/driver/me/stops", nil)
+}
+
+func (c *Client) ArriveStop(ctx context.Context, reqCtx RequestContext, stopID string, body []byte, idempotencyKey string) (json.RawMessage, int, error) {
+	return c.doJSONWithIdempotency(ctx, reqCtx, http.MethodPost, "/v1/driver/me/stops/"+stopID+"/arrive", body, idempotencyKey)
+}
+
+func (c *Client) StartStopService(ctx context.Context, reqCtx RequestContext, stopID string, body []byte, idempotencyKey string) (json.RawMessage, int, error) {
+	return c.doJSONWithIdempotency(ctx, reqCtx, http.MethodPost, "/v1/driver/me/stops/"+stopID+"/start-service", body, idempotencyKey)
+}
+
+func (c *Client) CompleteStop(ctx context.Context, reqCtx RequestContext, stopID string, body []byte, idempotencyKey string) (json.RawMessage, int, error) {
+	return c.doJSONWithIdempotency(ctx, reqCtx, http.MethodPost, "/v1/driver/me/stops/"+stopID+"/complete", body, idempotencyKey)
+}
+
+func (c *Client) ConfirmStopAction(ctx context.Context, reqCtx RequestContext, stopID, actionID string, body []byte, idempotencyKey string) (json.RawMessage, int, error) {
+	return c.doJSONWithIdempotency(ctx, reqCtx, http.MethodPost, "/v1/driver/me/stops/"+stopID+"/actions/"+actionID+"/confirm", body, idempotencyKey)
+}
+
+func (c *Client) FailStopAction(ctx context.Context, reqCtx RequestContext, stopID, actionID string, body []byte, idempotencyKey string) (json.RawMessage, int, error) {
+	return c.doJSONWithIdempotency(ctx, reqCtx, http.MethodPost, "/v1/driver/me/stops/"+stopID+"/actions/"+actionID+"/fail", body, idempotencyKey)
+}
+
 func (c *Client) doJSONWithIdempotency(ctx context.Context, reqCtx RequestContext, method, path string, body []byte, idempotencyKey string) (json.RawMessage, int, error) {
 	var reader io.Reader
 	if body != nil {

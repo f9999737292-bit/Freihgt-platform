@@ -89,6 +89,9 @@ func (r *TransportExecutionRepository) Project(ctx context.Context, cmd domain.P
 	if err := insertActions(ctx, tx, revisionID, cmd, stopIDs); err != nil {
 		return domain.ProjectionResult{}, err
 	}
+	if err := materializeDriverStopTasksFn(ctx, tx, executionID, now); err != nil {
+		return domain.ProjectionResult{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		if constraintName(err) == "transport_execution_revisions_activation_uq" {
 			return r.replayAfterConflict(ctx, cmd, digest)

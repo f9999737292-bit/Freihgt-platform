@@ -30,6 +30,9 @@ import (
 func TestTransportExecutionFoundation(t *testing.T) {
 	env := startPostgres(t)
 	t.Run("migration up down up", func(t *testing.T) {
+		if err := execSQLFile(env.ctx, env.pool, filepath.Join(env.migrations, "000090_tms_driver_stop_tasks_v0_1c.down.sql")); err != nil {
+			t.Fatal(err)
+		}
 		if err := execSQLFile(env.ctx, env.pool, filepath.Join(env.migrations, "000089_tms_transport_execution_commands_v0_1b.down.sql")); err != nil {
 			t.Fatal(err)
 		}
@@ -51,8 +54,14 @@ func TestTransportExecutionFoundation(t *testing.T) {
 		if err := execSQLFile(env.ctx, env.pool, filepath.Join(env.migrations, "000089_tms_transport_execution_commands_v0_1b.up.sql")); err != nil {
 			t.Fatal(err)
 		}
+		if err := execSQLFile(env.ctx, env.pool, filepath.Join(env.migrations, "000090_tms_driver_stop_tasks_v0_1c.up.sql")); err != nil {
+			t.Fatal(err)
+		}
 		if !tableExists(t, env, "transport_executions") {
 			t.Fatal("up did not create transport_executions")
+		}
+		if !tableExists(t, env, "driver_stop_tasks") {
+			t.Fatal("up did not create driver_stop_tasks")
 		}
 		if !relationExists(t, env, "documents", "document_packages") {
 			t.Fatal("000088 down removed EDO document_packages")
@@ -502,7 +511,7 @@ func applySelectedMigrations(ctx context.Context, pool *pgxpool.Pool, dir string
 	for _, file := range files {
 		base := filepath.Base(file)
 		num := migrationNumber(base)
-		if num > 89 {
+		if num > 90 {
 			continue
 		}
 		content, err := os.ReadFile(file)

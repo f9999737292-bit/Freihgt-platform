@@ -57,6 +57,13 @@ func TestDriverTaskCreateAndInbox(t *testing.T) {
 	require.Equal(t, 1, total)
 	require.Len(t, items, 1)
 
+	read, err := taskSvc.MarkRead(ctx, fix.TenantID, fix.UserID, task.ID)
+	require.NoError(t, err)
+	require.Equal(t, domain.DriverTaskStatusRead, read.Status)
+	acked, err := taskSvc.Acknowledge(ctx, fix.TenantID, fix.UserID, task.ID)
+	require.NoError(t, err)
+	require.Equal(t, domain.DriverTaskStatusAcknowledged, acked.Status)
+
 	fixB := seedSecondDriverFixture(t, env.pool, fix.TenantID)
 	_, err = taskSvc.GetTask(ctx, fix.TenantID, fixB.UserID, task.ID)
 	require.Error(t, err)
@@ -76,7 +83,7 @@ func TestDriverTaskConcurrentCreate(t *testing.T) {
 				TenantID: fix.TenantID, DriverID: fix.DriverID, ShipmentID: &fix.ShipmentID,
 				TaskType: domain.DriverTaskTypeRequestDelayReason, Source: domain.DriverTaskSourceControlTower,
 				IdempotencyKey: "idem-concurrent-task",
-				CreatedByType: domain.DriverTaskCreatorControlTower,
+				CreatedByType:  domain.DriverTaskCreatorControlTower,
 			})
 			errs[idx] = err
 		}(i)
@@ -255,13 +262,19 @@ func seedSecondDriverFixture(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUI
 	shipper, consignee, origin, dest, orderID := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	_, err := pool.Exec(ctx, `INSERT INTO core.companies (id,tenant_id,legal_name,company_type) VALUES ($1,$2,'Carrier B','CARRIER')`, fix.CarrierID, tenantID)
 	require.NoError(t, err)
-	for _, row := range []struct{ id uuid.UUID; typ, name string }{
+	for _, row := range []struct {
+		id        uuid.UUID
+		typ, name string
+	}{
 		{shipper, "SHIPPER", "Shipper B"}, {consignee, "CONSIGNEE", "Consignee B"},
 	} {
 		_, err = pool.Exec(ctx, `INSERT INTO core.companies (id,tenant_id,legal_name,company_type) VALUES ($1,$2,$3,$4)`, row.id, tenantID, row.name, row.typ)
 		require.NoError(t, err)
 	}
-	for _, loc := range []struct{ id uuid.UUID; name string }{{origin, "O"}, {dest, "D"}} {
+	for _, loc := range []struct {
+		id   uuid.UUID
+		name string
+	}{{origin, "O"}, {dest, "D"}} {
 		_, err = pool.Exec(ctx, `INSERT INTO transport.locations (id,tenant_id,location_type,name,country_code) VALUES ($1,$2,'WAREHOUSE',$3,'RU')`, loc.id, tenantID, loc.name)
 		require.NoError(t, err)
 	}

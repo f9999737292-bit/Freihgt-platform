@@ -36,6 +36,7 @@ type DriverOperationsService struct {
 	drivers    driverIdentityStore
 	shipments  driverShipmentStore
 	operations driverOperationStore
+	departure  *repository.TransportExecutionCommandRepository
 }
 
 func NewDriverOperationsService(
@@ -139,6 +140,15 @@ func (s *DriverOperationsService) RecordOperationalEvent(
 	}
 
 	idempotencyKey := strings.TrimSpace(in.IdempotencyKey)
+	if strings.EqualFold(strings.TrimSpace(in.Type), "DEPARTED_PICKUP") && s.departure != nil {
+		dispatched, handled, dispatchErr := s.dispatchMultistopDeparture(ctx, tenantID, resolved.Driver.ID, shipmentID, idempotencyKey, in)
+		if dispatchErr != nil {
+			return DriverOperationalEventResult{}, dispatchErr
+		}
+		if handled {
+			return dispatched, nil
+		}
+	}
 	if existing, err := s.operations.GetIdempotencyRecord(ctx, tenantID, resolved.Driver.ID, domain.DriverOperationTypeStatusEvent, idempotencyKey); err != nil {
 		return DriverOperationalEventResult{}, err
 	} else if existing != nil {
@@ -439,4 +449,50 @@ func (s *DriverOperationsService) ReportDelay(
 		return DriverDelayResult{}, err
 	}
 	return result, nil
+}
+
+func (s *DriverOperationsService) BindMultistopDeparture(commands *repository.TransportExecutionCommandRepository) {
+	s.departure = commands
+}
+
+func (s *DriverOperationsService) dispatchMultistopDeparture(
+	ctx context.Context,
+	tenantID, driverID, shipmentID uuid.UUID,
+	idempotencyKey string,
+	in domain.DriverOperationalEventInput,
+) (DriverOperationalEventResult, bool, error) {
+	executionID, revisionID, shipmentTenant, found, err := s.departure.FindAssignedParticipant(ctx, tenantID, driverID, shipmentID)
+	if err != nil || !found {
+		return DriverOperationalEventResult{}, false, err
+	}
+	receivedAt := time.Now().UTC()
+	occurredAt := receivedAt
+	if in.OccurredAt != nil {
+		occurredAt = in.OccurredAt.UTC()
+	}
+	updated, err := s.departure.Execute(ctx, domain.ExecutionCommand{
+		Name:              domain.CommandDepartedPickup,
+		ExecutionID:       executionID,
+		RevisionID:        revisionID,
+		ShipmentID:        shipmentID,
+		ShipmentTenantID:  shipmentTenant,
+		IdempotencyKey:    idempotencyKey,
+		OccurredAt:        occurredAt,
+		ActorKind:         domain.ActorKindDriver,
+		ActorID:           driverID,
+		OperatingTenantID: tenantID,
+	})
+	if err != nil {
+		return DriverOperationalEventResult{}, false, err
+	}
+	target := domain.ShipmentStatusInTransit
+	return DriverOperationalEventResult{
+		ShipmentID:     shipmentID,
+		EventType:      strings.TrimSpace(in.Type),
+		TargetStatus:   &target,
+		ShipmentStatus: updated.ShipmentStatus,
+		OccurredAt:     occurredAt,
+		ReceivedAt:     receivedAt,
+		Replayed:       updated.Replayed,
+	}, true, nil
 }

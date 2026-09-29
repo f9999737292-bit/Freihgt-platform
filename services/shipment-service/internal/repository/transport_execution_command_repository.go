@@ -840,7 +840,8 @@ func actionsOnStop(ctx context.Context, tx pgx.Tx, stopID uuid.UUID) ([]actionRo
 }
 
 func updateStop(ctx context.Context, tx pgx.Tx, stop stopRow, status string, reason *string, arrived, started, completed *time.Time) error {
-	tag, err := tx.Exec(ctx, `
+	var version int
+	err := tx.QueryRow(ctx, `
 		UPDATE transport.transport_execution_stops
 		SET status = $1,
 			status_reason = CASE WHEN $2::text IS NULL THEN status_reason ELSE $2 END,
@@ -850,12 +851,20 @@ func updateStop(ctx context.Context, tx pgx.Tx, stop stopRow, status string, rea
 			version = version + 1,
 			updated_at = now()
 		WHERE id = $6 AND status = $7 AND version = $8
-	`, status, reason, optionalTime(arrived), optionalTime(started), optionalTime(completed), stop.ID, stop.Status, stop.Version)
+		RETURNING version
+	`, status, reason, optionalTime(arrived), optionalTime(started), optionalTime(completed), stop.ID, stop.Status, stop.Version).Scan(&version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ExecutionCommandError(domain.ReasonVersionConflict, false)
+	}
 	if err != nil {
 		return mapDBError(err)
 	}
-	if tag.RowsAffected() == 0 {
-		return domain.ExecutionCommandError(domain.ReasonVersionConflict, false)
+	if _, err := tx.Exec(ctx, `
+		UPDATE transport.driver_stop_tasks
+		SET status = $2, version = $3, updated_at = now()
+		WHERE execution_stop_id = $1
+	`, stop.ID, status, version); err != nil {
+		return mapDBError(err)
 	}
 	return nil
 }

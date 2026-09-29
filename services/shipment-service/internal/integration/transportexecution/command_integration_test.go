@@ -737,6 +737,15 @@ func TestTransportExecutionCommands(t *testing.T) {
 
 	t.Run("MIGRATION_DOWN_UP", func(t *testing.T) {
 		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+		if err := execSQLFile(env.ctx, env.pool, filepath.Join(env.migrations, "000090_tms_driver_stop_tasks_v0_1c.down.sql")); err != nil {
+			t.Fatal(err)
+		}
+		if relationExists(t, env, "transport", "driver_stop_tasks") {
+			t.Fatal("000090 down left driver_stop_tasks")
+		}
+		if !relationExists(t, env, "transport", "transport_execution_stops") || !relationExists(t, env, "transport", "transport_execution_commands") {
+			t.Fatal("000090 down removed a 0.1A or 0.1B table")
+		}
 		down := filepath.Join(env.migrations, "000089_tms_transport_execution_commands_v0_1b.down.sql")
 		up := filepath.Join(env.migrations, "000089_tms_transport_execution_commands_v0_1b.up.sql")
 		if err := execSQLFile(env.ctx, env.pool, down); err != nil {
@@ -752,6 +761,9 @@ func TestTransportExecutionCommands(t *testing.T) {
 			t.Fatal(err)
 		}
 		if err := execSQLFile(env.ctx, env.pool, up); err != nil {
+			t.Fatal(err)
+		}
+		if err := execSQLFile(env.ctx, env.pool, filepath.Join(env.migrations, "000090_tms_driver_stop_tasks_v0_1c.up.sql")); err != nil {
 			t.Fatal(err)
 		}
 		if !relationExists(t, env, "transport", "transport_execution_commands") {

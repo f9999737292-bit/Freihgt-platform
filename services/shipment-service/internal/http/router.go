@@ -27,6 +27,7 @@ func NewRouter(
 	vehicleSvc *service.VehicleService,
 	driverOpsSvc *service.DriverOperationsService,
 	driverTaskSvc *service.DriverTaskService,
+	driverStopSvc *service.DriverStopService,
 	evidenceSvc *service.ExecutionEvidenceService,
 	internalToken string,
 ) http.Handler {
@@ -38,6 +39,7 @@ func NewRouter(
 	vehicleHandler := handlers.NewVehicleHandler(vehicleSvc)
 	driverOpsHandler := handlers.NewDriverOperationsHandler(driverOpsSvc)
 	driverTaskHandler := handlers.NewDriverTaskHandler(driverTaskSvc)
+	driverStopHandler := handlers.NewDriverStopHandler(driverStopSvc)
 	internalTaskHandler := handlers.NewInternalDriverTaskHandler(driverTaskSvc, internalToken)
 	ownershipHandler := handlers.NewOwnershipInternalHandler(shipmentSvc)
 	planningHandler := handlers.NewPlanningInternalHandler(shipmentSvc)
@@ -98,6 +100,12 @@ func NewRouter(
 		r.Post("/tasks/{taskId}/responses", driverTaskHandler.SubmitResponse)
 		r.Post("/devices", driverTaskHandler.RegisterDevice)
 		r.Delete("/devices/{deviceId}", driverTaskHandler.RevokeDevice)
+		r.Get("/stops", driverStopHandler.List)
+		r.Post("/stops/{stopId}/arrive", driverStopHandler.Arrive)
+		r.Post("/stops/{stopId}/start-service", driverStopHandler.StartService)
+		r.Post("/stops/{stopId}/complete", driverStopHandler.Complete)
+		r.Post("/stops/{stopId}/actions/{actionId}/confirm", driverStopHandler.Confirm)
+		r.Post("/stops/{stopId}/actions/{actionId}/fail", driverStopHandler.Fail)
 	})
 
 	r.Route("/v1/vehicles", func(r chi.Router) {

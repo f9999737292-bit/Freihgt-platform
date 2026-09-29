@@ -237,6 +237,12 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/shipments/{id}/accept", "post", "Accept shipment", "Shipments", True, True, None),
     ("/api/v1/shipments/{id}/status", "patch", "Update shipment status", "Shipments", True, True, None),
     ("/api/v1/shipments/{id}/cancel", "post", "Cancel shipment", "Shipments", True, True, None),
+    ("/api/v1/driver/me/stops", "get", "List the current and next driver stops", "Drivers", True, True, "driver_stop_list"),
+    ("/api/v1/driver/me/stops/{stopId}/arrive", "post", "Arrive at the current driver stop", "Drivers", True, True, "driver_stop_command"),
+    ("/api/v1/driver/me/stops/{stopId}/start-service", "post", "Start service at the current driver stop", "Drivers", True, True, "driver_stop_command"),
+    ("/api/v1/driver/me/stops/{stopId}/complete", "post", "Complete the current driver stop", "Drivers", True, True, "driver_stop_command"),
+    ("/api/v1/driver/me/stops/{stopId}/actions/{actionId}/confirm", "post", "Confirm the server-resolved pickup or delivery action", "Drivers", True, True, "driver_stop_command"),
+    ("/api/v1/driver/me/stops/{stopId}/actions/{actionId}/fail", "post", "Fail a driver stop action", "Drivers", True, True, "driver_stop_fail"),
     ("/api/v1/drivers", "post", "Create driver", "Drivers", True, True, None),
     ("/api/v1/drivers", "get", "List drivers", "Drivers", True, True, None),
     ("/api/v1/drivers/{id}", "get", "Get driver by ID", "Drivers", True, True, None),
@@ -532,6 +538,8 @@ IDEMPOTENCY_HEADER_PROFILES = frozenset({
     "ls_create",
     "ls_approve",
     "ls_reject",
+    "driver_stop_command",
+    "driver_stop_fail",
 })
 
 LATE_SUBMISSION_IDEMPOTENCY_PROFILES = frozenset({"ls_create", "ls_approve", "ls_reject"})
@@ -1715,6 +1723,10 @@ def render_operation(
             lines.append("              $ref: '#/components/schemas/RoutePlanEvaluateRequest'")
         elif profile in {"bno_route_plan_accept", "bno_route_plan_activate"}:
             lines.append("              $ref: '#/components/schemas/RoutePlanDecisionRequest'")
+        elif profile == "driver_stop_command":
+            lines.append("              $ref: '#/components/schemas/DriverStopCommandRequest'")
+        elif profile == "driver_stop_fail":
+            lines.append("              $ref: '#/components/schemas/DriverStopFailRequest'")
         else:
             lines.extend(
                 [
@@ -2160,6 +2172,8 @@ def render_operation(
         success_code = "200"
     elif profile in {"bno_route_plan_accept", "bno_route_plan_activate"}:
         success_code = "200"
+    elif profile in {"driver_stop_list", "driver_stop_command", "driver_stop_fail"}:
+        success_code = "200"
     elif profile == "bno_compatibility":
         success_code = "200" if method != "post" or path.endswith("/evaluate") or path.endswith("/activate") or path.endswith("/retire") else "201"
     elif method == "post" and tag not in {"Gateway", "Auth"}:
@@ -2185,6 +2199,10 @@ def render_operation(
         response_schema = "RoutePlan"
     if profile == "bno_route_plan_activate":
         response_schema = "RoutePlanActivationResult"
+    if profile == "driver_stop_list":
+        response_schema = "DriverCurrentNextStopsResponse"
+    if profile in {"driver_stop_command", "driver_stop_fail"}:
+        response_schema = "DriverStopCommandResponse"
     if method == "get" and path == "/api/v1/network/marketplace/load-opportunities/{id}":
         response_schema = "NetworkMarketplaceLoad"
     elif method == "get" and path == "/api/v1/network/marketplace/capacities/{id}":
@@ -4775,7 +4793,89 @@ components:
         transport_mode: {type: string}
         pricing_date: {type: string, format: date}
         currency_code: {type: string}
-""" + rfx_components + """    HealthResponse:
+""" + rfx_components + """    DriverStopActionFact:
+      type: object
+      additionalProperties: false
+      required: [actionId, actionType, cargoId, ordinal]
+      properties:
+        actionId: {type: string, format: uuid}
+        actionType: {type: string, enum: [PICKUP, DELIVERY]}
+        cargoId: {type: string, format: uuid}
+        ordinal: {type: integer}
+    DriverStopActionSummary:
+      type: object
+      additionalProperties: false
+      required: [actions, counts]
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverStopActionFact'
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+    DriverStopTask:
+      type: object
+      additionalProperties: false
+      required: [taskId, executionId, executionStopId, ordinal, locationId, status, version, actionSummary, position]
+      properties:
+        taskId: {type: string, format: uuid}
+        executionId: {type: string, format: uuid}
+        executionStopId: {type: string, format: uuid}
+        shipmentId: {type: string, format: uuid, nullable: true}
+        ordinal: {type: integer}
+        locationId: {type: string, format: uuid}
+        plannedArrival: {type: string, format: date-time, nullable: true}
+        status: {type: string, enum: [PLANNED, ARRIVED, SERVICE_STARTED, COMPLETED, CANCELLED, SKIPPED]}
+        version: {type: integer}
+        actionSummary:
+          $ref: '#/components/schemas/DriverStopActionSummary'
+        position: {type: string, enum: [CURRENT, NEXT]}
+    DriverCurrentNextStopsResponse:
+      type: object
+      additionalProperties: false
+      required: [current, next]
+      properties:
+        current:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/DriverStopTask'
+        next:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/DriverStopTask'
+    DriverStopCommandRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        occurredAt: {type: string, format: date-time}
+        expectedVersion: {type: integer, minimum: 1}
+        reasonCode: {type: string}
+    DriverStopFailRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reasonCode]
+      properties:
+        occurredAt: {type: string, format: date-time}
+        expectedVersion: {type: integer, minimum: 1}
+        reasonCode: {type: string}
+        comment: {type: string}
+    DriverStopCommandResponse:
+      type: object
+      additionalProperties: false
+      required: [taskId, executionStopId, status, version, replayed]
+      properties:
+        taskId: {type: string, format: uuid}
+        executionStopId: {type: string, format: uuid}
+        status: {type: string}
+        version: {type: integer}
+        actionStatus: {type: string}
+        evidenceId: {type: string, format: uuid}
+        shipmentStatus: {type: string}
+        replayed: {type: boolean}
+    HealthResponse:
       type: object
       properties:
         status:

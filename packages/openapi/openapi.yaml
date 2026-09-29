@@ -10460,6 +10460,460 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/driver/me/stops:
+    get:
+      tags: [Drivers]
+      summary: List the current and next driver stops
+      operationId: get_list_the_current_and_next_driver_stops
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverCurrentNextStopsResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/driver/me/stops/{stopId}/arrive:
+    post:
+      tags: [Drivers]
+      summary: Arrive at the current driver stop
+      operationId: post_arrive_at_the_current_driver_stop
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: stopId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied idempotency key for version lifecycle mutation (max 128 chars).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverStopCommandRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverStopCommandResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/driver/me/stops/{stopId}/start-service:
+    post:
+      tags: [Drivers]
+      summary: Start service at the current driver stop
+      operationId: post_start_service_at_the_current_driver_stop
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: stopId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied idempotency key for version lifecycle mutation (max 128 chars).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverStopCommandRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverStopCommandResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/driver/me/stops/{stopId}/complete:
+    post:
+      tags: [Drivers]
+      summary: Complete the current driver stop
+      operationId: post_complete_the_current_driver_stop
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: stopId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied idempotency key for version lifecycle mutation (max 128 chars).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverStopCommandRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverStopCommandResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/driver/me/stops/{stopId}/actions/{actionId}/confirm:
+    post:
+      tags: [Drivers]
+      summary: Confirm the server-resolved pickup or delivery action
+      operationId: post_confirm_the_server_resolved_pickup_or_delivery_action
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: stopId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: actionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied idempotency key for version lifecycle mutation (max 128 chars).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverStopCommandRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverStopCommandResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/driver/me/stops/{stopId}/actions/{actionId}/fail:
+    post:
+      tags: [Drivers]
+      summary: Fail a driver stop action
+      operationId: post_fail_a_driver_stop_action
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: stopId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: actionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied idempotency key for version lifecycle mutation (max 128 chars).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverStopFailRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverStopCommandResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/drivers:
     post:
       tags: [Drivers]
@@ -21622,6 +22076,88 @@ components:
           type: string
         error_description:
           type: string
+    DriverStopActionFact:
+      type: object
+      additionalProperties: false
+      required: [actionId, actionType, cargoId, ordinal]
+      properties:
+        actionId: {type: string, format: uuid}
+        actionType: {type: string, enum: [PICKUP, DELIVERY]}
+        cargoId: {type: string, format: uuid}
+        ordinal: {type: integer}
+    DriverStopActionSummary:
+      type: object
+      additionalProperties: false
+      required: [actions, counts]
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverStopActionFact'
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+    DriverStopTask:
+      type: object
+      additionalProperties: false
+      required: [taskId, executionId, executionStopId, ordinal, locationId, status, version, actionSummary, position]
+      properties:
+        taskId: {type: string, format: uuid}
+        executionId: {type: string, format: uuid}
+        executionStopId: {type: string, format: uuid}
+        shipmentId: {type: string, format: uuid, nullable: true}
+        ordinal: {type: integer}
+        locationId: {type: string, format: uuid}
+        plannedArrival: {type: string, format: date-time, nullable: true}
+        status: {type: string, enum: [PLANNED, ARRIVED, SERVICE_STARTED, COMPLETED, CANCELLED, SKIPPED]}
+        version: {type: integer}
+        actionSummary:
+          $ref: '#/components/schemas/DriverStopActionSummary'
+        position: {type: string, enum: [CURRENT, NEXT]}
+    DriverCurrentNextStopsResponse:
+      type: object
+      additionalProperties: false
+      required: [current, next]
+      properties:
+        current:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/DriverStopTask'
+        next:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/DriverStopTask'
+    DriverStopCommandRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        occurredAt: {type: string, format: date-time}
+        expectedVersion: {type: integer, minimum: 1}
+        reasonCode: {type: string}
+    DriverStopFailRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reasonCode]
+      properties:
+        occurredAt: {type: string, format: date-time}
+        expectedVersion: {type: integer, minimum: 1}
+        reasonCode: {type: string}
+        comment: {type: string}
+    DriverStopCommandResponse:
+      type: object
+      additionalProperties: false
+      required: [taskId, executionStopId, status, version, replayed]
+      properties:
+        taskId: {type: string, format: uuid}
+        executionStopId: {type: string, format: uuid}
+        status: {type: string}
+        version: {type: integer}
+        actionStatus: {type: string}
+        evidenceId: {type: string, format: uuid}
+        shipmentStatus: {type: string}
+        replayed: {type: boolean}
     HealthResponse:
       type: object
       properties:
