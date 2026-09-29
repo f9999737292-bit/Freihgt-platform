@@ -1,5 +1,5 @@
 -- TMS-MSTOP-0.1A transport execution foundation.
--- 000086 is NLO-0.4C on main. 000087 is reserved by EDO-0.3 I1.
+-- 000086 is NLO-0.4C. 000087 is EDO-0.3 I1. This pair is 000088.
 -- The route root is transport.transport_executions. It has no shipment_id.
 -- Stable stops and actions do not store revision ids or RoutePlan source ids.
 -- Those ids live on the revision link tables.

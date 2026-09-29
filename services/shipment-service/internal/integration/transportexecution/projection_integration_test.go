@@ -48,6 +48,12 @@ func TestTransportExecutionFoundation(t *testing.T) {
 		if !tableExists(t, env, "transport_executions") {
 			t.Fatal("up did not create transport_executions")
 		}
+		if !relationExists(t, env, "documents", "document_packages") {
+			t.Fatal("000088 down removed EDO document_packages")
+		}
+		if !relationExists(t, env, "network_optimizer", "route_plan_activations") {
+			t.Fatal("000088 down removed NLO route_plan_activations")
+		}
 	})
 
 	t.Run("schema ownership", func(t *testing.T) {
@@ -438,7 +444,7 @@ type seededShipment struct {
 
 func startPostgres(t *testing.T) *execEnv {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	t.Cleanup(cancel)
 	port := freePort(t)
 	runtimePath := filepath.Join(t.TempDir(), "pg-runtime")
@@ -490,7 +496,7 @@ func applySelectedMigrations(ctx context.Context, pool *pgxpool.Pool, dir string
 	for _, file := range files {
 		base := filepath.Base(file)
 		num := migrationNumber(base)
-		if num > 14 && num != 30 && num != 31 && num != 88 {
+		if num > 88 {
 			continue
 		}
 		content, err := os.ReadFile(file)
@@ -775,6 +781,21 @@ func countWhere(t *testing.T, env *execEnv, table, where string, args ...any) in
 		t.Fatal(err)
 	}
 	return n
+}
+
+func relationExists(t *testing.T, env *execEnv, schema, name string) bool {
+	t.Helper()
+	var exists bool
+	err := env.pool.QueryRow(env.ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables
+			WHERE table_schema = $1 AND table_name = $2
+		)
+	`, schema, name).Scan(&exists)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return exists
 }
 
 func tableExists(t *testing.T, env *execEnv, name string) bool {

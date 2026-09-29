@@ -58,12 +58,10 @@ const (
 	ReasonExecutionPlanConflict          = "EXECUTION_PLAN_CONFLICT"
 	ReasonPlanStale                      = "PLAN_STALE"
 	ReasonActivationStatusRejected       = "ACTIVATION_STATUS_REJECTED"
-
-	TrustedProjectionCaller = "network-optimizer-service"
 )
 
-// ProjectionCommand is the trusted internal contract from network-optimizer-service.
-// Browser callers cannot submit it. shipment_tenant_id is checked against the shipment row.
+// ProjectionCommand is the in-process projection contract.
+// TMS-MSTOP-0.1A does not expose it over HTTP. shipment_tenant_id is checked against the shipment row.
 type ProjectionCommand struct {
 	ActivationID            uuid.UUID           `json:"activation_id"`
 	ActivationVersion       int                 `json:"activation_version"`

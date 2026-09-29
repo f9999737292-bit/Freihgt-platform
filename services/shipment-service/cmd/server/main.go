@@ -61,8 +61,6 @@ func main() {
 	driverTaskRepo := repository.NewDriverTaskRepository(db.Pool)
 	driverDeviceRepo := repository.NewDriverDeviceRepository(db.Pool)
 	driverTaskSvc := service.NewDriverTaskService(driverRepo, shipmentRepo, driverTaskRepo, driverDeviceRepo)
-	executionRepo := repository.NewTransportExecutionRepository(db.Pool)
-	executionSvc := service.NewTransportExecutionService(executionRepo)
 
 	var pushProvider push.Provider
 	if cfg.FCM.ProjectID != "" && cfg.FCM.AccessToken != "" {
@@ -101,7 +99,7 @@ func main() {
 		)
 	}
 
-	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, evidenceSvc, executionSvc, cfg.InternalServiceToken)
+	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, evidenceSvc, cfg.InternalServiceToken)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
