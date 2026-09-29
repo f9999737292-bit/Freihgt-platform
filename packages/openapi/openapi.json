@@ -39872,9 +39872,6 @@
           },
           "reasonCode": {
             "type": "string"
-          },
-          "comment": {
-            "type": "string"
           }
         }
       },

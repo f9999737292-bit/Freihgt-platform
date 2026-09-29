@@ -4861,7 +4861,6 @@ components:
         occurredAt: {type: string, format: date-time}
         expectedVersion: {type: integer, minimum: 1}
         reasonCode: {type: string}
-        comment: {type: string}
     DriverStopCommandResponse:
       type: object
       additionalProperties: false

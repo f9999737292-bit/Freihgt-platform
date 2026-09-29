@@ -329,6 +329,13 @@ func TestDriverStopTasks(t *testing.T) {
 		if actionStatusOf(t, env, fx.actions[1][0]) != domain.ActionStatusPending {
 			t.Fatal("stale fail mutated the action")
 		}
+		commented := postStopRaw(t, router, fx.operating, user, "/v1/driver/me/stops/"+fx.stops[1].String()+"/actions/"+fx.actions[1][0].String()+"/fail", "fail-comment-"+fx.execution.String(), []byte(`{"expectedVersion":`+strconv.Itoa(stopVersion(t, env, fx.stops[1]))+`,"occurredAt":"2026-09-29T09:30:00Z","reasonCode":"CARGO_ISSUE","comment":"torn wrap"}`))
+		if commented.Code != http.StatusBadRequest {
+			t.Fatalf("comment %d %s", commented.Code, commented.Body.String())
+		}
+		if actionStatusOf(t, env, fx.actions[1][0]) != domain.ActionStatusPending || stopStatusOf(t, env, fx.stops[1]) != domain.StopStatusServiceStarted {
+			t.Fatal("rejected comment mutated the stop")
+		}
 		fail := postStop(t, router, fx.operating, user, fx.stops[1], "fail", fx.actions[1][0].String(), "fail-ok-"+fx.execution.String(), stopVersion(t, env, fx.stops[1]))
 		if fail.Code != http.StatusOK || actionStatusOf(t, env, fx.actions[1][0]) != domain.ActionStatusFailed {
 			t.Fatalf("fail %d %s", fail.Code, fail.Body.String())
@@ -463,6 +470,282 @@ func TestDriverStopTasks(t *testing.T) {
 		if countWhere(t, env, "transport.transport_execution_commands", "idempotency_key=$1 AND command_name='DEPARTED_PICKUP'", "multi-depart-"+fx.execution.String()) != 1 {
 			t.Fatal("multistop departure did not dispatch the execution command")
 		}
+	})
+
+	t.Run("one execution returns at most current and next", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{
+			{{0, domain.ActionTypePickup}},
+			{{0, domain.ActionTypeDelivery}},
+		})
+		user := bindFixtureDriver(t, env, fx)
+		body := listStops(t, router, fx.operating, user)
+		var payload struct {
+			Current *struct {
+				ExecutionID string `json:"executionId"`
+			} `json:"current"`
+			Next *struct {
+				ExecutionID string `json:"executionId"`
+			} `json:"next"`
+		}
+		if err := json.Unmarshal([]byte(body), &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.Current == nil || payload.Next == nil {
+			t.Fatalf("expected two stops in one execution: %s", body)
+		}
+		if payload.Current.ExecutionID != fx.execution.String() || payload.Next.ExecutionID != fx.execution.String() {
+			t.Fatalf("current/next left the execution: %s", body)
+		}
+		idle := bindExtraDriver(t, env, fx.operating, carrierOf(t, env, fx.execution))
+		empty := listStops(t, router, fx.operating, idle)
+		var idlePayload struct {
+			Current *struct {
+				ExecutionID string `json:"executionId"`
+			} `json:"current"`
+			Next *struct {
+				ExecutionID string `json:"executionId"`
+			} `json:"next"`
+		}
+		if err := json.Unmarshal([]byte(empty), &idlePayload); err != nil {
+			t.Fatal(err)
+		}
+		if idlePayload.Current != nil || idlePayload.Next != nil {
+			t.Fatalf("idle driver %s", empty)
+		}
+	})
+
+	t.Run("multiple open executions fail closed", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+		user := bindFixtureDriver(t, env, fx)
+		second := projectSecondExecution(t, env, fx)
+		rec := listStopsRaw(t, router, fx.operating, user)
+		if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), domain.ReasonDriverExecutionAmbiguous) {
+			t.Fatalf("list %d %s", rec.Code, rec.Body.String())
+		}
+		if strings.Contains(rec.Body.String(), fx.execution.String()) || strings.Contains(rec.Body.String(), second.String()) {
+			t.Fatalf("conflict mixed executions: %s", rec.Body.String())
+		}
+		if _, err := stops.List(env.ctx, fx.operating, user); reason(err) != domain.ReasonDriverExecutionAmbiguous {
+			t.Fatalf("reason %s", reason(err))
+		}
+	})
+
+	t.Run("cancel remaining syncs driver tasks", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{
+			{{0, domain.ActionTypePickup}},
+			{{0, domain.ActionTypeDelivery}},
+		})
+		skipStart(t, env, commands, fx, when)
+		sys := fx.operatorCmd(domain.CommandCancelRemainingStops, -1, -1, "cancel-sync-"+fx.execution.String(), when.Add(time.Minute), 1, "OTHER")
+		sys.ActorKind = domain.ActorKindSystem
+		sys.ActorID = uuid.Nil
+		if _, err := commands.Execute(env.ctx, sys); err != nil {
+			t.Fatal(err)
+		}
+		if stopStatusOf(t, env, fx.stops[1]) != domain.StopStatusPlanned || taskStatus(t, env, fx.stops[1]) != domain.StopStatusPlanned {
+			t.Fatal("current stop was cancelled")
+		}
+		if stopStatusOf(t, env, fx.stops[2]) != domain.StopStatusCancelled || actionStatusOf(t, env, fx.actions[2][0]) != domain.ActionStatusCancelled {
+			t.Fatal("future stop or action was not cancelled")
+		}
+		assertTaskMirrorsStop(t, env, fx.stops[2])
+		if countWhere(t, env, "transport.driver_stop_tasks", "execution_stop_id=$1", fx.stops[3]) != 0 {
+			t.Fatal("untasked end received a driver task")
+		}
+	})
+
+	t.Run("cancel remaining rolls back when task sync fails", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{
+			{{0, domain.ActionTypePickup}},
+			{{0, domain.ActionTypeDelivery}},
+		})
+		if _, err := env.pool.Exec(env.ctx, `
+			CREATE OR REPLACE FUNCTION transport.fail_cancel_remaining_task_sync() RETURNS trigger AS $$
+			BEGIN RAISE EXCEPTION 'cancel remaining task sync failed'; END $$ LANGUAGE plpgsql
+		`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := env.pool.Exec(env.ctx, `
+			CREATE TRIGGER fail_cancel_remaining_task_sync
+			BEFORE UPDATE ON transport.driver_stop_tasks
+			FOR EACH ROW EXECUTE FUNCTION transport.fail_cancel_remaining_task_sync()
+		`); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			_, _ = env.pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS fail_cancel_remaining_task_sync ON transport.driver_stop_tasks`)
+			_, _ = env.pool.Exec(context.Background(), `DROP FUNCTION IF EXISTS transport.fail_cancel_remaining_task_sync()`)
+		})
+		skipStart(t, env, commands, fx, when)
+		beforeActions := actionStatusOf(t, env, fx.actions[2][0])
+		sys := fx.operatorCmd(domain.CommandCancelRemainingStops, -1, -1, "cancel-rollback-"+fx.execution.String(), when.Add(time.Minute), 1, "OTHER")
+		sys.ActorKind = domain.ActorKindSystem
+		sys.ActorID = uuid.Nil
+		if _, err := commands.Execute(env.ctx, sys); err == nil {
+			t.Fatal("cancel remaining committed after task sync failure")
+		}
+		if stopStatusOf(t, env, fx.stops[2]) != domain.StopStatusPlanned || taskStatus(t, env, fx.stops[2]) != domain.StopStatusPlanned {
+			t.Fatal("stop and task diverged after rollback")
+		}
+		if actionStatusOf(t, env, fx.actions[2][0]) != beforeActions {
+			t.Fatal("action cancellation survived the rollback")
+		}
+		if stopStatusOf(t, env, fx.stops[3]) != domain.StopStatusPlanned {
+			t.Fatal("end stop cancellation survived the rollback")
+		}
+		if countWhere(t, env, "transport.transport_execution_commands", "idempotency_key=$1", "cancel-rollback-"+fx.execution.String()) != 0 {
+			t.Fatal("command row survived the rollback")
+		}
+	})
+
+	t.Run("departure sequence guard", func(t *testing.T) {
+		occurred := "2026-09-29T12:00:00Z"
+
+		t.Run("before pickup confirm", func(t *testing.T) {
+			fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+			user := bindFixtureDriver(t, env, fx)
+			skipStart(t, env, commands, fx, when)
+			mustExec(t, commands, fx.driverCmd(domain.CommandArriveStop, 1, -1, "dep-arrive-"+fx.execution.String(), when, stopVersion(t, env, fx.stops[1]), ""))
+			mustExec(t, commands, fx.driverCmd(domain.CommandStartStopService, 1, -1, "dep-start-"+fx.execution.String(), when.Add(time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+			key := "depart-before-" + fx.execution.String()
+			before := departureFootprint(t, env, fx.ships[0].shipmentID, key)
+			rec := postDepart(t, router, fx.operating, user, fx.ships[0].shipmentID, key, occurred)
+			if rec.Code != http.StatusConflict {
+				t.Fatalf("depart %d %s", rec.Code, rec.Body.String())
+			}
+			if shipmentStatus(t, env, fx.ships[0].shipmentID, fx.ships[0].tenantID) != domain.ShipmentStatusInPickup {
+				t.Fatal("shipment changed before pickup confirmation")
+			}
+			assertDepartureUnchanged(t, env, fx.ships[0].shipmentID, key, before)
+		})
+
+		t.Run("after confirm before stop complete", func(t *testing.T) {
+			fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+			user := bindFixtureDriver(t, env, fx)
+			skipStart(t, env, commands, fx, when)
+			mustExec(t, commands, fx.driverCmd(domain.CommandArriveStop, 1, -1, "dep2-arrive-"+fx.execution.String(), when, stopVersion(t, env, fx.stops[1]), ""))
+			mustExec(t, commands, fx.driverCmd(domain.CommandStartStopService, 1, -1, "dep2-start-"+fx.execution.String(), when.Add(time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+			mustExec(t, commands, fx.driverCmd(domain.CommandConfirmPickup, 1, 0, "dep2-confirm-"+fx.execution.String(), when.Add(2*time.Minute), stopVersion(t, env, fx.stops[1]), ""))
+			if shipmentStatus(t, env, fx.ships[0].shipmentID, fx.ships[0].tenantID) != domain.ShipmentStatusLoaded || stopStatusOf(t, env, fx.stops[1]) != domain.StopStatusServiceStarted {
+				t.Fatal("fixture did not stop after pickup confirmation")
+			}
+			key := "depart-open-" + fx.execution.String()
+			before := departureFootprint(t, env, fx.ships[0].shipmentID, key)
+			rec := postDepart(t, router, fx.operating, user, fx.ships[0].shipmentID, key, occurred)
+			if rec.Code != http.StatusConflict {
+				t.Fatalf("depart %d %s", rec.Code, rec.Body.String())
+			}
+			if shipmentStatus(t, env, fx.ships[0].shipmentID, fx.ships[0].tenantID) != domain.ShipmentStatusLoaded {
+				t.Fatal("shipment left LOADED before the pickup stop completed")
+			}
+			assertDepartureUnchanged(t, env, fx.ships[0].shipmentID, key, before)
+		})
+
+		t.Run("after pickup stop complete", func(t *testing.T) {
+			fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+			user := bindFixtureDriver(t, env, fx)
+			skipStart(t, env, commands, fx, when)
+			walkPickup(t, env, commands, fx, 1, when)
+			key := "depart-ready-" + fx.execution.String()
+			rec := postDepart(t, router, fx.operating, user, fx.ships[0].shipmentID, key, occurred)
+			if rec.Code != http.StatusOK || shipmentStatus(t, env, fx.ships[0].shipmentID, fx.ships[0].tenantID) != domain.ShipmentStatusInTransit {
+				t.Fatalf("depart %d %s", rec.Code, rec.Body.String())
+			}
+			replay := postDepart(t, router, fx.operating, user, fx.ships[0].shipmentID, key, occurred)
+			if replay.Code != http.StatusOK || !strings.Contains(replay.Body.String(), `"replayed":true`) {
+				t.Fatalf("replay %d %s", replay.Code, replay.Body.String())
+			}
+			if countWhere(t, env, "transport.transport_execution_commands", "idempotency_key=$1", key) != 1 {
+				t.Fatal("replay wrote a second departure command")
+			}
+			if countWhere(t, env, "transport.shipment_status_history", "shipment_id=$1 AND to_status=$2", fx.ships[0].shipmentID, domain.ShipmentStatusInTransit) != 1 {
+				t.Fatal("replay wrote a second status history row")
+			}
+			conflict := postDepart(t, router, fx.operating, user, fx.ships[0].shipmentID, key, "2026-09-29T13:00:00Z")
+			if conflict.Code != http.StatusConflict || !strings.Contains(conflict.Body.String(), domain.ReasonCommandBodyConflict) {
+				t.Fatalf("conflict %d %s", conflict.Code, conflict.Body.String())
+			}
+			if shipmentStatus(t, env, fx.ships[0].shipmentID, fx.ships[0].tenantID) != domain.ShipmentStatusInTransit {
+				t.Fatal("conflicting replay changed the shipment")
+			}
+			if countWhere(t, env, "transport.shipment_status_history", "shipment_id=$1 AND to_status=$2", fx.ships[0].shipmentID, domain.ShipmentStatusInTransit) != 1 {
+				t.Fatal("conflicting replay wrote status history")
+			}
+		})
+
+		t.Run("wrong revision", func(t *testing.T) {
+			fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+			user := bindFixtureDriver(t, env, fx)
+			skipStart(t, env, commands, fx, when)
+			walkPickup(t, env, commands, fx, 1, when)
+			stale := fx.driverCmd(domain.CommandDepartedPickup, -1, -1, "depart-stale-"+fx.execution.String(), when.Add(10*time.Minute), 1, "")
+			stale.RevisionID = uuid.New()
+			stale.ShipmentID = fx.ships[0].shipmentID
+			stale.ShipmentTenantID = fx.ships[0].tenantID
+			if reason(execCmd(commands, stale)) != domain.ReasonStaleRevision {
+				t.Fatalf("reason %s", reason(execCmd(commands, stale)))
+			}
+			activateEmptyRevision(t, env, fx)
+			key := "depart-wrong-rev-" + fx.execution.String()
+			before := departureFootprint(t, env, fx.ships[0].shipmentID, key)
+			rec := postDepart(t, router, fx.operating, user, fx.ships[0].shipmentID, key, occurred)
+			if rec.Code != http.StatusConflict {
+				t.Fatalf("depart %d %s", rec.Code, rec.Body.String())
+			}
+			if shipmentStatus(t, env, fx.ships[0].shipmentID, fx.ships[0].tenantID) != domain.ShipmentStatusLoaded {
+				t.Fatal("wrong revision departed the shipment")
+			}
+			assertDepartureUnchanged(t, env, fx.ships[0].shipmentID, key, before)
+		})
+
+		t.Run("superseded pickup", func(t *testing.T) {
+			fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{{0, domain.ActionTypePickup}}})
+			user := bindFixtureDriver(t, env, fx)
+			skipStart(t, env, commands, fx, when)
+			walkPickup(t, env, commands, fx, 1, when)
+			if _, err := env.pool.Exec(env.ctx, `
+				UPDATE transport.transport_execution_revision_actions
+				SET membership = 'SUPERSEDED'
+				WHERE revision_id = $1 AND action_id = $2
+			`, fx.revision, fx.actions[1][0]); err != nil {
+				t.Fatal(err)
+			}
+			key := "depart-superseded-" + fx.execution.String()
+			before := departureFootprint(t, env, fx.ships[0].shipmentID, key)
+			rec := postDepart(t, router, fx.operating, user, fx.ships[0].shipmentID, key, occurred)
+			if rec.Code != http.StatusConflict {
+				t.Fatalf("depart %d %s", rec.Code, rec.Body.String())
+			}
+			if shipmentStatus(t, env, fx.ships[0].shipmentID, fx.ships[0].tenantID) != domain.ShipmentStatusLoaded {
+				t.Fatal("superseded pickup departed the shipment")
+			}
+			assertDepartureUnchanged(t, env, fx.ships[0].shipmentID, key, before)
+		})
+
+		t.Run("cross shipper", func(t *testing.T) {
+			fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked, domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{
+				{{0, domain.ActionTypePickup}},
+				{{1, domain.ActionTypePickup}},
+			})
+			user := bindFixtureDriver(t, env, fx)
+			if fx.operating == fx.ships[0].tenantID || fx.ships[0].tenantID == fx.ships[1].tenantID {
+				t.Fatal("fixture did not keep shipper tenants distinct from the carrier")
+			}
+			skipStart(t, env, commands, fx, when)
+			walkPickup(t, env, commands, fx, 1, when)
+			beforeB := shipmentStatus(t, env, fx.ships[1].shipmentID, fx.ships[1].tenantID)
+			key := "depart-cross-" + fx.execution.String()
+			rec := postDepart(t, router, fx.operating, user, fx.ships[0].shipmentID, key, occurred)
+			if rec.Code != http.StatusOK || shipmentStatus(t, env, fx.ships[0].shipmentID, fx.ships[0].tenantID) != domain.ShipmentStatusInTransit {
+				t.Fatalf("depart %d %s", rec.Code, rec.Body.String())
+			}
+			if strings.Contains(rec.Body.String(), fx.ships[0].tenantID.String()) || strings.Contains(rec.Body.String(), fx.ships[1].tenantID.String()) {
+				t.Fatalf("response exposed a shipment tenant: %s", rec.Body.String())
+			}
+			if shipmentStatus(t, env, fx.ships[1].shipmentID, fx.ships[1].tenantID) != beforeB {
+				t.Fatal("the other shipper changed")
+			}
+		})
 	})
 
 	t.Run("notice tasks unchanged", func(t *testing.T) {
@@ -605,7 +888,7 @@ func postStop(t *testing.T, router http.Handler, tenantID, userID, stopID uuid.U
 	}
 	body := []byte(`{"expectedVersion":` + strconv.Itoa(version) + `,"occurredAt":"2026-09-29T09:30:00Z"}`)
 	if action == "fail" {
-		body = []byte(`{"expectedVersion":` + strconv.Itoa(version) + `,"occurredAt":"2026-09-29T09:30:00Z","reasonCode":"CARGO_ISSUE","comment":"torn wrap"}`)
+		body = []byte(`{"expectedVersion":` + strconv.Itoa(version) + `,"occurredAt":"2026-09-29T09:30:00Z","reasonCode":"CARGO_ISSUE"}`)
 	}
 	return postStopRaw(t, router, tenantID, userID, path, key, body)
 }
@@ -623,3 +906,91 @@ func postStopRaw(t *testing.T, router http.Handler, tenantID, userID uuid.UUID, 
 }
 
 func uuidPtr(id uuid.UUID) *uuid.UUID { return &id }
+
+func listStopsRaw(t *testing.T, router http.Handler, tenantID, userID uuid.UUID) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/v1/driver/me/stops", nil)
+	req.Header.Set("X-Tenant-ID", tenantID.String())
+	req.Header.Set("X-User-ID", userID.String())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func projectSecondExecution(t *testing.T, env *execEnv, fx execFixture) uuid.UUID {
+	t.Helper()
+	ship := seedShipment(t, env, "second-route", domain.ShipmentStatusPickupSlotBooked)
+	driverID := fx.driver
+	cmd := cargoRoute(t, env, &driverID, []seededShipment{ship}, false)
+	cmd.OperatingTenantID = fx.operating
+	cmd.CarrierCompanyID = carrierOf(t, env, fx.execution)
+	cmd.DriverID = &driverID
+	result, err := env.svc.CreateExecutionProjectionFromActivation(env.ctx, cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result.ExecutionID
+}
+
+func postDepart(t *testing.T, router http.Handler, tenantID, userID, shipmentID uuid.UUID, key, occurred string) *httptest.ResponseRecorder {
+	t.Helper()
+	body := []byte(`{"type":"DEPARTED_PICKUP","occurredAt":"` + occurred + `","idempotencyKey":"` + key + `"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/driver/me/shipments/"+shipmentID.String()+"/events", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", tenantID.String())
+	req.Header.Set("X-User-ID", userID.String())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+type departureCounts struct {
+	commands int
+	history  int
+	outbox   int
+}
+
+func departureFootprint(t *testing.T, env *execEnv, shipmentID uuid.UUID, key string) departureCounts {
+	t.Helper()
+	return departureCounts{
+		commands: countWhere(t, env, "transport.transport_execution_commands", "idempotency_key=$1", key),
+		history:  countWhere(t, env, "transport.shipment_status_history", "shipment_id=$1 AND to_status=$2", shipmentID, domain.ShipmentStatusInTransit),
+		outbox:   countWhere(t, env, "transport.shipment_event_outbox", "aggregate_id=$1", shipmentID),
+	}
+}
+
+func assertDepartureUnchanged(t *testing.T, env *execEnv, shipmentID uuid.UUID, key string, before departureCounts) {
+	t.Helper()
+	after := departureFootprint(t, env, shipmentID, key)
+	if after != before {
+		t.Fatalf("departure committed commands/history/outbox before=%+v after=%+v", before, after)
+	}
+}
+
+func activateEmptyRevision(t *testing.T, env *execEnv, fx execFixture) {
+	t.Helper()
+	nextID := uuid.New()
+	if _, err := env.pool.Exec(env.ctx, `
+		INSERT INTO transport.transport_execution_revisions (
+			id, execution_id, operating_tenant_id, source_route_plan_id, source_route_plan_version,
+			source_activation_id, source_activation_version, evaluation_fingerprint, planning_mode,
+			supersedes_revision_id, status, version, contract_sha256, created_at, updated_at
+		)
+		SELECT $1, execution_id, operating_tenant_id, source_route_plan_id, source_route_plan_version,
+			$2, source_activation_version, evaluation_fingerprint, planning_mode,
+			id, 'SUPERSEDED', 1, contract_sha256, now(), now()
+		FROM transport.transport_execution_revisions
+		WHERE id = $3
+	`, nextID, uuid.New(), fx.revision); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(env.ctx, `UPDATE transport.transport_execution_revisions SET status = 'SUPERSEDED' WHERE id = $1`, fx.revision); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(env.ctx, `UPDATE transport.transport_execution_revisions SET status = 'ACTIVE' WHERE id = $1`, nextID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(env.ctx, `UPDATE transport.transport_executions SET current_revision_id = $2 WHERE id = $1`, fx.execution, nextID); err != nil {
+		t.Fatal(err)
+	}
+}

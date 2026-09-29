@@ -187,7 +187,49 @@ func loadActionTaskSources(ctx context.Context, tx pgx.Tx, executionID uuid.UUID
 }
 
 func (r *TransportExecutionCommandRepository) ListCurrentNext(ctx context.Context, tenantID, driverID uuid.UUID) (domain.DriverCurrentNextStops, error) {
-	rows, err := r.pool.Query(ctx, `
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return domain.DriverCurrentNextStops{}, mapDBError(err)
+	}
+	defer tx.Rollback(ctx)
+
+	eligible, err := tx.Query(ctx, `
+		SELECT DISTINCT execution.id
+		FROM transport.driver_stop_tasks AS task
+		JOIN transport.transport_execution_stops AS stop ON stop.id = task.execution_stop_id
+		JOIN transport.transport_executions AS execution ON execution.id = task.execution_id
+		JOIN transport.transport_execution_revision_stops AS link
+		  ON link.stop_id = stop.id AND link.revision_id = execution.current_revision_id
+		 AND link.membership <> 'SUPERSEDED'
+		WHERE task.operating_tenant_id = $1
+		  AND execution.driver_id = $2
+		  AND stop.status IN ('PLANNED', 'ARRIVED', 'SERVICE_STARTED')
+	`, tenantID, driverID)
+	if err != nil {
+		return domain.DriverCurrentNextStops{}, mapDBError(err)
+	}
+	var executionIDs []uuid.UUID
+	for eligible.Next() {
+		var id uuid.UUID
+		if err := eligible.Scan(&id); err != nil {
+			eligible.Close()
+			return domain.DriverCurrentNextStops{}, mapDBError(err)
+		}
+		executionIDs = append(executionIDs, id)
+	}
+	if err := eligible.Err(); err != nil {
+		eligible.Close()
+		return domain.DriverCurrentNextStops{}, mapDBError(err)
+	}
+	eligible.Close()
+	if len(executionIDs) == 0 {
+		return domain.DriverCurrentNextStops{}, nil
+	}
+	if len(executionIDs) > 1 {
+		return domain.DriverCurrentNextStops{}, domain.ExecutionCommandError(domain.ReasonDriverExecutionAmbiguous, false)
+	}
+
+	rows, err := tx.Query(ctx, `
 		SELECT task.id, task.execution_id, task.execution_stop_id, task.shipment_id, task.ordinal,
 			task.location_id, task.planned_arrival, task.status, task.version, task.action_summary
 		FROM transport.driver_stop_tasks AS task
@@ -198,10 +240,11 @@ func (r *TransportExecutionCommandRepository) ListCurrentNext(ctx context.Contex
 		 AND link.membership <> 'SUPERSEDED'
 		WHERE task.operating_tenant_id = $1
 		  AND execution.driver_id = $2
+		  AND task.execution_id = $3
 		  AND stop.status IN ('PLANNED', 'ARRIVED', 'SERVICE_STARTED')
 		ORDER BY link.source_ordinal
 		LIMIT 2
-	`, tenantID, driverID)
+	`, tenantID, driverID, executionIDs[0])
 	if err != nil {
 		return domain.DriverCurrentNextStops{}, mapDBError(err)
 	}

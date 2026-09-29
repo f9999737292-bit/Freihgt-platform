@@ -26,7 +26,6 @@ type driverStopCommandRequest struct {
 	OccurredAt      *string `json:"occurredAt"`
 	ExpectedVersion int     `json:"expectedVersion"`
 	ReasonCode      string  `json:"reasonCode"`
-	Comment         *string `json:"comment"`
 }
 
 func (h *DriverStopHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +109,6 @@ func (h *DriverStopHandler) command(
 		respond.Error(w, err)
 		return
 	}
-	_ = req.Comment
 	occurred := time.Now().UTC()
 	if req.OccurredAt != nil && strings.TrimSpace(*req.OccurredAt) != "" {
 		parsed, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(*req.OccurredAt))
