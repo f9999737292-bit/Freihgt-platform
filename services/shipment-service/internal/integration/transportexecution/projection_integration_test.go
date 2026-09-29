@@ -30,6 +30,9 @@ import (
 func TestTransportExecutionFoundation(t *testing.T) {
 	env := startPostgres(t)
 	t.Run("migration up down up", func(t *testing.T) {
+		if err := execSQLFile(env.ctx, env.pool, filepath.Join(env.migrations, "000089_tms_transport_execution_commands_v0_1b.down.sql")); err != nil {
+			t.Fatal(err)
+		}
 		if err := execSQLFile(env.ctx, env.pool, filepath.Join(env.migrations, "000088_tms_transport_execution_foundation_v0_1a.down.sql")); err != nil {
 			t.Fatal(err)
 		}
@@ -43,6 +46,9 @@ func TestTransportExecutionFoundation(t *testing.T) {
 			t.Fatal(err)
 		}
 		if err := execSQLFile(env.ctx, env.pool, filepath.Join(env.migrations, "000088_tms_transport_execution_foundation_v0_1a.up.sql")); err != nil {
+			t.Fatal(err)
+		}
+		if err := execSQLFile(env.ctx, env.pool, filepath.Join(env.migrations, "000089_tms_transport_execution_commands_v0_1b.up.sql")); err != nil {
 			t.Fatal(err)
 		}
 		if !tableExists(t, env, "transport_executions") {
@@ -496,7 +502,7 @@ func applySelectedMigrations(ctx context.Context, pool *pgxpool.Pool, dir string
 	for _, file := range files {
 		base := filepath.Base(file)
 		num := migrationNumber(base)
-		if num > 88 {
+		if num > 89 {
 			continue
 		}
 		content, err := os.ReadFile(file)

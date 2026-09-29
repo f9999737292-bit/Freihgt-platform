@@ -18,12 +18,12 @@ const (
 )
 
 var allowedDriverOperationalEvents = map[string]string{
-	"ARRIVED_AT_PICKUP":    ShipmentStatusInPickup,
-	"PICKUP_COMPLETED":     ShipmentStatusLoaded,
-	"DEPARTED_PICKUP":      ShipmentStatusInTransit,
-	"ARRIVED_AT_DELIVERY":  ShipmentStatusArrivedAtConsignee,
-	"UNLOADING_STARTED":    ShipmentStatusUnloading,
-	"DELIVERY_COMPLETED":   ShipmentStatusDelivered,
+	"ARRIVED_AT_PICKUP":   ShipmentStatusInPickup,
+	"PICKUP_COMPLETED":    ShipmentStatusLoaded,
+	"DEPARTED_PICKUP":     ShipmentStatusInTransit,
+	"ARRIVED_AT_DELIVERY": ShipmentStatusArrivedAtConsignee,
+	"UNLOADING_STARTED":   ShipmentStatusUnloading,
+	"DELIVERY_COMPLETED":  ShipmentStatusDelivered,
 }
 
 // Informational driver events that do not change shipment status.
@@ -32,16 +32,22 @@ var driverInformationalEvents = map[string]struct{}{
 }
 
 var allowedDriverExceptionCategories = map[string]struct{}{
-	"TRAFFIC":               {},
-	"VEHICLE_BREAKDOWN":     {},
-	"ACCIDENT":              {},
-	"LOADING_DELAY":         {},
-	"UNLOADING_DELAY":       {},
-	"CARGO_ISSUE":           {},
-	"DOCUMENT_ISSUE":        {},
-	"CUSTOMER_UNAVAILABLE":  {},
-	"ROUTE_BLOCKED":         {},
-	"OTHER":                 {},
+	"TRAFFIC":              {},
+	"VEHICLE_BREAKDOWN":    {},
+	"ACCIDENT":             {},
+	"LOADING_DELAY":        {},
+	"UNLOADING_DELAY":      {},
+	"CARGO_ISSUE":          {},
+	"DOCUMENT_ISSUE":       {},
+	"CUSTOMER_UNAVAILABLE": {},
+	"ROUTE_BLOCKED":        {},
+	"OTHER":                {},
+}
+
+// IsDriverExceptionCategory reports whether category is in the existing driver exception catalogue.
+func IsDriverExceptionCategory(category string) bool {
+	_, ok := allowedDriverExceptionCategories[strings.TrimSpace(strings.ToUpper(category))]
+	return ok
 }
 
 type DriverOperationalEventInput struct {
@@ -72,23 +78,23 @@ type DriverReportedException struct {
 }
 
 type DriverMeView struct {
-	ID               uuid.UUID
-	DisplayName      string
-	CompanyID        uuid.UUID
-	Status           string
-	PreferredLocale  string
-	Phone            *string
+	ID              uuid.UUID
+	DisplayName     string
+	CompanyID       uuid.UUID
+	Status          string
+	PreferredLocale string
+	Phone           *string
 }
 
 type DriverShipmentSummary struct {
-	ID                uuid.UUID
-	ShipmentNumber    string
-	Status            string
-	PlannedPickupAt   *time.Time
-	PlannedDeliveryAt *time.Time
-	OriginLocationID  uuid.UUID
+	ID                    uuid.UUID
+	ShipmentNumber        string
+	Status                string
+	PlannedPickupAt       *time.Time
+	PlannedDeliveryAt     *time.Time
+	OriginLocationID      uuid.UUID
 	DestinationLocationID uuid.UUID
-	VehicleID         *uuid.UUID
+	VehicleID             *uuid.UUID
 }
 
 type DriverShipmentDetail struct {
@@ -225,7 +231,7 @@ func ValidateDriverExceptionInput(in DriverExceptionInput) error {
 	if category == "" {
 		return apperrors.Validation("category is required", map[string]any{"field": "category"})
 	}
-	if _, ok := allowedDriverExceptionCategories[category]; !ok {
+	if !IsDriverExceptionCategory(category) {
 		return apperrors.Validation("unsupported exception category", map[string]any{"field": "category", "value": category})
 	}
 	if in.Comment != nil && len(strings.TrimSpace(*in.Comment)) > 4000 {
@@ -313,4 +319,3 @@ func SanitizeDriverExceptionComment(comment *string) *string {
 	}
 	return &trimmed
 }
-
