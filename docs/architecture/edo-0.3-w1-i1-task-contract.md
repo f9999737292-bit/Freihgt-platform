@@ -8,19 +8,22 @@ CONTROLLER_DECISION=ACCEPT_EDO_0_3_W1_I1_TASK_CONTRACT
 W1_STATUS=IMPLEMENTATION_CONTRACT_ACCEPTED
 IMPLEMENTATION_AUTHORIZED=I1_ONLY
 AUTHORIZED_WAVE=I1
-I1_STATUS=AUTHORIZED_NOT_STARTED
-I1_IMPLEMENTATION_STARTED=NO
+I1_STATUS=IMPLEMENTED_AWAITING_CONTROLLER_REVIEW
+I1_IMPLEMENTATION_STARTED=YES
+I1_IMPLEMENTATION_MERGED=NO
+I1_MIGRATION=000087_edo_0_3_i1_schema_foundation
+PRODUCT_CODE_CHANGED=NO
+MIGRATION_CREATED=YES
+OPENAPI_CHANGED=NO
+SIGNED_FILE_ATTACH_BLOCKED=NO
 I2_STATUS=NOT_AUTHORIZED
 I3_STATUS=NOT_AUTHORIZED
 I4_STATUS=NOT_AUTHORIZED
-PRODUCT_CODE_CHANGED=NO
-MIGRATION_CREATED=NO
-OPENAPI_CHANGED=NO
 LEGAL_VERIFICATION_STATUS=OPEN
 LEGAL_VERIFICATION_REQUIRED
 ```
 
-This document freezes the implementation contract for wave I1. Controller review accepted that contract for I1 only. I1 has not started. I2, I3, and I4 stay unauthorized.
+This document freezes the implementation contract for wave I1. Controller review accepted that contract for I1 only. The schema migration `000087_edo_0_3_i1_schema_foundation` is implemented and is not merged. I2, I3, and I4 stay unauthorized. `AddFile` after `SIGNED` is still an I2 gap.
 
 ## Purpose
 
@@ -910,11 +913,11 @@ W1 was ready for Controller review when:
 5. Links in this document resolve to repository files.
 6. The docs contain no secret values.
 
-Controller decision `ACCEPT_EDO_0_3_W1_I1_TASK_CONTRACT` records `IMPLEMENTATION_AUTHORIZED=I1_ONLY`. I1 remains `AUTHORIZED_NOT_STARTED`. This closeout does not claim the I1 migration or tests exist.
+Controller decision `ACCEPT_EDO_0_3_W1_I1_TASK_CONTRACT` records `IMPLEMENTATION_AUTHORIZED=I1_ONLY`. At that decision, I1 was `AUTHORIZED_NOT_STARTED`. Migration `000087_edo_0_3_i1_schema_foundation` now exists and awaits controller review. It is not merged.
 
 ## Controller authorization
 
-Recorded from the Controller authorization for EDO-0.3 I1. This closeout does not implement I1.
+Recorded from the Controller authorization for EDO-0.3 I1. The block below is that decision. Current implementation status is in the header of this document.
 
 ```text
 CONTROLLER_DECISION=ACCEPT_EDO_0_3_W1_I1_TASK_CONTRACT

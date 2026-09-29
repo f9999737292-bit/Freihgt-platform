@@ -172,54 +172,95 @@ gateway_mode="$(bintrans_extract_gateway_mode "${render_runtime}")"
 [[ "${gateway_mode}" == "shadow" ]] || fail "P: gateway mode must be shadow (found ${gateway_mode:-<unset>})"
 echo "OK: P_CONTROL_TOWER_SHADOW_MODE"
 
-# Synthetic 36 -> 64 target resolution
-assert_pass "MIGRATION_36_RESOLVES" bintrans_resolve_migration_file_pair 000036
-assert_pass "MIGRATION_64_RESOLVES" bintrans_resolve_migration_file_pair 000064
-assert_pass "MIGRATION_65_RESOLVES" bintrans_resolve_migration_file_pair 000065
-assert_pass "MIGRATION_66_RESOLVES" bintrans_resolve_migration_file_pair 000066
-assert_pass "MIGRATION_67_RESOLVES" bintrans_resolve_migration_file_pair 000067
-assert_pass "MIGRATION_68_RESOLVES" bintrans_resolve_migration_file_pair 000068
-assert_pass "MIGRATION_69_RESOLVES" bintrans_resolve_migration_file_pair 000069
-assert_pass "MIGRATION_70_RESOLVES" bintrans_resolve_migration_file_pair 000070
-assert_pass "MIGRATION_71_RESOLVES" bintrans_resolve_migration_file_pair 000071
-assert_pass "MIGRATION_72_RESOLVES" bintrans_resolve_migration_file_pair 000072
-assert_pass "MIGRATION_73_RESOLVES" bintrans_resolve_migration_file_pair 000073
-assert_pass "MIGRATION_74_RESOLVES" bintrans_resolve_migration_file_pair 000074
-assert_pass "MIGRATION_75_RESOLVES" bintrans_resolve_migration_file_pair 000075
-assert_pass "MIGRATION_76_RESOLVES" bintrans_resolve_migration_file_pair 000076
-assert_pass "MIGRATION_77_RESOLVES" bintrans_resolve_migration_file_pair 000077
-assert_pass "MIGRATION_78_RESOLVES" bintrans_resolve_migration_file_pair 000078
-assert_pass "MIGRATION_79_RESOLVES" bintrans_resolve_migration_file_pair 000079
-assert_pass "MIGRATION_80_RESOLVES" bintrans_resolve_migration_file_pair 000080
-assert_pass "MIGRATION_81_RESOLVES" bintrans_resolve_migration_file_pair 000081
-assert_pass "MIGRATION_82_RESOLVES" bintrans_resolve_migration_file_pair 000082
-assert_pass "MIGRATION_83_RESOLVES" bintrans_resolve_migration_file_pair 000083
-assert_pass "MIGRATION_84_RESOLVES" bintrans_resolve_migration_file_pair 000084
-assert_pass "MIGRATION_85_RESOLVES" bintrans_resolve_migration_file_pair 000085
-assert_pass "MIGRATION_86_RESOLVES" bintrans_resolve_migration_file_pair 000086
-assert_pass "MIGRATION_88_RESOLVES" bintrans_resolve_migration_file_pair 000088
-max_target="$(bintrans_max_migration_target)"
-[[ "${max_target}" == "000088" ]] || fail "expected max migration 000088, got ${max_target}"
-BINTRANS_STAGING_ENV="${valid_env}" write_env "${valid_env}" \
-  "DEPLOYED_GIT_SHA=${FIXTURE_SHA}" \
-  "BINTRANS_IMAGE_TAG=${FIXTURE_TAG}" \
-  "MIGRATION_TARGET=000074"
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000074
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000075
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000076
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000077
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000078
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000079
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000080
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000081
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000082
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000083
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000084
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000085
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000086
-BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded 000088
+# Head-aware migration contract: repository max comes from migration files.
+if grep -nE 'expected max migration [0-9]{6}' \
+  "${ROOT}/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh" \
+  "${ROOT}/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_release_contract_selfcheck.sh"; then
+  fail "hardcoded migration maximum remains in staging release contract"
+fi
+echo "HARDCODED_MIGRATION_MAX_REMOVED=YES"
+echo "MAX_TARGET_DYNAMIC=YES"
+echo "MIGRATION_PAIR_REQUIRED=YES"
+
+repo_max="$(bintrans_max_migration_target)"
+echo "MAX_TARGET=${repo_max}"
+echo "CURRENT_MAIN_MAX=${repo_max}"
+assert_pass "CURRENT_MAX_PAIR" bintrans_resolve_migration_file_pair "${repo_max}"
+BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded "${repo_max}"
+echo "OK: CURRENT_MAX_BOUNDED ${repo_max}"
+echo "CURRENT_MAIN_MAX_RESOLVES=PASS"
+
+repo_max_version="$((10#${repo_max}))"
+version=1
+while [[ "${version}" -le "${repo_max_version}" ]]; do
+  target="$(printf '%06d' "${version}")"
+  BINTRANS_STAGING_ENV="${valid_env}" bintrans_validate_migration_target_bounded "${target}"
+  version=$((version + 1))
+done
+echo "OK: NO_GAPS_THROUGH_${repo_max}"
+
+repo_next="$(printf '%06d' "$((repo_max_version + 1))")"
+repo_after="$(printf '%06d' "$((repo_max_version + 2))")"
+next_err="${tmpdir}/next-missing.err"
+if bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; bintrans_validate_migration_target_bounded "'"${repo_next}"'"' \
+  >"${tmpdir}/next-missing.out" 2>"${next_err}"; then
+  fail "NEXT_MISSING_TARGET_DENIED: expected FAIL for ${repo_next}"
+fi
+grep -q 'exceeds repository max' "${next_err}" \
+  || fail "NEXT_MISSING_TARGET_DENIED: ${repo_next} must exceed repository max"
+echo "OK: NEXT_MISSING_TARGET_DENIED ${repo_next}"
+echo "TARGET_ABOVE_MAX_DENIED=PASS"
+echo "NEXT_MISSING_TARGET_DENIED=PASS"
+
 assert_fail "MIGRATION_TARGET_ABOVE_MAX" bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; bintrans_validate_migration_target_bounded 999999'
-assert_fail "MIGRATION_TARGET_UNRELEASED_000089" bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; bintrans_validate_migration_target_bounded 000089'
-echo "OK: synthetic 36->88 bounded migration contract"
+
+# Adding the next real pair must advance the max without editing this script.
+future_dir="${tmpdir}/future-head"
+mkdir -p "${future_dir}"
+: > "${future_dir}/${repo_max}_base.up.sql"
+: > "${future_dir}/${repo_max}_base.down.sql"
+future_base="$(BINTRANS_MIGRATIONS_DIR="${future_dir}" bintrans_max_migration_target)"
+[[ "${future_base}" == "${repo_max}" ]] || fail "future baseline max expected ${repo_max}, got ${future_base}"
+BINTRANS_MIGRATIONS_DIR="${future_dir}" bintrans_validate_migration_target_bounded "${repo_max}"
+if bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; BINTRANS_MIGRATIONS_DIR="'"${future_dir}"'" bintrans_validate_migration_target_bounded "'"${repo_next}"'"' \
+  >"${tmpdir}/future-next-before.out" 2>"${tmpdir}/future-next-before.err"; then
+  fail "future baseline must deny ${repo_next} before its pair exists"
+fi
+: > "${future_dir}/${repo_next}_new.up.sql"
+: > "${future_dir}/${repo_next}_new.down.sql"
+future_advanced="$(BINTRANS_MIGRATIONS_DIR="${future_dir}" bintrans_max_migration_target)"
+[[ "${future_advanced}" == "${repo_next}" ]] || fail "future advanced max expected ${repo_next}, got ${future_advanced}"
+BINTRANS_MIGRATIONS_DIR="${future_dir}" bintrans_validate_migration_target_bounded "${repo_next}"
+if bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; BINTRANS_MIGRATIONS_DIR="'"${future_dir}"'" bintrans_validate_migration_target_bounded "'"${repo_after}"'"' \
+  >"${tmpdir}/future-after.out" 2>"${tmpdir}/future-after.err"; then
+  fail "future head must deny ${repo_after}"
+fi
+grep -q 'exceeds repository max' "${tmpdir}/future-after.err" \
+  || fail "future head denial must report target above repository max"
+echo "OK: FUTURE_HEAD ${repo_max}->${repo_next} denies ${repo_after}"
+echo "NEW_MIGRATION_REQUIRES_TOOLING_EDIT=NO"
+
+# Synthetic gap: 000002 is below fixture max 000003 and has no pair.
+gap_dir="${tmpdir}/gap-migrations"
+mkdir -p "${gap_dir}"
+: > "${gap_dir}/000001_test.up.sql"
+: > "${gap_dir}/000001_test.down.sql"
+: > "${gap_dir}/000003_test.up.sql"
+: > "${gap_dir}/000003_test.down.sql"
+gap_max="$(BINTRANS_MIGRATIONS_DIR="${gap_dir}" bintrans_max_migration_target)"
+[[ "${gap_max}" == "000003" ]] || fail "gap fixture max expected 000003, got ${gap_max}"
+BINTRANS_MIGRATIONS_DIR="${gap_dir}" bintrans_validate_migration_target_bounded 000001
+BINTRANS_MIGRATIONS_DIR="${gap_dir}" bintrans_validate_migration_target_bounded 000003
+gap_err="${tmpdir}/gap-000002.err"
+if bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; BINTRANS_MIGRATIONS_DIR="'"${gap_dir}"'" bintrans_validate_migration_target_bounded 000002' \
+  >"${tmpdir}/gap-000002.out" 2>"${gap_err}"; then
+  fail "MIGRATION_GAP_BELOW_MAX_REJECTED: expected FAIL"
+fi
+grep -q 'expected exactly one 000002_' "${gap_err}" \
+  || fail "MIGRATION_GAP_BELOW_MAX_REJECTED: expected missing 000002 pair"
+echo "OK: MIGRATION_GAP_BELOW_MAX_REJECTED"
+echo "MIGRATION_GAP_BELOW_MAX_REJECTED=PASS"
+echo "MISSING_MIGRATION_BELOW_MAX_DENIED=PASS"
+echo "OK: head-aware bounded migration contract"
 
 echo "bintrans-ct-staging-release-contract-selfcheck: PASS"
