@@ -2058,6 +2058,87 @@ components:
           type: string
         error_description:
           type: string
+    DriverStopActionFact:
+      type: object
+      additionalProperties: false
+      required: [actionId, actionType, cargoId, ordinal]
+      properties:
+        actionId: {type: string, format: uuid}
+        actionType: {type: string, enum: [PICKUP, DELIVERY]}
+        cargoId: {type: string, format: uuid}
+        ordinal: {type: integer}
+    DriverStopActionSummary:
+      type: object
+      additionalProperties: false
+      required: [actions, counts]
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverStopActionFact'
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+    DriverStopTask:
+      type: object
+      additionalProperties: false
+      required: [taskId, executionId, executionStopId, ordinal, locationId, status, version, actionSummary, position]
+      properties:
+        taskId: {type: string, format: uuid}
+        executionId: {type: string, format: uuid}
+        executionStopId: {type: string, format: uuid}
+        shipmentId: {type: string, format: uuid, nullable: true}
+        ordinal: {type: integer}
+        locationId: {type: string, format: uuid}
+        plannedArrival: {type: string, format: date-time, nullable: true}
+        status: {type: string, enum: [PLANNED, ARRIVED, SERVICE_STARTED, COMPLETED, CANCELLED, SKIPPED]}
+        version: {type: integer}
+        actionSummary:
+          $ref: '#/components/schemas/DriverStopActionSummary'
+        position: {type: string, enum: [CURRENT, NEXT]}
+    DriverCurrentNextStopsResponse:
+      type: object
+      additionalProperties: false
+      required: [current, next]
+      properties:
+        current:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/DriverStopTask'
+        next:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/DriverStopTask'
+    DriverStopCommandRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        occurredAt: {type: string, format: date-time}
+        expectedVersion: {type: integer, minimum: 1}
+        reasonCode: {type: string}
+    DriverStopFailRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, reasonCode]
+      properties:
+        occurredAt: {type: string, format: date-time}
+        expectedVersion: {type: integer, minimum: 1}
+        reasonCode: {type: string}
+    DriverStopCommandResponse:
+      type: object
+      additionalProperties: false
+      required: [taskId, executionStopId, status, version, replayed]
+      properties:
+        taskId: {type: string, format: uuid}
+        executionStopId: {type: string, format: uuid}
+        status: {type: string}
+        version: {type: integer}
+        actionStatus: {type: string}
+        evidenceId: {type: string, format: uuid}
+        shipmentStatus: {type: string}
+        replayed: {type: boolean}
     HealthResponse:
       type: object
       properties:

@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -37,9 +38,9 @@ func NewHandler(log *slog.Logger, cfg config.Config) *Handler {
 	httpClient := &http.Client{Timeout: time.Duration(cfg.ProxyTimeoutSeconds) * time.Second}
 	readModel := controltowerreadmodel.NewClient(httpClient, cfg.ControlTower.ReadModel, controltowerreadmodel.NewMetrics())
 	return &Handler{
-		log: log,
-		client: NewClient(httpClient, cfg.Services.Shipment),
-		tracking: tracking.NewClient(httpClient, cfg.Services.Tracking, cfg.TrackingInternalToken),
+		log:       log,
+		client:    NewClient(httpClient, cfg.Services.Shipment),
+		tracking:  tracking.NewClient(httpClient, cfg.Services.Tracking, cfg.TrackingInternalToken),
 		documents: document.NewClient(httpClient, cfg.Services.Document),
 		integrator: NewExceptionIntegrator(
 			readModel,
@@ -50,6 +51,59 @@ func NewHandler(log *slog.Logger, cfg config.Config) *Handler {
 		authEnabled: cfg.AuthEnabled,
 		devTenantID: strings.TrimSpace(cfg.DevTenantID),
 	}
+}
+
+func (h *Handler) ListStops(w http.ResponseWriter, r *http.Request) {
+	h.proxy(w, r, func(ctx RequestContext) (json.RawMessage, int, error) {
+		return h.client.ListStops(r.Context(), ctx)
+	})
+}
+
+func (h *Handler) ArriveStop(w http.ResponseWriter, r *http.Request) {
+	h.proxyStopCommand(w, r, h.client.ArriveStop)
+}
+
+func (h *Handler) StartStopService(w http.ResponseWriter, r *http.Request) {
+	h.proxyStopCommand(w, r, h.client.StartStopService)
+}
+
+func (h *Handler) CompleteStop(w http.ResponseWriter, r *http.Request) {
+	h.proxyStopCommand(w, r, h.client.CompleteStop)
+}
+
+func (h *Handler) ConfirmStopAction(w http.ResponseWriter, r *http.Request) {
+	h.proxyActionCommand(w, r, h.client.ConfirmStopAction)
+}
+
+func (h *Handler) FailStopAction(w http.ResponseWriter, r *http.Request) {
+	h.proxyActionCommand(w, r, h.client.FailStopAction)
+}
+
+func (h *Handler) proxyStopCommand(w http.ResponseWriter, r *http.Request, call func(context.Context, RequestContext, string, []byte, string) (json.RawMessage, int, error)) {
+	stopID := strings.TrimSpace(chi.URLParam(r, "stopId"))
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	h.proxy(w, r, func(ctx RequestContext) (json.RawMessage, int, error) {
+		return call(r.Context(), ctx, stopID, body, key)
+	})
+}
+
+func (h *Handler) proxyActionCommand(w http.ResponseWriter, r *http.Request, call func(context.Context, RequestContext, string, string, []byte, string) (json.RawMessage, int, error)) {
+	stopID := strings.TrimSpace(chi.URLParam(r, "stopId"))
+	actionID := strings.TrimSpace(chi.URLParam(r, "actionId"))
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	h.proxy(w, r, func(ctx RequestContext) (json.RawMessage, int, error) {
+		return call(r.Context(), ctx, stopID, actionID, body, key)
+	})
 }
 
 func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {

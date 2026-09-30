@@ -442,12 +442,15 @@ func cancelRemaining(ctx context.Context, tx pgx.Tx, scope *commandScope) (domai
 	}
 	reason := scope.cmd.ReasonCode
 	for _, id := range ids {
-		if _, err := tx.Exec(ctx, `
-			UPDATE transport.transport_execution_stops
-			SET status = 'CANCELLED', status_reason = $2, version = version + 1, updated_at = now()
-			WHERE id = $1 AND status = 'PLANNED'
-		`, id, reason); err != nil {
-			return domain.ExecutionCommandResult{}, mapDBError(err)
+		stop, err := loadStop(ctx, tx, scope, id)
+		if err != nil {
+			return domain.ExecutionCommandResult{}, err
+		}
+		if stop.Status != domain.StopStatusPlanned {
+			continue
+		}
+		if err := updateStop(ctx, tx, stop, domain.StopStatusCancelled, &reason, nil, nil, nil); err != nil {
+			return domain.ExecutionCommandResult{}, err
 		}
 		if err := cancelPendingActions(ctx, tx, id); err != nil {
 			return domain.ExecutionCommandResult{}, err
@@ -673,11 +676,73 @@ func departedPickup(ctx context.Context, tx pgx.Tx, scope *commandScope) (domain
 	if shipment.Status != domain.ShipmentStatusLoaded {
 		return domain.ExecutionCommandResult{}, domain.ExecutionCommandError(domain.ReasonStopTransitionDenied, false)
 	}
+	if err := requirePickupDepartureReady(ctx, tx, scope); err != nil {
+		return domain.ExecutionCommandResult{}, err
+	}
 	updated, err := transitionShipment(ctx, tx, shipment, domain.ShipmentStatusInTransit, scope.cmd.OccurredAt, scope.cmd)
 	if err != nil {
 		return domain.ExecutionCommandResult{}, err
 	}
 	return domain.ExecutionCommandResult{ShipmentStatus: updated.Status}, nil
+}
+
+func requirePickupDepartureReady(ctx context.Context, tx pgx.Tx, scope *commandScope) error {
+	var actionStatus, stopStatus, evidenceState string
+	var pickupOrdinal int
+	err := tx.QueryRow(ctx, `
+		SELECT action.status, stop.status, link.source_ordinal, COALESCE(evidence.state, '')
+		FROM transport.transport_execution_actions AS action
+		JOIN transport.transport_execution_revision_actions AS action_link
+		  ON action_link.action_id = action.id
+		 AND action_link.revision_id = $1
+		 AND action_link.membership <> 'SUPERSEDED'
+		JOIN transport.transport_execution_stops AS stop
+		  ON stop.id = action.execution_stop_id
+		JOIN transport.transport_execution_revision_stops AS link
+		  ON link.stop_id = stop.id
+		 AND link.revision_id = $1
+		 AND link.membership <> 'SUPERSEDED'
+		LEFT JOIN transport.shipment_cargo_execution_evidence AS evidence
+		  ON evidence.id = action.evidence_id
+		 AND evidence.shipment_id = action.shipment_id
+		 AND evidence.tenant_id = action.shipment_tenant_id
+		WHERE action.shipment_id = $2
+		  AND action.shipment_tenant_id = $3
+		  AND action.action_type = 'PICKUP'
+		  AND action.status <> 'CANCELLED'
+		ORDER BY link.source_ordinal, action.ordinal
+		LIMIT 1
+	`, scope.revisionID, scope.cmd.ShipmentID, scope.cmd.ShipmentTenantID).Scan(
+		&actionStatus, &stopStatus, &pickupOrdinal, &evidenceState,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ExecutionCommandError(domain.ReasonStopTransitionDenied, false)
+	}
+	if err != nil {
+		return mapDBError(err)
+	}
+	if actionStatus != domain.ActionStatusCompleted || stopStatus != domain.StopStatusCompleted || evidenceState != domain.CargoEvidenceConfirmedOnboard {
+		return domain.ExecutionCommandError(domain.ReasonStopTransitionDenied, false)
+	}
+	var blocking int
+	err = tx.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM transport.transport_execution_stops AS stop
+		JOIN transport.transport_execution_revision_stops AS link
+		  ON link.stop_id = stop.id
+		 AND link.revision_id = $1
+		 AND link.membership <> 'SUPERSEDED'
+		WHERE stop.execution_id = $2
+		  AND stop.status IN ('PLANNED', 'ARRIVED', 'SERVICE_STARTED')
+		  AND link.source_ordinal <= $3
+	`, scope.revisionID, scope.cmd.ExecutionID, pickupOrdinal).Scan(&blocking)
+	if err != nil {
+		return mapDBError(err)
+	}
+	if blocking > 0 {
+		return domain.ExecutionCommandError(domain.ReasonStopTransitionDenied, false)
+	}
+	return nil
 }
 
 func alignArrive(ctx context.Context, tx pgx.Tx, scope *commandScope, stopID uuid.UUID) error {
@@ -840,7 +905,8 @@ func actionsOnStop(ctx context.Context, tx pgx.Tx, stopID uuid.UUID) ([]actionRo
 }
 
 func updateStop(ctx context.Context, tx pgx.Tx, stop stopRow, status string, reason *string, arrived, started, completed *time.Time) error {
-	tag, err := tx.Exec(ctx, `
+	var version int
+	err := tx.QueryRow(ctx, `
 		UPDATE transport.transport_execution_stops
 		SET status = $1,
 			status_reason = CASE WHEN $2::text IS NULL THEN status_reason ELSE $2 END,
@@ -850,12 +916,20 @@ func updateStop(ctx context.Context, tx pgx.Tx, stop stopRow, status string, rea
 			version = version + 1,
 			updated_at = now()
 		WHERE id = $6 AND status = $7 AND version = $8
-	`, status, reason, optionalTime(arrived), optionalTime(started), optionalTime(completed), stop.ID, stop.Status, stop.Version)
+		RETURNING version
+	`, status, reason, optionalTime(arrived), optionalTime(started), optionalTime(completed), stop.ID, stop.Status, stop.Version).Scan(&version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ExecutionCommandError(domain.ReasonVersionConflict, false)
+	}
 	if err != nil {
 		return mapDBError(err)
 	}
-	if tag.RowsAffected() == 0 {
-		return domain.ExecutionCommandError(domain.ReasonVersionConflict, false)
+	if _, err := tx.Exec(ctx, `
+		UPDATE transport.driver_stop_tasks
+		SET status = $2, version = $3, updated_at = now()
+		WHERE execution_stop_id = $1
+	`, stop.ID, status, version); err != nil {
+		return mapDBError(err)
 	}
 	return nil
 }
