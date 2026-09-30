@@ -24,6 +24,10 @@ type IngestService struct {
 	evaluator *StateEvaluator
 	log       *slog.Logger
 	metrics   *metrics.Collector
+	approach  interface {
+		Enabled() bool
+		AcceptLocation(ctx context.Context, event domain.LocationEvent, freshness, quality string) (bool, error)
+	}
 }
 
 func NewIngestService(repo *repository.TrackingRepository, registry *provider.Registry, cfg config.Config, evaluator *StateEvaluator, log *slog.Logger, m *metrics.Collector) *IngestService {
@@ -38,10 +42,17 @@ func NewIngestService(repo *repository.TrackingRepository, registry *provider.Re
 }
 
 type IngestResult struct {
-	Received   int `json:"received"`
-	Accepted   int `json:"accepted"`
+	Received     int `json:"received"`
+	Accepted     int `json:"accepted"`
 	Deduplicated int `json:"deduplicated"`
-	Rejected   int `json:"rejected"`
+	Rejected     int `json:"rejected"`
+}
+
+func (s *IngestService) SetApproach(approach interface {
+	Enabled() bool
+	AcceptLocation(ctx context.Context, event domain.LocationEvent, freshness, quality string) (bool, error)
+}) {
+	s.approach = approach
 }
 
 func (s *IngestService) IngestDriverMobileLocation(
@@ -140,7 +151,12 @@ func (s *IngestService) IngestProviderLocations(ctx context.Context, providerCod
 			QualityReason:    qualityReason,
 		}
 
-		inserted, err := s.repo.InsertLocationEvent(ctx, event)
+		var inserted bool
+		if s.approach != nil && s.approach.Enabled() {
+			inserted, err = s.approach.AcceptLocation(ctx, event, freshness, quality)
+		} else {
+			inserted, err = s.repo.InsertLocationEvent(ctx, event)
+		}
 		if err != nil {
 			result.Rejected++
 			s.metrics.IncRejected()

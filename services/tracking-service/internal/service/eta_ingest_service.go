@@ -20,6 +20,7 @@ import (
 type ETAIngestService struct {
 	trackingRepo *repository.TrackingRepository
 	etaRepo      *repository.ETARepository
+	execution    *repository.ExecutionTrackingRepository
 	registry     *provider.ETARegistry
 	evaluator    *ETAStateEvaluator
 	log          *slog.Logger
@@ -50,6 +51,10 @@ type ETAIngestResult struct {
 	Accepted     int `json:"accepted"`
 	Deduplicated int `json:"deduplicated"`
 	Rejected     int `json:"rejected"`
+}
+
+func (s *ETAIngestService) SetExecutionTracking(repo *repository.ExecutionTrackingRepository) {
+	s.execution = repo
 }
 
 func (s *ETAIngestService) IngestProviderETA(ctx context.Context, providerCode string, payload provider.ProviderPayload) (ETAIngestResult, error) {
@@ -85,6 +90,10 @@ func (s *ETAIngestService) IngestProviderETA(ctx context.Context, providerCode s
 		if item.SourceObservedAt.After(now.Add(5 * time.Minute)) {
 			result.Rejected++
 			s.metrics.IncETARejected()
+			continue
+		}
+		if item.TargetType == domain.TargetExecutionStop {
+			s.ingestExecutionStopETA(ctx, providerCode, item, now, &result)
 			continue
 		}
 
@@ -154,4 +163,135 @@ func (s *ETAIngestService) IngestProviderETA(ctx context.Context, providerCode s
 	}
 
 	return result, nil
+}
+
+func (s *ETAIngestService) ingestExecutionStopETA(ctx context.Context, providerCode string, item provider.NormalizedETAInput, now time.Time, result *ETAIngestResult) {
+	reject := func() {
+		result.Rejected++
+		s.metrics.IncETARejected()
+	}
+	if s.execution == nil || item.ExecutionStopID == nil || *item.ExecutionStopID == uuid.Nil {
+		reject()
+		return
+	}
+	bindings, err := s.trackingRepo.ListActiveBindingsByDevice(ctx, providerCode, item.ProviderDeviceID)
+	if err != nil || len(bindings) == 0 {
+		reject()
+		return
+	}
+	driverIDs := make([]uuid.UUID, 0, len(bindings))
+	vehicleIDs := make([]uuid.UUID, 0, len(bindings))
+	for _, binding := range bindings {
+		if binding.DriverID != nil {
+			driverIDs = append(driverIDs, *binding.DriverID)
+		}
+		if binding.VehicleID != nil {
+			vehicleIDs = append(vehicleIDs, *binding.VehicleID)
+		}
+	}
+	targets, err := s.execution.ListActiveTargetsForActors(ctx, driverIDs, vehicleIDs)
+	if err != nil || len(targets) == 0 {
+		reject()
+		return
+	}
+	seen := map[uuid.UUID]repository.ExecutionTrackingState{}
+	for _, target := range targets {
+		seen[target.ExecutionID] = target
+	}
+	if len(seen) != 1 {
+		reject()
+		return
+	}
+	var target repository.ExecutionTrackingState
+	for _, value := range seen {
+		target = value
+	}
+	if target.LiveETAStopID == nil || *target.LiveETAStopID != *item.ExecutionStopID {
+		reject()
+		return
+	}
+	if !actorMatchesTarget(target, driverIDs, vehicleIDs) {
+		reject()
+		return
+	}
+	freshness, _ := domain.EvaluateETAFreshness(&item.SourceObservedAt, now, s.evaluator.Policy)
+	lag := now.Sub(item.SourceObservedAt)
+	quality, reasons := domain.EvaluateETAQuality(freshness, item.SourceType, lag, item.ProviderConfidence)
+	status := domain.DeriveETAStatus(true, freshness, false)
+	age := int64(lag.Seconds())
+	if age < 0 {
+		age = 0
+	}
+	dedupKey := repository.BuildExecutionStopETADedupKey(providerCode, item.TargetType, *item.ExecutionStopID, item.EstimatedArrivalAt, item.SourceObservedAt, item.ProviderEventID)
+	providerCodeCopy := providerCode
+	stopID := *item.ExecutionStopID
+	executionID := target.ExecutionID
+	obs := domain.ETAObservation{
+		ID:                 uuid.New(),
+		TenantID:           target.OperatingTenantID,
+		TargetType:         domain.TargetExecutionStop,
+		TargetReference:    item.TargetReference,
+		EstimatedArrivalAt: item.EstimatedArrivalAt.UTC(),
+		SourceType:         item.SourceType,
+		ProviderCode:       &providerCodeCopy,
+		ProviderEventID:    item.ProviderEventID,
+		DedupKey:           dedupKey,
+		SourceObservedAt:   item.SourceObservedAt.UTC(),
+		ReceivedAt:         now,
+		QualityStatus:      quality,
+		QualityReasons:     reasons,
+		ProviderConfidence: item.ProviderConfidence,
+		ExecutionID:        &executionID,
+		ExecutionStopID:    &stopID,
+	}
+	inserted, err := s.etaRepo.InsertETAObservation(ctx, obs)
+	if err != nil || !inserted {
+		if err != nil {
+			reject()
+			return
+		}
+		result.Deduplicated++
+		s.metrics.IncETADeduplicated()
+		return
+	}
+	etaState := repository.ExecutionStopETAState{
+		OperatingTenantID:  target.OperatingTenantID,
+		ExecutionID:        target.ExecutionID,
+		ExecutionStopID:    stopID,
+		Status:             status,
+		EstimatedArrivalAt: &obs.EstimatedArrivalAt,
+		SourceType:         &item.SourceType,
+		ProviderCode:       &providerCodeCopy,
+		SourceObservedAt:   &obs.SourceObservedAt,
+		ReceivedAt:         &now,
+		FreshnessStatus:    freshness,
+		QualityStatus:      quality,
+		QualityReasons:     reasons,
+		AgeSeconds:         &age,
+		PlannedArrival:     target.PlannedArrival,
+	}
+	if err := s.execution.UpsertExecutionStopETA(ctx, etaState); err != nil {
+		s.log.Warn("execution stop eta upsert failed", slog.String("execution_stop_id", stopID.String()))
+	}
+	result.Accepted++
+	s.metrics.IncETAReceived()
+	s.metrics.ObserveETAIngestionLag(now.Sub(item.SourceObservedAt))
+}
+
+func actorMatchesTarget(target repository.ExecutionTrackingState, driverIDs, vehicleIDs []uuid.UUID) bool {
+	if target.DriverID != nil {
+		for _, id := range driverIDs {
+			if id == *target.DriverID {
+				return true
+			}
+		}
+	}
+	if target.VehicleID != nil {
+		for _, id := range vehicleIDs {
+			if id == *target.VehicleID {
+				return true
+			}
+		}
+	}
+	return false
 }

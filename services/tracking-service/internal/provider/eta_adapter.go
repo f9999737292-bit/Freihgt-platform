@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type NormalizedETAInput struct {
@@ -11,6 +13,7 @@ type NormalizedETAInput struct {
 	ProviderEventID    *string
 	TargetType         string
 	TargetReference    *string
+	ExecutionStopID    *uuid.UUID
 	EstimatedArrivalAt time.Time
 	SourceObservedAt   time.Time
 	SourceType         string
@@ -31,6 +34,7 @@ type genericETAObservation struct {
 	ProviderEventID    *string  `json:"providerEventId"`
 	TargetType         string   `json:"targetType"`
 	TargetReference    *string  `json:"targetReference"`
+	ExecutionStopID    *string  `json:"executionStopId"`
 	EstimatedArrivalAt string   `json:"estimatedArrivalAt"`
 	SourceObservedAt   string   `json:"sourceObservedAt"`
 	SourceType         string   `json:"sourceType"`
@@ -64,11 +68,20 @@ func (GenericETAAdapter) NormalizeETA(_ context.Context, payload ProviderPayload
 		if targetType == "" {
 			targetType = "delivery"
 		}
+		var executionStopID *uuid.UUID
+		if item.ExecutionStopID != nil && *item.ExecutionStopID != "" {
+			parsed, err := uuid.Parse(*item.ExecutionStopID)
+			if err != nil {
+				return nil, err
+			}
+			executionStopID = &parsed
+		}
 		out = append(out, NormalizedETAInput{
 			ProviderDeviceID:   item.ProviderDeviceID,
 			ProviderEventID:    item.ProviderEventID,
 			TargetType:         targetType,
 			TargetReference:    item.TargetReference,
+			ExecutionStopID:    executionStopID,
 			EstimatedArrivalAt: estimatedAt.UTC(),
 			SourceObservedAt:   observedAt.UTC(),
 			SourceType:         sourceType,

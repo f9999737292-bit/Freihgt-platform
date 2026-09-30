@@ -72,13 +72,23 @@ func New(serviceName string) *Collector {
 			Namespace: "slot_ingest", Name: "slot_reschedule_total", Help: "Slot reschedule transitions",
 		}),
 	}
-	prometheus.MustRegister(
+	register(
 		c.eventsReceived, c.eventsRejected, c.eventsDeduplicated, c.ingestionLag,
 		c.activeShipments, c.staleShipments, c.lostShipments,
 		c.etaReceived, c.etaRejected, c.etaDeduplicated, c.etaIngestionLag,
 		c.slotReceived, c.slotRejected, c.slotDeduplicated, c.slotReschedule,
 	)
 	return c
+}
+
+func register(collectors ...prometheus.Collector) {
+	for _, collector := range collectors {
+		if err := prometheus.Register(collector); err != nil {
+			if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+				panic(err)
+			}
+		}
+	}
 }
 
 func (c *Collector) IncReceived()     { c.eventsReceived.Inc() }

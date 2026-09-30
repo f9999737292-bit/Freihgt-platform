@@ -30,6 +30,7 @@ func NewRouter(
 	driverStopSvc *service.DriverStopService,
 	evidenceSvc *service.ExecutionEvidenceService,
 	internalToken string,
+	trackingContext handlers.TrackingContextReader,
 ) http.Handler {
 	shipmentHandler := handlers.NewShipmentHandler(shipmentSvc)
 	orderExecutionHandler := handlers.NewOrderExecutionHandler(orderExecutionSvc)
@@ -46,6 +47,7 @@ func NewRouter(
 	predictionInputHandler := handlers.NewPredictionInputHandler(shipmentSvc)
 	vehicleCapabilityHandler := handlers.NewVehicleCapabilityHandler(vehicleSvc)
 	evidenceHandler := handlers.NewExecutionEvidenceHandler(evidenceSvc)
+	trackingContextHandler := handlers.NewTrackingContextHandler(trackingContext)
 	internalAuth := internalauth.Config{Token: internalToken}
 
 	r := chi.NewRouter()
@@ -127,6 +129,11 @@ func NewRouter(
 	r.Route("/internal/v1/vehicles", func(r chi.Router) {
 		r.With(internalAuth.Middleware).Get("/{id}/capability", vehicleCapabilityHandler.Get)
 	})
+
+	r.With(internalAuth.Middleware).Get(
+		"/internal/v1/transport-executions/{executionId}/stops/{stopId}/tracking-context",
+		trackingContextHandler.Get,
+	)
 
 	r.Route("/internal/v1/driver", func(r chi.Router) {
 		r.Post("/tasks", internalTaskHandler.CreateTask)

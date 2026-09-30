@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -9,16 +10,19 @@ import (
 )
 
 type Config struct {
-	ServiceName            string
-	Environment            string
-	HTTPPort               int
-	LogLevel               string
-	DatabaseURL            string
-	ProviderSecrets        map[string]string
-	InternalServiceToken   string
-	FreshnessPolicy        FreshnessConfig
-	ETAFreshnessPolicy     FreshnessConfig
-	TrackingLossDetector   TrackingLossDetectorConfig
+	ServiceName          string
+	Environment          string
+	HTTPPort             int
+	LogLevel             string
+	DatabaseURL          string
+	ProviderSecrets      map[string]string
+	InternalServiceToken string
+	FreshnessPolicy      FreshnessConfig
+	ETAFreshnessPolicy   FreshnessConfig
+	TrackingLossDetector TrackingLossDetectorConfig
+	StopApproach         StopApproachConfig
+	Kafka                KafkaConfig
+	ShipmentInternalURL  string
 }
 
 type FreshnessConfig struct {
@@ -31,6 +35,19 @@ type TrackingLossDetectorConfig struct {
 	Threshold time.Duration
 	Interval  time.Duration
 	BatchSize int
+}
+
+type StopApproachConfig struct {
+	Enabled      bool
+	RadiusMeters float64
+}
+
+type KafkaConfig struct {
+	Brokers        []string
+	ExecutionTopic string
+	TrackingTopic  string
+	GroupID        string
+	ClientID       string
 }
 
 func Load() (Config, error) {
@@ -58,6 +75,10 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("ETA_STALE_THRESHOLD_MINUTES must be greater than ETA_FRESH_THRESHOLD_MINUTES")
 	}
 
+	approach, err := loadStopApproachConfig()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		ServiceName:          "tracking-service",
 		Environment:          getEnv("ENVIRONMENT", "development"),
@@ -75,7 +96,46 @@ func Load() (Config, error) {
 			StaleThreshold: time.Duration(etaStaleMin) * time.Minute,
 		},
 		TrackingLossDetector: loadTrackingLossDetectorConfig(staleMin),
+		StopApproach:         approach,
+		Kafka:                loadKafkaConfig(),
+		ShipmentInternalURL:  strings.TrimSpace(os.Getenv("TRACKING_SHIPMENT_INTERNAL_URL")),
 	}, nil
+}
+
+func loadStopApproachConfig() (StopApproachConfig, error) {
+	enabled := parseBool(getEnv("TRACKING_STOP_APPROACH_ENABLED", "false"))
+	if !enabled {
+		return StopApproachConfig{Enabled: false}, nil
+	}
+	raw := strings.TrimSpace(os.Getenv("TRACKING_STOP_APPROACH_RADIUS_METERS"))
+	if raw == "" {
+		return StopApproachConfig{}, fmt.Errorf("TRACKING_STOP_APPROACH_RADIUS_METERS is required when TRACKING_STOP_APPROACH_ENABLED=true")
+	}
+	radius, err := strconv.ParseFloat(raw, 64)
+	if err != nil || radius <= 0 || math.IsNaN(radius) || math.IsInf(radius, 0) {
+		return StopApproachConfig{}, fmt.Errorf("TRACKING_STOP_APPROACH_RADIUS_METERS must be greater than 0")
+	}
+	return StopApproachConfig{Enabled: true, RadiusMeters: radius}, nil
+}
+
+func loadKafkaConfig() KafkaConfig {
+	raw := strings.TrimSpace(os.Getenv("TRACKING_KAFKA_BROKERS"))
+	var brokers []string
+	if raw != "" {
+		for _, part := range strings.Split(raw, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				brokers = append(brokers, part)
+			}
+		}
+	}
+	return KafkaConfig{
+		Brokers:        brokers,
+		ExecutionTopic: getEnv("TRACKING_EXECUTION_KAFKA_TOPIC", "shipment.status.v1"),
+		TrackingTopic:  strings.TrimSpace(os.Getenv("TRACKING_KAFKA_TOPIC")),
+		GroupID:        getEnv("TRACKING_KAFKA_GROUP", "tracking-execution-stop"),
+		ClientID:       getEnv("TRACKING_KAFKA_CLIENT_ID", "tracking-service"),
+	}
 }
 
 func loadTrackingLossDetectorConfig(defaultStaleMinutes int) TrackingLossDetectorConfig {

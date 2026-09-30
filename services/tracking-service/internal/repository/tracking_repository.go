@@ -68,8 +68,20 @@ SELECT EXISTS(
 	return exists, nil
 }
 
+type rowQuery interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 func (r *TrackingRepository) InsertLocationEvent(ctx context.Context, event domain.LocationEvent) (inserted bool, err error) {
-	const q = `
+	return insertLocationEvent(ctx, r.pool, event)
+}
+
+func (r *TrackingRepository) InsertLocationEventTx(ctx context.Context, tx pgx.Tx, event domain.LocationEvent) (inserted bool, err error) {
+	return insertLocationEvent(ctx, tx, event)
+}
+
+func insertLocationEvent(ctx context.Context, q rowQuery, event domain.LocationEvent) (inserted bool, err error) {
+	const sqlText = `
 INSERT INTO tracking.location_event (
   id, tenant_id, shipment_id, vehicle_id, driver_id, provider_code, provider_device_id,
   provider_event_id, dedup_key, latitude, longitude, recorded_at, received_at,
@@ -81,7 +93,7 @@ INSERT INTO tracking.location_event (
 ON CONFLICT DO NOTHING
 RETURNING id`
 	var returned uuid.UUID
-	err = r.pool.QueryRow(ctx, q,
+	err = q.QueryRow(ctx, sqlText,
 		event.ID, event.TenantID, event.ShipmentID, event.VehicleID, event.DriverID,
 		event.ProviderCode, event.ProviderDeviceID, event.ProviderEventID, event.DedupKey,
 		event.Latitude, event.Longitude, event.RecordedAt, event.ReceivedAt,
