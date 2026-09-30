@@ -385,6 +385,80 @@ func (r *TransportExecutionRepository) GetTrackingContext(ctx context.Context, o
 	return view, nil
 }
 
+// ResolvedDriverExecutionContext is the server-owned stop and, when requested, action.
+// Identifiers are copied from TransportExecution rows, not from the caller.
+type ResolvedDriverExecutionContext struct {
+	ExecutionStopID uuid.UUID
+	ActionID        *uuid.UUID
+}
+
+// ResolveDriverExecutionContext proves a driver delay or problem context before publication.
+// A missing row means the supplied identifier is not owned by this operating tenant, driver,
+// shipment, current revision, or stop. Callers must reject that result and must not publish it.
+func (r *TransportExecutionRepository) ResolveDriverExecutionContext(
+	ctx context.Context,
+	operatingTenantID, driverID, shipmentID uuid.UUID,
+	executionStopID, actionID *uuid.UUID,
+) (ResolvedDriverExecutionContext, error) {
+	if executionStopID == nil && actionID == nil {
+		return ResolvedDriverExecutionContext{}, apperrors.Validation("execution context is required", map[string]any{"field": "executionStopId"})
+	}
+	stopFilter := uuid.Nil
+	if executionStopID != nil {
+		stopFilter = *executionStopID
+	}
+	actionFilter := uuid.Nil
+	if actionID != nil {
+		actionFilter = *actionID
+	}
+	const q = `
+		SELECT s.id, a.id
+		FROM transport.transport_executions e
+		JOIN transport.transport_execution_revisions rev
+		  ON rev.id = e.current_revision_id
+		 AND rev.execution_id = e.id
+		 AND rev.operating_tenant_id = e.operating_tenant_id
+		 AND rev.status = 'ACTIVE'
+		JOIN transport.transport_execution_revision_stops rs
+		  ON rs.revision_id = rev.id
+		 AND rs.membership <> 'SUPERSEDED'
+		JOIN transport.transport_execution_stops s
+		  ON s.id = rs.stop_id
+		 AND s.execution_id = e.id
+		 AND s.operating_tenant_id = e.operating_tenant_id
+		JOIN transport.transport_execution_participants p
+		  ON p.execution_id = e.id
+		 AND p.shipment_id = $3
+		 AND p.shipment_tenant_id = $1
+		JOIN transport.transport_execution_actions a
+		  ON a.execution_stop_id = s.id
+		 AND a.shipment_id = $3
+		 AND a.shipment_tenant_id = $1
+		JOIN transport.transport_execution_revision_actions ra
+		  ON ra.revision_id = rev.id
+		 AND ra.action_id = a.id
+		 AND ra.membership <> 'SUPERSEDED'
+		WHERE e.operating_tenant_id = $1
+		  AND e.driver_id = $2
+		  AND ($4::uuid = '00000000-0000-0000-0000-000000000000'::uuid OR s.id = $4::uuid)
+		  AND ($5::uuid = '00000000-0000-0000-0000-000000000000'::uuid OR a.id = $5::uuid)
+		LIMIT 1`
+	var stopID, matchedActionID uuid.UUID
+	err := r.pool.QueryRow(ctx, q, operatingTenantID, driverID, shipmentID, stopFilter, actionFilter).Scan(&stopID, &matchedActionID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ResolvedDriverExecutionContext{}, apperrors.NotFound("execution context not found")
+	}
+	if err != nil {
+		return ResolvedDriverExecutionContext{}, mapDBError(err)
+	}
+	resolved := ResolvedDriverExecutionContext{ExecutionStopID: stopID}
+	if actionID != nil {
+		verifiedAction := matchedActionID
+		resolved.ActionID = &verifiedAction
+	}
+	return resolved, nil
+}
+
 func constraintName(err error) string {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {

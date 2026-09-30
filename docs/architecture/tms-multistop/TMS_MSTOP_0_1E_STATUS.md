@@ -12,6 +12,11 @@ EXECUTION_PLAN_SUPERSEDED_CONSUMER_READY=YES
 TRACKING_APPROACH_CONSUMER_IMPLEMENTED=YES
 DRIVER_DELAY_STOP_CONTEXT_IMPLEMENTED=YES
 DRIVER_PROBLEM_STOP_ACTION_CONTEXT_IMPLEMENTED=YES
+DRIVER_EXECUTION_CONTEXT_SERVER_VALIDATED=YES
+CLIENT_EXECUTION_STOP_ID_TRUSTED=NO
+CLIENT_ACTION_ID_TRUSTED=NO
+FOREIGN_STOP_CONTEXT_REJECTED=YES
+FOREIGN_ACTION_CONTEXT_REJECTED=YES
 CROSS_SHIPPER_PRIVACY=PASS
 CONTROL_TOWER_WRITES_EXECUTION=NO
 CONTROL_TOWER_WRITES_SHIPMENT_STATUS=NO
@@ -26,3 +31,5 @@ Execution projection rebuild is event replay only. Shipment status snapshot rebu
 Tracking approach events stay on `TRACKING_KAFKA_TOPIC`. Control Tower consumes them with group `control-tower-tracking-approach-v1` only when `CONTROL_TOWER_TRACKING_KAFKA_TOPIC` is set. Approach updates advisory fields and does not mark a stop arrived.
 
 Shipper reads use the existing shipment ownership check. Carrier execution rows do not store `shipment_tenant_id`.
+
+Driver delay and problem requests may carry `executionStopId` and `actionId` only as hints. Shipment-service publishes those fields after `ResolveDriverExecutionContext` matches the authenticated operating tenant, assigned driver, shipment participant, current active revision, stop, and action. A syntactically valid identifier that fails that match is rejected and creates no driver outbox event. Requests without those identifiers stay valid. Control Tower `LinkDriverContext` remains defense-in-depth.
