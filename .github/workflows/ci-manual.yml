@@ -70,6 +70,7 @@ jobs:
           - services/localization-service
           - services/rfx-service
           - services/shipment-service
+          - services/tracking-service
           - services/transport-order-service
           - services/network-optimizer-service
 

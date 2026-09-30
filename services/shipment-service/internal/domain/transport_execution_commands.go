@@ -57,6 +57,15 @@ const (
 	ReasonTerminalAction           = "TERMINAL_ACTION"
 )
 
+func IsExecutionKafkaEventType(eventType string) bool {
+	switch strings.TrimSpace(eventType) {
+	case EventRouteStopCurrent, EventRouteStopArrived, EventRouteStopServiceStarted, EventRouteStopCompleted, EventRouteStopSequenceOverridden:
+		return true
+	default:
+		return false
+	}
+}
+
 // ExecutionCommand is the in-process stop and action command.
 // DEPARTED_PICKUP reuses the existing single-leg LOADED to IN_TRANSIT semantic.
 // It is not a stop status and it is not a DepartStop API.

@@ -244,12 +244,18 @@ func (s *ETAIngestService) ingestExecutionStopETA(ctx context.Context, providerC
 		ExecutionID:        &executionID,
 		ExecutionStopID:    &stopID,
 	}
-	inserted, err := s.etaRepo.InsertETAObservation(ctx, obs)
-	if err != nil || !inserted {
-		if err != nil {
-			reject()
-			return
-		}
+	tx, err := s.execution.Begin(ctx)
+	if err != nil {
+		reject()
+		return
+	}
+	defer tx.Rollback(ctx)
+	inserted, err := s.etaRepo.InsertETAObservationTx(ctx, tx, obs)
+	if err != nil {
+		reject()
+		return
+	}
+	if !inserted {
 		result.Deduplicated++
 		s.metrics.IncETADeduplicated()
 		return
@@ -270,8 +276,13 @@ func (s *ETAIngestService) ingestExecutionStopETA(ctx context.Context, providerC
 		AgeSeconds:         &age,
 		PlannedArrival:     target.PlannedArrival,
 	}
-	if err := s.execution.UpsertExecutionStopETA(ctx, etaState); err != nil {
-		s.log.Warn("execution stop eta upsert failed", slog.String("execution_stop_id", stopID.String()))
+	if err := s.execution.UpsertExecutionStopETATx(ctx, tx, etaState); err != nil {
+		reject()
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
+		reject()
+		return
 	}
 	result.Accepted++
 	s.metrics.IncETAReceived()

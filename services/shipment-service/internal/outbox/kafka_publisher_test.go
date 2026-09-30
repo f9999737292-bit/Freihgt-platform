@@ -340,6 +340,74 @@ func sampleKafkaOutboxEvent(t *testing.T) domain.ShipmentOutboxEvent {
 	}
 }
 
+func TestExecutionEventsPublishOnShipmentTopic(t *testing.T) {
+	types := []string{
+		domain.EventRouteStopCurrent,
+		domain.EventRouteStopArrived,
+		domain.EventRouteStopServiceStarted,
+		domain.EventRouteStopCompleted,
+		domain.EventRouteStopSequenceOverridden,
+	}
+	for _, eventType := range types {
+		t.Run(eventType, func(t *testing.T) {
+			payload := []byte(`{"event_id":"` + uuid.NewString() + `","event_type":"` + eventType + `","operating_tenant_id":"` + uuid.NewString() + `","execution_id":"` + uuid.NewString() + `","revision_id":"` + uuid.NewString() + `","revision_version":1,"event_sequence":1,"stop_id":"` + uuid.NewString() + `","occurred_at":"2026-09-30T10:00:00Z"}`)
+			event := sampleKafkaOutboxEvent(t)
+			event.EventType = eventType
+			event.Payload = append([]byte(nil), payload...)
+			if err := validateKafkaPublishEvent(event); err != nil {
+				t.Fatal(err)
+			}
+			record, err := buildKafkaRecord("shipment.status.v1", "driver.events.v1", event)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if record.Topic != "shipment.status.v1" {
+				t.Fatalf("topic %s", record.Topic)
+			}
+			if !bytes.Equal(record.Value, payload) {
+				t.Fatal("execution payload was mutated")
+			}
+		})
+	}
+
+	t.Run("unknown execution event rejected", func(t *testing.T) {
+		event := sampleKafkaOutboxEvent(t)
+		event.EventType = "shipment.execution.fake"
+		if err := validateKafkaPublishEvent(event); err == nil {
+			t.Fatal("unknown execution event was accepted")
+		}
+	})
+
+	t.Run("driver topic unchanged", func(t *testing.T) {
+		event := sampleKafkaOutboxEvent(t)
+		event.EventType = domain.DriverEventTypeTrackingLost
+		event.Payload = []byte(`{"eventId":"` + uuid.NewString() + `","tenantId":"` + uuid.NewString() + `","eventType":"driver.tracking.lost"}`)
+		record, err := buildKafkaRecord("shipment.status.v1", "driver.events.v1", event)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if record.Topic != "driver.events.v1" {
+			t.Fatalf("driver topic %s", record.Topic)
+		}
+	})
+
+	t.Run("status changed topic unchanged", func(t *testing.T) {
+		event := sampleKafkaOutboxEvent(t)
+		event.EventType = domain.OutboxEventTypeStatusChanged
+		original := append([]byte(nil), event.Payload...)
+		record, err := buildKafkaRecord("shipment.status.v1", "driver.events.v1", event)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if record.Topic != "shipment.status.v1" {
+			t.Fatalf("status topic %s", record.Topic)
+		}
+		if !bytes.Equal(record.Value, original) {
+			t.Fatal("status payload was mutated")
+		}
+	})
+}
+
 func assertKafkaHeadersAllowlist(t *testing.T, headers []kgo.RecordHeader) {
 	t.Helper()
 	for _, header := range headers {

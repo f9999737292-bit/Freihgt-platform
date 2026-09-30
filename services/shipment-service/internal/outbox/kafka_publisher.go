@@ -204,7 +204,7 @@ func validateKafkaPublishEvent(event domain.ShipmentOutboxEvent) error {
 }
 
 func isKnownKafkaEventType(eventType string) bool {
-	if domain.IsDriverKafkaEventType(eventType) {
+	if domain.IsDriverKafkaEventType(eventType) || domain.IsExecutionKafkaEventType(eventType) {
 		return true
 	}
 	switch eventType {
@@ -239,6 +239,15 @@ func buildKafkaRecord(topic, driverTopic string, event domain.ShipmentOutboxEven
 			return nil, &PublishError{Code: ErrorCodePayloadRejected, Retryable: false, Err: errors.New("driver event envelope missing required identifiers")}
 		}
 		correlationID = envelope.CorrelationID
+	} else if domain.IsExecutionKafkaEventType(event.EventType) {
+		if !json.Valid(event.Payload) {
+			return nil, &PublishError{Code: ErrorCodePayloadRejected, Retryable: false, Err: errors.New("invalid execution event payload")}
+		}
+		var meta struct {
+			CorrelationID *string `json:"correlation_id"`
+		}
+		_ = json.Unmarshal(event.Payload, &meta)
+		correlationID = meta.CorrelationID
 	} else {
 		var envelope domain.ShipmentStatusEventEnvelope
 		if err := json.Unmarshal(event.Payload, &envelope); err != nil {

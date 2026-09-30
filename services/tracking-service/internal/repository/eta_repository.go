@@ -35,9 +35,21 @@ func BuildETADedupKey(providerCode, targetType string, shipmentID uuid.UUID, est
 	return hex.EncodeToString(sum[:])
 }
 
+type queryRower interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 func (r *ETARepository) InsertETAObservation(ctx context.Context, obs domain.ETAObservation) (inserted bool, err error) {
+	return insertETAObservation(ctx, r.pool, obs)
+}
+
+func (r *ETARepository) InsertETAObservationTx(ctx context.Context, tx pgx.Tx, obs domain.ETAObservation) (inserted bool, err error) {
+	return insertETAObservation(ctx, tx, obs)
+}
+
+func insertETAObservation(ctx context.Context, q queryRower, obs domain.ETAObservation) (inserted bool, err error) {
 	reasonsJSON, _ := json.Marshal(obs.QualityReasons)
-	const q = `
+	const query = `
 INSERT INTO tracking.eta_observation (
   id, tenant_id, shipment_id, target_type, target_reference, estimated_arrival_at,
   source_type, provider_code, provider_event_id, dedup_key, source_observed_at, received_at,
@@ -52,7 +64,7 @@ RETURNING id`
 		shipmentID = obs.ShipmentID
 	}
 	var returned uuid.UUID
-	err = r.pool.QueryRow(ctx, q,
+	err = q.QueryRow(ctx, query,
 		obs.ID, obs.TenantID, shipmentID, obs.TargetType, obs.TargetReference,
 		obs.EstimatedArrivalAt, obs.SourceType, obs.ProviderCode, obs.ProviderEventID, obs.DedupKey,
 		obs.SourceObservedAt, obs.ReceivedAt, obs.QualityStatus, reasonsJSON, obs.ProviderConfidence,

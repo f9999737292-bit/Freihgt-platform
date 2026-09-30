@@ -291,7 +291,6 @@ func TestExecutionStopTracking(t *testing.T) {
 		restore := repository.SetTrackingOutboxInsertForTest(func(context.Context, pgx.Tx, repository.TrackingOutboxEvent) error {
 			return fmt.Errorf("injected outbox failure")
 		})
-		defer restore()
 		failExec := uuid.New()
 		failStop := uuid.New()
 		failDriver := uuid.New()
@@ -301,16 +300,114 @@ func TestExecutionStopTracking(t *testing.T) {
 			ID: uuid.New(), TenantID: uuid.New(), ShipmentID: uuid.New(), DriverID: &failDriver,
 			ProviderCode: "generic", ProviderDeviceID: "fail-device", DedupKey: uuid.NewString(),
 			Latitude: 55.7560, Longitude: 37.6173, RecordedAt: time.Now().UTC().Add(-time.Minute), ReceivedAt: time.Now().UTC(),
-			SourceType: "gps", QualityStatus: domain.QualityGood,
+			SourceType: domain.SourceVehicleTelematics, QualityStatus: domain.QualityGood,
 		}
-		if _, err := approach.AcceptLocation(ctx, event, domain.FreshnessFresh, domain.QualityGood); err == nil {
+		state := trackingStateFor(event)
+		if _, err := approach.AcceptLocation(ctx, event, domain.FreshnessFresh, domain.QualityGood, state); err == nil {
 			t.Fatal("outbox failure was ignored")
 		}
 		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.location_event WHERE driver_id=$1`, failDriver) != before {
 			t.Fatal("outbox failure committed the location")
 		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.shipment_tracking_state WHERE shipment_id=$1`, event.ShipmentID) != 0 {
+			t.Fatal("outbox failure committed tracking state")
+		}
 		if approachCount(t, ctx, env.pool, failExec) != 0 {
 			t.Fatal("outbox failure committed the approach")
+		}
+		restore()
+		if _, err := approach.AcceptLocation(ctx, event, domain.FreshnessFresh, domain.QualityGood, state); err != nil {
+			t.Fatal(err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.location_event WHERE driver_id=$1`, failDriver) != before+1 {
+			t.Fatal("retry did not store one location")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.shipment_tracking_state WHERE shipment_id=$1`, event.ShipmentID) != 1 {
+			t.Fatal("retry did not store one tracking state")
+		}
+		if approachCount(t, ctx, env.pool, failExec) != 1 {
+			t.Fatal("retry did not store one approach event")
+		}
+
+		restoreState := repository.SetTrackingStateUpsertForTest(func(context.Context, pgx.Tx, domain.ShipmentTrackingState) error {
+			return fmt.Errorf("injected tracking state failure")
+		})
+		defer restoreState()
+		stateExec := uuid.New()
+		stateDriver := uuid.New()
+		insertState(t, ctx, env.pool, operating, stateExec, uuid.New(), uuid.New(), &stateDriver, nil, nil, 55.7558, 37.6173)
+		stateEvent := event
+		stateEvent.ID = uuid.New()
+		stateEvent.ShipmentID = uuid.New()
+		stateEvent.DriverID = &stateDriver
+		stateEvent.DedupKey = uuid.NewString()
+		if _, err := approach.AcceptLocation(ctx, stateEvent, domain.FreshnessFresh, domain.QualityGood, trackingStateFor(stateEvent)); err == nil {
+			t.Fatal("tracking state failure was ignored")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.location_event WHERE driver_id=$1`, stateDriver) != 0 {
+			t.Fatal("tracking state failure committed the location")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.shipment_tracking_state WHERE shipment_id=$1`, stateEvent.ShipmentID) != 0 {
+			t.Fatal("tracking state failure committed tracking state")
+		}
+		if approachCount(t, ctx, env.pool, stateExec) != 0 {
+			t.Fatal("tracking state failure committed the approach")
+		}
+	})
+
+	t.Run("ETA_ATOMIC", func(t *testing.T) {
+		operating := uuid.New()
+		execution := uuid.New()
+		stop := uuid.New()
+		driver := uuid.New()
+		vehicle := uuid.New()
+		planned := time.Date(2026, 9, 30, 15, 0, 0, 0, time.UTC)
+		insertState(t, ctx, env.pool, operating, execution, uuid.New(), stop, &driver, &vehicle, &planned, 55.75, 37.62)
+		device := "eta-atomic-device"
+		insertBinding(t, ctx, env.pool, uuid.New(), uuid.New(), &driver, &vehicle, "generic", device)
+		observed := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+		estimated := observed.Add(20 * time.Minute)
+		payload := etaPayload(device, stop, estimated, observed, "evt-atomic")
+		restore := repository.SetExecutionStopETAUpsertForTest(func(context.Context, pgx.Tx, repository.ExecutionStopETAState) error {
+			return fmt.Errorf("injected eta state failure")
+		})
+		failed, err := etaIngest.IngestProviderETA(ctx, "generic", payload)
+		if err != nil || failed.Accepted != 0 || failed.Rejected != 1 {
+			t.Fatalf("state failure %+v err %v", failed, err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.eta_observation WHERE execution_stop_id=$1`, stop) != 0 {
+			t.Fatal("eta state failure committed an observation")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.execution_stop_eta_state WHERE execution_stop_id=$1`, stop) != 0 {
+			t.Fatal("eta state failure committed eta state")
+		}
+		restore()
+		retried, err := etaIngest.IngestProviderETA(ctx, "generic", payload)
+		if err != nil || retried.Accepted != 1 || retried.Deduplicated != 0 {
+			t.Fatalf("retry %+v err %v", retried, err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.eta_observation WHERE execution_stop_id=$1`, stop) != 1 {
+			t.Fatal("retry did not store one observation")
+		}
+		var version int
+		if err := env.pool.QueryRow(ctx, `SELECT version FROM tracking.execution_stop_eta_state WHERE execution_stop_id=$1`, stop).Scan(&version); err != nil {
+			t.Fatal(err)
+		}
+		if version != 1 {
+			t.Fatalf("version %d", version)
+		}
+		replay, err := etaIngest.IngestProviderETA(ctx, "generic", payload)
+		if err != nil || replay.Deduplicated != 1 || replay.Accepted != 0 {
+			t.Fatalf("replay %+v err %v", replay, err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.eta_observation WHERE execution_stop_id=$1`, stop) != 1 {
+			t.Fatal("replay stored another observation")
+		}
+		if err := env.pool.QueryRow(ctx, `SELECT version FROM tracking.execution_stop_eta_state WHERE execution_stop_id=$1`, stop).Scan(&version); err != nil {
+			t.Fatal(err)
+		}
+		if version != 1 {
+			t.Fatalf("replay incremented version to %d", version)
 		}
 	})
 }
@@ -417,6 +514,25 @@ func approachPayload(t *testing.T, ctx context.Context, pool *pgxpool.Pool, exec
 }
 
 func intPtr(v int) *int { return &v }
+
+func trackingStateFor(event domain.LocationEvent) domain.ShipmentTrackingState {
+	provider := event.ProviderCode
+	lat, lon := event.Latitude, event.Longitude
+	recorded, received := event.RecordedAt, event.ReceivedAt
+	return domain.ShipmentTrackingState{
+		TenantID:        event.TenantID,
+		ShipmentID:      event.ShipmentID,
+		TrackingStatus:  domain.TrackingStatusActive,
+		ProviderCode:    &provider,
+		LastLatitude:    &lat,
+		LastLongitude:   &lon,
+		LastRecordedAt:  &recorded,
+		LastReceivedAt:  &received,
+		FreshnessStatus: domain.FreshnessFresh,
+		QualityStatus:   domain.QualityGood,
+		UpdatedAt:       received,
+	}
+}
 
 func applyMigrationNumbers(pool *pgxpool.Pool, numbers ...int) error {
 	dir, err := locateMigrationsDir()

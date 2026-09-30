@@ -217,9 +217,28 @@ WHERE live_eta_stop_id IS NOT NULL
 	return out, rows.Err()
 }
 
+var executionStopETAUpsertForTest func(context.Context, pgx.Tx, ExecutionStopETAState) error
+
+func SetExecutionStopETAUpsertForTest(fn func(context.Context, pgx.Tx, ExecutionStopETAState) error) func() {
+	previous := executionStopETAUpsertForTest
+	executionStopETAUpsertForTest = fn
+	return func() { executionStopETAUpsertForTest = previous }
+}
+
 func (r *ExecutionTrackingRepository) UpsertExecutionStopETA(ctx context.Context, state ExecutionStopETAState) error {
+	return upsertExecutionStopETA(ctx, r.pool, state)
+}
+
+func (r *ExecutionTrackingRepository) UpsertExecutionStopETATx(ctx context.Context, tx pgx.Tx, state ExecutionStopETAState) error {
+	if executionStopETAUpsertForTest != nil {
+		return executionStopETAUpsertForTest(ctx, tx, state)
+	}
+	return upsertExecutionStopETA(ctx, tx, state)
+}
+
+func upsertExecutionStopETA(ctx context.Context, q sqlExec, state ExecutionStopETAState) error {
 	reasons, _ := json.Marshal(state.QualityReasons)
-	_, err := r.pool.Exec(ctx, `
+	_, err := q.Exec(ctx, `
 INSERT INTO tracking.execution_stop_eta_state (
   operating_tenant_id, execution_id, execution_stop_id, status, estimated_arrival_at, source_type, provider_code,
   source_observed_at, received_at, freshness_status, quality_status, quality_reasons, age_seconds, planned_arrival, version, updated_at

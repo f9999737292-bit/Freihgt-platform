@@ -27,7 +27,7 @@ func (s *StopApproachService) Enabled() bool {
 	return s != nil && s.enabled && s.radiusM > 0
 }
 
-func (s *StopApproachService) AcceptLocation(ctx context.Context, event domain.LocationEvent, freshness, quality string) (bool, error) {
+func (s *StopApproachService) AcceptLocation(ctx context.Context, event domain.LocationEvent, freshness, quality string, state domain.ShipmentTrackingState) (bool, error) {
 	tx, err := s.execution.Begin(ctx)
 	if err != nil {
 		return false, err
@@ -42,6 +42,9 @@ func (s *StopApproachService) AcceptLocation(ctx context.Context, event domain.L
 			return false, err
 		}
 		return false, nil
+	}
+	if err := s.tracking.UpsertTrackingStateIfNewerTx(ctx, tx, state); err != nil {
+		return false, err
 	}
 	if err := s.emitApproach(ctx, tx, event, freshness, quality); err != nil {
 		return false, err

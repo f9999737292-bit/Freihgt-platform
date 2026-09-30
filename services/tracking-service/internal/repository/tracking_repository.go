@@ -134,8 +134,31 @@ WHERE tenant_id = $1 AND shipment_id = $2`
 	return scanTrackingState(row)
 }
 
+type sqlExec interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}
+
+var trackingStateUpsertForTest func(context.Context, pgx.Tx, domain.ShipmentTrackingState) error
+
+func SetTrackingStateUpsertForTest(fn func(context.Context, pgx.Tx, domain.ShipmentTrackingState) error) func() {
+	previous := trackingStateUpsertForTest
+	trackingStateUpsertForTest = fn
+	return func() { trackingStateUpsertForTest = previous }
+}
+
 func (r *TrackingRepository) UpsertTrackingStateIfNewer(ctx context.Context, state domain.ShipmentTrackingState) error {
-	const q = `
+	return upsertTrackingStateIfNewer(ctx, r.pool, state)
+}
+
+func (r *TrackingRepository) UpsertTrackingStateIfNewerTx(ctx context.Context, tx pgx.Tx, state domain.ShipmentTrackingState) error {
+	if trackingStateUpsertForTest != nil {
+		return trackingStateUpsertForTest(ctx, tx, state)
+	}
+	return upsertTrackingStateIfNewer(ctx, tx, state)
+}
+
+func upsertTrackingStateIfNewer(ctx context.Context, q sqlExec, state domain.ShipmentTrackingState) error {
+	const query = `
 INSERT INTO tracking.shipment_tracking_state (
   tenant_id, shipment_id, tracking_status, provider_code, last_latitude, last_longitude,
   last_recorded_at, last_received_at, last_speed_kph, last_heading_degrees,
@@ -213,7 +236,7 @@ ON CONFLICT (tenant_id, shipment_id) DO UPDATE SET
   age_seconds = EXCLUDED.age_seconds,
   delivery_delay_seconds = EXCLUDED.delivery_delay_seconds,
   updated_at = EXCLUDED.updated_at`
-	_, err := r.pool.Exec(ctx, q,
+	_, err := q.Exec(ctx, query,
 		state.TenantID, state.ShipmentID, state.TrackingStatus, state.ProviderCode,
 		state.LastLatitude, state.LastLongitude, state.LastRecordedAt, state.LastReceivedAt,
 		state.LastSpeedKph, state.LastHeadingDegrees, state.FreshnessStatus, state.QualityStatus,

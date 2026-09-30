@@ -26,7 +26,7 @@ type IngestService struct {
 	metrics   *metrics.Collector
 	approach  interface {
 		Enabled() bool
-		AcceptLocation(ctx context.Context, event domain.LocationEvent, freshness, quality string) (bool, error)
+		AcceptLocation(ctx context.Context, event domain.LocationEvent, freshness, quality string, state domain.ShipmentTrackingState) (bool, error)
 	}
 }
 
@@ -50,7 +50,7 @@ type IngestResult struct {
 
 func (s *IngestService) SetApproach(approach interface {
 	Enabled() bool
-	AcceptLocation(ctx context.Context, event domain.LocationEvent, freshness, quality string) (bool, error)
+	AcceptLocation(ctx context.Context, event domain.LocationEvent, freshness, quality string, state domain.ShipmentTrackingState) (bool, error)
 }) {
 	s.approach = approach
 }
@@ -151,9 +151,10 @@ func (s *IngestService) IngestProviderLocations(ctx context.Context, providerCod
 			QualityReason:    qualityReason,
 		}
 
+		state := s.evaluator.BuildStateFromEvent(binding, event, quality, now)
 		var inserted bool
 		if s.approach != nil && s.approach.Enabled() {
-			inserted, err = s.approach.AcceptLocation(ctx, event, freshness, quality)
+			inserted, err = s.approach.AcceptLocation(ctx, event, freshness, quality, state)
 		} else {
 			inserted, err = s.repo.InsertLocationEvent(ctx, event)
 		}
@@ -171,9 +172,10 @@ func (s *IngestService) IngestProviderLocations(ctx context.Context, providerCod
 		s.metrics.IncReceived()
 		s.metrics.ObserveIngestionLag(now.Sub(item.RecordedAt))
 
-		state := s.evaluator.BuildStateFromEvent(binding, event, quality, now)
-		if err := s.repo.UpsertTrackingStateIfNewer(ctx, state); err != nil {
-			s.log.Warn("tracking state upsert failed", slog.String("shipment_id", binding.ShipmentID.String()))
+		if s.approach == nil || !s.approach.Enabled() {
+			if err := s.repo.UpsertTrackingStateIfNewer(ctx, state); err != nil {
+				s.log.Warn("tracking state upsert failed", slog.String("shipment_id", binding.ShipmentID.String()))
+			}
 		}
 		_ = s.evaluator.RecordTransitionIfNeeded(ctx, binding.TenantID, binding.ShipmentID, state.TrackingStatus)
 	}
