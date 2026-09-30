@@ -83,6 +83,8 @@ type ReportDriverExceptionParams struct {
 	Exception       domain.DriverReportedException
 	ShipmentVersion int
 	CorrelationID   *string
+	ExecutionStopID *uuid.UUID
+	ActionID        *uuid.UUID
 }
 
 func (r *DriverOperationsRepository) ReportException(ctx context.Context, params ReportDriverExceptionParams) (*domain.DriverReportedException, uuid.UUID, error) {
@@ -127,7 +129,7 @@ RETURNING id, tenant_id, shipment_id, driver_id, category, comment,
 		return nil, uuid.Nil, mapDBError(err)
 	}
 
-	payload, err := domain.BuildDriverExceptionOutboxPayload(exc, params.ShipmentVersion, params.CorrelationID)
+	payload, err := domain.BuildDriverExceptionOutboxPayload(exc, params.ShipmentVersion, params.CorrelationID, params.ExecutionStopID, params.ActionID)
 	if err != nil {
 		return nil, uuid.Nil, err
 	}
@@ -187,6 +189,7 @@ type ReportDriverDelayParams struct {
 	Delay           domain.DriverReportedDelay
 	ShipmentVersion int
 	CorrelationID   *string
+	ExecutionStopID *uuid.UUID
 }
 
 func (r *DriverOperationsRepository) ReportDelay(ctx context.Context, params ReportDriverDelayParams) (*domain.DriverReportedDelay, uuid.UUID, error) {
@@ -244,6 +247,7 @@ RETURNING id, tenant_id, shipment_id, driver_id, reason_code, reason_text, new_e
 		ReasonCode:      delay.ReasonCode,
 		ReasonText:      delay.ReasonText,
 		ETA:             delay.NewETA,
+		ExecutionStopID: params.ExecutionStopID,
 	})
 	if err != nil {
 		return nil, uuid.Nil, err

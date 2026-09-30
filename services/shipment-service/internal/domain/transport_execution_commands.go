@@ -32,6 +32,7 @@ const (
 
 	OutboxAggregateTypeTransportExecution = "TRANSPORT_EXECUTION"
 
+	EventExecutionPlanCreated        = "shipment.execution_plan.created"
 	EventRouteStopCurrent            = "shipment.route_stop.current"
 	EventRouteStopArrived            = "shipment.route_stop.arrived"
 	EventRouteStopServiceStarted     = "shipment.route_stop.service_started"
@@ -59,7 +60,7 @@ const (
 
 func IsExecutionKafkaEventType(eventType string) bool {
 	switch strings.TrimSpace(eventType) {
-	case EventRouteStopCurrent, EventRouteStopArrived, EventRouteStopServiceStarted, EventRouteStopCompleted, EventRouteStopSequenceOverridden:
+	case EventExecutionPlanCreated, EventRouteStopCurrent, EventRouteStopArrived, EventRouteStopServiceStarted, EventRouteStopCompleted, EventRouteStopSequenceOverridden:
 		return true
 	default:
 		return false

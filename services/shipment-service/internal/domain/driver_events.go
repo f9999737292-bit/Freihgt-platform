@@ -14,16 +14,16 @@ const (
 	DriverEventSchemaVersion = 1
 	DriverEventSourceDriver  = "driver"
 
-	DriverEventTypeLocationUpdated     = "driver.location.updated"
-	DriverEventTypeArrivedAtPickup     = "driver.arrived_at_pickup"
-	DriverEventTypeDepartedPickup      = "driver.departed_pickup"
-	DriverEventTypeArrivedAtDelivery   = "driver.arrived_at_delivery"
-	DriverEventTypeDeliveryCompleted   = "driver.delivery.completed"
-	DriverEventTypeDelayReported       = "driver.delay.reported"
-	DriverEventTypeProblemReported     = "driver.problem.reported"
-	DriverEventTypeDocumentsUploaded   = "driver.documents.uploaded"
-	DriverEventTypeTrackingLost        = "driver.tracking.lost"
-	DriverEventTypeTrackingRestored    = "driver.tracking.restored"
+	DriverEventTypeLocationUpdated   = "driver.location.updated"
+	DriverEventTypeArrivedAtPickup   = "driver.arrived_at_pickup"
+	DriverEventTypeDepartedPickup    = "driver.departed_pickup"
+	DriverEventTypeArrivedAtDelivery = "driver.arrived_at_delivery"
+	DriverEventTypeDeliveryCompleted = "driver.delivery.completed"
+	DriverEventTypeDelayReported     = "driver.delay.reported"
+	DriverEventTypeProblemReported   = "driver.problem.reported"
+	DriverEventTypeDocumentsUploaded = "driver.documents.uploaded"
+	DriverEventTypeTrackingLost      = "driver.tracking.lost"
+	DriverEventTypeTrackingRestored  = "driver.tracking.restored"
 
 	// Legacy outbox type retained for backward-compatible payloads.
 	OutboxEventTypeDriverExceptionReported = "driver.exception_reported"
@@ -38,44 +38,46 @@ var driverOperationalEventTypeMap = map[string]string{
 }
 
 var driverKafkaEventTypes = map[string]struct{}{
-	DriverEventTypeLocationUpdated:   {},
-	DriverEventTypeArrivedAtPickup:   {},
-	DriverEventTypeDepartedPickup:    {},
-	DriverEventTypeArrivedAtDelivery: {},
-	DriverEventTypeDeliveryCompleted: {},
-	DriverEventTypeDelayReported:     {},
-	DriverEventTypeProblemReported:   {},
-	DriverEventTypeDocumentsUploaded: {},
-	DriverEventTypeTrackingLost:      {},
-	DriverEventTypeTrackingRestored:  {},
+	DriverEventTypeLocationUpdated:         {},
+	DriverEventTypeArrivedAtPickup:         {},
+	DriverEventTypeDepartedPickup:          {},
+	DriverEventTypeArrivedAtDelivery:       {},
+	DriverEventTypeDeliveryCompleted:       {},
+	DriverEventTypeDelayReported:           {},
+	DriverEventTypeProblemReported:         {},
+	DriverEventTypeDocumentsUploaded:       {},
+	DriverEventTypeTrackingLost:            {},
+	DriverEventTypeTrackingRestored:        {},
 	OutboxEventTypeDriverExceptionReported: {},
-	OutboxEventTypeDriverShipmentEvent:       {},
+	OutboxEventTypeDriverShipmentEvent:     {},
 }
 
 type DriverEventEnvelope struct {
-	EventID       string         `json:"eventId"`
-	EventType     string         `json:"eventType"`
-	SchemaVersion int            `json:"schemaVersion"`
-	OccurredAt    time.Time      `json:"occurredAt"`
-	TenantID      string         `json:"tenantId"`
-	ShipmentID    string         `json:"shipmentId"`
-	DriverID      string         `json:"driverId,omitempty"`
-	VehicleID     string         `json:"vehicleId,omitempty"`
-	ActorID       string         `json:"actorId,omitempty"`
-	CorrelationID *string        `json:"correlationId,omitempty"`
-	RequestID     *string        `json:"requestId,omitempty"`
-	Source        string         `json:"source"`
-	SourceEventID string         `json:"sourceEventId"`
-	Aggregate     DriverAggregate `json:"aggregate"`
-	Severity      string         `json:"severity,omitempty"`
-	ReasonCode    string         `json:"reasonCode,omitempty"`
-	ReasonText    string         `json:"reasonText,omitempty"`
-	ETA           *time.Time     `json:"eta,omitempty"`
-	Latitude      *float64       `json:"latitude,omitempty"`
-	Longitude     *float64       `json:"longitude,omitempty"`
-	Accuracy      *float64       `json:"accuracy,omitempty"`
-	DocumentID    string         `json:"documentId,omitempty"`
-	Metadata      map[string]any `json:"metadata,omitempty"`
+	EventID         string          `json:"eventId"`
+	EventType       string          `json:"eventType"`
+	SchemaVersion   int             `json:"schemaVersion"`
+	OccurredAt      time.Time       `json:"occurredAt"`
+	TenantID        string          `json:"tenantId"`
+	ShipmentID      string          `json:"shipmentId"`
+	DriverID        string          `json:"driverId,omitempty"`
+	VehicleID       string          `json:"vehicleId,omitempty"`
+	ActorID         string          `json:"actorId,omitempty"`
+	CorrelationID   *string         `json:"correlationId,omitempty"`
+	RequestID       *string         `json:"requestId,omitempty"`
+	Source          string          `json:"source"`
+	SourceEventID   string          `json:"sourceEventId"`
+	Aggregate       DriverAggregate `json:"aggregate"`
+	Severity        string          `json:"severity,omitempty"`
+	ReasonCode      string          `json:"reasonCode,omitempty"`
+	ReasonText      string          `json:"reasonText,omitempty"`
+	ETA             *time.Time      `json:"eta,omitempty"`
+	Latitude        *float64        `json:"latitude,omitempty"`
+	Longitude       *float64        `json:"longitude,omitempty"`
+	Accuracy        *float64        `json:"accuracy,omitempty"`
+	DocumentID      string          `json:"documentId,omitempty"`
+	ExecutionStopID string          `json:"executionStopId,omitempty"`
+	ActionID        string          `json:"actionId,omitempty"`
+	Metadata        map[string]any  `json:"metadata,omitempty"`
 }
 
 type DriverAggregate struct {
@@ -130,14 +132,16 @@ type BuildDriverEventParams struct {
 	CorrelationID   *string
 	RequestID       *string
 	Severity        string
-	ReasonCode        string
-	ReasonText        *string
-	ETA               *time.Time
-	Latitude          *float64
-	Longitude         *float64
-	Accuracy          *float64
-	DocumentID        string
-	Metadata          map[string]any
+	ReasonCode      string
+	ReasonText      *string
+	ETA             *time.Time
+	Latitude        *float64
+	Longitude       *float64
+	Accuracy        *float64
+	DocumentID      string
+	ExecutionStopID *uuid.UUID
+	ActionID        *uuid.UUID
+	Metadata        map[string]any
 }
 
 func BuildDriverEventEnvelope(params BuildDriverEventParams) (DriverEventEnvelope, error) {
@@ -199,6 +203,12 @@ func BuildDriverEventEnvelope(params BuildDriverEventParams) (DriverEventEnvelop
 	if params.Accuracy != nil {
 		env.Accuracy = params.Accuracy
 	}
+	if params.ExecutionStopID != nil && *params.ExecutionStopID != uuid.Nil {
+		env.ExecutionStopID = params.ExecutionStopID.String()
+	}
+	if params.ActionID != nil && *params.ActionID != uuid.Nil {
+		env.ActionID = params.ActionID.String()
+	}
 	return env, nil
 }
 
@@ -241,7 +251,7 @@ func BuildDriverEventOutbox(params BuildDriverEventParams) (ShipmentOutboxEvent,
 	}, nil
 }
 
-func BuildDriverExceptionOutboxPayload(exc DriverReportedException, shipmentVersion int, correlationID *string) ([]byte, error) {
+func BuildDriverExceptionOutboxPayload(exc DriverReportedException, shipmentVersion int, correlationID *string, executionStopID, actionID *uuid.UUID) ([]byte, error) {
 	eventType := MapExceptionCategoryToEventType(exc.Category)
 	if eventType == DriverEventTypeProblemReported {
 		eventType = DriverEventTypeProblemReported
@@ -259,6 +269,8 @@ func BuildDriverExceptionOutboxPayload(exc DriverReportedException, shipmentVers
 		Severity:        MapExceptionCategoryToProblemSeverity(exc.Category),
 		ReasonCode:      exc.Category,
 		ReasonText:      exc.Comment,
+		ExecutionStopID: executionStopID,
+		ActionID:        actionID,
 		Metadata: map[string]any{
 			"legacyEventType": OutboxEventTypeDriverExceptionReported,
 			"idempotencyKey":  exc.IdempotencyKey,

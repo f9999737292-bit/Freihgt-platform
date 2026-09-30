@@ -12,11 +12,16 @@ import (
 	"github.com/freight-platform/control-tower-read-model-service/internal/repository"
 )
 
+type executionContextLinker interface {
+	LinkDriverContext(ctx context.Context, tenantID, eventID, shipmentID uuid.UUID, eventType string, stopID, actionID *uuid.UUID, occurred time.Time, reason, severity string) error
+}
+
 type DriverEventService struct {
 	events     *repository.DriverEventRepository
 	workflow   *repository.WorkflowRepository
 	automation *AutomationService
 	ingress    *AutomationTriggerIngress
+	linker     executionContextLinker
 	log        *slog.Logger
 }
 
@@ -30,6 +35,10 @@ func NewDriverEventService(
 	return &DriverEventService{
 		events: events, workflow: workflow, automation: automation, ingress: ingress, log: log,
 	}
+}
+
+func (s *DriverEventService) SetExecutionLinker(linker executionContextLinker) {
+	s.linker = linker
 }
 
 type DriverEventHandleResult struct {
@@ -61,6 +70,9 @@ func (s *DriverEventService) Handle(ctx context.Context, meta domain.KafkaRecord
 		return DriverEventHandleResult{}, err
 	}
 	if processResult.Duplicate {
+		if err := s.linkDriverContext(ctx, event, env); err != nil {
+			return DriverEventHandleResult{}, err
+		}
 		return DriverEventHandleResult{Outcome: "DUPLICATE", Duplicate: true}, nil
 	}
 	if !processResult.Inserted {
@@ -80,7 +92,21 @@ func (s *DriverEventService) Handle(ctx context.Context, meta domain.KafkaRecord
 		}
 	}
 
+	if err := s.linkDriverContext(ctx, event, env); err != nil {
+		return DriverEventHandleResult{}, err
+	}
 	return DriverEventHandleResult{Outcome: "PROCESSED"}, nil
+}
+
+func (s *DriverEventService) linkDriverContext(ctx context.Context, event domain.ControlTowerEvent, env domain.DriverDomainEventEnvelope) error {
+	if s.linker == nil || (event.Type != "driver.delay.reported" && event.Type != "driver.problem.reported") {
+		return nil
+	}
+	stopID, actionID, perm := domain.OptionalDriverContext(env)
+	if perm != nil {
+		return perm
+	}
+	return s.linker.LinkDriverContext(ctx, event.TenantID, event.ID, event.ShipmentID, event.Type, stopID, actionID, event.OccurredAt, env.ReasonCode, event.Severity)
 }
 
 func optionalUUID(id uuid.UUID) *uuid.UUID {

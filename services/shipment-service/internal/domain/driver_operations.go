@@ -57,10 +57,12 @@ type DriverOperationalEventInput struct {
 }
 
 type DriverExceptionInput struct {
-	Category       string
-	Comment        *string
-	OccurredAt     *time.Time
-	IdempotencyKey string
+	Category        string
+	Comment         *string
+	OccurredAt      *time.Time
+	IdempotencyKey  string
+	ExecutionStopID *uuid.UUID
+	ActionID        *uuid.UUID
 }
 
 type DriverReportedException struct {
@@ -136,11 +138,12 @@ func MapDriverEventToTargetStatus(eventType string) (string, bool, bool) {
 }
 
 type DriverDelayInput struct {
-	ReasonCode     string
-	ReasonText     *string
-	NewETA         *time.Time
-	OccurredAt     *time.Time
-	IdempotencyKey string
+	ReasonCode      string
+	ReasonText      *string
+	NewETA          *time.Time
+	OccurredAt      *time.Time
+	IdempotencyKey  string
+	ExecutionStopID *uuid.UUID
 }
 
 type DriverReportedDelay struct {

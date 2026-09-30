@@ -331,6 +331,8 @@ func (s *DriverOperationsService) ReportException(
 		Exception:       excInput,
 		ShipmentVersion: shipment.Version,
 		CorrelationID:   correlationID,
+		ExecutionStopID: in.ExecutionStopID,
+		ActionID:        in.ActionID,
 	})
 	if err != nil {
 		return DriverExceptionResult{}, err
@@ -420,6 +422,7 @@ func (s *DriverOperationsService) ReportDelay(
 		Delay:           delayInput,
 		ShipmentVersion: shipment.Version,
 		CorrelationID:   correlationID,
+		ExecutionStopID: in.ExecutionStopID,
 	})
 	if err != nil {
 		return DriverDelayResult{}, err

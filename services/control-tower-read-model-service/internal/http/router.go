@@ -32,6 +32,8 @@ func NewRouter(
 	automationSvc *service.AutomationService,
 	automationIngress *service.AutomationTriggerIngress,
 	freshness *consumer.Freshness,
+	executionRepo *repository.ExecutionProjectionRepository,
+	shipmentOwner handlers.ShipmentOwner,
 ) http.Handler {
 	statusHandler := handlers.NewStatusHandler(repo, freshness)
 	ackHandler := handlers.NewAckHandler(ackRepo, workflowRepo, automationIngress)
@@ -50,6 +52,11 @@ func NewRouter(
 	sharedpprof.Mount(r)
 
 	r.Route("/internal/v1/control-tower", func(r chi.Router) {
+		if executionRepo != nil {
+			executionHandler := handlers.NewExecutionHandler(executionRepo, shipmentOwner)
+			r.Get("/executions", executionHandler.List)
+			r.Get("/executions/{executionId}", executionHandler.Get)
+		}
 		r.Get("/shipments/{shipmentId}/status", statusHandler.GetShipmentStatus)
 		r.Get("/status-summary", statusHandler.GetStatusSummary)
 		r.Get("/shipments/statuses", statusHandler.ListShipmentStatuses)

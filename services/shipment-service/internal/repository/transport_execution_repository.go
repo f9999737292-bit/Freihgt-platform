@@ -92,6 +92,9 @@ func (r *TransportExecutionRepository) Project(ctx context.Context, cmd domain.P
 	if err := materializeDriverStopTasksFn(ctx, tx, executionID, now); err != nil {
 		return domain.ProjectionResult{}, err
 	}
+	if err := emitExecutionPlanCreated(ctx, tx, cmd.OperatingTenantID, executionID, revisionID, now); err != nil {
+		return domain.ProjectionResult{}, err
+	}
 	if err := emitInitialCurrentStop(ctx, tx, cmd.OperatingTenantID, executionID, revisionID, now); err != nil {
 		return domain.ProjectionResult{}, err
 	}

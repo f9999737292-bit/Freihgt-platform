@@ -162,12 +162,12 @@ func TestRunPollRecoveryProcessesNextRecord(t *testing.T) {
 	}()
 
 	require.Eventually(t, func() bool {
-		return repo.processCalls >= 1
+		return repo.processCalls.Load() >= 1
 	}, time.Second, 10*time.Millisecond)
 
 	cancel()
 	<-done
-	assert.GreaterOrEqual(t, repo.processCalls, 1)
+	assert.GreaterOrEqual(t, repo.processCalls.Load(), int32(1))
 }
 
 func fetchWithError(err error) kgo.Fetches {

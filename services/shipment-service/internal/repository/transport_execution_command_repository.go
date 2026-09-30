@@ -638,6 +638,8 @@ func failAction(ctx context.Context, tx pgx.Tx, scope *commandScope) (domain.Exe
 		SourceEventID:   sourceID,
 		OccurredAt:      scope.cmd.OccurredAt,
 		ReasonCode:      scope.cmd.ReasonCode,
+		ExecutionStopID: &stop.ID,
+		ActionID:        &action.ID,
 		Metadata: map[string]any{
 			"execution_stop_id": stop.ID.String(),
 			"action_id":         action.ID.String(),
@@ -1265,6 +1267,122 @@ func emitExecutionEvent(ctx context.Context, tx pgx.Tx, scope commandScope, even
 		Status:           domain.OutboxStatusPending,
 		AvailableAt:      time.Now().UTC(),
 	})
+}
+
+func emitExecutionPlanCreated(ctx context.Context, tx pgx.Tx, operatingTenant, executionID, revisionID uuid.UUID, occurred time.Time) error {
+	var version int
+	var carrier uuid.UUID
+	var driverID, vehicleID *uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		SELECT r.version, e.carrier_company_id, e.driver_id, e.vehicle_id
+		FROM transport.transport_execution_revisions r
+		JOIN transport.transport_executions e ON e.id = r.execution_id
+		WHERE r.id = $1 AND e.id = $2
+	`, revisionID, executionID).Scan(&version, &carrier, &driverID, &vehicleID); err != nil {
+		return mapDBError(err)
+	}
+	stopRows, err := tx.Query(ctx, `
+		SELECT s.id, rs.source_ordinal, s.stop_role, s.point_kind, s.location_id,
+		       s.planned_arrival, s.planned_departure, s.status
+		FROM transport.transport_execution_revision_stops rs
+		JOIN transport.transport_execution_stops s ON s.id = rs.stop_id
+		WHERE rs.revision_id = $1
+		ORDER BY rs.source_ordinal
+	`, revisionID)
+	if err != nil {
+		return mapDBError(err)
+	}
+	defer stopRows.Close()
+	stops := make([]map[string]any, 0)
+	for stopRows.Next() {
+		var stopID uuid.UUID
+		var ordinal int
+		var role, kind, status string
+		var locationID *uuid.UUID
+		var arrival, departure *time.Time
+		if err := stopRows.Scan(&stopID, &ordinal, &role, &kind, &locationID, &arrival, &departure, &status); err != nil {
+			return mapDBError(err)
+		}
+		stops = append(stops, map[string]any{
+			"stop_id": stopID.String(), "ordinal": ordinal, "stop_role": role, "point_kind": kind,
+			"location_id": uuidPtrString(locationID), "planned_arrival": formatOptionalTime(arrival),
+			"planned_departure": formatOptionalTime(departure), "status": status,
+		})
+	}
+	if err := stopRows.Err(); err != nil {
+		return mapDBError(err)
+	}
+	actionRows, err := tx.Query(ctx, `
+		SELECT a.id, a.execution_stop_id, a.action_type, a.shipment_id, a.cargo_id, a.status
+		FROM transport.transport_execution_revision_actions ra
+		JOIN transport.transport_execution_actions a ON a.id = ra.action_id
+		WHERE ra.revision_id = $1
+		ORDER BY a.ordinal
+	`, revisionID)
+	if err != nil {
+		return mapDBError(err)
+	}
+	defer actionRows.Close()
+	actions := make([]map[string]any, 0)
+	for actionRows.Next() {
+		var actionID, stopID, shipmentID, cargoID uuid.UUID
+		var actionType, status string
+		if err := actionRows.Scan(&actionID, &stopID, &actionType, &shipmentID, &cargoID, &status); err != nil {
+			return mapDBError(err)
+		}
+		actions = append(actions, map[string]any{
+			"action_id": actionID.String(), "stop_id": stopID.String(), "action_type": actionType,
+			"shipment_id": shipmentID.String(), "cargo_id": cargoID.String(), "status": status,
+		})
+	}
+	if err := actionRows.Err(); err != nil {
+		return mapDBError(err)
+	}
+	var seq int64
+	if err := tx.QueryRow(ctx, `
+		UPDATE transport.transport_executions
+		SET event_seq = event_seq + 1, updated_at = now()
+		WHERE id = $1
+		RETURNING event_seq
+	`, executionID).Scan(&seq); err != nil {
+		return mapDBError(err)
+	}
+	payload, err := json.Marshal(map[string]any{
+		"event_id": uuid.NewString(), "event_type": domain.EventExecutionPlanCreated,
+		"operating_tenant_id": operatingTenant.String(), "execution_id": executionID.String(),
+		"revision_id": revisionID.String(), "revision_version": version, "event_sequence": seq,
+		"occurred_at":        occurred.UTC().Format(time.RFC3339Nano),
+		"carrier_company_id": carrier.String(), "driver_id": uuidPtrString(driverID), "vehicle_id": uuidPtrString(vehicleID),
+		"stops": stops, "actions": actions,
+	})
+	if err != nil {
+		return apperrors.Internal("marshal execution plan created", err)
+	}
+	headers, err := json.Marshal(map[string]string{"contentType": "application/json", "eventType": domain.EventExecutionPlanCreated})
+	if err != nil {
+		return apperrors.Internal("marshal execution plan headers", err)
+	}
+	eventID := uuid.New()
+	return executionOutboxInsert(ctx, tx, domain.ShipmentOutboxEvent{
+		ID: eventID, TenantID: operatingTenant, AggregateType: domain.OutboxAggregateTypeTransportExecution,
+		AggregateID: executionID, AggregateVersion: version, EventType: domain.EventExecutionPlanCreated,
+		SchemaVersion: 1, SourceEventID: eventID, Payload: payload, Headers: headers,
+		Status: domain.OutboxStatusPending, AvailableAt: time.Now().UTC(),
+	})
+}
+
+func uuidPtrString(id *uuid.UUID) any {
+	if id == nil || *id == uuid.Nil {
+		return nil
+	}
+	return id.String()
+}
+
+func formatOptionalTime(value *time.Time) any {
+	if value == nil {
+		return nil
+	}
+	return value.UTC().Format(time.RFC3339Nano)
 }
 
 func emitInitialCurrentStop(ctx context.Context, tx pgx.Tx, operatingTenant, executionID, revisionID uuid.UUID, occurred time.Time) error {

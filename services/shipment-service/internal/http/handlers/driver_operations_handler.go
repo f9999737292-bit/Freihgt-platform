@@ -31,20 +31,23 @@ type driverOperationalEventRequest struct {
 }
 
 type driverExceptionRequest struct {
-	Category       string  `json:"category"`
-	Comment        *string `json:"comment"`
-	OccurredAt     *string `json:"occurredAt"`
-	IdempotencyKey string  `json:"idempotencyKey"`
-	Severity       *string `json:"severity"`
-	RuleID         *string `json:"ruleId"`
+	Category        string  `json:"category"`
+	Comment         *string `json:"comment"`
+	OccurredAt      *string `json:"occurredAt"`
+	IdempotencyKey  string  `json:"idempotencyKey"`
+	Severity        *string `json:"severity"`
+	RuleID          *string `json:"ruleId"`
+	ExecutionStopID *string `json:"executionStopId"`
+	ActionID        *string `json:"actionId"`
 }
 
 type driverDelayRequest struct {
-	ReasonCode     string  `json:"reasonCode"`
-	ReasonText     *string `json:"reasonText"`
-	NewETA         *string `json:"newEta"`
-	OccurredAt     *string `json:"occurredAt"`
-	IdempotencyKey string  `json:"idempotencyKey"`
+	ReasonCode      string  `json:"reasonCode"`
+	ReasonText      *string `json:"reasonText"`
+	NewETA          *string `json:"newEta"`
+	OccurredAt      *string `json:"occurredAt"`
+	IdempotencyKey  string  `json:"idempotencyKey"`
+	ExecutionStopID *string `json:"executionStopId"`
 }
 
 func (h *DriverOperationsHandler) GetMe(w http.ResponseWriter, r *http.Request) {
@@ -180,10 +183,22 @@ func (h *DriverOperationsHandler) ReportException(w http.ResponseWriter, r *http
 	if idempotencyKey == "" {
 		idempotencyKey = strings.TrimSpace(r.Header.Get("Idempotency-Key"))
 	}
+	stopID, err := optionalBodyUUID(req.ExecutionStopID, "executionStopId")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	actionID, err := optionalBodyUUID(req.ActionID, "actionId")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	input := domain.DriverExceptionInput{
-		Category:       req.Category,
-		Comment:        req.Comment,
-		IdempotencyKey: idempotencyKey,
+		Category:        req.Category,
+		Comment:         req.Comment,
+		IdempotencyKey:  idempotencyKey,
+		ExecutionStopID: stopID,
+		ActionID:        actionID,
 	}
 	if req.OccurredAt != nil {
 		parsed, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(*req.OccurredAt))
@@ -229,10 +244,16 @@ func (h *DriverOperationsHandler) ReportDelay(w http.ResponseWriter, r *http.Req
 	if idempotencyKey == "" {
 		idempotencyKey = strings.TrimSpace(r.Header.Get("Idempotency-Key"))
 	}
+	stopID, err := optionalBodyUUID(req.ExecutionStopID, "executionStopId")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	input := domain.DriverDelayInput{
-		ReasonCode:     req.ReasonCode,
-		ReasonText:     req.ReasonText,
-		IdempotencyKey: idempotencyKey,
+		ReasonCode:      req.ReasonCode,
+		ReasonText:      req.ReasonText,
+		IdempotencyKey:  idempotencyKey,
+		ExecutionStopID: stopID,
 	}
 	if req.NewETA != nil {
 		parsed, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(*req.NewETA))
@@ -264,6 +285,17 @@ func (h *DriverOperationsHandler) ReportDelay(w http.ResponseWriter, r *http.Req
 		status = http.StatusOK
 	}
 	respond.JSON(w, status, mapDriverDelayResult(result))
+}
+
+func optionalBodyUUID(raw *string, field string) (*uuid.UUID, error) {
+	if raw == nil || strings.TrimSpace(*raw) == "" {
+		return nil, nil
+	}
+	id, err := uuid.Parse(strings.TrimSpace(*raw))
+	if err != nil {
+		return nil, apperrors.Validation(field+" must be a UUID", map[string]any{"field": field})
+	}
+	return &id, nil
 }
 
 func resolveDriverContext(r *http.Request) (tenantID, userID uuid.UUID, err error) {

@@ -21,7 +21,7 @@ import (
 	"github.com/freight-platform/control-tower-read-model-service/internal/repository"
 )
 
-const maxMigrationNumber = 16
+const maxMigrationNumber = 92
 
 type TestEnv struct {
 	T    *testing.T
