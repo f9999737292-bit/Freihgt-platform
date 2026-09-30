@@ -1,0 +1,736 @@
+//go:build integration
+
+package driverlocation
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/freight-platform/tracking-service/internal/config"
+	"github.com/freight-platform/tracking-service/internal/domain"
+	"github.com/freight-platform/tracking-service/internal/provider"
+	"github.com/freight-platform/tracking-service/internal/repository"
+	"github.com/freight-platform/tracking-service/internal/service"
+)
+
+func TestExecutionStopTracking(t *testing.T) {
+	env := setupTestEnv(t)
+	if err := applyMigrationNumbers(env.pool, 27, 91); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	execRepo := repository.NewExecutionTrackingRepository(env.pool)
+	trackingRepo := repository.NewTrackingRepository(env.pool)
+	etaRepo := repository.NewETARepository(env.pool)
+	cfg := config.Config{
+		FreshnessPolicy:    config.FreshnessConfig{FreshThreshold: 5 * time.Minute, StaleThreshold: 30 * time.Minute},
+		ETAFreshnessPolicy: config.FreshnessConfig{FreshThreshold: 15 * time.Minute, StaleThreshold: 60 * time.Minute},
+		StopApproach:       config.StopApproachConfig{Enabled: true, RadiusMeters: 300},
+	}
+	telemetry := env.metrics
+	etaEvaluator := service.NewETAStateEvaluator(etaRepo, cfg)
+	etaIngest := service.NewETAIngestService(trackingRepo, etaRepo, provider.NewETARegistry(provider.GenericETAAdapter{}), cfg, etaEvaluator, log, telemetry)
+	etaIngest.SetExecutionTracking(execRepo)
+	etaQuery := service.NewETAQueryService(etaRepo, etaEvaluator)
+	etaQuery.SetExecutionTracking(execRepo)
+	approach := service.NewStopApproachService(trackingRepo, execRepo, true, 300)
+	reg := provider.NewRegistry(provider.GenericAdapter{})
+	evaluator := service.NewStateEvaluator(trackingRepo, cfg)
+	ingest := service.NewIngestService(trackingRepo, reg, cfg, evaluator, log, telemetry)
+	ingest.SetApproach(approach)
+
+	t.Run("CONSUMER", func(t *testing.T) {
+		operating := uuid.New()
+		execution := uuid.New()
+		revision := uuid.New()
+		anchor := uuid.New()
+		cargo := uuid.New()
+		next := uuid.New()
+		driver := uuid.New()
+		lat, lon := 55.81, 37.71
+		client := &fakeStopContext{views: map[uuid.UUID]service.StopContext{
+			anchor: {ExecutionID: execution, RevisionID: revision, ExecutionStopID: anchor, Ordinal: 0, Status: "PLANNED", PointKind: "POSITION_ANCHOR", StopRole: "START", DriverID: &driver, LiveETAStopID: &cargo, LiveETAOrdinal: intPtr(1), LiveETALatitude: &lat, LiveETALongitude: &lon},
+			cargo:  {ExecutionID: execution, RevisionID: revision, ExecutionStopID: cargo, Ordinal: 1, Status: "PLANNED", PointKind: "CANONICAL_LOCATION", StopRole: "CARGO", DriverID: &driver, TargetLatitude: &lat, TargetLongitude: &lon, LiveETAStopID: &cargo, LiveETAOrdinal: intPtr(1), LiveETALatitude: &lat, LiveETALongitude: &lon},
+			next:   {ExecutionID: execution, RevisionID: revision, ExecutionStopID: next, Ordinal: 2, Status: "PLANNED", PointKind: "CANONICAL_LOCATION", StopRole: "CARGO", DriverID: &driver, TargetLatitude: &lat, TargetLongitude: &lon, LiveETAStopID: &next, LiveETAOrdinal: intPtr(2), LiveETALatitude: &lat, LiveETALongitude: &lon},
+		}}
+		consumer := service.NewExecutionConsumer(execRepo, client)
+		raw := eventJSON(t, operating, execution, revision, anchor, 1, domain.EventRouteStopCurrent)
+		if err := consumer.Apply(ctx, raw); err != nil {
+			t.Fatal(err)
+		}
+		if client.tenants[0] != operating {
+			t.Fatal("context was not read with the operating tenant")
+		}
+		state := mustState(t, ctx, execRepo, execution)
+		if state.CurrentStopID == nil || *state.CurrentStopID != anchor || state.LiveETAStopID == nil || *state.LiveETAStopID != cargo {
+			t.Fatalf("target %+v", state)
+		}
+		if err := consumer.Apply(ctx, raw); err != nil {
+			t.Fatal(err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.execution_event_inbox WHERE execution_id=$1`, execution) != 1 {
+			t.Fatal("duplicate event was not idempotent")
+		}
+		if err := consumer.Apply(ctx, eventJSON(t, operating, execution, revision, next, 3, domain.EventRouteStopCurrent)); err != nil {
+			t.Fatal(err)
+		}
+		state = mustState(t, ctx, execRepo, execution)
+		if state.LiveETAStopID == nil || *state.LiveETAStopID != next || state.LastExecutionEventSequence != 3 {
+			t.Fatalf("next target %+v", state)
+		}
+		if err := consumer.Apply(ctx, eventJSON(t, operating, execution, revision, cargo, 2, domain.EventRouteStopCurrent)); err != nil {
+			t.Fatal(err)
+		}
+		state = mustState(t, ctx, execRepo, execution)
+		if state.LiveETAStopID == nil || *state.LiveETAStopID != next {
+			t.Fatal("old event regressed the target")
+		}
+		if err := consumer.Apply(ctx, eventJSON(t, uuid.New(), execution, revision, next, 4, domain.EventRouteStopCurrent)); err != nil {
+			t.Fatal(err)
+		}
+		state = mustState(t, ctx, execRepo, execution)
+		if state.OperatingTenantID != operating || state.LastExecutionEventSequence != 3 {
+			t.Fatal("foreign tenant event was applied")
+		}
+		if err := consumer.Apply(ctx, eventJSON(t, operating, execution, revision, next, 5, domain.EventRouteStopCompleted)); err != nil {
+			t.Fatal(err)
+		}
+		state = mustState(t, ctx, execRepo, execution)
+		if state.CurrentStopID != nil || state.LiveETAStopID != nil {
+			t.Fatalf("completed event did not clear the target %+v", state)
+		}
+		missingExec := uuid.New()
+		client.missing = map[uuid.UUID]bool{missingExec: true}
+		if err := consumer.Apply(ctx, eventJSON(t, operating, missingExec, revision, uuid.New(), 1, domain.EventRouteStopCurrent)); err != nil {
+			t.Fatal(err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.execution_tracking_state WHERE execution_id=$1`, missingExec) != 0 {
+			t.Fatal("superseded context created a target")
+		}
+	})
+
+	t.Run("ETA", func(t *testing.T) {
+		operating := uuid.New()
+		execution := uuid.New()
+		stop := uuid.New()
+		other := uuid.New()
+		driver := uuid.New()
+		vehicle := uuid.New()
+		planned := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+		insertState(t, ctx, env.pool, operating, execution, uuid.New(), stop, &driver, &vehicle, &planned, 55.75, 37.62)
+		device := "eta-device"
+		insertBinding(t, ctx, env.pool, uuid.New(), uuid.New(), &driver, &vehicle, "generic", device)
+		observed := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+		estimated := observed.Add(30 * time.Minute)
+		payload := etaPayload(device, stop, estimated, observed, "evt-eta-1")
+		first, err := etaIngest.IngestProviderETA(ctx, "generic", payload)
+		if err != nil || first.Accepted != 1 {
+			t.Fatalf("ingest %+v err %v", first, err)
+		}
+		second, err := etaIngest.IngestProviderETA(ctx, "generic", payload)
+		if err != nil || second.Deduplicated != 1 || second.Accepted != 0 {
+			t.Fatalf("dedup %+v err %v", second, err)
+		}
+		view, err := etaQuery.GetExecutionStopETA(ctx, operating, stop)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if view.PlannedArrival == nil || !view.PlannedArrival.Equal(planned) || view.EstimatedArrivalAt == nil || view.EstimatedArrivalAt.Equal(planned) {
+			t.Fatalf("planned and live eta were not separate %+v", view)
+		}
+		if view.FreshnessStatus != domain.ETAFreshnessFresh || view.QualityStatus != domain.ETAQualityGood || view.Status != domain.ETAStatusAvailable {
+			t.Fatalf("freshness/quality %+v", view)
+		}
+		if _, err := etaQuery.GetExecutionStopETA(ctx, uuid.New(), stop); err == nil {
+			t.Fatal("foreign tenant eta was returned")
+		}
+		stale, err := etaIngest.IngestProviderETA(ctx, "generic", etaPayload(device, other, estimated, observed, "evt-stale"))
+		if err != nil || stale.Rejected != 1 || stale.Accepted != 0 {
+			t.Fatalf("stale stop %+v", stale)
+		}
+		var plannedDB time.Time
+		if err := env.pool.QueryRow(ctx, `SELECT planned_arrival FROM tracking.execution_stop_eta_state WHERE execution_stop_id=$1`, stop).Scan(&plannedDB); err != nil {
+			t.Fatal(err)
+		}
+		if !plannedDB.Equal(planned) {
+			t.Fatal("live eta overwrote planned arrival")
+		}
+		otherExec := uuid.New()
+		insertState(t, ctx, env.pool, operating, otherExec, uuid.New(), uuid.New(), &driver, &vehicle, &planned, 55.75, 37.62)
+		ambiguous, err := etaIngest.IngestProviderETA(ctx, "generic", etaPayload(device, stop, estimated.Add(time.Minute), observed, "evt-ambiguous"))
+		if err != nil || ambiguous.Rejected != 1 || ambiguous.Accepted != 0 {
+			t.Fatalf("ambiguous device association %+v", ambiguous)
+		}
+
+		shipTenant := uuid.New()
+		shipment := uuid.New()
+		pickupDevice := "pickup-device"
+		insertBinding(t, ctx, env.pool, shipTenant, shipment, nil, nil, "generic", pickupDevice)
+		pickupObserved := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+		pickup, err := etaIngest.IngestProviderETA(ctx, "generic", provider.ProviderPayload([]byte(fmt.Sprintf(`{"observations":[{"providerDeviceId":%q,"targetType":"pickup","estimatedArrivalAt":%q,"sourceObservedAt":%q,"sourceType":"provider_eta","providerEventId":"pick-1"}]}`, pickupDevice, pickupObserved.Add(time.Hour).Format(time.RFC3339), pickupObserved.Format(time.RFC3339)))))
+		if err != nil || pickup.Accepted != 1 {
+			t.Fatalf("pickup %+v err %v", pickup, err)
+		}
+		var execStop *uuid.UUID
+		var shipmentID uuid.UUID
+		if err := env.pool.QueryRow(ctx, `SELECT shipment_id, execution_stop_id FROM tracking.eta_observation WHERE provider_event_id='pick-1'`).Scan(&shipmentID, &execStop); err != nil {
+			t.Fatal(err)
+		}
+		if shipmentID != shipment || execStop != nil {
+			t.Fatalf("pickup shape shipment %s stop %v", shipmentID, execStop)
+		}
+		delivery, err := etaIngest.IngestProviderETA(ctx, "generic", provider.ProviderPayload([]byte(fmt.Sprintf(`{"observations":[{"providerDeviceId":%q,"targetType":"delivery","estimatedArrivalAt":%q,"sourceObservedAt":%q,"sourceType":"provider_eta","providerEventId":"del-1"}]}`, pickupDevice, pickupObserved.Add(2*time.Hour).Format(time.RFC3339), pickupObserved.Format(time.RFC3339)))))
+		if err != nil || delivery.Accepted != 1 {
+			t.Fatalf("delivery %+v err %v", delivery, err)
+		}
+	})
+
+	t.Run("APPROACH", func(t *testing.T) {
+		operating := uuid.New()
+		outsideExec := uuid.New()
+		outsideDriver := uuid.New()
+		insertState(t, ctx, env.pool, operating, outsideExec, uuid.New(), uuid.New(), &outsideDriver, nil, nil, 55.7558, 37.6173)
+		outsideDevice := "outside-device"
+		insertBinding(t, ctx, env.pool, uuid.New(), uuid.New(), &outsideDriver, nil, "generic", outsideDevice)
+		far := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+		outsideResult, err := ingest.IngestProviderLocations(ctx, "generic", locationPayload(outsideDevice, 55.90, 37.90, far))
+		if err != nil || outsideResult.Accepted != 1 {
+			t.Fatalf("outside ingest %+v err %v", outsideResult, err)
+		}
+		if approachCount(t, ctx, env.pool, outsideExec) != 0 {
+			t.Fatal("outside radius emitted an approach")
+		}
+
+		execution := uuid.New()
+		stop := uuid.New()
+		driver := uuid.New()
+		insertState(t, ctx, env.pool, operating, execution, uuid.New(), stop, &driver, nil, nil, 55.7558, 37.6173)
+		device := "approach-device"
+		insertBinding(t, ctx, env.pool, uuid.New(), uuid.New(), &driver, nil, "generic", device)
+		near := far.Add(time.Second)
+		insideResult, err := ingest.IngestProviderLocations(ctx, "generic", locationPayload(device, 55.7560, 37.6173, near))
+		if err != nil || insideResult.Accepted != 1 {
+			t.Fatalf("inside ingest %+v err %v", insideResult, err)
+		}
+		if approachCount(t, ctx, env.pool, execution) != 1 {
+			t.Fatal("inside radius did not emit one approach")
+		}
+		payload := approachPayload(t, ctx, env.pool, execution)
+		if _, ok := payload["latitude"]; ok {
+			t.Fatal("approach payload included latitude")
+		}
+		if payload["executionStopId"] != stop.String() || payload["operatingTenantId"] != operating.String() {
+			t.Fatalf("payload %+v", payload)
+		}
+		if _, err := ingest.IngestProviderLocations(ctx, "generic", locationPayload(device, 55.7560, 37.6173, near)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ingest.IngestProviderLocations(ctx, "generic", locationPayload(device, 55.7562, 37.6174, near.Add(time.Second))); err != nil {
+			t.Fatal(err)
+		}
+		if approachCount(t, ctx, env.pool, execution) != 1 {
+			t.Fatal("approach was emitted more than once")
+		}
+		next := uuid.New()
+		if _, err := env.pool.Exec(ctx, `UPDATE tracking.execution_tracking_state SET live_eta_stop_id=$2, approach_emitted_stop_id=NULL, approach_emitted_at=NULL WHERE execution_id=$1`, execution, next); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ingest.IngestProviderLocations(ctx, "generic", locationPayload(device, 55.7561, 37.6173, near.Add(2*time.Second))); err != nil {
+			t.Fatal(err)
+		}
+		if approachCount(t, ctx, env.pool, execution) != 2 {
+			t.Fatal("new current stop did not emit a new approach")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM transport.shipment_event_outbox WHERE event_type='tracking.stop.approaching'`) != 0 {
+			t.Fatal("approach event was written to the shipment outbox")
+		}
+
+		unknownDriver := uuid.New()
+		unknownExec := uuid.New()
+		unknownStop := uuid.New()
+		insertState(t, ctx, env.pool, operating, unknownExec, uuid.New(), unknownStop, &unknownDriver, nil, nil, 0, 0)
+		if _, err := env.pool.Exec(ctx, `UPDATE tracking.execution_tracking_state SET target_latitude=NULL, target_longitude=NULL WHERE execution_id=$1`, unknownExec); err != nil {
+			t.Fatal(err)
+		}
+		unknownDevice := "unknown-device"
+		insertBinding(t, ctx, env.pool, uuid.New(), uuid.New(), &unknownDriver, nil, "generic", unknownDevice)
+		if _, err := ingest.IngestProviderLocations(ctx, "generic", locationPayload(unknownDevice, 55.7560, 37.6173, near)); err != nil {
+			t.Fatal(err)
+		}
+		if approachCount(t, ctx, env.pool, unknownExec) != 0 {
+			t.Fatal("unknown coordinates emitted an approach")
+		}
+
+		staleDriver := uuid.New()
+		staleDevice := "stale-device"
+		staleExec := uuid.New()
+		insertState(t, ctx, env.pool, operating, staleExec, uuid.New(), uuid.New(), &staleDriver, nil, nil, 55.7558, 37.6173)
+		insertBinding(t, ctx, env.pool, uuid.New(), uuid.New(), &staleDriver, nil, "generic", staleDevice)
+		if _, err := ingest.IngestProviderLocations(ctx, "generic", locationPayload(staleDevice, 55.7560, 37.6173, time.Now().UTC().Add(-20*time.Minute))); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ingest.IngestProviderLocations(ctx, "generic", locationPayload(staleDevice, 55.7560, 37.6173, time.Now().UTC().Add(-2*time.Hour))); err != nil {
+			t.Fatal(err)
+		}
+		if approachCount(t, ctx, env.pool, staleExec) != 0 {
+			t.Fatal("stale or lost gps emitted an approach")
+		}
+
+		restore := repository.SetTrackingOutboxInsertForTest(func(context.Context, pgx.Tx, repository.TrackingOutboxEvent) error {
+			return fmt.Errorf("injected outbox failure")
+		})
+		failExec := uuid.New()
+		failStop := uuid.New()
+		failDriver := uuid.New()
+		insertState(t, ctx, env.pool, operating, failExec, uuid.New(), failStop, &failDriver, nil, nil, 55.7558, 37.6173)
+		before := countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.location_event WHERE driver_id=$1`, failDriver)
+		event := domain.LocationEvent{
+			ID: uuid.New(), TenantID: uuid.New(), ShipmentID: uuid.New(), DriverID: &failDriver,
+			ProviderCode: "generic", ProviderDeviceID: "fail-device", DedupKey: uuid.NewString(),
+			Latitude: 55.7560, Longitude: 37.6173, RecordedAt: time.Now().UTC().Add(-time.Minute), ReceivedAt: time.Now().UTC(),
+			SourceType: domain.SourceVehicleTelematics, QualityStatus: domain.QualityGood,
+		}
+		state := trackingStateFor(event)
+		if _, err := approach.AcceptLocation(ctx, event, domain.FreshnessFresh, domain.QualityGood, state); err == nil {
+			t.Fatal("outbox failure was ignored")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.location_event WHERE driver_id=$1`, failDriver) != before {
+			t.Fatal("outbox failure committed the location")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.shipment_tracking_state WHERE shipment_id=$1`, event.ShipmentID) != 0 {
+			t.Fatal("outbox failure committed tracking state")
+		}
+		if approachCount(t, ctx, env.pool, failExec) != 0 {
+			t.Fatal("outbox failure committed the approach")
+		}
+		restore()
+		if _, err := approach.AcceptLocation(ctx, event, domain.FreshnessFresh, domain.QualityGood, state); err != nil {
+			t.Fatal(err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.location_event WHERE driver_id=$1`, failDriver) != before+1 {
+			t.Fatal("retry did not store one location")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.shipment_tracking_state WHERE shipment_id=$1`, event.ShipmentID) != 1 {
+			t.Fatal("retry did not store one tracking state")
+		}
+		if approachCount(t, ctx, env.pool, failExec) != 1 {
+			t.Fatal("retry did not store one approach event")
+		}
+
+		restoreState := repository.SetTrackingStateUpsertForTest(func(context.Context, pgx.Tx, domain.ShipmentTrackingState) error {
+			return fmt.Errorf("injected tracking state failure")
+		})
+		defer restoreState()
+		stateExec := uuid.New()
+		stateDriver := uuid.New()
+		insertState(t, ctx, env.pool, operating, stateExec, uuid.New(), uuid.New(), &stateDriver, nil, nil, 55.7558, 37.6173)
+		stateEvent := event
+		stateEvent.ID = uuid.New()
+		stateEvent.ShipmentID = uuid.New()
+		stateEvent.DriverID = &stateDriver
+		stateEvent.DedupKey = uuid.NewString()
+		if _, err := approach.AcceptLocation(ctx, stateEvent, domain.FreshnessFresh, domain.QualityGood, trackingStateFor(stateEvent)); err == nil {
+			t.Fatal("tracking state failure was ignored")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.location_event WHERE driver_id=$1`, stateDriver) != 0 {
+			t.Fatal("tracking state failure committed the location")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.shipment_tracking_state WHERE shipment_id=$1`, stateEvent.ShipmentID) != 0 {
+			t.Fatal("tracking state failure committed tracking state")
+		}
+		if approachCount(t, ctx, env.pool, stateExec) != 0 {
+			t.Fatal("tracking state failure committed the approach")
+		}
+	})
+
+	t.Run("ETA_ATOMIC", func(t *testing.T) {
+		operating := uuid.New()
+		execution := uuid.New()
+		stop := uuid.New()
+		driver := uuid.New()
+		vehicle := uuid.New()
+		planned := time.Date(2026, 9, 30, 15, 0, 0, 0, time.UTC)
+		insertState(t, ctx, env.pool, operating, execution, uuid.New(), stop, &driver, &vehicle, &planned, 55.75, 37.62)
+		device := "eta-atomic-device"
+		insertBinding(t, ctx, env.pool, uuid.New(), uuid.New(), &driver, &vehicle, "generic", device)
+		observed := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+		estimated := observed.Add(20 * time.Minute)
+		payload := etaPayload(device, stop, estimated, observed, "evt-atomic")
+		restore := repository.SetExecutionStopETAUpsertForTest(func(context.Context, pgx.Tx, repository.ExecutionStopETAState) error {
+			return fmt.Errorf("injected eta state failure")
+		})
+		failed, err := etaIngest.IngestProviderETA(ctx, "generic", payload)
+		if err != nil || failed.Accepted != 0 || failed.Rejected != 1 {
+			t.Fatalf("state failure %+v err %v", failed, err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.eta_observation WHERE execution_stop_id=$1`, stop) != 0 {
+			t.Fatal("eta state failure committed an observation")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.execution_stop_eta_state WHERE execution_stop_id=$1`, stop) != 0 {
+			t.Fatal("eta state failure committed eta state")
+		}
+		restore()
+		retried, err := etaIngest.IngestProviderETA(ctx, "generic", payload)
+		if err != nil || retried.Accepted != 1 || retried.Deduplicated != 0 {
+			t.Fatalf("retry %+v err %v", retried, err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.eta_observation WHERE execution_stop_id=$1`, stop) != 1 {
+			t.Fatal("retry did not store one observation")
+		}
+		var version int
+		if err := env.pool.QueryRow(ctx, `SELECT version FROM tracking.execution_stop_eta_state WHERE execution_stop_id=$1`, stop).Scan(&version); err != nil {
+			t.Fatal(err)
+		}
+		if version != 1 {
+			t.Fatalf("version %d", version)
+		}
+		replay, err := etaIngest.IngestProviderETA(ctx, "generic", payload)
+		if err != nil || replay.Deduplicated != 1 || replay.Accepted != 0 {
+			t.Fatalf("replay %+v err %v", replay, err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.eta_observation WHERE execution_stop_id=$1`, stop) != 1 {
+			t.Fatal("replay stored another observation")
+		}
+		if err := env.pool.QueryRow(ctx, `SELECT version FROM tracking.execution_stop_eta_state WHERE execution_stop_id=$1`, stop).Scan(&version); err != nil {
+			t.Fatal(err)
+		}
+		if version != 1 {
+			t.Fatalf("replay incremented version to %d", version)
+		}
+	})
+
+	t.Run("ETA_ORDER", func(t *testing.T) {
+		operating, _, stop := seedExecutionETA(t, ctx, env.pool, "eta-order-device")
+		t2 := time.Now().UTC().Add(-2 * time.Minute).Truncate(time.Second)
+		t1 := t2.Add(-time.Minute)
+		etaA := t2.Add(30 * time.Minute)
+		etaB := t1.Add(45 * time.Minute)
+		planned := time.Date(2026, 9, 30, 18, 0, 0, 0, time.UTC)
+		first, err := etaIngest.IngestProviderETA(ctx, "generic", etaPayload("eta-order-device", stop, etaA, t2, "evt-order-a"))
+		if err != nil || first.Accepted != 1 {
+			t.Fatalf("newer %+v err %v", first, err)
+		}
+		older, err := etaIngest.IngestProviderETA(ctx, "generic", etaPayload("eta-order-device", stop, etaB, t1, "evt-order-b"))
+		if err != nil || older.Accepted != 1 || older.Deduplicated != 0 {
+			t.Fatalf("older unique %+v err %v", older, err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.eta_observation WHERE execution_stop_id=$1`, stop) != 2 {
+			t.Fatal("older unique observation was not retained")
+		}
+		observed, estimated, version, plannedDB := currentStopETA(t, ctx, env.pool, operating, stop)
+		if !observed.Equal(t2) || !estimated.Equal(etaA) || version != 1 || !plannedDB.Equal(planned) {
+			t.Fatalf("current regressed observed %s estimated %s version %d planned %s", observed, estimated, version, plannedDB)
+		}
+	})
+
+	t.Run("ETA_FORWARD", func(t *testing.T) {
+		operating, _, stop := seedExecutionETA(t, ctx, env.pool, "eta-forward-device")
+		t1 := time.Now().UTC().Add(-3 * time.Minute).Truncate(time.Second)
+		t2 := t1.Add(time.Minute)
+		etaA := t1.Add(20 * time.Minute)
+		etaB := t2.Add(25 * time.Minute)
+		if _, err := etaIngest.IngestProviderETA(ctx, "generic", etaPayload("eta-forward-device", stop, etaA, t1, "evt-forward-a")); err != nil {
+			t.Fatal(err)
+		}
+		second, err := etaIngest.IngestProviderETA(ctx, "generic", etaPayload("eta-forward-device", stop, etaB, t2, "evt-forward-b"))
+		if err != nil || second.Accepted != 1 {
+			t.Fatalf("newer %+v err %v", second, err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.eta_observation WHERE execution_stop_id=$1`, stop) != 2 {
+			t.Fatal("forward history count")
+		}
+		observed, estimated, version, _ := currentStopETA(t, ctx, env.pool, operating, stop)
+		if !observed.Equal(t2) || !estimated.Equal(etaB) || version != 2 {
+			t.Fatalf("forward current observed %s estimated %s version %d", observed, estimated, version)
+		}
+	})
+
+	t.Run("ETA_SOURCE_PRIORITY", func(t *testing.T) {
+		operating, _, stop := seedExecutionETA(t, ctx, env.pool, "eta-priority-device")
+		later := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+		earlier := later.Add(-time.Minute)
+		lowerETA := later.Add(10 * time.Minute)
+		higherETA := earlier.Add(15 * time.Minute)
+		lower := domain.ETASourceCarrierETA
+		higher := domain.ETASourceProviderETA
+		replaces := repository.ShouldReplaceETAObservation(lower, higher, later, earlier, later, earlier)
+		if _, err := etaIngest.IngestProviderETA(ctx, "generic", etaPayloadSource("eta-priority-device", stop, lowerETA, later, "evt-pri-low", lower)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := etaIngest.IngestProviderETA(ctx, "generic", etaPayloadSource("eta-priority-device", stop, higherETA, earlier, "evt-pri-high", higher)); err != nil {
+			t.Fatal(err)
+		}
+		var source string
+		var estimated time.Time
+		if err := env.pool.QueryRow(ctx, `SELECT source_type, estimated_arrival_at FROM tracking.execution_stop_eta_state WHERE operating_tenant_id=$1 AND execution_stop_id=$2`, operating, stop).Scan(&source, &estimated); err != nil {
+			t.Fatal(err)
+		}
+		if replaces {
+			if source != higher || !estimated.Equal(higherETA) {
+				t.Fatalf("policy replace current source %s estimated %s", source, estimated)
+			}
+		} else if source != lower || !estimated.Equal(lowerETA) {
+			t.Fatalf("policy keep current source %s estimated %s", source, estimated)
+		}
+	})
+
+	t.Run("ETA_CONCURRENT", func(t *testing.T) {
+		operating, _, stop := seedExecutionETA(t, ctx, env.pool, "eta-concurrent-device")
+		t2 := time.Now().UTC().Add(-2 * time.Minute).Truncate(time.Second)
+		t1 := t2.Add(-time.Minute)
+		etaNew := t2.Add(12 * time.Minute)
+		etaOld := t1.Add(40 * time.Minute)
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(2)
+		ingestOne := func(estimated, observed time.Time, eventID string) {
+			defer wg.Done()
+			<-start
+			result, err := etaIngest.IngestProviderETA(ctx, "generic", etaPayload("eta-concurrent-device", stop, estimated, observed, eventID))
+			if err != nil || result.Accepted != 1 {
+				t.Errorf("concurrent %+v err %v", result, err)
+			}
+		}
+		go ingestOne(etaNew, t2, "evt-con-new")
+		go ingestOne(etaOld, t1, "evt-con-old")
+		close(start)
+		wg.Wait()
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.eta_observation WHERE execution_stop_id=$1`, stop) != 2 {
+			t.Fatal("concurrent history count")
+		}
+		type hist struct {
+			source    string
+			observed  time.Time
+			received  time.Time
+			estimated time.Time
+		}
+		rows, err := env.pool.Query(ctx, `SELECT source_type, source_observed_at, received_at, estimated_arrival_at FROM tracking.eta_observation WHERE execution_stop_id=$1`, stop)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		var history []hist
+		for rows.Next() {
+			var row hist
+			if err := rows.Scan(&row.source, &row.observed, &row.received, &row.estimated); err != nil {
+				t.Fatal(err)
+			}
+			history = append(history, row)
+		}
+		if len(history) != 2 {
+			t.Fatalf("history %d", len(history))
+		}
+		winner := history[0]
+		if repository.ShouldReplaceETAObservation(history[0].source, history[1].source, history[0].observed, history[1].observed, history[0].received, history[1].received) {
+			winner = history[1]
+		}
+		observed, estimated, _, _ := currentStopETA(t, ctx, env.pool, operating, stop)
+		if !observed.Equal(winner.observed) || !estimated.Equal(winner.estimated) {
+			t.Fatalf("current observed %s estimated %s winner observed %s estimated %s", observed, estimated, winner.observed, winner.estimated)
+		}
+	})
+
+	t.Run("ETA_TARGET_SWITCH", func(t *testing.T) {
+		_, execution, stop := seedExecutionETA(t, ctx, env.pool, "eta-switch-device")
+		moved := uuid.New()
+		restore := service.SetExecutionStopETABeforeLockForTest(func(context.Context) {
+			if _, err := env.pool.Exec(ctx, `UPDATE tracking.execution_tracking_state SET live_eta_stop_id=$2 WHERE execution_id=$1`, execution, moved); err != nil {
+				t.Errorf("move target: %v", err)
+			}
+		})
+		defer restore()
+		observed := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+		result, err := etaIngest.IngestProviderETA(ctx, "generic", etaPayload("eta-switch-device", stop, observed.Add(time.Hour), observed, "evt-switch"))
+		if err != nil || result.Accepted != 0 || result.Rejected != 1 {
+			t.Fatalf("switch %+v err %v", result, err)
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.eta_observation WHERE execution_stop_id=$1`, stop) != 0 {
+			t.Fatal("target switch committed an observation")
+		}
+		if countQuery(t, ctx, env.pool, `SELECT count(*) FROM tracking.execution_stop_eta_state WHERE execution_id=$1`, execution) != 0 {
+			t.Fatal("target switch wrote eta state")
+		}
+	})
+}
+
+type fakeStopContext struct {
+	views   map[uuid.UUID]service.StopContext
+	missing map[uuid.UUID]bool
+	tenants []uuid.UUID
+}
+
+func (f *fakeStopContext) Get(_ context.Context, operatingTenantID, executionID, stopID uuid.UUID) (service.StopContext, error) {
+	f.tenants = append(f.tenants, operatingTenantID)
+	if f.missing[executionID] {
+		return service.StopContext{}, service.ContextNotFoundError{}
+	}
+	view, ok := f.views[stopID]
+	if !ok {
+		return service.StopContext{}, service.ContextNotFoundError{}
+	}
+	return view, nil
+}
+
+func eventJSON(t *testing.T, operating, execution, revision, stop uuid.UUID, sequence int64, eventType string) []byte {
+	t.Helper()
+	raw, err := json.Marshal(map[string]any{
+		"event_id": uuid.NewString(), "event_type": eventType, "operating_tenant_id": operating.String(),
+		"execution_id": execution.String(), "revision_id": revision.String(), "revision_version": 1,
+		"event_sequence": sequence, "stop_id": stop.String(), "occurred_at": time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
+func insertState(t *testing.T, ctx context.Context, pool *pgxpool.Pool, operating, execution, revision, stop uuid.UUID, driver, vehicle *uuid.UUID, planned *time.Time, lat, lon float64) {
+	t.Helper()
+	_, err := pool.Exec(ctx, `
+INSERT INTO tracking.execution_tracking_state (
+  operating_tenant_id, execution_id, revision_id, current_stop_id, current_stop_ordinal,
+  planned_arrival, target_latitude, target_longitude, live_eta_stop_id, live_eta_ordinal,
+  driver_id, vehicle_id, last_execution_event_sequence
+) VALUES ($1,$2,$3,$4,1,$5,$6,$7,$4,1,$8,$9,1)
+`, operating, execution, revision, stop, planned, lat, lon, driver, vehicle)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func insertBinding(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenant, shipment uuid.UUID, driver, vehicle *uuid.UUID, providerCode, device string) {
+	t.Helper()
+	_, err := pool.Exec(ctx, `
+INSERT INTO tracking.shipment_tracking_binding (
+  id, tenant_id, shipment_id, vehicle_id, driver_id, provider_code, provider_device_id, status
+) VALUES ($1,$2,$3,$4,$5,$6,$7,'active')
+`, uuid.New(), tenant, shipment, vehicle, driver, providerCode, device)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func etaPayload(device string, stop uuid.UUID, estimated, observed time.Time, eventID string) provider.ProviderPayload {
+	return etaPayloadSource(device, stop, estimated, observed, eventID, domain.ETASourceProviderETA)
+}
+
+func etaPayloadSource(device string, stop uuid.UUID, estimated, observed time.Time, eventID, sourceType string) provider.ProviderPayload {
+	return provider.ProviderPayload([]byte(fmt.Sprintf(`{"observations":[{"providerDeviceId":%q,"targetType":"execution_stop","executionStopId":%q,"estimatedArrivalAt":%q,"sourceObservedAt":%q,"sourceType":%q,"providerEventId":%q}]}`, device, stop, estimated.Format(time.RFC3339), observed.Format(time.RFC3339), sourceType, eventID)))
+}
+
+func seedExecutionETA(t *testing.T, ctx context.Context, pool *pgxpool.Pool, device string) (operating, execution, stop uuid.UUID) {
+	t.Helper()
+	operating = uuid.New()
+	execution = uuid.New()
+	stop = uuid.New()
+	driver := uuid.New()
+	vehicle := uuid.New()
+	planned := time.Date(2026, 9, 30, 18, 0, 0, 0, time.UTC)
+	insertState(t, ctx, pool, operating, execution, uuid.New(), stop, &driver, &vehicle, &planned, 55.75, 37.62)
+	insertBinding(t, ctx, pool, uuid.New(), uuid.New(), &driver, &vehicle, "generic", device)
+	return operating, execution, stop
+}
+
+func currentStopETA(t *testing.T, ctx context.Context, pool *pgxpool.Pool, operating, stop uuid.UUID) (observed, estimated time.Time, version int, planned time.Time) {
+	t.Helper()
+	if err := pool.QueryRow(ctx, `SELECT source_observed_at, estimated_arrival_at, version, planned_arrival FROM tracking.execution_stop_eta_state WHERE operating_tenant_id=$1 AND execution_stop_id=$2`, operating, stop).Scan(&observed, &estimated, &version, &planned); err != nil {
+		t.Fatal(err)
+	}
+	return observed, estimated, version, planned
+}
+
+func locationPayload(device string, lat, lon float64, recorded time.Time) provider.ProviderPayload {
+	return provider.ProviderPayload([]byte(fmt.Sprintf(`{"events":[{"providerDeviceId":%q,"latitude":%f,"longitude":%f,"recordedAt":%q,"sourceType":"vehicle_telematics","accuracyMeters":10}]}`, device, lat, lon, recorded.Format(time.RFC3339))))
+}
+
+func mustState(t *testing.T, ctx context.Context, repo *repository.ExecutionTrackingRepository, execution uuid.UUID) *repository.ExecutionTrackingState {
+	t.Helper()
+	state, err := repo.GetState(ctx, execution)
+	if err != nil || state == nil {
+		t.Fatalf("state err %v", err)
+	}
+	return state
+}
+
+func countQuery(t *testing.T, ctx context.Context, pool *pgxpool.Pool, query string, args ...any) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(ctx, query, args...).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func approachCount(t *testing.T, ctx context.Context, pool *pgxpool.Pool, execution uuid.UUID) int {
+	t.Helper()
+	return countQuery(t, ctx, pool, `SELECT count(*) FROM tracking.event_outbox WHERE aggregate_id=$1 AND event_type='tracking.stop.approaching'`, execution)
+}
+
+func approachPayload(t *testing.T, ctx context.Context, pool *pgxpool.Pool, execution uuid.UUID) map[string]any {
+	t.Helper()
+	var raw []byte
+	if err := pool.QueryRow(ctx, `SELECT payload FROM tracking.event_outbox WHERE aggregate_id=$1 AND event_type='tracking.stop.approaching' ORDER BY created_at LIMIT 1`, execution).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
+	return payload
+}
+
+func intPtr(v int) *int { return &v }
+
+func trackingStateFor(event domain.LocationEvent) domain.ShipmentTrackingState {
+	provider := event.ProviderCode
+	lat, lon := event.Latitude, event.Longitude
+	recorded, received := event.RecordedAt, event.ReceivedAt
+	return domain.ShipmentTrackingState{
+		TenantID:        event.TenantID,
+		ShipmentID:      event.ShipmentID,
+		TrackingStatus:  domain.TrackingStatusActive,
+		ProviderCode:    &provider,
+		LastLatitude:    &lat,
+		LastLongitude:   &lon,
+		LastRecordedAt:  &recorded,
+		LastReceivedAt:  &received,
+		FreshnessStatus: domain.FreshnessFresh,
+		QualityStatus:   domain.QualityGood,
+		UpdatedAt:       received,
+	}
+}
+
+func applyMigrationNumbers(pool *pgxpool.Pool, numbers ...int) error {
+	dir, err := locateMigrationsDir()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	for _, number := range numbers {
+		matches, err := filepath.Glob(filepath.Join(dir, fmt.Sprintf("%06d_*.up.sql", number)))
+		if err != nil || len(matches) != 1 {
+			return fmt.Errorf("migration %06d matches %v err %v", number, matches, err)
+		}
+		content, err := os.ReadFile(matches[0])
+		if err != nil {
+			return err
+		}
+		if _, err := pool.Exec(ctx, string(content)); err != nil {
+			return fmt.Errorf("%s: %w", filepath.Base(matches[0]), err)
+		}
+	}
+	return nil
+}

@@ -35,21 +35,40 @@ func BuildETADedupKey(providerCode, targetType string, shipmentID uuid.UUID, est
 	return hex.EncodeToString(sum[:])
 }
 
+type queryRower interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 func (r *ETARepository) InsertETAObservation(ctx context.Context, obs domain.ETAObservation) (inserted bool, err error) {
+	return insertETAObservation(ctx, r.pool, obs)
+}
+
+func (r *ETARepository) InsertETAObservationTx(ctx context.Context, tx pgx.Tx, obs domain.ETAObservation) (inserted bool, err error) {
+	return insertETAObservation(ctx, tx, obs)
+}
+
+func insertETAObservation(ctx context.Context, q queryRower, obs domain.ETAObservation) (inserted bool, err error) {
 	reasonsJSON, _ := json.Marshal(obs.QualityReasons)
-	const q = `
+	const query = `
 INSERT INTO tracking.eta_observation (
   id, tenant_id, shipment_id, target_type, target_reference, estimated_arrival_at,
   source_type, provider_code, provider_event_id, dedup_key, source_observed_at, received_at,
-  quality_status, quality_reasons, provider_confidence
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+  quality_status, quality_reasons, provider_confidence, execution_id, execution_stop_id
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
 ON CONFLICT DO NOTHING
 RETURNING id`
+	var shipmentID any
+	if obs.TargetType == domain.TargetExecutionStop {
+		shipmentID = nil
+	} else {
+		shipmentID = obs.ShipmentID
+	}
 	var returned uuid.UUID
-	err = r.pool.QueryRow(ctx, q,
-		obs.ID, obs.TenantID, obs.ShipmentID, obs.TargetType, obs.TargetReference,
+	err = q.QueryRow(ctx, query,
+		obs.ID, obs.TenantID, shipmentID, obs.TargetType, obs.TargetReference,
 		obs.EstimatedArrivalAt, obs.SourceType, obs.ProviderCode, obs.ProviderEventID, obs.DedupKey,
 		obs.SourceObservedAt, obs.ReceivedAt, obs.QualityStatus, reasonsJSON, obs.ProviderConfidence,
+		obs.ExecutionID, obs.ExecutionStopID,
 	).Scan(&returned)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
@@ -268,9 +287,19 @@ func ShouldReplaceETAObservation(currentSource, incomingSource string, currentOb
 func ParseTargetType(raw string) (string, error) {
 	raw = strings.TrimSpace(strings.ToLower(raw))
 	switch raw {
-	case domain.TargetPickup, domain.TargetDelivery:
+	case domain.TargetPickup, domain.TargetDelivery, domain.TargetExecutionStop:
 		return raw, nil
 	default:
 		return "", fmt.Errorf("invalid target type")
 	}
+}
+
+func BuildExecutionStopETADedupKey(providerCode, targetType string, executionStopID uuid.UUID, estimatedAt, observedAt time.Time, providerEventID *string) string {
+	eventPart := ""
+	if providerEventID != nil {
+		eventPart = *providerEventID
+	}
+	raw := fmt.Sprintf("%s|%s|%s|%s|%s|%s", providerCode, targetType, executionStopID.String(), estimatedAt.UTC().Format(time.RFC3339Nano), observedAt.UTC().Format(time.RFC3339Nano), eventPart)
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
 }

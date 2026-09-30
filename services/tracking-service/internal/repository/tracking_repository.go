@@ -68,8 +68,20 @@ SELECT EXISTS(
 	return exists, nil
 }
 
+type rowQuery interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 func (r *TrackingRepository) InsertLocationEvent(ctx context.Context, event domain.LocationEvent) (inserted bool, err error) {
-	const q = `
+	return insertLocationEvent(ctx, r.pool, event)
+}
+
+func (r *TrackingRepository) InsertLocationEventTx(ctx context.Context, tx pgx.Tx, event domain.LocationEvent) (inserted bool, err error) {
+	return insertLocationEvent(ctx, tx, event)
+}
+
+func insertLocationEvent(ctx context.Context, q rowQuery, event domain.LocationEvent) (inserted bool, err error) {
+	const sqlText = `
 INSERT INTO tracking.location_event (
   id, tenant_id, shipment_id, vehicle_id, driver_id, provider_code, provider_device_id,
   provider_event_id, dedup_key, latitude, longitude, recorded_at, received_at,
@@ -81,7 +93,7 @@ INSERT INTO tracking.location_event (
 ON CONFLICT DO NOTHING
 RETURNING id`
 	var returned uuid.UUID
-	err = r.pool.QueryRow(ctx, q,
+	err = q.QueryRow(ctx, sqlText,
 		event.ID, event.TenantID, event.ShipmentID, event.VehicleID, event.DriverID,
 		event.ProviderCode, event.ProviderDeviceID, event.ProviderEventID, event.DedupKey,
 		event.Latitude, event.Longitude, event.RecordedAt, event.ReceivedAt,
@@ -122,8 +134,31 @@ WHERE tenant_id = $1 AND shipment_id = $2`
 	return scanTrackingState(row)
 }
 
+type sqlExec interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}
+
+var trackingStateUpsertForTest func(context.Context, pgx.Tx, domain.ShipmentTrackingState) error
+
+func SetTrackingStateUpsertForTest(fn func(context.Context, pgx.Tx, domain.ShipmentTrackingState) error) func() {
+	previous := trackingStateUpsertForTest
+	trackingStateUpsertForTest = fn
+	return func() { trackingStateUpsertForTest = previous }
+}
+
 func (r *TrackingRepository) UpsertTrackingStateIfNewer(ctx context.Context, state domain.ShipmentTrackingState) error {
-	const q = `
+	return upsertTrackingStateIfNewer(ctx, r.pool, state)
+}
+
+func (r *TrackingRepository) UpsertTrackingStateIfNewerTx(ctx context.Context, tx pgx.Tx, state domain.ShipmentTrackingState) error {
+	if trackingStateUpsertForTest != nil {
+		return trackingStateUpsertForTest(ctx, tx, state)
+	}
+	return upsertTrackingStateIfNewer(ctx, tx, state)
+}
+
+func upsertTrackingStateIfNewer(ctx context.Context, q sqlExec, state domain.ShipmentTrackingState) error {
+	const query = `
 INSERT INTO tracking.shipment_tracking_state (
   tenant_id, shipment_id, tracking_status, provider_code, last_latitude, last_longitude,
   last_recorded_at, last_received_at, last_speed_kph, last_heading_degrees,
@@ -201,7 +236,7 @@ ON CONFLICT (tenant_id, shipment_id) DO UPDATE SET
   age_seconds = EXCLUDED.age_seconds,
   delivery_delay_seconds = EXCLUDED.delivery_delay_seconds,
   updated_at = EXCLUDED.updated_at`
-	_, err := r.pool.Exec(ctx, q,
+	_, err := q.Exec(ctx, query,
 		state.TenantID, state.ShipmentID, state.TrackingStatus, state.ProviderCode,
 		state.LastLatitude, state.LastLongitude, state.LastRecordedAt, state.LastReceivedAt,
 		state.LastSpeedKph, state.LastHeadingDegrees, state.FreshnessStatus, state.QualityStatus,

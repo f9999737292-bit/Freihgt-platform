@@ -36,7 +36,7 @@ func TestDriverStopTasks(t *testing.T) {
 	stops := service.NewDriverStopService(drivers, repo)
 	ops := service.NewDriverOperationsService(drivers, repository.NewShipmentRepository(env.pool), repository.NewDriverOperationsRepository(env.pool))
 	ops.BindMultistopDeparture(repo)
-	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, ops, nil, stops, nil, "test-token")
+	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, ops, nil, stops, nil, "test-token", nil)
 
 	t.Run("schema", func(t *testing.T) {
 		assertColumns(t, env, "driver_stop_tasks", []string{

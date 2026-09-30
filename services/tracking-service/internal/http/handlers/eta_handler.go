@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -276,4 +277,51 @@ func mapETAObservation(o domain.ETAObservation) map[string]any {
 		payload["providerConfidence"] = *o.ProviderConfidence
 	}
 	return payload
+}
+
+func internalTokenOK(expected string, r *http.Request) bool {
+	expected = strings.TrimSpace(expected)
+	if expected == "" {
+		return false
+	}
+	provided := strings.TrimSpace(r.Header.Get("X-Internal-Service-Token"))
+	return provided != "" && provided == expected
+}
+
+func (h *ETAInternalHandler) GetExecutionStop(w http.ResponseWriter, r *http.Request) {
+	if !internalTokenOK(h.token, r) {
+		respond.Error(w, errors.Unauthorized("internal authentication failed"))
+		return
+	}
+	tenantID, err := tenantFromRequest(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	stopID, err := repository.ParseUUID(chi.URLParam(r, "executionStopId"))
+	if err != nil {
+		respond.Error(w, errors.Validation("invalid execution stop id", nil))
+		return
+	}
+	view, err := h.query.GetExecutionStopETA(r.Context(), tenantID, stopID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{
+		"executionId":               view.ExecutionID,
+		"executionStopId":           view.ExecutionStopID,
+		"plannedArrival":            view.PlannedArrival,
+		"status":                    view.Status,
+		"estimatedArrivalAt":        view.EstimatedArrivalAt,
+		"sourceType":                view.SourceType,
+		"provider":                  view.Provider,
+		"sourceObservedAt":          view.SourceObservedAt,
+		"receivedAt":                view.ReceivedAt,
+		"ageSeconds":                view.AgeSeconds,
+		"freshnessStatus":           view.FreshnessStatus,
+		"qualityStatus":             view.QualityStatus,
+		"qualityReasons":            view.QualityReasons,
+		"projectedDeviationSeconds": view.ProjectedDeviationSeconds,
+	})
 }

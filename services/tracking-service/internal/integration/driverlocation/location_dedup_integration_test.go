@@ -63,8 +63,9 @@ func TestDriverLocationDedupRealDB(t *testing.T) {
 }
 
 type testEnv struct {
-	pool   *pgxpool.Pool
-	ingest *service.IngestService
+	pool    *pgxpool.Pool
+	ingest  *service.IngestService
+	metrics *metrics.Collector
 }
 
 func setupTestEnv(t *testing.T) *testEnv {
@@ -115,9 +116,10 @@ func setupTestEnv(t *testing.T) *testEnv {
 	reg := provider.NewRegistry(provider.DriverMobileAdapter{})
 	cfg := config.Config{FreshnessPolicy: config.FreshnessConfig{FreshThreshold: 5 * time.Minute, StaleThreshold: 30 * time.Minute}}
 	evaluator := service.NewStateEvaluator(repo, cfg)
-	ingest := service.NewIngestService(repo, reg, cfg, evaluator, nil, metrics.New("tracking-service"))
+	telemetry := metrics.New("tracking-service")
+	ingest := service.NewIngestService(repo, reg, cfg, evaluator, nil, telemetry)
 
-	return &testEnv{pool: pool, ingest: ingest}
+	return &testEnv{pool: pool, ingest: ingest, metrics: telemetry}
 }
 
 func pickPort(t *testing.T) int {
@@ -219,7 +221,10 @@ func seedFixture(t *testing.T, pool *pgxpool.Pool) fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, row := range []struct{ id uuid.UUID; typ, name string }{
+	for _, row := range []struct {
+		id        uuid.UUID
+		typ, name string
+	}{
 		{fix.CarrierID, "CARRIER", "Carrier"}, {shipper, "SHIPPER", "Shipper"}, {consignee, "CONSIGNEE", "Consignee"},
 	} {
 		_, err = pool.Exec(ctx, `INSERT INTO core.companies (id,tenant_id,legal_name,company_type) VALUES ($1,$2,$3,$4)`,
@@ -228,7 +233,10 @@ func seedFixture(t *testing.T, pool *pgxpool.Pool) fixture {
 			t.Fatal(err)
 		}
 	}
-	for _, loc := range []struct{ id uuid.UUID; name string }{{origin, "O"}, {dest, "D"}} {
+	for _, loc := range []struct {
+		id   uuid.UUID
+		name string
+	}{{origin, "O"}, {dest, "D"}} {
 		_, err = pool.Exec(ctx, `INSERT INTO transport.locations (id,tenant_id,location_type,name,country_code) VALUES ($1,$2,'WAREHOUSE',$3,'RU')`,
 			loc.id, fix.TenantID, loc.name)
 		if err != nil {

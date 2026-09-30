@@ -92,6 +92,9 @@ func (r *TransportExecutionRepository) Project(ctx context.Context, cmd domain.P
 	if err := materializeDriverStopTasksFn(ctx, tx, executionID, now); err != nil {
 		return domain.ProjectionResult{}, err
 	}
+	if err := emitInitialCurrentStop(ctx, tx, cmd.OperatingTenantID, executionID, revisionID, now); err != nil {
+		return domain.ProjectionResult{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		if constraintName(err) == "transport_execution_revisions_activation_uq" {
 			return r.replayAfterConflict(ctx, cmd, digest)
@@ -304,6 +307,79 @@ func insertActions(ctx context.Context, tx pgx.Tx, revisionID uuid.UUID, cmd dom
 		}
 	}
 	return nil
+}
+
+func (r *TransportExecutionRepository) GetTrackingContext(ctx context.Context, operatingTenantID, executionID, stopID uuid.UUID) (domain.TrackingStopContext, error) {
+	const currentSQL = `
+		SELECT e.id, r.id, s.id, rs.source_ordinal, s.status, s.planned_arrival, s.location_id,
+		       CASE
+		           WHEN s.point_kind = 'CANONICAL_LOCATION' AND loc.lat IS NOT NULL AND loc.lon IS NOT NULL THEN loc.lat
+		           WHEN s.point_kind = 'POSITION_ANCHOR' THEN s.latitude
+		           ELSE NULL
+		       END,
+		       CASE
+		           WHEN s.point_kind = 'CANONICAL_LOCATION' AND loc.lat IS NOT NULL AND loc.lon IS NOT NULL THEN loc.lon
+		           WHEN s.point_kind = 'POSITION_ANCHOR' THEN s.longitude
+		           ELSE NULL
+		       END,
+		       e.driver_id, e.vehicle_id, s.point_kind, s.stop_role
+		FROM transport.transport_executions e
+		JOIN transport.transport_execution_revisions r
+		  ON r.id = e.current_revision_id AND r.status = 'ACTIVE' AND r.execution_id = e.id
+		JOIN transport.transport_execution_revision_stops rs
+		  ON rs.revision_id = r.id AND rs.stop_id = $3 AND rs.membership <> 'SUPERSEDED'
+		JOIN transport.transport_execution_stops s
+		  ON s.id = rs.stop_id AND s.execution_id = e.id AND s.operating_tenant_id = e.operating_tenant_id
+		LEFT JOIN transport.locations loc ON loc.id = s.location_id AND loc.deleted_at IS NULL
+		WHERE e.id = $1 AND e.operating_tenant_id = $2
+		  AND rs.source_ordinal = (
+		      SELECT MIN(rs2.source_ordinal)
+		      FROM transport.transport_execution_revision_stops rs2
+		      JOIN transport.transport_execution_stops s2 ON s2.id = rs2.stop_id
+		      WHERE rs2.revision_id = r.id
+		        AND rs2.membership <> 'SUPERSEDED'
+		        AND s2.status IN ('PLANNED', 'ARRIVED', 'SERVICE_STARTED')
+		  )`
+	var view domain.TrackingStopContext
+	err := r.pool.QueryRow(ctx, currentSQL, executionID, operatingTenantID, stopID).Scan(
+		&view.ExecutionID, &view.RevisionID, &view.ExecutionStopID, &view.Ordinal, &view.Status,
+		&view.PlannedArrival, &view.LocationID, &view.TargetLatitude, &view.TargetLongitude,
+		&view.DriverID, &view.VehicleID, &view.PointKind, &view.StopRole,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.TrackingStopContext{}, apperrors.NotFound("tracking context not found")
+	}
+	if err != nil {
+		return domain.TrackingStopContext{}, mapDBError(err)
+	}
+	const liveSQL = `
+		SELECT s.id, rs.source_ordinal, s.planned_arrival, s.location_id,
+		       CASE WHEN loc.lat IS NOT NULL AND loc.lon IS NOT NULL THEN loc.lat END,
+		       CASE WHEN loc.lat IS NOT NULL AND loc.lon IS NOT NULL THEN loc.lon END
+		FROM transport.transport_execution_revision_stops rs
+		JOIN transport.transport_execution_stops s ON s.id = rs.stop_id
+		LEFT JOIN transport.locations loc ON loc.id = s.location_id AND loc.deleted_at IS NULL
+		WHERE rs.revision_id = $1
+		  AND rs.membership <> 'SUPERSEDED'
+		  AND s.point_kind = 'CANONICAL_LOCATION'
+		  AND s.stop_role <> 'START'
+		  AND s.status IN ('PLANNED', 'ARRIVED', 'SERVICE_STARTED')
+		  AND rs.source_ordinal >= $2
+		ORDER BY rs.source_ordinal
+		LIMIT 1`
+	var liveOrdinal int
+	err = r.pool.QueryRow(ctx, liveSQL, view.RevisionID, view.Ordinal).Scan(
+		&view.LiveETAStopID, &liveOrdinal, &view.LiveETAPlannedArrival, &view.LiveETALocationID,
+		&view.LiveETALatitude, &view.LiveETALongitude,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return view, nil
+	}
+	if err != nil {
+		return domain.TrackingStopContext{}, mapDBError(err)
+	}
+	view.LiveETAOrdinal = &liveOrdinal
+	return view, nil
 }
 
 func constraintName(err error) string {

@@ -52,6 +52,7 @@ func NewRouter(
 		r.Post("/states/lookup", internalHandler.LookupStates)
 		r.Post("/eta/lookup", etaInternal.LookupDelivery)
 		r.Post("/slots/lookup", slotInternal.Lookup)
+		r.Get("/execution-stops/{executionStopId}/eta", etaInternal.GetExecutionStop)
 	})
 
 	return r

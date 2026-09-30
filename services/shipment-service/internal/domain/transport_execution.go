@@ -548,6 +548,28 @@ func subjectSortKey(row ProjectionSubject) string {
 	return uuidString(row.ShipmentTenantID) + ":" + uuidString(row.ExecutionShipmentID) + ":" + uuidString(row.CargoID) + ":" + row.RouteSubjectID.String()
 }
 
+type TrackingStopContext struct {
+	ExecutionID           uuid.UUID
+	RevisionID            uuid.UUID
+	ExecutionStopID       uuid.UUID
+	Ordinal               int
+	Status                string
+	PlannedArrival        *time.Time
+	LocationID            *uuid.UUID
+	TargetLatitude        *float64
+	TargetLongitude       *float64
+	DriverID              *uuid.UUID
+	VehicleID             *uuid.UUID
+	PointKind             string
+	StopRole              string
+	LiveETAStopID         *uuid.UUID
+	LiveETAOrdinal        *int
+	LiveETAPlannedArrival *time.Time
+	LiveETALocationID     *uuid.UUID
+	LiveETALatitude       *float64
+	LiveETALongitude      *float64
+}
+
 func uuidString(value *uuid.UUID) string {
 	if value == nil || *value == uuid.Nil {
 		return ""

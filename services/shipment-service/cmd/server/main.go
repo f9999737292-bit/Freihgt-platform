@@ -102,7 +102,8 @@ func main() {
 		)
 	}
 
-	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, driverStopSvc, evidenceSvc, cfg.InternalServiceToken)
+	executionRepo := repository.NewTransportExecutionRepository(db.Pool)
+	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, driverStopSvc, evidenceSvc, cfg.InternalServiceToken, executionRepo)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

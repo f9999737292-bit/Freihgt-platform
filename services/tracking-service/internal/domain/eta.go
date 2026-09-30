@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	TargetPickup   = "pickup"
-	TargetDelivery = "delivery"
+	TargetPickup        = "pickup"
+	TargetDelivery      = "delivery"
+	TargetExecutionStop = "execution_stop"
 
 	ETASourceProviderETA    = "provider_eta"
 	ETASourceCarrierETA     = "carrier_eta"
@@ -32,11 +33,11 @@ const (
 	ETAQualityDegraded = "degraded"
 	ETAQualityPoor     = "poor"
 
-	ArrivalEarly    = "early"
-	ArrivalOnTime   = "on_time"
-	ArrivalAtRisk   = "at_risk"
-	ArrivalLate     = "late"
-	ArrivalUnknown  = "unknown"
+	ArrivalEarly   = "early"
+	ArrivalOnTime  = "on_time"
+	ArrivalAtRisk  = "at_risk"
+	ArrivalLate    = "late"
+	ArrivalUnknown = "unknown"
 
 	MaxETAHistoryLimit = 200
 
@@ -49,22 +50,24 @@ const (
 )
 
 type ETAObservation struct {
-	ID                  uuid.UUID
-	TenantID            uuid.UUID
-	ShipmentID          uuid.UUID
-	TargetType          string
-	TargetReference     *string
-	EstimatedArrivalAt  time.Time
-	SourceType          string
-	ProviderCode        *string
-	ProviderEventID     *string
-	DedupKey            string
-	SourceObservedAt    time.Time
-	ReceivedAt          time.Time
-	QualityStatus       string
-	QualityReasons      []string
-	ProviderConfidence  *float64
-	CreatedAt           time.Time
+	ID                 uuid.UUID
+	TenantID           uuid.UUID
+	ShipmentID         uuid.UUID
+	TargetType         string
+	TargetReference    *string
+	EstimatedArrivalAt time.Time
+	SourceType         string
+	ProviderCode       *string
+	ProviderEventID    *string
+	DedupKey           string
+	SourceObservedAt   time.Time
+	ReceivedAt         time.Time
+	QualityStatus      string
+	QualityReasons     []string
+	ProviderConfidence *float64
+	CreatedAt          time.Time
+	ExecutionID        *uuid.UUID
+	ExecutionStopID    *uuid.UUID
 }
 
 type ShipmentETAState struct {
@@ -86,21 +89,21 @@ type ShipmentETAState struct {
 }
 
 type ETATargetSummary struct {
-	Status                  string
-	EstimatedArrivalAt      *time.Time
-	SourceType              *string
-	Provider                *string
-	SourceObservedAt        *time.Time
-	ReceivedAt              *time.Time
-	AgeSeconds              *int64
-	FreshnessStatus         string
-	QualityStatus           string
-	QualityReasons          []string
-	ProviderConfidence      *float64
-	DeliveryLagSeconds      *int64
-	PlannedArrivalAt        *time.Time
+	Status                    string
+	EstimatedArrivalAt        *time.Time
+	SourceType                *string
+	Provider                  *string
+	SourceObservedAt          *time.Time
+	ReceivedAt                *time.Time
+	AgeSeconds                *int64
+	FreshnessStatus           string
+	QualityStatus             string
+	QualityReasons            []string
+	ProviderConfidence        *float64
+	DeliveryLagSeconds        *int64
+	PlannedArrivalAt          *time.Time
 	ProjectedDeviationSeconds *int64
-	ArrivalProjection       string
+	ArrivalProjection         string
 }
 
 type ShipmentETASummary struct {

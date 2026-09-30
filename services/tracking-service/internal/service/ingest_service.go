@@ -24,6 +24,10 @@ type IngestService struct {
 	evaluator *StateEvaluator
 	log       *slog.Logger
 	metrics   *metrics.Collector
+	approach  interface {
+		Enabled() bool
+		AcceptLocation(ctx context.Context, event domain.LocationEvent, freshness, quality string, state domain.ShipmentTrackingState) (bool, error)
+	}
 }
 
 func NewIngestService(repo *repository.TrackingRepository, registry *provider.Registry, cfg config.Config, evaluator *StateEvaluator, log *slog.Logger, m *metrics.Collector) *IngestService {
@@ -38,10 +42,17 @@ func NewIngestService(repo *repository.TrackingRepository, registry *provider.Re
 }
 
 type IngestResult struct {
-	Received   int `json:"received"`
-	Accepted   int `json:"accepted"`
+	Received     int `json:"received"`
+	Accepted     int `json:"accepted"`
 	Deduplicated int `json:"deduplicated"`
-	Rejected   int `json:"rejected"`
+	Rejected     int `json:"rejected"`
+}
+
+func (s *IngestService) SetApproach(approach interface {
+	Enabled() bool
+	AcceptLocation(ctx context.Context, event domain.LocationEvent, freshness, quality string, state domain.ShipmentTrackingState) (bool, error)
+}) {
+	s.approach = approach
 }
 
 func (s *IngestService) IngestDriverMobileLocation(
@@ -140,7 +151,13 @@ func (s *IngestService) IngestProviderLocations(ctx context.Context, providerCod
 			QualityReason:    qualityReason,
 		}
 
-		inserted, err := s.repo.InsertLocationEvent(ctx, event)
+		state := s.evaluator.BuildStateFromEvent(binding, event, quality, now)
+		var inserted bool
+		if s.approach != nil && s.approach.Enabled() {
+			inserted, err = s.approach.AcceptLocation(ctx, event, freshness, quality, state)
+		} else {
+			inserted, err = s.repo.InsertLocationEvent(ctx, event)
+		}
 		if err != nil {
 			result.Rejected++
 			s.metrics.IncRejected()
@@ -155,9 +172,10 @@ func (s *IngestService) IngestProviderLocations(ctx context.Context, providerCod
 		s.metrics.IncReceived()
 		s.metrics.ObserveIngestionLag(now.Sub(item.RecordedAt))
 
-		state := s.evaluator.BuildStateFromEvent(binding, event, quality, now)
-		if err := s.repo.UpsertTrackingStateIfNewer(ctx, state); err != nil {
-			s.log.Warn("tracking state upsert failed", slog.String("shipment_id", binding.ShipmentID.String()))
+		if s.approach == nil || !s.approach.Enabled() {
+			if err := s.repo.UpsertTrackingStateIfNewer(ctx, state); err != nil {
+				s.log.Warn("tracking state upsert failed", slog.String("shipment_id", binding.ShipmentID.String()))
+			}
 		}
 		_ = s.evaluator.RecordTransitionIfNeeded(ctx, binding.TenantID, binding.ShipmentID, state.TrackingStatus)
 	}

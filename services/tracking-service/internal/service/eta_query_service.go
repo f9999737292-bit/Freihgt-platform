@@ -23,6 +23,7 @@ type PlannedTimes struct {
 
 type ETAQueryService struct {
 	repo      *repository.ETARepository
+	execution *repository.ExecutionTrackingRepository
 	evaluator *ETAStateEvaluator
 }
 
@@ -58,9 +59,9 @@ func (s *ETAQueryService) getTargetSummary(ctx context.Context, tenantID, shipme
 	state, err := s.repo.GetETAState(ctx, tenantID, shipmentID, targetType)
 	if errors.Is(err, pgx.ErrNoRows) {
 		summary := &domain.ETATargetSummary{
-			Status:          domain.ETAStatusUnavailable,
-			FreshnessStatus: domain.ETAFreshnessUnknown,
-			QualityStatus:   domain.ETAQualityUnknown,
+			Status:            domain.ETAStatusUnavailable,
+			FreshnessStatus:   domain.ETAFreshnessUnknown,
+			QualityStatus:     domain.ETAQualityUnknown,
 			ArrivalProjection: domain.ArrivalUnknown,
 		}
 		if completed {
@@ -130,11 +131,11 @@ func (s *ETAQueryService) LookupDeliveryETA(ctx context.Context, tenantID uuid.U
 
 func mapETATargetSummary(state domain.ShipmentETAState, plannedAt *time.Time) *domain.ETATargetSummary {
 	summary := &domain.ETATargetSummary{
-		Status:          state.Status,
+		Status:             state.Status,
 		EstimatedArrivalAt: state.EstimatedArrivalAt,
-		FreshnessStatus: state.FreshnessStatus,
-		QualityStatus:   state.QualityStatus,
-		AgeSeconds:      state.AgeSeconds,
+		FreshnessStatus:    state.FreshnessStatus,
+		QualityStatus:      state.QualityStatus,
+		AgeSeconds:         state.AgeSeconds,
 		DeliveryLagSeconds: state.DeliveryLagSeconds,
 	}
 	if state.SourceType != nil {
@@ -152,6 +153,75 @@ func mapETATargetSummary(state domain.ShipmentETAState, plannedAt *time.Time) *d
 	usable := domain.ETAUsableForRisk(state.Status)
 	domain.ApplyDeviation(summary, plannedAt, usable)
 	return summary
+}
+
+func (s *ETAQueryService) SetExecutionTracking(repo *repository.ExecutionTrackingRepository) {
+	s.execution = repo
+}
+
+type ExecutionStopETAView struct {
+	ExecutionID               uuid.UUID
+	ExecutionStopID           uuid.UUID
+	PlannedArrival            *time.Time
+	Status                    string
+	EstimatedArrivalAt        *time.Time
+	SourceType                *string
+	Provider                  *string
+	SourceObservedAt          *time.Time
+	ReceivedAt                *time.Time
+	AgeSeconds                *int64
+	FreshnessStatus           string
+	QualityStatus             string
+	QualityReasons            []string
+	ProjectedDeviationSeconds *int64
+}
+
+func (s *ETAQueryService) GetExecutionStopETA(ctx context.Context, operatingTenantID, executionStopID uuid.UUID) (ExecutionStopETAView, error) {
+	if s.execution == nil {
+		return ExecutionStopETAView{}, apperrors.NotFound("execution stop eta not found")
+	}
+	state, err := s.execution.GetExecutionStopETA(ctx, operatingTenantID, executionStopID)
+	if err != nil {
+		return ExecutionStopETAView{}, apperrors.Internal("failed to load execution stop eta", err)
+	}
+	if state == nil {
+		return ExecutionStopETAView{}, apperrors.NotFound("execution stop eta not found")
+	}
+	now := time.Now().UTC()
+	freshness, age := domain.EvaluateETAFreshness(state.SourceObservedAt, now, s.evaluator.Policy)
+	lag := time.Duration(0)
+	if state.SourceObservedAt != nil {
+		lag = now.Sub(*state.SourceObservedAt)
+	}
+	sourceType := ""
+	if state.SourceType != nil {
+		sourceType = *state.SourceType
+	}
+	quality, reasons := domain.EvaluateETAQuality(freshness, sourceType, lag, nil)
+	status := domain.DeriveETAStatus(state.EstimatedArrivalAt != nil, freshness, false)
+	view := ExecutionStopETAView{
+		ExecutionID:        state.ExecutionID,
+		ExecutionStopID:    state.ExecutionStopID,
+		PlannedArrival:     state.PlannedArrival,
+		Status:             status,
+		EstimatedArrivalAt: state.EstimatedArrivalAt,
+		SourceType:         state.SourceType,
+		Provider:           state.ProviderCode,
+		SourceObservedAt:   state.SourceObservedAt,
+		ReceivedAt:         state.ReceivedAt,
+		AgeSeconds:         &age,
+		FreshnessStatus:    freshness,
+		QualityStatus:      quality,
+		QualityReasons:     reasons,
+	}
+	summary := &domain.ETATargetSummary{
+		Status:             status,
+		EstimatedArrivalAt: state.EstimatedArrivalAt,
+		PlannedArrivalAt:   state.PlannedArrival,
+	}
+	domain.ApplyDeviation(summary, state.PlannedArrival, domain.ETAUsableForRisk(status))
+	view.ProjectedDeviationSeconds = summary.ProjectedDeviationSeconds
+	return view, nil
 }
 
 func isDeliveredStatus(status string) bool {

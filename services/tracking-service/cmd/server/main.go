@@ -15,10 +15,10 @@ import (
 	httpserver "github.com/freight-platform/tracking-service/internal/http"
 	"github.com/freight-platform/tracking-service/internal/http/handlers"
 	trackingmetrics "github.com/freight-platform/tracking-service/internal/metrics"
+	"github.com/freight-platform/tracking-service/internal/outbox"
 	"github.com/freight-platform/tracking-service/internal/platform/database"
 	"github.com/freight-platform/tracking-service/internal/platform/logger"
 	"github.com/freight-platform/tracking-service/internal/provider"
-	"github.com/freight-platform/tracking-service/internal/outbox"
 	"github.com/freight-platform/tracking-service/internal/repository"
 	"github.com/freight-platform/tracking-service/internal/service"
 )
@@ -59,6 +59,12 @@ func main() {
 	ingestSvc := service.NewIngestService(trackingRepo, registry, cfg, evaluator, log, telemetryMetrics)
 	etaIngestSvc := service.NewETAIngestService(trackingRepo, etaRepo, etaRegistry, cfg, etaEvaluator, log, telemetryMetrics)
 	slotIngestSvc := service.NewSlotIngestService(trackingRepo, slotRepo, slotRegistry, slotEvaluator, log, telemetryMetrics)
+	executionTracking := repository.NewExecutionTrackingRepository(db.Pool)
+	etaIngestSvc.SetExecutionTracking(executionTracking)
+	etaQuerySvc.SetExecutionTracking(executionTracking)
+	if cfg.StopApproach.Enabled {
+		ingestSvc.SetApproach(service.NewStopApproachService(trackingRepo, executionTracking, true, cfg.StopApproach.RadiusMeters))
+	}
 
 	trackingHandler := handlers.NewTrackingHandler(querySvc)
 	etaHandler := handlers.NewETAHandler(etaQuerySvc)
@@ -103,6 +109,27 @@ func main() {
 			slog.Duration("threshold", cfg.TrackingLossDetector.Threshold),
 			slog.Duration("interval", cfg.TrackingLossDetector.Interval),
 		)
+	}
+	if len(cfg.Kafka.Brokers) > 0 && cfg.Kafka.TrackingTopic != "" {
+		publisher, err := outbox.NewKafkaPublisher(cfg.Kafka.Brokers, cfg.Kafka.TrackingTopic, cfg.Kafka.ClientID, db.Pool)
+		if err != nil {
+			log.Error("tracking outbox publisher failed to start", slog.String("error", err.Error()))
+		} else {
+			defer publisher.Close()
+			go publisher.Run(ctx)
+			log.Info("tracking outbox publisher started", slog.String("topic", cfg.Kafka.TrackingTopic))
+		}
+	}
+	if len(cfg.Kafka.Brokers) > 0 && cfg.ShipmentInternalURL != "" {
+		consumerSvc := service.NewExecutionConsumer(executionTracking, service.NewShipmentContextClient(cfg.ShipmentInternalURL, cfg.InternalServiceToken))
+		eventConsumer, err := service.NewExecutionEventConsumer(cfg.Kafka, consumerSvc.Apply)
+		if err != nil {
+			log.Error("execution event consumer failed to start", slog.String("error", err.Error()))
+		} else {
+			defer eventConsumer.Close()
+			go eventConsumer.Run(ctx)
+			log.Info("execution event consumer started", slog.String("topic", cfg.Kafka.ExecutionTopic))
+		}
 	}
 
 	<-ctx.Done()

@@ -129,7 +129,7 @@ func (r *TransportExecutionCommandRepository) Execute(ctx context.Context, cmd d
 	if err != nil {
 		return domain.ExecutionCommandResult{}, err
 	}
-	if before != after && after != uuid.Nil && cmd.Name != domain.CommandArriveStop {
+	if before != after && after != uuid.Nil {
 		if err := emitExecutionEvent(ctx, tx, scope, domain.EventRouteStopCurrent, after, uuid.Nil, nil); err != nil {
 			return domain.ExecutionCommandResult{}, err
 		}
@@ -1228,16 +1228,17 @@ func emitExecutionEvent(ctx context.Context, tx pgx.Tx, scope commandScope, even
 		return mapDBError(err)
 	}
 	payload, err := json.Marshal(map[string]any{
-		"event_id":         uuid.NewString(),
-		"event_type":       eventType,
-		"execution_id":     scope.cmd.ExecutionID.String(),
-		"revision_id":      scope.revisionID.String(),
-		"revision_version": scope.revisionVersion,
-		"event_sequence":   seq,
-		"stop_id":          uuidString(stopID),
-		"action_id":        uuidString(actionID),
-		"occurred_at":      scope.cmd.OccurredAt.UTC().Format(time.RFC3339Nano),
-		"skipped_ordinals": skipped,
+		"event_id":            uuid.NewString(),
+		"event_type":          eventType,
+		"operating_tenant_id": scope.operatingTenant.String(),
+		"execution_id":        scope.cmd.ExecutionID.String(),
+		"revision_id":         scope.revisionID.String(),
+		"revision_version":    scope.revisionVersion,
+		"event_sequence":      seq,
+		"stop_id":             uuidString(stopID),
+		"action_id":           uuidString(actionID),
+		"occurred_at":         scope.cmd.OccurredAt.UTC().Format(time.RFC3339Nano),
+		"skipped_ordinals":    skipped,
 	})
 	if err != nil {
 		return apperrors.Internal("marshal execution event", err)
@@ -1264,6 +1265,39 @@ func emitExecutionEvent(ctx context.Context, tx pgx.Tx, scope commandScope, even
 		Status:           domain.OutboxStatusPending,
 		AvailableAt:      time.Now().UTC(),
 	})
+}
+
+func emitInitialCurrentStop(ctx context.Context, tx pgx.Tx, operatingTenant, executionID, revisionID uuid.UUID, occurred time.Time) error {
+	var version int
+	if err := tx.QueryRow(ctx, `
+		SELECT version FROM transport.transport_execution_revisions WHERE id = $1
+	`, revisionID).Scan(&version); err != nil {
+		return mapDBError(err)
+	}
+	var stopID uuid.UUID
+	err := tx.QueryRow(ctx, `
+		SELECT s.id
+		FROM transport.transport_execution_stops s
+		JOIN transport.transport_execution_revision_stops rs ON rs.stop_id = s.id
+		WHERE rs.revision_id = $1
+		  AND s.execution_id = $2
+		  AND rs.membership <> 'SUPERSEDED'
+		  AND s.status IN ('PLANNED', 'ARRIVED', 'SERVICE_STARTED')
+		ORDER BY rs.source_ordinal
+		LIMIT 1
+	`, revisionID, executionID).Scan(&stopID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return mapDBError(err)
+	}
+	return emitExecutionEvent(ctx, tx, commandScope{
+		cmd:             domain.ExecutionCommand{ExecutionID: executionID, OccurredAt: occurred},
+		operatingTenant: operatingTenant,
+		revisionID:      revisionID,
+		revisionVersion: version,
+	}, domain.EventRouteStopCurrent, stopID, uuid.Nil, nil)
 }
 
 func insertCommandAudit(ctx context.Context, tx pgx.Tx, scope commandScope, result domain.ExecutionCommandResult) error {
