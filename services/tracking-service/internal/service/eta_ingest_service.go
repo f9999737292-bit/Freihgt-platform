@@ -250,6 +250,18 @@ func (s *ETAIngestService) ingestExecutionStopETA(ctx context.Context, providerC
 		return
 	}
 	defer tx.Rollback(ctx)
+	if executionStopETABeforeLockForTest != nil {
+		executionStopETABeforeLockForTest(ctx)
+	}
+	locked, err := s.execution.LockExecutionTrackingStateTx(ctx, tx, executionID)
+	if err != nil || locked == nil || locked.OperatingTenantID != target.OperatingTenantID {
+		reject()
+		return
+	}
+	if locked.LiveETAStopID == nil || *locked.LiveETAStopID != stopID || !actorMatchesTarget(*locked, driverIDs, vehicleIDs) {
+		reject()
+		return
+	}
 	inserted, err := s.etaRepo.InsertETAObservationTx(ctx, tx, obs)
 	if err != nil {
 		reject()
@@ -260,25 +272,32 @@ func (s *ETAIngestService) ingestExecutionStopETA(ctx context.Context, providerC
 		s.metrics.IncETADeduplicated()
 		return
 	}
-	etaState := repository.ExecutionStopETAState{
-		OperatingTenantID:  target.OperatingTenantID,
-		ExecutionID:        target.ExecutionID,
-		ExecutionStopID:    stopID,
-		Status:             status,
-		EstimatedArrivalAt: &obs.EstimatedArrivalAt,
-		SourceType:         &item.SourceType,
-		ProviderCode:       &providerCodeCopy,
-		SourceObservedAt:   &obs.SourceObservedAt,
-		ReceivedAt:         &now,
-		FreshnessStatus:    freshness,
-		QualityStatus:      quality,
-		QualityReasons:     reasons,
-		AgeSeconds:         &age,
-		PlannedArrival:     target.PlannedArrival,
-	}
-	if err := s.execution.UpsertExecutionStopETATx(ctx, tx, etaState); err != nil {
+	current, err := s.execution.GetExecutionStopETATx(ctx, tx, locked.OperatingTenantID, stopID)
+	if err != nil {
 		reject()
 		return
+	}
+	if executionStopETAReplaces(current, item.SourceType, obs.SourceObservedAt, obs.ReceivedAt) {
+		etaState := repository.ExecutionStopETAState{
+			OperatingTenantID:  locked.OperatingTenantID,
+			ExecutionID:        locked.ExecutionID,
+			ExecutionStopID:    stopID,
+			Status:             status,
+			EstimatedArrivalAt: &obs.EstimatedArrivalAt,
+			SourceType:         &item.SourceType,
+			ProviderCode:       &providerCodeCopy,
+			SourceObservedAt:   &obs.SourceObservedAt,
+			ReceivedAt:         &obs.ReceivedAt,
+			FreshnessStatus:    freshness,
+			QualityStatus:      quality,
+			QualityReasons:     reasons,
+			AgeSeconds:         &age,
+			PlannedArrival:     locked.PlannedArrival,
+		}
+		if err := s.execution.UpsertExecutionStopETATx(ctx, tx, etaState); err != nil {
+			reject()
+			return
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		reject()
@@ -305,4 +324,19 @@ func actorMatchesTarget(target repository.ExecutionTrackingState, driverIDs, veh
 		}
 	}
 	return false
+}
+
+var executionStopETABeforeLockForTest func(context.Context)
+
+func SetExecutionStopETABeforeLockForTest(fn func(context.Context)) func() {
+	previous := executionStopETABeforeLockForTest
+	executionStopETABeforeLockForTest = fn
+	return func() { executionStopETABeforeLockForTest = previous }
+}
+
+func executionStopETAReplaces(current *repository.ExecutionStopETAState, incomingSource string, incomingObserved, incomingReceived time.Time) bool {
+	if current == nil || current.SourceType == nil || current.SourceObservedAt == nil || current.ReceivedAt == nil {
+		return true
+	}
+	return repository.ShouldReplaceETAObservation(*current.SourceType, incomingSource, *current.SourceObservedAt, incomingObserved, *current.ReceivedAt, incomingReceived)
 }

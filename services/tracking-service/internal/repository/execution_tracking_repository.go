@@ -168,14 +168,25 @@ WHERE execution_id = $2 AND operating_tenant_id = $1 AND last_execution_event_se
 	return err
 }
 
-func (r *ExecutionTrackingRepository) GetState(ctx context.Context, executionID uuid.UUID) (*ExecutionTrackingState, error) {
-	const q = `
+const executionTrackingStateSelect = `
 SELECT operating_tenant_id, execution_id, revision_id, current_stop_id, current_stop_ordinal,
        planned_arrival, location_id, target_latitude, target_longitude, live_eta_stop_id, live_eta_ordinal,
        driver_id, vehicle_id, last_execution_event_sequence, approach_emitted_stop_id, approach_emitted_at, updated_at
-FROM tracking.execution_tracking_state
-WHERE execution_id = $1`
-	state, err := scanExecutionTrackingState(r.pool.QueryRow(ctx, q, executionID))
+FROM tracking.execution_tracking_state`
+
+func (r *ExecutionTrackingRepository) GetState(ctx context.Context, executionID uuid.UUID) (*ExecutionTrackingState, error) {
+	state, err := scanExecutionTrackingState(r.pool.QueryRow(ctx, executionTrackingStateSelect+`
+WHERE execution_id = $1`, executionID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	return state, err
+}
+
+func (r *ExecutionTrackingRepository) LockExecutionTrackingStateTx(ctx context.Context, tx pgx.Tx, executionID uuid.UUID) (*ExecutionTrackingState, error) {
+	state, err := scanExecutionTrackingState(tx.QueryRow(ctx, executionTrackingStateSelect+`
+WHERE execution_id = $1
+FOR UPDATE`, executionID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -265,12 +276,20 @@ ON CONFLICT (operating_tenant_id, execution_stop_id) DO UPDATE SET
 }
 
 func (r *ExecutionTrackingRepository) GetExecutionStopETA(ctx context.Context, operatingTenantID, executionStopID uuid.UUID) (*ExecutionStopETAState, error) {
-	const q = `
+	return getExecutionStopETA(ctx, r.pool, operatingTenantID, executionStopID)
+}
+
+func (r *ExecutionTrackingRepository) GetExecutionStopETATx(ctx context.Context, tx pgx.Tx, operatingTenantID, executionStopID uuid.UUID) (*ExecutionStopETAState, error) {
+	return getExecutionStopETA(ctx, tx, operatingTenantID, executionStopID)
+}
+
+func getExecutionStopETA(ctx context.Context, q queryRower, operatingTenantID, executionStopID uuid.UUID) (*ExecutionStopETAState, error) {
+	const query = `
 SELECT operating_tenant_id, execution_id, execution_stop_id, status, estimated_arrival_at, source_type, provider_code,
        source_observed_at, received_at, freshness_status, quality_status, quality_reasons, age_seconds, planned_arrival, version, updated_at
 FROM tracking.execution_stop_eta_state
 WHERE operating_tenant_id = $1 AND execution_stop_id = $2`
-	row := r.pool.QueryRow(ctx, q, operatingTenantID, executionStopID)
+	row := q.QueryRow(ctx, query, operatingTenantID, executionStopID)
 	var state ExecutionStopETAState
 	var reasons []byte
 	err := row.Scan(

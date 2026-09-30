@@ -35,7 +35,7 @@ The live ETA target is the current canonical non-START stop. A START position an
 
 `tracking.stop.approaching` is advisory. An accepted location on the approach path writes `tracking.location_event`, `tracking.shipment_tracking_state`, the approach marker, and `tracking.event_outbox` in one transaction. The event is not written to `transport.shipment_event_outbox`. The payload has no raw coordinates and no shipment tenant. `TRACKING_STOP_APPROACH_ENABLED` defaults to false. When it is true, `TRACKING_STOP_APPROACH_RADIUS_METERS` must be greater than 0 or config load fails. The existing tracking-loss path that writes driver events to the shipment outbox is unchanged.
 
-Execution-stop ETA observation and `tracking.execution_stop_eta_state` commit in one transaction. Pickup and delivery ETA ingestion is unchanged.
+Execution-stop ETA observation and current state commit in one transaction. The transaction locks `tracking.execution_tracking_state` and revalidates the live stop before insert. Current state changes only when `repository.ShouldReplaceETAObservation` selects the incoming observation. An older unique observation stays in history and does not move current state. Pickup and delivery ETA ingestion is unchanged.
 
 The tracking outbox publisher uses the same header contract as the shipment status publisher (`event_type`, `schema_version`, `source_event_id`, `content_type`). It starts only when brokers and `TRACKING_KAFKA_TOPIC` are set. It does not configure Kafka TLS or SASL. Real Kafka was not executed in this wave. `services/tracking-service` is in the `backend-go-check` matrix.
 
