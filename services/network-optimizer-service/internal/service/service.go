@@ -13,6 +13,7 @@ import (
 	"github.com/freight-platform/network-optimizer-service/internal/compat"
 	"github.com/freight-platform/network-optimizer-service/internal/currenttrip"
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
+	"github.com/freight-platform/network-optimizer-service/internal/executionproj"
 	"github.com/freight-platform/network-optimizer-service/internal/locationclient"
 	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
 	bnometrics "github.com/freight-platform/network-optimizer-service/internal/platform/metrics"
@@ -35,6 +36,7 @@ type Service struct {
 	sources        predict.Sources
 	policy         predict.Policy
 	currentTrip    *currenttrip.Provider
+	projection     executionproj.Client
 	now            func() time.Time
 	nMemberPolicy  nMemberPolicy
 }
@@ -74,6 +76,10 @@ func (s *Service) ConfigurePrediction(sources predict.Sources, policy predict.Po
 
 func (s *Service) ConfigureCurrentTrip(provider *currenttrip.Provider) {
 	s.currentTrip = provider
+}
+
+func (s *Service) UseExecutionProjection(client executionproj.Client) {
+	s.projection = client
 }
 
 func (s *Service) BuildCurrentTrip(ctx context.Context, tenantID, shipmentID uuid.UUID) (currenttrip.CurrentTripContext, error) {
@@ -829,6 +835,13 @@ func saveIdempotency(ctx context.Context, tx repository.Tx, tenant uuid.UUID, ke
 		return nil
 	}
 	return tx.PutIdempotency(ctx, tenant, repository.IdempotencyRecord{Key: key, Hash: hash, Status: status, Body: body})
+}
+
+func updateIdempotency(ctx context.Context, tx repository.Tx, tenant uuid.UUID, key, hash string, status int, body []byte) error {
+	if key == "" {
+		return nil
+	}
+	return tx.UpdateIdempotency(ctx, tenant, repository.IdempotencyRecord{Key: key, Hash: hash, Status: status, Body: body})
 }
 
 func mapWrite(err error) error {

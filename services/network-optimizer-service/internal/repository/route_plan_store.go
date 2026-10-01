@@ -272,6 +272,48 @@ func (t *memTx) GetRoutePlanActivation(_ context.Context, tenant, planID uuid.UU
 	return row, nil
 }
 
+func (t *memTx) MarkRoutePlanActivationRejected(_ context.Context, tenant, planID uuid.UUID) error {
+	row, ok := t.activations[planID]
+	if !ok || row.TenantID != tenant {
+		return ErrNotFound
+	}
+	if row.Status == "REJECTED" {
+		return nil
+	}
+	if row.Status != "PENDING_EXECUTION" || row.ExecutionID != nil {
+		return ErrConflict
+	}
+	row.Status = "REJECTED"
+	t.activations[planID] = row
+	return nil
+}
+
+func (t *memTx) LinkRoutePlanActivation(_ context.Context, tenant, planID, executionID, revisionID uuid.UUID, effectiveShipment *uuid.UUID) (bool, error) {
+	row, ok := t.activations[planID]
+	if !ok || row.TenantID != tenant {
+		return false, ErrNotFound
+	}
+	if row.Status == "EXECUTION_LINKED" {
+		return false, nil
+	}
+	if row.Status != "PENDING_EXECUTION" || row.ExecutionID != nil || row.ExecutionRevisionID != nil {
+		return false, ErrConflict
+	}
+	if effectiveShipment != nil {
+		for _, existing := range t.activations {
+			if existing.TenantID == tenant && existing.EffectiveShipmentID != nil && *existing.EffectiveShipmentID == *effectiveShipment {
+				return false, ErrConflict
+			}
+		}
+	}
+	row.Status = "EXECUTION_LINKED"
+	row.ExecutionID = &executionID
+	row.ExecutionRevisionID = &revisionID
+	row.EffectiveShipmentID = effectiveShipment
+	t.activations[planID] = row
+	return true, nil
+}
+
 func (t *memTx) LinkedActivationForShipment(_ context.Context, tenant, shipment uuid.UUID) (RoutePlanActivationRow, error) {
 	for _, row := range t.activations {
 		if row.TenantID != tenant || row.Status != "EXECUTION_LINKED" || row.EffectiveShipmentID == nil || *row.EffectiveShipmentID != shipment {

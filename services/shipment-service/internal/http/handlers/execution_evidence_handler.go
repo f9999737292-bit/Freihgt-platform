@@ -40,6 +40,8 @@ func (h *ExecutionEvidenceHandler) GetExecutionContext(w http.ResponseWriter, r 
 		"shipment_version":        view.ShipmentVersion,
 		"shipment_status":         view.ShipmentStatus,
 		"vehicle_id":              view.VehicleID,
+		"driver_id":               view.DriverID,
+		"carrier_company_id":      view.CarrierCompanyID,
 		"origin_location_id":      view.OriginLocationID,
 		"destination_location_id": view.DestinationLocationID,
 		"cargo_id":                view.CargoID,

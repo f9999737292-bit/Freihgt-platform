@@ -28,6 +28,7 @@ type Memory struct {
 	scoreProfiles           map[string]domain.ScoreProfile
 	routePlans              map[uuid.UUID]RoutePlanGraph
 	routeActivations        map[uuid.UUID]RoutePlanActivationRow
+	durationPolicies        map[uuid.UUID]ServiceDurationPolicy
 }
 
 func NewMemory() *Memory {
@@ -53,6 +54,7 @@ func (m *Memory) Within(_ context.Context, fn func(Tx) error) error {
 		outbox:      append([]OutboxEvent(nil), m.outbox...),
 		plans:       cloneRoutePlans(m.routePlans),
 		activations: cloneActivations(m.routeActivations),
+		durations:   cloneDurationPolicies(m.durationPolicies),
 	}
 	if err := fn(tx); err != nil {
 		return err
@@ -65,6 +67,7 @@ func (m *Memory) Within(_ context.Context, fn func(Tx) error) error {
 	m.outbox = tx.outbox
 	m.routePlans = tx.plans
 	m.routeActivations = tx.activations
+	m.durationPolicies = tx.durations
 	return nil
 }
 
@@ -89,6 +92,7 @@ type memTx struct {
 	outbox      []OutboxEvent
 	plans       map[uuid.UUID]RoutePlanGraph
 	activations map[uuid.UUID]RoutePlanActivationRow
+	durations   map[uuid.UUID]ServiceDurationPolicy
 }
 
 func (t *memTx) InsertLoad(_ context.Context, load domain.LoadOpportunity) error {
@@ -253,6 +257,20 @@ func (t *memTx) PutIdempotency(_ context.Context, tenant uuid.UUID, rec Idempote
 	key := idemKey(tenant, rec.Key)
 	if _, ok := t.idem[key]; ok {
 		return ErrIdempotencyRace
+	}
+	rec.Body = append([]byte(nil), rec.Body...)
+	t.idem[key] = rec
+	return nil
+}
+
+func (t *memTx) UpdateIdempotency(_ context.Context, tenant uuid.UUID, rec IdempotencyRecord) error {
+	key := idemKey(tenant, rec.Key)
+	existing, ok := t.idem[key]
+	if !ok {
+		return ErrNotFound
+	}
+	if existing.Hash != rec.Hash {
+		return ErrConflict
 	}
 	rec.Body = append([]byte(nil), rec.Body...)
 	t.idem[key] = rec

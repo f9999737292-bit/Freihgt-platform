@@ -390,3 +390,26 @@ func contains(values []string, want string) bool {
 	}
 	return false
 }
+
+func TestServiceDurationPolicyVersionChangesFingerprint(t *testing.T) {
+	id := uuid.New()
+	version := 1
+	next := 2
+	seconds := 90
+	base := Outcome{ResultStatus: ResultFeasible, ServiceDurationKnown: true, ServiceDurationPolicyID: &id, ServiceDurationPolicyVersion: &version}
+	changed := base
+	changed.ServiceDurationPolicyVersion = &next
+	if EvaluationFingerprint(base) == EvaluationFingerprint(changed) {
+		t.Fatal("policy version did not change the evaluation fingerprint")
+	}
+	legacy := Outcome{ResultStatus: ResultFeasible, ServiceDurationKnown: true, ServiceDurationSeconds: &seconds}
+	if EvaluationFingerprint(base) == EvaluationFingerprint(legacy) {
+		t.Fatal("policy identity did not change the evaluation fingerprint")
+	}
+	stopSeconds := 900
+	withStop := base
+	withStop.Stops = []Stop{{Service: &stopSeconds}}
+	if EvaluationFingerprint(base) == EvaluationFingerprint(withStop) {
+		t.Fatal("resolved stop duration did not change the evaluation fingerprint")
+	}
+}

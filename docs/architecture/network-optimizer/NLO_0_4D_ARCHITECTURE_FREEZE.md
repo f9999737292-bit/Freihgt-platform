@@ -113,4 +113,24 @@ EDO_RUNTIME_CHANGED=NO
 PRODUCTION_MUTATION=NO
 ```
 
-Next action is controller review. Implementation stays unauthorized.
+Next action after R1 was controller review. NLO-0.4D-I2 then implemented the freeze on this branch. Controller acceptance and merge remain unauthorized.
+
+## NLO-0.4D-I2 implementation
+
+```text
+NLO_0_4D_I2=IMPLEMENTED_PENDING_CONTROLLER_REVIEW
+SERVICE_DURATION_OWNER=NETWORK_OPTIMIZER_SERVICE
+POLICY_SCOPE=OPERATING_TENANT
+POLICY_VERSIONING=MONOTONIC
+POLICY_STATE=DRAFT/ACTIVE/RETIRED
+ACTIVE_POLICY_IMMUTABLE=YES
+MIGRATION=000094_nlo_service_duration_policy_v0_4d
+TMS_ENDPOINT=POST /internal/v1/transport-executions/from-route-plan-activation
+NLO_WRITES_TMS_DB=NO
+TMS_WRITES_NLO_DB=NO
+MERGE_AUTHORIZED=NO
+```
+
+The operating-tenant logistics policy is stored by network-optimizer-service. Published ACTIVE rows are the only duration source. Pickup and delivery seconds come from that row. A missing active policy stays fail-closed. The public evaluate request cannot supply a duration.
+
+Activation still inserts `PENDING_EXECUTION`. When the projection client is configured, network-optimizer-service calls the shipment-service internal endpoint with the internal service token and the verified tenant. A matching acknowledgement stores `execution_id` and `execution_revision_id` and moves the row to `EXECUTION_LINKED`. The plan is not rebuilt. `network.route_plan.execution_linked` is emitted once in that same transaction. A lost response leaves the row pending and the same projection is retried. A correlation mismatch does not link. Depot-start stays blocked by `SHIPMENT_STATUS_NOT_ELIGIBLE`.

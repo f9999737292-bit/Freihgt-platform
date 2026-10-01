@@ -78,6 +78,7 @@ type Tx interface {
 
 	GetIdempotency(context.Context, uuid.UUID, string) (IdempotencyRecord, error)
 	PutIdempotency(context.Context, uuid.UUID, IdempotencyRecord) error
+	UpdateIdempotency(context.Context, uuid.UUID, IdempotencyRecord) error
 	InsertAudit(context.Context, AuditEvent) error
 	InsertOutbox(context.Context, OutboxEvent) error
 
@@ -90,6 +91,14 @@ type Tx interface {
 	GetRoutePlanActivation(context.Context, uuid.UUID, uuid.UUID) (RoutePlanActivationRow, error)
 	ClearRoutePlanActivationEffect(context.Context, uuid.UUID, uuid.UUID) error
 	LinkedActivationForShipment(context.Context, uuid.UUID, uuid.UUID) (RoutePlanActivationRow, error)
+	LinkRoutePlanActivation(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, *uuid.UUID) (bool, error)
+	MarkRoutePlanActivationRejected(context.Context, uuid.UUID, uuid.UUID) error
+
+	ActiveServiceDurationPolicy(context.Context, uuid.UUID) (ServiceDurationPolicy, error)
+	NextServiceDurationVersion(context.Context, uuid.UUID) (int, error)
+	InsertServiceDurationDraft(context.Context, ServiceDurationPolicy) error
+	UpdateServiceDurationDraft(context.Context, uuid.UUID, uuid.UUID, int, int) error
+	PublishServiceDurationPolicy(context.Context, uuid.UUID, uuid.UUID, time.Time) (ServiceDurationPolicy, error)
 }
 
 type Store interface {

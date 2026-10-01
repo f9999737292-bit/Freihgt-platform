@@ -144,6 +144,7 @@ func (p *Provider) Build(ctx context.Context, tenantID, shipmentID uuid.UUID) (C
 	built := CurrentTripContext{
 		ShipmentID: execution.ShipmentID, ShipmentVersion: execution.ShipmentVersion, ShipmentStatus: execution.ShipmentStatus,
 		VehicleID: execution.VehicleID, VehicleVersion: vehicleVersion,
+		DriverID: execution.DriverID, CarrierCompanyID: execution.CarrierCompanyID,
 		OriginLocationID: execution.OriginLocationID, DestinationLocationID: execution.DestinationLocationID,
 		CurrentPosition: position, PositionFreshnessStatus: positionFreshness, PositionObservedAt: positionAt,
 		ETA: eta, ETAFreshnessStatus: etaFreshness, ETAObservedAt: etaAt,

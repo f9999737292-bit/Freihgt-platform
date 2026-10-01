@@ -14,6 +14,7 @@ import (
 
 	"github.com/freight-platform/network-optimizer-service/internal/config"
 	"github.com/freight-platform/network-optimizer-service/internal/currenttrip"
+	"github.com/freight-platform/network-optimizer-service/internal/executionproj"
 	httpserver "github.com/freight-platform/network-optimizer-service/internal/http"
 	"github.com/freight-platform/network-optimizer-service/internal/locationclient"
 	"github.com/freight-platform/network-optimizer-service/internal/predict"
@@ -53,6 +54,7 @@ func main() {
 		ConfidenceFloor: cfg.Prediction.ConfidenceFloor, AutoActivate: cfg.Prediction.AutoActivate,
 	})
 	svc.ConfigureCurrentTrip(currenttrip.NewProvider(sources, sources, sources, sources, sources, sources))
+	svc.UseExecutionProjection(executionproj.NewHTTP(cfg.ShipmentURL, cfg.InternalServiceToken))
 	router := httpserver.NewRouterWithCatalog(log, svc, ready(store), store)
 	server := &http.Server{
 		Addr:              ":" + itoa(cfg.HTTPPort),

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. NLO-0.4D-R1 architecture freeze. Implementation is not authorized. Controller review is required.
+Proposed. NLO-0.4D-R1 architecture freeze. NLO-0.4D-I2 implements the storage and the handoff on this branch. Controller acceptance is still required. Merge is not authorized.
 
 ```text
 ADR_NET_022=PROPOSED
@@ -19,7 +19,7 @@ ADR-TMS-003 already chooses `CreateExecutionProjectionFromActivation` as the pro
 
 ## Decision
 
-The authoritative service duration is a versioned operating-tenant logistics policy. The optimizer reads that policy. It does not author minutes, and it does not trust a client duration. Unknown policy data stays fail-closed. This ADR names the owner and the version. It does not publish pickup or delivery seconds.
+The authoritative service duration is a versioned operating-tenant logistics policy. NLO-0.4D-I2 stores that policy in network-optimizer-service. The optimizer reads the published active row. It does not trust a client duration. Unknown policy data stays fail-closed. This ADR names the owner and the version. It does not publish pickup or delivery seconds.
 
 The authoritative TMS acknowledgement is the response of that same synchronous command, reached through the existing internal authenticated shipment API. NLO does not write TMS tables. TMS does not write NLO tables. The execution-created event is not the acknowledgement.
 

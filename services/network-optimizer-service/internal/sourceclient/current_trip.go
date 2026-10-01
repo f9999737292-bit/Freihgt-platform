@@ -25,6 +25,8 @@ func (h *HTTP) ExecutionContext(ctx context.Context, tenant, shipment uuid.UUID)
 		ShipmentVersion       int        `json:"shipment_version"`
 		ShipmentStatus        string     `json:"shipment_status"`
 		VehicleID             *uuid.UUID `json:"vehicle_id"`
+		DriverID              *uuid.UUID `json:"driver_id"`
+		CarrierCompanyID      *uuid.UUID `json:"carrier_company_id"`
 		OriginLocationID      uuid.UUID  `json:"origin_location_id"`
 		DestinationLocationID uuid.UUID  `json:"destination_location_id"`
 		CargoID               *uuid.UUID `json:"cargo_id"`
@@ -38,6 +40,7 @@ func (h *HTTP) ExecutionContext(ctx context.Context, tenant, shipment uuid.UUID)
 	return currenttrip.ShipmentExecution{
 		ShipmentID: payload.ShipmentID, TenantID: payload.TenantID, ShipmentVersion: payload.ShipmentVersion,
 		ShipmentStatus: payload.ShipmentStatus, VehicleID: payload.VehicleID,
+		DriverID: payload.DriverID, CarrierCompanyID: payload.CarrierCompanyID,
 		OriginLocationID: payload.OriginLocationID, DestinationLocationID: payload.DestinationLocationID,
 		CargoID: payload.CargoID, PlannedDeliveryAt: payload.PlannedDeliveryAt,
 		ActualPickupAt: payload.ActualPickupAt, ActualDeliveryAt: payload.ActualDeliveryAt,

@@ -45,6 +45,8 @@ type ShipmentExecution struct {
 	ShipmentVersion       int
 	ShipmentStatus        string
 	VehicleID             *uuid.UUID
+	DriverID              *uuid.UUID
+	CarrierCompanyID      *uuid.UUID
 	OriginLocationID      uuid.UUID
 	DestinationLocationID uuid.UUID
 	CargoID               *uuid.UUID
@@ -189,6 +191,8 @@ type CurrentTripContext struct {
 	ShipmentStatus          string
 	VehicleID               *uuid.UUID
 	VehicleVersion          int
+	DriverID                *uuid.UUID
+	CarrierCompanyID        *uuid.UUID
 	OriginLocationID        uuid.UUID
 	DestinationLocationID   uuid.UUID
 	CurrentPosition         *TrackingPosition

@@ -65,6 +65,8 @@ type ShipmentExecutionContext struct {
 	ShipmentVersion       int
 	ShipmentStatus        string
 	VehicleID             *uuid.UUID
+	DriverID              *uuid.UUID
+	CarrierCompanyID      *uuid.UUID
 	OriginLocationID      uuid.UUID
 	DestinationLocationID uuid.UUID
 	CargoID               *uuid.UUID
@@ -94,6 +96,7 @@ func ExecutionContextFromShipment(shipment Shipment) ShipmentExecutionContext {
 	return ShipmentExecutionContext{
 		ShipmentID: shipment.ID, TenantID: shipment.TenantID, ShipmentVersion: shipment.Version,
 		ShipmentStatus: shipment.Status, VehicleID: shipment.VehicleID,
+		DriverID: shipment.DriverID, CarrierCompanyID: shipment.CarrierCompanyID,
 		OriginLocationID: shipment.OriginLocationID, DestinationLocationID: shipment.DestinationLocationID,
 		CargoID: shipment.CargoID, PlannedDeliveryAt: shipment.PlannedDeliveryAt,
 		ActualPickupAt: shipment.ActualPickupAt, ActualDeliveryAt: shipment.ActualDeliveryAt,

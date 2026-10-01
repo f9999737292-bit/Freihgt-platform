@@ -97,8 +97,10 @@ func (s *Service) ActivateRoutePlan(ctx context.Context, actor Actor, idempotenc
 	}
 	storedKey := "activate_route_plan:" + idempotencyKey
 	hash := HashBody(raw)
-	if replay, ok, err := s.peekIdempotency(ctx, actor.TenantID, storedKey, hash); err != nil || ok {
-		return replay, err
+	if s.projection == nil {
+		if replay, ok, err := s.peekIdempotency(ctx, actor.TenantID, storedKey, hash); err != nil || ok {
+			return replay, err
+		}
 	}
 	var result Result
 	err = s.store.Within(ctx, func(tx repository.Tx) error {
@@ -179,12 +181,16 @@ func (s *Service) ActivateRoutePlan(ctx context.Context, actor Actor, idempotenc
 		return saveIdempotency(ctx, tx, actor.TenantID, storedKey, hash, result.Status, result.Body)
 	})
 	if errors.Is(err, repository.ErrIdempotencyRace) {
-		return s.readReplay(ctx, actor.TenantID, storedKey, hash)
-	}
-	if err != nil {
+		result, err = s.readReplay(ctx, actor.TenantID, storedKey, hash)
+		if err != nil || s.projection == nil {
+			return result, err
+		}
+	} else if err != nil {
 		return Result{}, err
+	} else if s.projection == nil {
+		return result, nil
 	}
-	return result, nil
+	return s.finishActivationHandoff(ctx, actor, id, storedKey, hash)
 }
 
 func parseRoutePlanDecision(raw []byte) (int, error) {
@@ -210,6 +216,9 @@ func (s *Service) ensureRoutePlanFresh(ctx context.Context, tx repository.Tx, ac
 	byKind := map[string][]repository.RouteDependencyRow{}
 	for _, dep := range graph.Dependencies {
 		byKind[dep.DependencyKind] = append(byKind[dep.DependencyKind], dep)
+	}
+	if err := serviceDurationFresh(ctx, tx, actor.TenantID, byKind["SERVICE_DURATION_POLICY"]); err != nil {
+		return "", err
 	}
 	loads := make([]domain.LoadOpportunity, 0, len(byKind["LOAD_OPPORTUNITY"]))
 	for _, dep := range byKind["LOAD_OPPORTUNITY"] {
@@ -294,6 +303,23 @@ func (s *Service) referenceFingerprints(ctx context.Context, actor Actor, loads 
 		return empty, empty, nil
 	}
 	return fingerprintLines(catalogLines(evalCtx.CatalogRefs)), fingerprintLines(ruleLines(evalCtx.RuleSets)), nil
+}
+
+func serviceDurationFresh(ctx context.Context, tx repository.Tx, tenant uuid.UUID, rows []repository.RouteDependencyRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	if len(rows) != 1 || rows[0].SubjectID == nil || rows[0].SubjectVersion == nil {
+		return planStale()
+	}
+	policy, err := tx.ActiveServiceDurationPolicy(ctx, tenant)
+	if err != nil || policy.ID != *rows[0].SubjectID || policy.Version != *rows[0].SubjectVersion {
+		return planStale()
+	}
+	if rows[0].Fingerprint != repository.DurationPolicyFingerprint(policy.PickupSeconds, policy.DeliverySeconds) {
+		return planStale()
+	}
+	return nil
 }
 
 func dependencyVersion(rows []repository.RouteDependencyRow, id uuid.UUID, version int) bool {

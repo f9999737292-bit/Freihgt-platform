@@ -359,6 +359,51 @@ func (t *pgTx) GetRoutePlanActivation(ctx context.Context, tenant, planID uuid.U
 	return row, nil
 }
 
+func (t *pgTx) MarkRoutePlanActivationRejected(ctx context.Context, tenant, planID uuid.UUID) error {
+	tag, err := t.tx.Exec(ctx, `
+		UPDATE network_optimizer.route_plan_activations
+		SET status = 'REJECTED'
+		WHERE tenant_id = $1 AND route_plan_id = $2 AND status = 'PENDING_EXECUTION'
+		  AND execution_id IS NULL AND execution_revision_id IS NULL AND effective_shipment_id IS NULL
+	`, tenant, planID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 1 {
+		return nil
+	}
+	row, err := t.GetRoutePlanActivation(ctx, tenant, planID)
+	if err != nil {
+		return err
+	}
+	if row.Status == "REJECTED" {
+		return nil
+	}
+	return ErrConflict
+}
+
+func (t *pgTx) LinkRoutePlanActivation(ctx context.Context, tenant, planID, executionID, revisionID uuid.UUID, effectiveShipment *uuid.UUID) (bool, error) {
+	tag, err := t.tx.Exec(ctx, `
+		UPDATE network_optimizer.route_plan_activations
+		SET status = 'EXECUTION_LINKED',
+		    execution_id = $3,
+		    execution_revision_id = $4,
+		    effective_shipment_id = $5
+		WHERE tenant_id = $1
+		  AND route_plan_id = $2
+		  AND status = 'PENDING_EXECUTION'
+		  AND execution_id IS NULL
+		  AND execution_revision_id IS NULL
+	`, tenant, planID, executionID, revisionID, effectiveShipment)
+	if err != nil {
+		if isConstraint(err, "route_plan_activations_one_effective_shipment_idx") || isConstraint(err, "route_plan_activations_status_linkage_chk") {
+			return false, ErrConflict
+		}
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 func (t *pgTx) LinkedActivationForShipment(ctx context.Context, tenant, shipment uuid.UUID) (RoutePlanActivationRow, error) {
 	var row RoutePlanActivationRow
 	err := t.tx.QueryRow(ctx, `

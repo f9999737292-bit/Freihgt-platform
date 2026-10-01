@@ -178,6 +178,7 @@ type planDeps struct {
 	cargos             []currenttrip.OnboardCargoUnit
 	snapshots          map[uuid.UUID][]byte
 	evidence           *compatEvidence
+	durationPolicy     *repository.ServiceDurationPolicy
 }
 
 type compatEvidence struct {
@@ -202,6 +203,12 @@ func (s *Service) prepareRoutePlan(ctx context.Context, actor Actor, cmd RoutePl
 			}
 			loads = append(loads, load)
 		}
+		policy, policyErr := tx.ActiveServiceDurationPolicy(ctx, actor.TenantID)
+		if policyErr == nil {
+			deps.durationPolicy = &policy
+		} else if !errors.Is(policyErr, repository.ErrNotFound) {
+			return policyErr
+		}
 		return nil
 	})
 	if err != nil {
@@ -223,6 +230,16 @@ func (s *Service) prepareRoutePlan(ctx context.Context, actor Actor, cmd RoutePl
 	var evalCtx compat.Context
 	haveCtx := false
 	input := routeplan.Input{Mode: cmd.PlanningMode, Clock: clock, Route: s.routes}
+	if deps.durationPolicy != nil {
+		policyID := deps.durationPolicy.ID
+		policyVersion := deps.durationPolicy.Version
+		input.ActionServiceSeconds = map[string]int{
+			routeplan.ActionPickup:   deps.durationPolicy.PickupSeconds,
+			routeplan.ActionDelivery: deps.durationPolicy.DeliverySeconds,
+		}
+		input.ServiceDurationPolicyID = &policyID
+		input.ServiceDurationPolicyVersion = &policyVersion
+	}
 	owners := map[uuid.UUID]struct{}{actor.TenantID: {}}
 	for _, load := range loads {
 		owners[load.OwnerTenantID] = struct{}{}
@@ -620,6 +637,11 @@ func routeDependencies(planID uuid.UUID, cmd RoutePlanCommand, deps planDeps) []
 		version := cargo.CargoVersion
 		id := cargo.CargoID
 		add("SHIPMENT_CARGO", &id, &version, cargo.EvidenceState)
+	}
+	if deps.durationPolicy != nil {
+		policyID := deps.durationPolicy.ID
+		policyVersion := deps.durationPolicy.Version
+		add("SERVICE_DURATION_POLICY", &policyID, &policyVersion, repository.DurationPolicyFingerprint(deps.durationPolicy.PickupSeconds, deps.durationPolicy.DeliverySeconds))
 	}
 	add("ROUTING_POLICY", nil, nil, routeplan.RoutingPolicyVersion)
 	add("ALGORITHM_POLICY", nil, nil, routeplan.AlgorithmPolicyVersion)

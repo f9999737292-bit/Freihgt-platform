@@ -338,6 +338,21 @@ func (t *pgTx) PutIdempotency(ctx context.Context, tenant uuid.UUID, rec Idempot
 	return err
 }
 
+func (t *pgTx) UpdateIdempotency(ctx context.Context, tenant uuid.UUID, rec IdempotencyRecord) error {
+	tag, err := t.tx.Exec(ctx, `
+		UPDATE network_optimizer.idempotency_keys
+		SET response_status=$4, response_body=$5
+		WHERE tenant_id=$1 AND idempotency_key=$2 AND request_hash=$3`,
+		tenant, rec.Key, rec.Hash, rec.Status, rec.Body)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrConflict
+	}
+	return nil
+}
+
 func (t *pgTx) InsertAudit(ctx context.Context, event AuditEvent) error {
 	_, err := t.tx.Exec(ctx, `
 		INSERT INTO network_optimizer.audit_events

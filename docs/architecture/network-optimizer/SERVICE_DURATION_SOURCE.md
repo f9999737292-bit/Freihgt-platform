@@ -52,7 +52,13 @@ DELIVERY -> seconds at that version, or ABSENT
 
 `ABSENT` is not zero. The plan stop stores the resolved seconds as a snapshot. The policy row remains the authority. TMS copies the snapshot at projection and does not resolve the policy again.
 
-A later implementation may persist the policy. This freeze does not create that table and does not assign a migration number. The current `route_plan_dependencies` check constraint has no `SERVICE_DURATION_POLICY` kind. Adding that kind is a later migration, not this wave.
+NLO-0.4D-I2 persists that policy in network-optimizer-service. Migration `000094_nlo_service_duration_policy_v0_4d` adds `service_duration_policies` and `service_duration_policy_entries`. The row owner is the network optimizer. The scope is the operating tenant. Versions are monotonic. Status is `DRAFT`, `ACTIVE`, or `RETIRED`. One `ACTIVE` row is allowed per tenant, and an `ACTIVE` row cannot be edited. `route_plan_dependencies.dependency_kind` includes `SERVICE_DURATION_POLICY`.
+
+```text
+SERVICE_DURATION_OWNER=NETWORK_OPTIMIZER_SERVICE
+POLICY_SCOPE=OPERATING_TENANT
+SERVICE_DURATION_STORAGE=network_optimizer.service_duration_policies
+```
 
 ```text
 POLICY_KEY=operating_tenant_id + policy_version
