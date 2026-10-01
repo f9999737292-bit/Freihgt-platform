@@ -171,7 +171,17 @@ func applyPlanCreated(ctx context.Context, tx pgx.Tx, event executionEvent, rece
 		return err
 	}
 	if exists {
-		return markInbox(ctx, tx, event.EventID, "duplicate_plan")
+		proceed, err := claimSequence(ctx, tx, event, receivedAt)
+		if err != nil || !proceed {
+			return err
+		}
+		if err := projectSuccessorPlan(ctx, tx, event, receivedAt); err != nil {
+			return err
+		}
+		if err := noteSequence(ctx, tx, event, receivedAt); err != nil {
+			return err
+		}
+		return drainHeld(ctx, tx, event.ExecutionID, receivedAt)
 	}
 	if _, err := tx.Exec(ctx, `
 INSERT INTO control_tower.execution_projection (
@@ -212,20 +222,24 @@ INSERT INTO control_tower.execution_action_projection (
 }
 
 func applyStopEvent(ctx context.Context, tx pgx.Tx, event executionEvent, receivedAt time.Time) error {
-	var last int64
-	var gap bool
-	err := tx.QueryRow(ctx, `SELECT last_event_sequence, gap_detected FROM control_tower.execution_projection WHERE execution_id=$1 FOR UPDATE`, event.ExecutionID).Scan(&last, &gap)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return holdGap(ctx, tx, event, 1, event.Sequence, receivedAt)
-	}
-	if err != nil {
+	proceed, err := claimSequence(ctx, tx, event, receivedAt)
+	if err != nil || !proceed {
 		return err
 	}
-	if event.Sequence <= last {
-		return markInbox(ctx, tx, event.EventID, "ignored_old")
-	}
-	if event.Sequence > last+1 {
-		return holdGap(ctx, tx, event, last+1, event.Sequence-1, receivedAt)
+	if event.EventType != domain.EventExecutionPlanSuperseded {
+		var active uuid.UUID
+		if err := tx.QueryRow(ctx, `SELECT active_revision_id FROM control_tower.execution_projection WHERE execution_id=$1`, event.ExecutionID).Scan(&active); err != nil {
+			return err
+		}
+		if event.RevisionID != active {
+			if err := noteSequence(ctx, tx, event, receivedAt); err != nil {
+				return err
+			}
+			if err := markInbox(ctx, tx, event.EventID, "ignored_stale_revision"); err != nil {
+				return err
+			}
+			return drainHeld(ctx, tx, event.ExecutionID, receivedAt)
+		}
 	}
 	if err := mutateStop(ctx, tx, event, receivedAt); err != nil {
 		return err
@@ -236,45 +250,147 @@ func applyStopEvent(ctx context.Context, tx pgx.Tx, event executionEvent, receiv
 	return drainHeld(ctx, tx, event.ExecutionID, receivedAt)
 }
 
+func claimSequence(ctx context.Context, tx pgx.Tx, event executionEvent, receivedAt time.Time) (bool, error) {
+	var last int64
+	var gap bool
+	err := tx.QueryRow(ctx, `SELECT last_event_sequence, gap_detected FROM control_tower.execution_projection WHERE execution_id=$1 FOR UPDATE`, event.ExecutionID).Scan(&last, &gap)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, holdGap(ctx, tx, event, 1, event.Sequence, receivedAt)
+	}
+	if err != nil {
+		return false, err
+	}
+	if event.Sequence <= last {
+		return false, markInbox(ctx, tx, event.EventID, "ignored_old")
+	}
+	if event.Sequence > last+1 {
+		return false, holdGap(ctx, tx, event, last+1, event.Sequence-1, receivedAt)
+	}
+	return true, nil
+}
+
+func projectSuccessorPlan(ctx context.Context, tx pgx.Tx, event executionEvent, receivedAt time.Time) error {
+	var active uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT active_revision_id FROM control_tower.execution_projection WHERE execution_id=$1`, event.ExecutionID).Scan(&active); err != nil {
+		return err
+	}
+	if event.RevisionID == active || event.RevisionID == uuid.Nil {
+		return nil
+	}
+	var current *uuid.UUID
+	best := int(^uint(0) >> 1)
+	for _, stop := range event.Stops {
+		if stop.Status != "PLANNED" || stop.Ordinal >= best {
+			continue
+		}
+		id := stop.StopID
+		current = &id
+		best = stop.Ordinal
+	}
+	if _, err := tx.Exec(ctx, `
+UPDATE control_tower.execution_projection
+SET active_revision_id=$2,
+    current_stop_id=COALESCE($3, current_stop_id),
+    updated_at=$4
+WHERE execution_id=$1
+`, event.ExecutionID, event.RevisionID, current, receivedAt); err != nil {
+		return err
+	}
+	for _, stop := range event.Stops {
+		if stop.Status == "COMPLETED" || stop.Status == "SKIPPED" || stop.Status == "CANCELLED" {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `
+INSERT INTO control_tower.execution_stop_projection (
+  operating_tenant_id, execution_id, revision_id, execution_stop_id, ordinal, stop_role, point_kind, location_id,
+  planned_arrival, planned_departure, status, last_event_sequence, last_event_id, updated_at
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+ON CONFLICT (execution_id, revision_id, execution_stop_id) DO NOTHING
+`, event.OperatingTenantID, event.ExecutionID, event.RevisionID, stop.StopID, stop.Ordinal, stop.StopRole, stop.PointKind,
+			stop.LocationID, stop.PlannedArrival, stop.PlannedDeparture, stop.Status, event.Sequence, event.EventID, receivedAt); err != nil {
+			return err
+		}
+	}
+	for _, action := range event.Actions {
+		if action.Status == "COMPLETED" || action.Status == "FAILED" || action.Status == "CANCELLED" {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `
+INSERT INTO control_tower.execution_action_projection (
+  operating_tenant_id, execution_id, revision_id, execution_stop_id, action_id, action_type, shipment_id, cargo_id,
+  status, last_event_sequence, updated_at
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+ON CONFLICT (execution_id, revision_id, action_id) DO NOTHING
+`, event.OperatingTenantID, event.ExecutionID, event.RevisionID, action.StopID, action.ActionID, action.ActionType,
+			action.ShipmentID, action.CargoID, action.Status, event.Sequence, receivedAt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func mutateStop(ctx context.Context, tx pgx.Tx, event executionEvent, receivedAt time.Time) error {
 	switch event.EventType {
 	case domain.EventRouteStopCurrent:
-		_, err := tx.Exec(ctx, `UPDATE control_tower.execution_projection SET current_stop_id=$2, updated_at=$3 WHERE execution_id=$1`, event.ExecutionID, event.StopID, receivedAt)
+		_, err := tx.Exec(ctx, `
+UPDATE control_tower.execution_projection AS execution
+SET current_stop_id=$2, updated_at=$3
+WHERE execution.execution_id=$1
+  AND EXISTS (
+    SELECT 1 FROM control_tower.execution_stop_projection AS stop
+    WHERE stop.execution_id=execution.execution_id
+      AND stop.revision_id=execution.active_revision_id
+      AND stop.execution_stop_id=$2
+      AND stop.status IN ('PLANNED','ARRIVED','SERVICE_STARTED')
+  )
+`, event.ExecutionID, event.StopID, receivedAt)
 		return err
 	case domain.EventRouteStopArrived:
 		_, err := tx.Exec(ctx, `
-UPDATE control_tower.execution_stop_projection
-SET status='ARRIVED', arrived_at=COALESCE(arrived_at,$3), last_event_sequence=$4, last_event_id=$5, updated_at=$6
-WHERE execution_id=$1 AND execution_stop_id=$2 AND status <> 'COMPLETED'
+UPDATE control_tower.execution_stop_projection AS stop
+SET status='ARRIVED', arrived_at=COALESCE(stop.arrived_at,$3), last_event_sequence=$4, last_event_id=$5, updated_at=$6
+FROM control_tower.execution_projection AS execution
+WHERE stop.execution_id=execution.execution_id
+  AND stop.revision_id=execution.active_revision_id
+  AND stop.execution_id=$1 AND stop.execution_stop_id=$2
+  AND stop.status NOT IN ('COMPLETED','SUPERSEDED','CANCELLED','SKIPPED')
 `, event.ExecutionID, event.StopID, event.OccurredAt, event.Sequence, event.EventID, receivedAt)
 		return err
 	case domain.EventExecutionPlanSuperseded:
 		_, err := tx.Exec(ctx, `
 UPDATE control_tower.execution_stop_projection
 SET status='SUPERSEDED', updated_at=$3
-WHERE execution_id=$1 AND revision_id=$2 AND status <> 'COMPLETED'
+WHERE execution_id=$1 AND revision_id=$2 AND status IN ('PLANNED','ARRIVED','SERVICE_STARTED')
 `, event.ExecutionID, event.RevisionID, receivedAt)
 		return err
 	case domain.EventRouteStopServiceStarted:
 		_, err := tx.Exec(ctx, `
-UPDATE control_tower.execution_stop_projection
-SET status='SERVICE_STARTED', service_started_at=COALESCE(service_started_at,$3), last_event_sequence=$4, last_event_id=$5, updated_at=$6
-WHERE execution_id=$1 AND execution_stop_id=$2 AND status <> 'COMPLETED'
+UPDATE control_tower.execution_stop_projection AS stop
+SET status='SERVICE_STARTED', service_started_at=COALESCE(stop.service_started_at,$3), last_event_sequence=$4, last_event_id=$5, updated_at=$6
+FROM control_tower.execution_projection AS execution
+WHERE stop.execution_id=execution.execution_id
+  AND stop.revision_id=execution.active_revision_id
+  AND stop.execution_id=$1 AND stop.execution_stop_id=$2
+  AND stop.status NOT IN ('COMPLETED','SUPERSEDED','CANCELLED','SKIPPED')
 `, event.ExecutionID, event.StopID, event.OccurredAt, event.Sequence, event.EventID, receivedAt)
 		return err
 	case domain.EventRouteStopCompleted:
 		if _, err := tx.Exec(ctx, `
-UPDATE control_tower.execution_stop_projection
-SET status='COMPLETED', completed_at=COALESCE(completed_at,$3), last_event_sequence=$4, last_event_id=$5, updated_at=$6
-WHERE execution_id=$1 AND execution_stop_id=$2 AND status <> 'COMPLETED'
+UPDATE control_tower.execution_stop_projection AS stop
+SET status='COMPLETED', completed_at=COALESCE(stop.completed_at,$3), last_event_sequence=$4, last_event_id=$5, updated_at=$6
+FROM control_tower.execution_projection AS execution
+WHERE stop.execution_id=execution.execution_id
+  AND stop.revision_id=execution.active_revision_id
+  AND stop.execution_id=$1 AND stop.execution_stop_id=$2
+  AND stop.status NOT IN ('COMPLETED','SUPERSEDED','CANCELLED','SKIPPED')
 `, event.ExecutionID, event.StopID, event.OccurredAt, event.Sequence, event.EventID, receivedAt); err != nil {
 			return err
 		}
 		_, err := tx.Exec(ctx, `
 UPDATE control_tower.execution_projection
 SET current_stop_id=NULL, updated_at=$3
-WHERE execution_id=$1 AND current_stop_id=$2
-`, event.ExecutionID, event.StopID, receivedAt)
+WHERE execution_id=$1 AND current_stop_id=$2 AND active_revision_id=$4
+`, event.ExecutionID, event.StopID, receivedAt, event.RevisionID)
 		return err
 	case domain.EventRouteStopOverridden:
 		return insertProgress(ctx, tx, event, event.StopID, nil, nil)
@@ -318,6 +434,22 @@ WHERE event_id=$1
 	return err
 }
 
+func applyHeldExecution(ctx context.Context, tx pgx.Tx, event executionEvent, receivedAt time.Time) error {
+	if event.EventType == domain.EventExecutionPlanCreated {
+		return projectSuccessorPlan(ctx, tx, event, receivedAt)
+	}
+	if event.EventType != domain.EventExecutionPlanSuperseded {
+		var active uuid.UUID
+		if err := tx.QueryRow(ctx, `SELECT active_revision_id FROM control_tower.execution_projection WHERE execution_id=$1`, event.ExecutionID).Scan(&active); err != nil {
+			return err
+		}
+		if event.RevisionID != active {
+			return nil
+		}
+	}
+	return mutateStop(ctx, tx, event, receivedAt)
+}
+
 func drainHeld(ctx context.Context, tx pgx.Tx, executionID uuid.UUID, receivedAt time.Time) error {
 	for {
 		var last int64
@@ -341,7 +473,7 @@ LIMIT 1
 		if err := json.Unmarshal(raw, &event); err != nil {
 			return err
 		}
-		if err := mutateStop(ctx, tx, event, receivedAt); err != nil {
+		if err := applyHeldExecution(ctx, tx, event, receivedAt); err != nil {
 			return err
 		}
 		if err := noteSequence(ctx, tx, event, receivedAt); err != nil {
@@ -379,11 +511,15 @@ func (r *ExecutionProjectionRepository) applyApproach(ctx context.Context, paylo
 		return tx.Commit(ctx)
 	}
 	tag, err := tx.Exec(ctx, `
-UPDATE control_tower.execution_stop_projection
-SET approaching_at=COALESCE(approaching_at,$4),
-    approach_distance_meters=COALESCE(approach_distance_meters,$5),
+UPDATE control_tower.execution_stop_projection AS stop
+SET approaching_at=COALESCE(stop.approaching_at,$4),
+    approach_distance_meters=COALESCE(stop.approach_distance_meters,$5),
     updated_at=$4
-WHERE execution_id=$1 AND execution_stop_id=$2 AND operating_tenant_id=$3
+FROM control_tower.execution_projection AS execution
+WHERE stop.execution_id=execution.execution_id
+  AND stop.revision_id=execution.active_revision_id
+  AND stop.execution_id=$1 AND stop.execution_stop_id=$2 AND stop.operating_tenant_id=$3
+  AND stop.status NOT IN ('COMPLETED','SUPERSEDED','CANCELLED','SKIPPED')
 `, event.ExecutionID, event.StopID, event.OperatingTenantID, event.OccurredAt, event.DistanceMeters)
 	if err != nil {
 		return err
