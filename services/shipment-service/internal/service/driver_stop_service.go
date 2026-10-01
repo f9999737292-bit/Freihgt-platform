@@ -12,13 +12,23 @@ import (
 	"github.com/freight-platform/shipment-service/internal/repository"
 )
 
+type deliveryDispositionRecorder interface {
+	RecordDeliveryDisposition(ctx context.Context, cmd domain.RecordDeliveryDispositionCommand) (domain.DispositionResult, error)
+}
+
 type DriverStopService struct {
-	drivers  driverIdentityStore
-	commands *repository.TransportExecutionCommandRepository
+	drivers      driverIdentityStore
+	commands     *repository.TransportExecutionCommandRepository
+	dispositions deliveryDispositionRecorder
 }
 
 func NewDriverStopService(drivers driverIdentityStore, commands *repository.TransportExecutionCommandRepository) *DriverStopService {
 	return &DriverStopService{drivers: drivers, commands: commands}
+}
+
+// BindDeliveryDisposition attaches the canonical disposition writer. Driver reports do not authorize return or redirect.
+func (s *DriverStopService) BindDeliveryDisposition(recorder deliveryDispositionRecorder) {
+	s.dispositions = recorder
 }
 
 type DriverStopCommandInput struct {
@@ -74,6 +84,75 @@ func (s *DriverStopService) Confirm(ctx context.Context, tenantID, userID uuid.U
 	default:
 		return DriverStopCommandResult{}, domain.ExecutionCommandError(domain.ReasonActionTransitionDenied, false)
 	}
+}
+
+// DriverDispositionInput carries only the facts a driver may report. Identity and revision stay server-owned.
+type DriverDispositionInput struct {
+	StopID         uuid.UUID
+	ActionID       uuid.UUID
+	ShipmentID     uuid.UUID
+	CargoID        uuid.UUID
+	Accepted       int
+	Rejected       int
+	UOM            string
+	ReasonCode     string
+	ReasonComment  string
+	IdempotencyKey string
+	OccurredAt     time.Time
+	Evidence       []domain.DeliveryEvidenceRef
+}
+
+// ReportDeliveryDisposition records a full or partial rejection through the canonical disposition engine.
+// The authenticated driver is the actor. Return and redirect authorization are not available here.
+func (s *DriverStopService) ReportDeliveryDisposition(ctx context.Context, tenantID, userID uuid.UUID, in DriverDispositionInput) (domain.DispositionResult, error) {
+	if s.dispositions == nil {
+		return domain.DispositionResult{}, apperrors.Internal("delivery disposition is not configured", nil)
+	}
+	resolved, err := s.resolve(ctx, tenantID, userID)
+	if err != nil {
+		return domain.DispositionResult{}, err
+	}
+	task, operating, assigned, revisionID, err := s.commands.LoadDriverStop(ctx, in.StopID)
+	if err != nil {
+		return domain.DispositionResult{}, err
+	}
+	if operating != tenantID {
+		return domain.DispositionResult{}, apperrors.NotFound("driver stop task not found")
+	}
+	if assigned == nil {
+		return domain.DispositionResult{}, domain.ExecutionCommandError(domain.ReasonUnassignedDriver, false)
+	}
+	if *assigned != resolved.Driver.ID {
+		return domain.DispositionResult{}, domain.ExecutionCommandError(domain.ReasonWrongDriver, true)
+	}
+	actionShipment, actionCargo, err := s.commands.LoadDeliveryAction(ctx, in.StopID, in.ActionID)
+	if err != nil {
+		return domain.DispositionResult{}, err
+	}
+	if actionShipment != in.ShipmentID || actionCargo != in.CargoID {
+		return domain.DispositionResult{}, domain.ExecutionCommandError(domain.ReasonNotParticipant, false)
+	}
+	if in.OccurredAt.IsZero() {
+		in.OccurredAt = time.Now().UTC()
+	}
+	return s.dispositions.RecordDeliveryDisposition(ctx, domain.RecordDeliveryDispositionCommand{
+		ExecutionID:        task.ExecutionID,
+		ExpectedRevisionID: revisionID,
+		OperatingTenantID:  tenantID,
+		SourceStopID:       in.StopID,
+		ShipmentID:         in.ShipmentID,
+		CargoID:            in.CargoID,
+		AcceptedQuantity:   in.Accepted,
+		RejectedQuantity:   in.Rejected,
+		UOM:                in.UOM,
+		ReasonCode:         in.ReasonCode,
+		ReasonComment:      in.ReasonComment,
+		IdempotencyKey:     strings.TrimSpace(in.IdempotencyKey),
+		OccurredAt:         in.OccurredAt,
+		ActorKind:          domain.ActorKindDriver,
+		ActorID:            resolved.Driver.ID,
+		Evidence:           in.Evidence,
+	})
 }
 
 func (s *DriverStopService) Fail(ctx context.Context, tenantID, userID uuid.UUID, in DriverStopCommandInput) (DriverStopCommandResult, error) {

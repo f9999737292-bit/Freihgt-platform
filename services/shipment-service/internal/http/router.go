@@ -112,6 +112,7 @@ func NewRouter(
 		r.Post("/stops/{stopId}/complete", driverStopHandler.Complete)
 		r.Post("/stops/{stopId}/actions/{actionId}/confirm", driverStopHandler.Confirm)
 		r.Post("/stops/{stopId}/actions/{actionId}/fail", driverStopHandler.Fail)
+		r.Post("/stops/{stopId}/actions/{actionId}/delivery-disposition", driverStopHandler.ReportDisposition)
 	})
 
 	r.Route("/v1/vehicles", func(r chi.Router) {

@@ -15,6 +15,8 @@ SUCCESSOR_REVISION_INTEGRATION=YES
 COMPLETED_HISTORY_IMMUTABLE=YES
 CONTROL_TOWER_PROJECTION=YES
 DRIVER_REJECTION_REPORTING=YES
+DRIVER_REPORT_PATH=/v1/driver/me/stops/{stopId}/actions/{actionId}/delivery-disposition
+DRIVER_IDENTITY_SOURCE=AUTHENTICATED_CONTEXT
 DRIVER_RETURN_AUTHORIZATION=NO
 DRIVER_REDIRECT_AUTHORIZATION=NO
 BILLING_RUNTIME_CHANGED=NO
@@ -33,3 +35,4 @@ Hold does not create a successor revision.
 Return and redirect call the TMS-MSTOP-0.1F successor writer in the same transaction and must include every still-open stop.
 Terminal completed stops and actions are not rewritten and are not copied into the successor.
 Control Tower projects disposition events and does not write execution revision, stop status, or current stop.
+An assigned driver reports acceptance and rejection on the driver stop action route. The server derives actor, operating tenant, execution, and active revision. That route does not authorize return or redirect.
