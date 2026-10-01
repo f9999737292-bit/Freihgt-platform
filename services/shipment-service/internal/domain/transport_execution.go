@@ -63,8 +63,8 @@ const (
 	ReasonActivationStatusRejected       = "ACTIVATION_STATUS_REJECTED"
 )
 
-// ProjectionCommand is the in-process projection contract.
-// TMS-MSTOP-0.1A does not expose it over HTTP. shipment_tenant_id is checked against the shipment row.
+// ProjectionCommand is the projection contract.
+// HTTP exposure is the internal route from-route-plan-activation. shipment_tenant_id is checked against the shipment row.
 type ProjectionCommand struct {
 	ActivationID            uuid.UUID           `json:"activation_id"`
 	ActivationVersion       int                 `json:"activation_version"`
@@ -132,6 +132,17 @@ type ProjectionResult struct {
 	RevisionID   uuid.UUID
 	ActivationID uuid.UUID
 	Created      bool
+}
+
+// ProjectionAck is the committed TMS correlation returned to the route-plan owner.
+// Values are read from stored execution state after the projection transaction commits.
+type ProjectionAck struct {
+	OperatingTenantID uuid.UUID `json:"operating_tenant_id"`
+	ActivationID      uuid.UUID `json:"activation_id"`
+	RoutePlanID       uuid.UUID `json:"route_plan_id"`
+	ExecutionID       uuid.UUID `json:"execution_id"`
+	RevisionID        uuid.UUID `json:"execution_revision_id"`
+	Created           bool      `json:"-"`
 }
 
 type MaterializedSubject struct {
