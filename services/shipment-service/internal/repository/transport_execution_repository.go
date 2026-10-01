@@ -41,6 +41,9 @@ func (r *TransportExecutionRepository) Project(ctx context.Context, cmd domain.P
 		return domain.ProjectionResult{}, err
 	}
 	if found {
+		if err := tx.Commit(ctx); err != nil {
+			return domain.ProjectionResult{}, mapDBError(err)
+		}
 		return domain.ProjectionResult{
 			ExecutionID:  storedExecution,
 			RevisionID:   storedID,
@@ -110,6 +113,67 @@ func (r *TransportExecutionRepository) Project(ctx context.Context, cmd domain.P
 		ActivationID: cmd.ActivationID,
 		Created:      true,
 	}, nil
+}
+
+// AcceptRoutePlanActivation commits the projection, then reads the stored correlation.
+// The acknowledgement is not the shipment.execution_plan.created event.
+func (r *TransportExecutionRepository) AcceptRoutePlanActivation(ctx context.Context, cmd domain.ProjectionCommand) (domain.ProjectionAck, error) {
+	if err := r.requireCarrierTenant(ctx, cmd.CarrierCompanyID, cmd.OperatingTenantID); err != nil {
+		return domain.ProjectionAck{}, err
+	}
+	result, err := r.Project(ctx, cmd)
+	if err != nil {
+		return domain.ProjectionAck{}, err
+	}
+	ack, err := r.loadCommittedProjectionAck(ctx, cmd.OperatingTenantID, result.ExecutionID, result.RevisionID)
+	if err != nil {
+		return domain.ProjectionAck{}, err
+	}
+	if ack.OperatingTenantID != cmd.OperatingTenantID || ack.ActivationID != cmd.ActivationID || ack.RoutePlanID != cmd.RoutePlanID || ack.ExecutionID != result.ExecutionID || ack.RevisionID != result.RevisionID {
+		return domain.ProjectionAck{}, domain.ProjectionConflict(domain.ReasonExecutionPlanConflict)
+	}
+	ack.Created = result.Created
+	return ack, nil
+}
+
+func (r *TransportExecutionRepository) requireCarrierTenant(ctx context.Context, companyID, tenantID uuid.UUID) error {
+	var found bool
+	err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM core.companies
+			WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		)
+	`, companyID, tenantID).Scan(&found)
+	if err != nil {
+		return mapDBError(err)
+	}
+	if !found {
+		return domain.ExecutionCommandError(domain.ReasonTenantDenied, true)
+	}
+	return nil
+}
+
+func (r *TransportExecutionRepository) loadCommittedProjectionAck(ctx context.Context, operatingTenantID, executionID, revisionID uuid.UUID) (domain.ProjectionAck, error) {
+	var ack domain.ProjectionAck
+	err := r.pool.QueryRow(ctx, `
+		SELECT rev.operating_tenant_id, rev.source_activation_id, rev.source_route_plan_id, rev.execution_id, rev.id
+		FROM transport.transport_execution_revisions AS rev
+		JOIN transport.transport_executions AS execution
+		  ON execution.id = rev.execution_id
+		 AND execution.operating_tenant_id = rev.operating_tenant_id
+		WHERE rev.operating_tenant_id = $1
+		  AND rev.execution_id = $2
+		  AND rev.id = $3
+	`, operatingTenantID, executionID, revisionID).Scan(
+		&ack.OperatingTenantID, &ack.ActivationID, &ack.RoutePlanID, &ack.ExecutionID, &ack.RevisionID,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ProjectionAck{}, apperrors.Internal("committed execution projection is not visible", nil)
+	}
+	if err != nil {
+		return domain.ProjectionAck{}, mapDBError(err)
+	}
+	return ack, nil
 }
 
 func (r *TransportExecutionRepository) replayAfterConflict(ctx context.Context, cmd domain.ProjectionCommand, digest string) (domain.ProjectionResult, error) {
