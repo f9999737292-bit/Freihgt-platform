@@ -62,13 +62,19 @@ Not a second freight exchange, not a second RFx engine, not a second freight-cos
 | [NLO_0_3_IMPLEMENTATION_ROADMAP.md](NLO_0_3_IMPLEMENTATION_ROADMAP.md) | Frozen waves, traceability, and acceptance |
 | [NLO_0_4_IMPLEMENTATION_ROADMAP.md](NLO_0_4_IMPLEMENTATION_ROADMAP.md) | NLO-0.4B IMPLEMENTED_CLOSED on main. NLO-0.4C accept and activate is implemented and not yet accepted |
 | [NLO_0_4A_CURRENT_STATE_INVENTORY.md](NLO_0_4A_CURRENT_STATE_INVENTORY.md) | Route-plan discovery inventory |
-| [adr/](adr/) | ADR-NET-001 … ADR-NET-022 |
+| [adr/](adr/) | ADR-NET-001 … ADR-NET-023 |
+| [NLO_0_5A_CURRENT_STATE_INVENTORY.md](NLO_0_5A_CURRENT_STATE_INVENTORY.md) | Routing and search inventory for backhaul |
+| [NLO_0_5A_BACKHAUL_MODEL.md](NLO_0_5A_BACKHAUL_MODEL.md) | One-load backhaul |
+| [NLO_0_5A_ROUNDTRIP_MODEL.md](NLO_0_5A_ROUNDTRIP_MODEL.md) | Bounded return toward the policy target |
+| [NLO_0_5A_ROUTING_POLICY.md](NLO_0_5A_ROUTING_POLICY.md) | Road distance, cache, and fail-closed routing |
+| [NLO_0_5_IMPLEMENTATION_ROADMAP.md](NLO_0_5_IMPLEMENTATION_ROADMAP.md) | NLO-0.5 waves after this freeze |
+| [NLO_0_5A_TEST_STRATEGY.md](NLO_0_5A_TEST_STRATEGY.md) | NLO05-01 through NLO05-25 |
 | [NLO_0_4D_ARCHITECTURE_FREEZE.md](NLO_0_4D_ARCHITECTURE_FREEZE.md) | NLO-0.4D-R1 docs-only freeze for service duration and TMS acknowledgement |
 | [SERVICE_DURATION_SOURCE.md](SERVICE_DURATION_SOURCE.md) | Operating-tenant service-duration policy |
 | [EXECUTION_HANDOFF_ACK.md](EXECUTION_HANDOFF_ACK.md) | Synchronous projection acknowledgement |
 | [ACTIVATION_STATE_MACHINE.md](ACTIVATION_STATE_MACHINE.md) | Activation statuses and link gates |
 
-ADR numbering follows the repository convention of a domain prefix (`ADR-EDO-*`, `ADR-RFX-*`, `ADR-PLAT-*`). ADR-NET-001 through ADR-NET-012 remain Proposed. ADR-NET-013 through ADR-NET-021 are Accepted. ADR-NET-022 is Proposed for controller review. NLO-0.3 is complete. NLO-0.4A architecture is frozen. NLO-0.4B is IMPLEMENTED_CLOSED on main `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c` (PR #184, migration `000085_nlo_route_plan_bounded_planner_v0_4b`). `NLO_0_4_IMPLEMENTATION_STARTED=YES`. `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`. `NLO_0_4C_STARTED=YES`. `NLO_0_4C_STATUS=IMPLEMENTED_REMEDIATED_PENDING_CONTROLLER_REVIEW`. `NLO_0_4C_ACCEPTED=NO`. `NLO_0_4D_STARTED=YES`. `NLO_0_4D_R1=DOCS_ONLY`. `NLO_0_4D_I2=IMPLEMENTED_PENDING_CONTROLLER_REVIEW`. `NLO_0_4D_IMPLEMENTATION_STARTED=YES`. `TMS_PROJECTION_HANDSHAKE_IMPLEMENTED=YES`.
+ADR numbering follows the repository convention of a domain prefix (`ADR-EDO-*`, `ADR-RFX-*`, `ADR-PLAT-*`). ADR-NET-001 through ADR-NET-012 remain Proposed. ADR-NET-013 through ADR-NET-021 are Accepted. ADR-NET-022 is Proposed for controller review. ADR-NET-023 is the proposed NLO-0.5A backhaul and roundtrip freeze. `NLO_0_5A=ARCHITECTURE_FROZEN_PENDING_CONTROLLER_REVIEW`. `NLO_0_5_IMPLEMENTATION_AUTHORIZED=NO`. NLO-0.3 is complete. NLO-0.4A architecture is frozen. NLO-0.4B is IMPLEMENTED_CLOSED on main `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c` (PR #184, migration `000085_nlo_route_plan_bounded_planner_v0_4b`). `NLO_0_4_IMPLEMENTATION_STARTED=YES`. `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`. `NLO_0_4C_STARTED=YES`. `NLO_0_4C_STATUS=IMPLEMENTED_REMEDIATED_PENDING_CONTROLLER_REVIEW`. `NLO_0_4C_ACCEPTED=NO`. `NLO_0_4D_STARTED=YES`. `NLO_0_4D_R1=DOCS_ONLY`. `NLO_0_4D_I2=IMPLEMENTED_PENDING_CONTROLLER_REVIEW`. `NLO_0_4D_IMPLEMENTATION_STARTED=YES`. `TMS_PROJECTION_HANDSHAKE_IMPLEMENTED=YES`.
 
 ## Status labels used in discovery
 

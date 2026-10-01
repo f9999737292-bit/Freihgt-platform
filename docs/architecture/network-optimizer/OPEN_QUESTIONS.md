@@ -16,3 +16,5 @@ These do not block the freeze. They block specific later stages.
 | Q10 | Anonymized marketplace: city centroid versus zone polygon. Polygons are city-rule data. | Publication UX |
 
 No open question authorizes product code, a migration, or a deploy.
+
+NLO-0.5A leaves Q4 open. `STAGING_PROVIDER_APPROVAL_REQUIRED=YES`. The 2GIS adapter exists and is not a staging approval. Also still unset, and not assigned numbers in this freeze: next-load candidate cap before road routing, maximum matrix calls per search, search time budget, routing SLA, and provider commercial terms. Exact road distance on anonymized loads stays in the existing coarse buckets. Rate absence stays `UNPRICED`.
