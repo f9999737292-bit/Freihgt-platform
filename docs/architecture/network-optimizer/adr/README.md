@@ -1,6 +1,6 @@
 # ADR-NET index
 
-ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-021 are Accepted. ADR-NET-017 implementation is accepted. `NLO_0_3E_ACCEPTED=YES`. `IMPLEMENTATION_CONTROLLER_ACCEPTANCE=PASS`. `RUNTIME_BLOCKING_FINDINGS=0`. ADR-NET-018 through ADR-NET-021 accept the NLO-0.4A architecture. ADR-NET-019 includes accepted post-freeze erratum E1 for start-anchor identity. `NLO04A_ERRATUM_E1=ACCEPTED`. `NLO04A_POST_ACCEPT_F001=CLOSED`. `NLO_0_4A_CLOSED=YES`. `NLO_0_4_IMPLEMENTATION_STARTED=YES`. `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`. `NLO_0_4B_MERGE_SHA=0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`. `NLO_0_4C_STARTED=NO`. `NLO_0_4D_STARTED=NO`.
+ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NET-013 through ADR-NET-021 are Accepted. ADR-NET-017 implementation is accepted. `NLO_0_3E_ACCEPTED=YES`. `IMPLEMENTATION_CONTROLLER_ACCEPTANCE=PASS`. `RUNTIME_BLOCKING_FINDINGS=0`. ADR-NET-018 through ADR-NET-021 accept the NLO-0.4A architecture. ADR-NET-019 includes accepted post-freeze erratum E1 for start-anchor identity. `NLO04A_ERRATUM_E1=ACCEPTED`. `NLO04A_POST_ACCEPT_F001=CLOSED`. `NLO_0_4A_CLOSED=YES`. `NLO_0_4_IMPLEMENTATION_STARTED=YES`. `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`. `NLO_0_4B_MERGE_SHA=0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c`. `NLO_0_4C_STARTED=NO`. `NLO_0_4D_STARTED=NO`. ADR-NET-022 is the proposed NLO-0.4D-R1 docs-only freeze. `NLO_0_4D_IMPLEMENTATION_STARTED=NO`.
 
 | ID | Title |
 |----|-------|
@@ -25,3 +25,4 @@ ADR-NET-001 through ADR-NET-012 are proposed records for the v0.1 freeze. ADR-NE
 | [ADR-NET-019](ADR-NET-019-route-stop-action-leg.md) | Route stop, action, and leg |
 | [ADR-NET-020](ADR-NET-020-bounded-multi-stop-sequencing.md) | Bounded multi-stop sequencing |
 | [ADR-NET-021](ADR-NET-021-plan-acceptance-activation-execution.md) | Plan acceptance, activation, and execution |
+| [ADR-NET-022](ADR-NET-022-service-duration-and-execution-ack.md) | Service duration policy and execution acknowledgement |
