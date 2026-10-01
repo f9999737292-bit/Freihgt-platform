@@ -121,8 +121,10 @@ type Outcome struct {
 	ContextFingerprint     string
 	CatalogFingerprint     string
 	RuleFingerprint        string
-	ServiceDurationKnown   bool
-	ServiceDurationSeconds *int
+	ServiceDurationKnown         bool
+	ServiceDurationSeconds       *int
+	ServiceDurationPolicyID      *uuid.UUID
+	ServiceDurationPolicyVersion *int
 }
 
 type Input struct {
@@ -135,8 +137,11 @@ type Input struct {
 	Onboard                []compat.GroupageItem
 	VehicleProfile         routing.VehicleProfile
 	Clock                  time.Time
-	ServiceDurationSeconds *int
-	ReferenceUnavailable   bool
+	ServiceDurationSeconds       *int
+	ActionServiceSeconds         map[string]int
+	ServiceDurationPolicyID      *uuid.UUID
+	ServiceDurationPolicyVersion *int
+	ReferenceUnavailable         bool
 	Route                  routing.Provider
 	Groupage               func([]compat.GroupageItem) compat.Result
 	Now                    func() time.Time
@@ -474,15 +479,17 @@ func evaluate(ctx context.Context, in Input, budget *Budget, stops []Stop, loadI
 					arrival = *windowStart
 				}
 				stops[i].Arrival = &arrival
-				if stopNeedsService(stops[i]) && in.ServiceDurationSeconds == nil {
-					reasons = append(reasons, ReasonServiceDurationUnknown)
-					departureKnown = false
-				} else if stopNeedsService(stops[i]) {
-					service := *in.ServiceDurationSeconds
-					stops[i].Service = &service
-					depart := arrival.Add(time.Duration(service) * time.Second)
-					stops[i].Depart = &depart
-					departure = depart
+				if stopNeedsService(stops[i]) {
+					service, known := stopServiceSeconds(stops[i], in)
+					if !known {
+						reasons = append(reasons, ReasonServiceDurationUnknown)
+						departureKnown = false
+					} else {
+						stops[i].Service = &service
+						depart := arrival.Add(time.Duration(service) * time.Second)
+						stops[i].Depart = &depart
+						departure = depart
+					}
 				} else {
 					departure = arrival
 				}
@@ -510,7 +517,8 @@ func evaluate(ctx context.Context, in Input, budget *Budget, stops []Stop, loadI
 			seq++
 		}
 	}
-	if in.ServiceDurationSeconds == nil && !containsReason(reasons, ReasonServiceDurationUnknown) {
+	knownDuration := durationKnown(in, reasons)
+	if !knownDuration && !containsReason(reasons, ReasonServiceDurationUnknown) {
 		reasons = append(reasons, ReasonServiceDurationUnknown)
 	}
 	status := ResultFeasible
@@ -521,9 +529,38 @@ func evaluate(ctx context.Context, in Input, budget *Budget, stops []Stop, loadI
 	return &Outcome{
 		Stops: stops, Legs: legs, Snapshots: snapshots, ResultStatus: status,
 		ReasonCodes: uniqueSorted(reasons), PickupOrdinal: pickup, DeliveryOrdinal: delivery,
-		DurationSeconds: total, ExecutionSupported: false, ServiceDurationKnown: in.ServiceDurationSeconds != nil,
-		ServiceDurationSeconds: in.ServiceDurationSeconds,
+		DurationSeconds: total, ExecutionSupported: false, ServiceDurationKnown: knownDuration && !containsReason(reasons, ReasonServiceDurationUnknown),
+		ServiceDurationSeconds: in.ServiceDurationSeconds, ServiceDurationPolicyID: in.ServiceDurationPolicyID,
+		ServiceDurationPolicyVersion: in.ServiceDurationPolicyVersion,
 	}, false, nil
+}
+
+func stopServiceSeconds(stop Stop, in Input) (int, bool) {
+	if len(in.ActionServiceSeconds) > 0 {
+		total := 0
+		for _, action := range stop.Actions {
+			seconds, ok := in.ActionServiceSeconds[action.Type]
+			if !ok {
+				return 0, false
+			}
+			total += seconds
+		}
+		return total, true
+	}
+	if in.ServiceDurationSeconds == nil {
+		return 0, false
+	}
+	return *in.ServiceDurationSeconds, true
+}
+
+func durationKnown(in Input, reasons []string) bool {
+	if containsReason(reasons, ReasonServiceDurationUnknown) {
+		return false
+	}
+	if len(in.ActionServiceSeconds) > 0 {
+		return true
+	}
+	return in.ServiceDurationSeconds != nil
 }
 
 func stopNeedsService(stop Stop) bool {
@@ -837,11 +874,27 @@ func EvaluationFingerprint(outcome Outcome) string {
 	writeID(&b, outcome.ShipmentID, outcome.ShipmentVersion)
 	writeID(&b, outcome.CapacityID, outcome.CapacityVersion)
 	writeID(&b, outcome.VehicleID, outcome.VehicleVersion)
+	if outcome.ServiceDurationPolicyID != nil && outcome.ServiceDurationPolicyVersion != nil {
+		b.WriteString("SERVICE_POLICY:")
+		b.WriteString(outcome.ServiceDurationPolicyID.String())
+		b.WriteString(":")
+		b.WriteString(strconv.Itoa(*outcome.ServiceDurationPolicyVersion))
+		b.WriteString("|")
+	}
 	if outcome.ServiceDurationKnown && outcome.ServiceDurationSeconds != nil {
 		b.WriteString("SERVICE_KNOWN:")
 		b.WriteString(strconv.Itoa(*outcome.ServiceDurationSeconds))
+	} else if outcome.ServiceDurationKnown {
+		b.WriteString("SERVICE_KNOWN_POLICY")
 	} else {
 		b.WriteString("SERVICE_UNKNOWN")
+	}
+	for _, stop := range outcome.Stops {
+		if stop.Service == nil {
+			continue
+		}
+		b.WriteString("|S")
+		b.WriteString(strconv.Itoa(*stop.Service))
 	}
 	for i, stop := range outcome.Stops {
 		b.WriteString("#")

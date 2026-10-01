@@ -147,11 +147,16 @@ func decodeRoutePlan(raw []byte) (service.RoutePlanCommand, error) {
 		CapacityID       *uuid.UUID  `json:"capacity_id"`
 		CandidateLoadIDs []uuid.UUID `json:"candidate_load_ids"`
 	}
-	if err := decode(raw, &body); err != nil {
-		return service.RoutePlanCommand{}, err
+	for _, key := range []string{"service_duration", "service_duration_seconds", "pickup_duration_seconds", "delivery_duration_seconds"} {
+		if _, ok := keys[key]; ok {
+			return service.RoutePlanCommand{}, apperrors.Validation("caller supplied service duration is not allowed", nil)
+		}
 	}
 	if _, ok := keys["start"]; ok {
 		return service.RoutePlanCommand{}, apperrors.Validation("caller supplied start position is not allowed", nil)
+	}
+	if err := decode(raw, &body); err != nil {
+		return service.RoutePlanCommand{}, err
 	}
 	cmd := service.RoutePlanCommand{
 		PlanningMode: body.PlanningMode, ShipmentID: body.ShipmentID, CapacityID: body.CapacityID,

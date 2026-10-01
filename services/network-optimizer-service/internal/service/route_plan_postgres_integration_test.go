@@ -37,6 +37,8 @@ func TestNLO04B_PostgresRoundtrip(t *testing.T) {
 		"000083_nlo_current_trip_fill_v0_3d.up.sql",
 		"000084_nlo_bounded_n_member_search_v0_3e.up.sql",
 		"000085_nlo_route_plan_bounded_planner_v0_4b.up.sql",
+		// Current evaluation reads the service-duration policy. 000094 is compatible with the 0.4B schema.
+		"000094_nlo_service_duration_policy_v0_4d.up.sql",
 	} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "infrastructure", "migrations", name))
 		if err != nil {

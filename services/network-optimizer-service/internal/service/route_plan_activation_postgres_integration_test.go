@@ -42,6 +42,8 @@ func TestNLO04C_PostgresActivation(t *testing.T) {
 		"000084_nlo_bounded_n_member_search_v0_3e.up.sql",
 		"000085_nlo_route_plan_bounded_planner_v0_4b.up.sql",
 		"000086_nlo_route_plan_accept_activate_v0_4c.up.sql",
+		// Current evaluation reads the service-duration policy. 000094 is compatible with the 0.4C schema.
+		"000094_nlo_service_duration_policy_v0_4d.up.sql",
 	} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "infrastructure", "migrations", name))
 		if err != nil {

@@ -85,3 +85,21 @@ func TestNLO04CHandlerMapsDomainValidationTo422(t *testing.T) {
 		t.Fatalf("stale -> %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestNLO04DI2ClientDurationDenied(t *testing.T) {
+	h := New(slog.New(slog.DiscardHandler), service.New(repository.NewMemory(), nil))
+	shipment := uuid.New()
+	load := uuid.New()
+	for _, key := range []string{"service_duration", "service_duration_seconds", "pickup_duration_seconds", "delivery_duration_seconds"} {
+		body := `{"planning_mode":"CURRENT_TRIP","shipment_id":"` + shipment.String() + `","candidate_load_ids":["` + load.String() + `"],"` + key + `":60}`
+		req := httptest.NewRequest(http.MethodPost, "/v1/network/route-plans/evaluate", strings.NewReader(body))
+		req.Header.Set("X-Tenant-ID", uuid.NewString())
+		req.Header.Set("X-User-ID", uuid.NewString())
+		req.Header.Set("Idempotency-Key", "duration-"+key)
+		rec := httptest.NewRecorder()
+		h.EvaluateRoutePlan(rec, req)
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "service duration") {
+			t.Fatalf("%s -> %d %s", key, rec.Code, rec.Body.String())
+		}
+	}
+}
