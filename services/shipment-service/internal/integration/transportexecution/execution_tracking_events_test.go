@@ -50,12 +50,28 @@ func TestExecutionStopTrackingEvents(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if countWhere(t, env, "transport.shipment_event_outbox", "aggregate_id=$1 AND event_type=$2", first.ExecutionID, domain.EventExecutionPlanCreated) != 1 {
+			t.Fatal("initial execution plan created event missing")
+		}
 		if countWhere(t, env, "transport.shipment_event_outbox", "aggregate_id=$1 AND event_type=$2", first.ExecutionID, domain.EventRouteStopCurrent) != 1 {
 			t.Fatal("initial current event missing")
+		}
+		created := outboxPayload(t, env, first.ExecutionID, domain.EventExecutionPlanCreated)
+		current := outboxPayload(t, env, first.ExecutionID, domain.EventRouteStopCurrent)
+		if created["event_sequence"] != float64(1) || current["event_sequence"] != float64(2) {
+			t.Fatalf("sequences created=%v current=%v", created["event_sequence"], current["event_sequence"])
+		}
+		for _, key := range []string{"shipment_tenant_id", "price", "rate", "capacity_snapshot", "raw_load_opportunity", "leg_geometry", "latitude", "longitude", "route_subject_type"} {
+			if _, ok := created[key]; ok {
+				t.Fatalf("private field %s in plan created", key)
+			}
 		}
 		second, err := env.svc.CreateExecutionProjectionFromActivation(env.ctx, cmd)
 		if err != nil || second.Created {
 			t.Fatalf("replay created=%v err=%v", second.Created, err)
+		}
+		if countWhere(t, env, "transport.shipment_event_outbox", "aggregate_id=$1 AND event_type=$2", first.ExecutionID, domain.EventExecutionPlanCreated) != 1 {
+			t.Fatal("replay inserted another plan created event")
 		}
 		if countWhere(t, env, "transport.shipment_event_outbox", "aggregate_id=$1 AND event_type=$2", first.ExecutionID, domain.EventRouteStopCurrent) != 1 {
 			t.Fatal("replay inserted another current event")

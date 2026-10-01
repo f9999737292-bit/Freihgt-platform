@@ -59,6 +59,7 @@ func main() {
 	driverOpsSvc := service.NewDriverOperationsService(driverRepo, shipmentRepo, driverOpsRepo)
 	executionCommands := repository.NewTransportExecutionCommandRepository(db.Pool)
 	driverOpsSvc.BindMultistopDeparture(executionCommands)
+	driverOpsSvc.BindDriverExecutionContext(repository.NewTransportExecutionRepository(db.Pool))
 	driverStopSvc := service.NewDriverStopService(driverRepo, executionCommands)
 	evidenceSvc := service.NewExecutionEvidenceService(shipmentRepo)
 	driverTaskRepo := repository.NewDriverTaskRepository(db.Pool)

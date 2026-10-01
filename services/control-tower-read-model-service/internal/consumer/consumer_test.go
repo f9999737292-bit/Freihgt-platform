@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,12 +24,12 @@ import (
 type mockProjectionRepo struct {
 	processFn       func(ctx context.Context, input repository.ProcessInput) (repository.ProcessResult, error)
 	insertDeadFn    func(ctx context.Context, input repository.DeadLetterInput) (bool, error)
-	processCalls    int
-	deadLetterCalls int
+	processCalls    atomic.Int32
+	deadLetterCalls atomic.Int32
 }
 
 func (m *mockProjectionRepo) ProcessEvent(ctx context.Context, input repository.ProcessInput) (repository.ProcessResult, error) {
-	m.processCalls++
+	m.processCalls.Add(1)
 	if m.processFn != nil {
 		return m.processFn(ctx, input)
 	}
@@ -36,7 +37,7 @@ func (m *mockProjectionRepo) ProcessEvent(ctx context.Context, input repository.
 }
 
 func (m *mockProjectionRepo) InsertDeadLetter(ctx context.Context, input repository.DeadLetterInput) (bool, error) {
-	m.deadLetterCalls++
+	m.deadLetterCalls.Add(1)
 	if m.insertDeadFn != nil {
 		return m.insertDeadFn(ctx, input)
 	}
@@ -119,7 +120,7 @@ func TestProcessRecordDBCommitSuccessCommitsOffset(t *testing.T) {
 	record, _ := validCreatedRecord(t)
 
 	svc.processRecord(context.Background(), record)
-	assert.Equal(t, 1, repo.processCalls)
+	assert.Equal(t, int32(1), repo.processCalls.Load())
 	assert.Equal(t, 1, committer.calls)
 	require.Len(t, committer.records, 1)
 	assert.Equal(t, record.Offset, committer.records[0].Offset)
@@ -137,7 +138,7 @@ func TestProcessRecordDBCommitFailureDoesNotCommitOffset(t *testing.T) {
 	record, _ := validCreatedRecord(t)
 
 	svc.processRecord(context.Background(), record)
-	assert.Equal(t, 1, repo.processCalls)
+	assert.Equal(t, int32(1), repo.processCalls.Load())
 	assert.Equal(t, 0, committer.calls)
 }
 
@@ -154,8 +155,8 @@ func TestProcessRecordPermanentErrorDeadLetterThenCommitsOffset(t *testing.T) {
 	}
 
 	svc.processRecord(context.Background(), record)
-	assert.Equal(t, 0, repo.processCalls)
-	assert.Equal(t, 1, repo.deadLetterCalls)
+	assert.Equal(t, int32(0), repo.processCalls.Load())
+	assert.Equal(t, int32(1), repo.deadLetterCalls.Load())
 	assert.Equal(t, 1, committer.calls)
 }
 
@@ -176,7 +177,7 @@ func TestProcessRecordDeadLetterDBFailureDoesNotCommitOffset(t *testing.T) {
 	}
 
 	svc.processRecord(context.Background(), record)
-	assert.Equal(t, 1, repo.deadLetterCalls)
+	assert.Equal(t, int32(1), repo.deadLetterCalls.Load())
 	assert.Equal(t, 0, committer.calls)
 }
 
@@ -188,7 +189,7 @@ func TestProcessRecordOffsetCommitFailureAfterDBSuccess(t *testing.T) {
 	record, _ := validCreatedRecord(t)
 
 	svc.processRecord(context.Background(), record)
-	assert.Equal(t, 1, repo.processCalls)
+	assert.Equal(t, int32(1), repo.processCalls.Load())
 	assert.Equal(t, 1, committer.calls)
 }
 
@@ -204,7 +205,7 @@ func TestProcessRecordDuplicateResultCommitsOffset(t *testing.T) {
 	record, _ := validCreatedRecord(t)
 
 	svc.processRecord(context.Background(), record)
-	assert.Equal(t, 1, repo.processCalls)
+	assert.Equal(t, int32(1), repo.processCalls.Load())
 	assert.Equal(t, 1, committer.calls)
 }
 
@@ -224,6 +225,66 @@ func TestProcessRecordOffsetCommitFailureDoesNotRollbackProjection(t *testing.T)
 	svc.processRecord(context.Background(), record)
 	assert.True(t, called, "projection transaction must complete before failed commit")
 	assert.Equal(t, 1, committer.calls)
+}
+
+type mockExecutionApplier struct {
+	err   error
+	calls int
+}
+
+func (m *mockExecutionApplier) ApplyRecord(context.Context, []byte, domain.KafkaRecordMeta, time.Time) error {
+	m.calls++
+	return m.err
+}
+
+func TestExecutionOffsetFailureBlocksLaterOffset(t *testing.T) {
+	t.Parallel()
+	repo := &mockProjectionRepo{}
+	committer := &mockCommitter{}
+	applier := &mockExecutionApplier{err: errors.New("transient")}
+	svc := newTestService(repo, committer)
+	svc.SetExecutionApplier(applier)
+	body := []byte(`{"event_type":"shipment.route_stop.current","event_id":"` + uuid.NewString() + `"}`)
+	failed := &kgo.Record{Topic: "shipment.status.v1", Partition: 3, Offset: 10, Value: body}
+	later := &kgo.Record{Topic: "shipment.status.v1", Partition: 3, Offset: 11, Value: body}
+
+	svc.processOrdered(context.Background(), []*kgo.Record{later, failed})
+
+	assert.Equal(t, 1, applier.calls)
+	assert.Equal(t, 0, committer.calls)
+	assert.Equal(t, int32(0), repo.deadLetterCalls.Load())
+}
+
+func TestExecutionEventDoesNotUseShipmentDeadLetter(t *testing.T) {
+	t.Parallel()
+	repo := &mockProjectionRepo{}
+	committer := &mockCommitter{}
+	applier := &mockExecutionApplier{}
+	svc := newTestService(repo, committer)
+	svc.SetExecutionApplier(applier)
+	record := &kgo.Record{Topic: "shipment.status.v1", Partition: 0, Offset: 4, Value: []byte(`{"event_type":"shipment.route_stop.arrived"}`)}
+
+	ok := svc.processRecord(context.Background(), record)
+
+	assert.True(t, ok)
+	assert.Equal(t, 1, applier.calls)
+	assert.Equal(t, int32(0), repo.deadLetterCalls.Load())
+	assert.Equal(t, int32(0), repo.processCalls.Load())
+	assert.Equal(t, 1, committer.calls)
+}
+
+func TestUnknownEventFailClosed(t *testing.T) {
+	t.Parallel()
+	repo := &mockProjectionRepo{}
+	committer := &mockCommitter{}
+	svc := newTestService(repo, committer)
+	record := &kgo.Record{Topic: "shipment.status.v1", Partition: 0, Offset: 5, Value: []byte(`{"event_type":"shipment.unknown"}`)}
+
+	ok := svc.processRecord(context.Background(), record)
+
+	assert.True(t, ok)
+	assert.Equal(t, int32(1), repo.deadLetterCalls.Load())
+	assert.Equal(t, int32(0), repo.processCalls.Load())
 }
 
 func TestServiceCloseDoesNotCommitOffset(t *testing.T) {

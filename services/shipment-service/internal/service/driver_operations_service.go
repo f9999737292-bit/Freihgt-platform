@@ -32,11 +32,16 @@ type driverOperationStore interface {
 	ReportDelay(ctx context.Context, params repository.ReportDriverDelayParams) (*domain.DriverReportedDelay, uuid.UUID, error)
 }
 
+type driverExecutionContextStore interface {
+	ResolveDriverExecutionContext(ctx context.Context, operatingTenantID, driverID, shipmentID uuid.UUID, executionStopID, actionID *uuid.UUID) (repository.ResolvedDriverExecutionContext, error)
+}
+
 type DriverOperationsService struct {
-	drivers    driverIdentityStore
-	shipments  driverShipmentStore
-	operations driverOperationStore
-	departure  *repository.TransportExecutionCommandRepository
+	drivers          driverIdentityStore
+	shipments        driverShipmentStore
+	operations       driverOperationStore
+	departure        *repository.TransportExecutionCommandRepository
+	executionContext driverExecutionContextStore
 }
 
 func NewDriverOperationsService(
@@ -327,10 +332,16 @@ func (s *DriverOperationsService) ReportException(
 		IdempotencyKey: idempotencyKey,
 	}
 
+	stopID, actionID, err := s.verifiedProblemContext(ctx, tenantID, resolved.Driver.ID, shipmentID, in.ExecutionStopID, in.ActionID)
+	if err != nil {
+		return DriverExceptionResult{}, err
+	}
 	exc, outboxID, err := s.operations.ReportException(ctx, repository.ReportDriverExceptionParams{
 		Exception:       excInput,
 		ShipmentVersion: shipment.Version,
 		CorrelationID:   correlationID,
+		ExecutionStopID: stopID,
+		ActionID:        actionID,
 	})
 	if err != nil {
 		return DriverExceptionResult{}, err
@@ -416,10 +427,15 @@ func (s *DriverOperationsService) ReportDelay(
 		IdempotencyKey: idempotencyKey,
 	}
 
+	stopID, err := s.verifiedDelayStop(ctx, tenantID, resolved.Driver.ID, shipmentID, in.ExecutionStopID)
+	if err != nil {
+		return DriverDelayResult{}, err
+	}
 	delay, outboxID, err := s.operations.ReportDelay(ctx, repository.ReportDriverDelayParams{
 		Delay:           delayInput,
 		ShipmentVersion: shipment.Version,
 		CorrelationID:   correlationID,
+		ExecutionStopID: stopID,
 	})
 	if err != nil {
 		return DriverDelayResult{}, err
@@ -453,6 +469,41 @@ func (s *DriverOperationsService) ReportDelay(
 
 func (s *DriverOperationsService) BindMultistopDeparture(commands *repository.TransportExecutionCommandRepository) {
 	s.departure = commands
+}
+
+func (s *DriverOperationsService) BindDriverExecutionContext(resolver driverExecutionContextStore) {
+	s.executionContext = resolver
+}
+
+func (s *DriverOperationsService) verifiedDelayStop(ctx context.Context, tenantID, driverID, shipmentID uuid.UUID, executionStopID *uuid.UUID) (*uuid.UUID, error) {
+	if executionStopID == nil {
+		return nil, nil
+	}
+	resolved, err := s.lookupDriverExecutionContext(ctx, tenantID, driverID, shipmentID, executionStopID, nil)
+	if err != nil {
+		return nil, err
+	}
+	stopID := resolved.ExecutionStopID
+	return &stopID, nil
+}
+
+func (s *DriverOperationsService) verifiedProblemContext(ctx context.Context, tenantID, driverID, shipmentID uuid.UUID, executionStopID, actionID *uuid.UUID) (*uuid.UUID, *uuid.UUID, error) {
+	if executionStopID == nil && actionID == nil {
+		return nil, nil, nil
+	}
+	resolved, err := s.lookupDriverExecutionContext(ctx, tenantID, driverID, shipmentID, executionStopID, actionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	stopID := resolved.ExecutionStopID
+	return &stopID, resolved.ActionID, nil
+}
+
+func (s *DriverOperationsService) lookupDriverExecutionContext(ctx context.Context, tenantID, driverID, shipmentID uuid.UUID, executionStopID, actionID *uuid.UUID) (repository.ResolvedDriverExecutionContext, error) {
+	if s.executionContext == nil {
+		return repository.ResolvedDriverExecutionContext{}, apperrors.NotFound("execution context not found")
+	}
+	return s.executionContext.ResolveDriverExecutionContext(ctx, tenantID, driverID, shipmentID, executionStopID, actionID)
 }
 
 func (s *DriverOperationsService) dispatchMultistopDeparture(

@@ -2,7 +2,9 @@ package consumer
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"sort"
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -19,10 +21,15 @@ type projectionStore interface {
 	InsertDeadLetter(ctx context.Context, input repository.DeadLetterInput) (bool, error)
 }
 
+type executionApplier interface {
+	ApplyRecord(ctx context.Context, payload []byte, meta domain.KafkaRecordMeta, receivedAt time.Time) error
+}
+
 type Service struct {
 	client      *kgo.Client
 	committer   OffsetCommitter
 	repo        projectionStore
+	execution   executionApplier
 	cfg         config.Config
 	log         *slog.Logger
 	metrics     *ctmetrics.ConsumerMetrics
@@ -68,6 +75,10 @@ func NewServiceWithCommitter(
 	}
 }
 
+func (s *Service) SetExecutionApplier(applier executionApplier) {
+	s.execution = applier
+}
+
 func (s *Service) Run(ctx context.Context) error {
 	s.freshness.SetRunning(true)
 	defer s.freshness.SetRunning(false)
@@ -110,12 +121,36 @@ func (s *Service) Run(ctx context.Context) error {
 			pollBackoff = 0
 		}
 
+		var records []*kgo.Record
 		fetches.EachRecord(func(record *kgo.Record) {
-			if ctx.Err() != nil {
-				return
-			}
-			s.processRecord(ctx, record)
+			records = append(records, record)
 		})
+		s.processOrdered(ctx, records)
+	}
+}
+
+func (s *Service) processOrdered(ctx context.Context, records []*kgo.Record) {
+	sort.Slice(records, func(i, j int) bool {
+		if records[i].Topic != records[j].Topic {
+			return records[i].Topic < records[j].Topic
+		}
+		if records[i].Partition != records[j].Partition {
+			return records[i].Partition < records[j].Partition
+		}
+		return records[i].Offset < records[j].Offset
+	})
+	blocked := map[string]bool{}
+	for _, record := range records {
+		if ctx.Err() != nil {
+			return
+		}
+		key := fmt.Sprintf("%s:%d", record.Topic, record.Partition)
+		if blocked[key] {
+			continue
+		}
+		if !s.processRecord(ctx, record) {
+			blocked[key] = true
+		}
 	}
 }
 
@@ -126,7 +161,7 @@ func (s *Service) pollOnce(ctx context.Context) kgo.Fetches {
 	return s.client.PollFetches(ctx)
 }
 
-func (s *Service) processRecord(ctx context.Context, record *kgo.Record) {
+func (s *Service) processRecord(ctx context.Context, record *kgo.Record) bool {
 	start := time.Now().UTC()
 	receivedAt := start
 	s.freshness.MarkRecordReceived(receivedAt)
@@ -139,10 +174,31 @@ func (s *Service) processRecord(ctx context.Context, record *kgo.Record) {
 		Key:       string(record.Key),
 	}
 
+	kind, _ := domain.ClassifyEventPayload(record.Value)
+	switch kind {
+	case domain.RouteExecution, domain.RouteApproach:
+		if s.execution == nil {
+			s.metrics.ObserveError("EXECUTION_APPLIER_MISSING")
+			return false
+		}
+		if err := s.execution.ApplyRecord(ctx, record.Value, meta, receivedAt); err != nil {
+			s.metrics.ObserveError("EXECUTION_DB_PROCESS_ERROR")
+			s.log.Warn("execution projection failed",
+				slog.String("topic", meta.Topic),
+				slog.Int("partition", int(meta.Partition)),
+				slog.Int64("offset", meta.Offset),
+				slog.String("error", err.Error()),
+			)
+			return false
+		}
+		return s.commitRecord(ctx, record, meta, "")
+	case domain.RouteUnknown:
+		return s.handlePermanentError(ctx, record, meta, &domain.PermanentError{Code: "UNKNOWN_EVENT_TYPE"}, receivedAt)
+	}
+
 	event, permErr := projection.ParseAndValidate(record.Value, meta, s.topic)
 	if permErr != nil {
-		s.handlePermanentError(ctx, record, meta, permErr, receivedAt)
-		return
+		return s.handlePermanentError(ctx, record, meta, permErr, receivedAt)
 	}
 
 	processCtx, cancel := context.WithTimeout(ctx, s.cfg.Consumer.ProcessTimeout)
@@ -165,7 +221,7 @@ func (s *Service) processRecord(ctx context.Context, record *kgo.Record) {
 			slog.Int64("offset", meta.Offset),
 			slog.String("error", err.Error()),
 		)
-		return
+		return false
 	}
 
 	outcome := result.Outcome
@@ -178,19 +234,25 @@ func (s *Service) processRecord(ctx context.Context, record *kgo.Record) {
 		s.metrics.SetLastAppliedAt(time.Now().UTC())
 	}
 
+	return s.commitRecord(ctx, record, meta, event.EventID.String())
+}
+
+func (s *Service) commitRecord(ctx context.Context, record *kgo.Record, meta domain.KafkaRecordMeta, eventID string) bool {
 	if err := s.commitOffset(ctx, record); err != nil {
 		s.metrics.ObserveOffsetCommitError()
-		s.log.Warn("kafka offset commit failed after db commit",
-			slog.String("event_id", event.EventID.String()),
+		s.log.Warn("kafka offset commit failed",
+			slog.String("event_id", eventID),
 			slog.String("topic", meta.Topic),
 			slog.Int("partition", int(meta.Partition)),
 			slog.Int64("offset", meta.Offset),
 			slog.String("error", s.cfg.Kafka.ErrorString(err)),
 		)
+		return false
 	}
+	return true
 }
 
-func (s *Service) handlePermanentError(ctx context.Context, record *kgo.Record, meta domain.KafkaRecordMeta, permErr *domain.PermanentError, receivedAt time.Time) {
+func (s *Service) handlePermanentError(ctx context.Context, record *kgo.Record, meta domain.KafkaRecordMeta, permErr *domain.PermanentError, receivedAt time.Time) bool {
 	payloadHash := projection.PayloadSHA256(record.Value)
 	s.log.Warn("permanent invalid shipment status event",
 		slog.String("safe_error_code", permErr.Code),
@@ -219,23 +281,13 @@ func (s *Service) handlePermanentError(ctx context.Context, record *kgo.Record, 
 			slog.Int64("offset", meta.Offset),
 			slog.String("error", err.Error()),
 		)
-		return
+		return false
 	}
 	if inserted {
 		s.metrics.ObserveDeadLetter(permErr.Code)
 	}
 	s.metrics.ObserveError(permErr.Code)
-
-	if err := s.commitOffset(ctx, record); err != nil {
-		s.metrics.ObserveOffsetCommitError()
-		s.log.Warn("kafka offset commit failed after dead-letter commit",
-			slog.String("safe_error_code", permErr.Code),
-			slog.String("topic", meta.Topic),
-			slog.Int("partition", int(meta.Partition)),
-			slog.Int64("offset", meta.Offset),
-			slog.String("error", s.cfg.Kafka.ErrorString(err)),
-		)
-	}
+	return s.commitRecord(ctx, record, meta, "")
 }
 
 func (s *Service) commitOffset(ctx context.Context, record *kgo.Record) error {

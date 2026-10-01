@@ -9,14 +9,17 @@ import (
 )
 
 type Config struct {
-	ServiceName string
-	Environment string
-	HTTPPort    int
-	LogLevel    string
-	DatabaseURL string
-	Consumer    ConsumerConfig
-	Kafka       KafkaConfig
-	DriverConsumer DriverConsumerConfig
+	ServiceName      string
+	Environment      string
+	HTTPPort         int
+	LogLevel         string
+	DatabaseURL      string
+	Consumer         ConsumerConfig
+	Kafka            KafkaConfig
+	DriverConsumer   DriverConsumerConfig
+	TrackingConsumer DriverConsumerConfig
+	ShipmentBaseURL  string
+	InternalToken    string
 }
 
 type DriverConsumerConfig struct {
@@ -92,15 +95,35 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	trackingTopic := strings.TrimSpace(os.Getenv("CONTROL_TOWER_TRACKING_KAFKA_TOPIC"))
+	tracking := DriverConsumerConfig{
+		Enabled:        consumer.Enabled && trackingTopic != "",
+		PollTimeout:    consumer.PollTimeout,
+		ProcessTimeout: consumer.ProcessTimeout,
+		CommitTimeout:  consumer.CommitTimeout,
+		Kafka: DriverKafkaConfig{
+			Brokers:     kafka.Brokers,
+			Topic:       trackingTopic,
+			GroupID:     getEnv("CONTROL_TOWER_TRACKING_KAFKA_GROUP_ID", "control-tower-tracking-approach-v1"),
+			ClientID:    getEnv("CONTROL_TOWER_TRACKING_KAFKA_CLIENT_ID", "control-tower-tracking-approach"),
+			DialTimeout: kafka.DialTimeout,
+		},
+	}
+	if tracking.Enabled && tracking.Kafka.GroupID == kafka.GroupID {
+		return Config{}, fmt.Errorf("tracking consumer group must not match the shipment status group")
+	}
 	cfg := Config{
-		ServiceName: "control-tower-read-model-service",
-		Environment: getEnv("ENVIRONMENT", "development"),
-		HTTPPort:    port,
-		LogLevel:    getEnv("LOG_LEVEL", "info"),
-		DatabaseURL: databaseURL,
-		Consumer:    consumer,
-		Kafka:       kafka,
-		DriverConsumer: driverConsumer,
+		ServiceName:      "control-tower-read-model-service",
+		Environment:      getEnv("ENVIRONMENT", "development"),
+		HTTPPort:         port,
+		LogLevel:         getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:      databaseURL,
+		Consumer:         consumer,
+		Kafka:            kafka,
+		DriverConsumer:   driverConsumer,
+		TrackingConsumer: tracking,
+		ShipmentBaseURL:  strings.TrimRight(strings.TrimSpace(os.Getenv("SHIPMENT_SERVICE_URL")), "/"),
+		InternalToken:    os.Getenv("INTERNAL_SERVICE_TOKEN"),
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -11,13 +12,15 @@ import (
 )
 
 const (
-	DriverEventErrorInvalidJSON      = "INVALID_JSON"
-	DriverEventErrorMissingTenant    = "MISSING_TENANT"
-	DriverEventErrorMissingShipment  = "MISSING_SHIPMENT"
-	DriverEventErrorMissingEventID   = "MISSING_EVENT_ID"
-	DriverEventErrorUnknownEventType = "UNKNOWN_EVENT_TYPE"
+	DriverEventErrorInvalidJSON        = "INVALID_JSON"
+	DriverEventErrorMissingTenant      = "MISSING_TENANT"
+	DriverEventErrorMissingShipment    = "MISSING_SHIPMENT"
+	DriverEventErrorMissingEventID     = "MISSING_EVENT_ID"
+	DriverEventErrorUnknownEventType   = "UNKNOWN_EVENT_TYPE"
 	DriverEventErrorUnsupportedVersion = "UNSUPPORTED_SCHEMA_VERSION"
-	DriverEventErrorTenantMismatch   = "TENANT_MISMATCH"
+	DriverEventErrorTenantMismatch     = "TENANT_MISMATCH"
+	DriverEventErrorMalformedStopID    = "MALFORMED_EXECUTION_STOP_ID"
+	DriverEventErrorMalformedActionID  = "MALFORMED_ACTION_ID"
 )
 
 var allowedIngestDriverEventTypes = map[string]struct{}{
@@ -60,7 +63,51 @@ func ParseDriverEventEnvelope(payload []byte) (DriverDomainEventEnvelope, *Perma
 	if env.OccurredAt.IsZero() {
 		env.OccurredAt = time.Now().UTC()
 	}
+	if _, _, perm := OptionalDriverContext(env); perm != nil {
+		return DriverDomainEventEnvelope{}, perm
+	}
 	return env, nil
+}
+
+func OptionalDriverContext(env DriverDomainEventEnvelope) (*uuid.UUID, *uuid.UUID, *PermanentError) {
+	stopRaw := firstNonEmptyString(env.ExecutionStopID, metadataString(env.Metadata, "executionStopId"), metadataString(env.Metadata, "execution_stop_id"))
+	actionRaw := firstNonEmptyString(env.ActionID, metadataString(env.Metadata, "actionId"), metadataString(env.Metadata, "action_id"))
+	stopID, err := parseOptionalUUID(stopRaw)
+	if err != nil {
+		return nil, nil, &PermanentError{Code: DriverEventErrorMalformedStopID}
+	}
+	actionID, err := parseOptionalUUID(actionRaw)
+	if err != nil {
+		return nil, nil, &PermanentError{Code: DriverEventErrorMalformedActionID}
+	}
+	return stopID, actionID, nil
+}
+
+func parseOptionalUUID(raw string) (*uuid.UUID, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return nil, err
+	}
+	return &id, nil
+}
+
+func metadataString(metadata map[string]any, key string) string {
+	if metadata == nil {
+		return ""
+	}
+	value, ok := metadata[key]
+	if !ok || value == nil {
+		return ""
+	}
+	text, ok := value.(string)
+	if !ok {
+		return fmt.Sprintf("%v", value)
+	}
+	return text
 }
 
 func normalizeLegacyDriverEventType(eventType string) string {
@@ -115,7 +162,7 @@ func NormalizeDriverEvent(env DriverDomainEventEnvelope) (ControlTowerEvent, err
 	}
 	return ControlTowerEvent{
 		ID: eventID, TenantID: tenantID, Type: env.EventType,
-		Source: firstNonEmptyString(env.Source, ControlTowerEventSourceDriver),
+		Source:      firstNonEmptyString(env.Source, ControlTowerEventSourceDriver),
 		SubjectType: "driver", SubjectID: subjectID, ShipmentID: shipmentID,
 		OccurredAt: env.OccurredAt.UTC(), Severity: env.Severity,
 		Actor: firstNonEmptyString(env.ActorID, env.DriverID), Attributes: attrs,
@@ -153,7 +200,7 @@ func MapDriverAutomationTrigger(event ControlTowerEvent, env DriverDomainEventEn
 		return AutomationTrigger{
 			TenantID: event.TenantID, TriggerType: DriverTriggerProblemReported,
 			TriggerID: "driver-problem:" + event.ID.String(), ShipmentID: &shipmentID,
-			ExceptionID: strings.ReplaceAll(event.ID.String(), "-", ""),
+			ExceptionID:  strings.ReplaceAll(event.ID.String(), "-", ""),
 			WorkItemType: "driver_event", WorkItemID: event.ID.String(),
 			CorrelationID: correlationID, OccurredAt: event.OccurredAt,
 			Attributes: TriggerAttributes{
@@ -193,11 +240,11 @@ func MapDriverAutomationTrigger(event ControlTowerEvent, env DriverDomainEventEn
 
 func BuildDriverProblemExceptionSeed(event ControlTowerEvent, env DriverDomainEventEnvelope) EnsureExceptionSeed {
 	return EnsureExceptionSeed{
-		EventID: strings.ReplaceAll(event.ID.String(), "-", ""),
+		EventID:    strings.ReplaceAll(event.ID.String(), "-", ""),
 		ShipmentID: event.ShipmentID.String(),
-		EventType: strings.ToLower(strings.TrimSpace(env.ReasonCode)),
-		Source: "driver",
-		Severity: firstNonEmptyString(event.Severity, "high"),
+		EventType:  strings.ToLower(strings.TrimSpace(env.ReasonCode)),
+		Source:     "driver",
+		Severity:   firstNonEmptyString(event.Severity, "high"),
 		OccurredAt: event.OccurredAt,
 	}
 }

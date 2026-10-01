@@ -14,6 +14,7 @@ import (
 	"github.com/freight-platform/control-tower-read-model-service/internal/consumer"
 	"github.com/freight-platform/control-tower-read-model-service/internal/driverconsumer"
 	httpserver "github.com/freight-platform/control-tower-read-model-service/internal/http"
+	"github.com/freight-platform/control-tower-read-model-service/internal/http/handlers"
 	"github.com/freight-platform/control-tower-read-model-service/internal/platform/database"
 	"github.com/freight-platform/control-tower-read-model-service/internal/platform/logger"
 	ctmetrics "github.com/freight-platform/control-tower-read-model-service/internal/platform/metrics"
@@ -56,11 +57,14 @@ func main() {
 	automationMetrics := ctmetrics.NewAutomationMetrics()
 	automationIngress := service.NewAutomationTriggerIngress(automationSvc, automationMetrics, log)
 	driverEventSvc := service.NewDriverEventService(driverEventRepo, workflowRepo, automationSvc, automationIngress, log)
+	executionRepo := repository.NewExecutionProjectionRepository(db.Pool)
+	driverEventSvc.SetExecutionLinker(executionRepo)
 	driverEventMetrics := driverconsumer.NewMetrics()
 	freshness := consumer.NewFreshness()
 	consumerMetrics := ctmetrics.NewConsumerMetrics()
+	shipmentOwner := handlers.HTTPShipmentOwner{BaseURL: cfg.ShipmentBaseURL, Token: cfg.InternalToken}
 
-	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, riskRepo, workItemRepo, viewRepo, handoffRepo, caseRepo, automationRepo, automationSvc, automationIngress, freshness)
+	router := httpserver.NewRouter(log, db.Pool, repo, ackRepo, workflowRepo, riskRepo, workItemRepo, viewRepo, handoffRepo, caseRepo, automationRepo, automationSvc, automationIngress, freshness, executionRepo, shipmentOwner)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
@@ -87,6 +91,7 @@ func main() {
 			os.Exit(1)
 		}
 		consumerSvc = consumer.NewService(kafkaClient, repo, cfg, log, consumerMetrics, freshness)
+		consumerSvc.SetExecutionApplier(executionRepo)
 		go func() {
 			log.Info("starting shipment status consumer",
 				slog.String("topic", cfg.Kafka.Topic),
@@ -121,11 +126,38 @@ func main() {
 		log.Info("driver events consumer disabled")
 	}
 
+	var trackingConsumerSvc *consumer.Service
+	if cfg.TrackingConsumer.Enabled {
+		trackCfg := cfg
+		trackCfg.Kafka.Topic = cfg.TrackingConsumer.Kafka.Topic
+		trackCfg.Kafka.GroupID = cfg.TrackingConsumer.Kafka.GroupID
+		trackCfg.Kafka.ClientID = cfg.TrackingConsumer.Kafka.ClientID
+		kafkaClient, err := consumer.NewKafkaClient(trackCfg.Kafka)
+		if err != nil {
+			log.Error("failed to create tracking consumer", slog.String("error", trackCfg.Kafka.ErrorString(err)))
+			os.Exit(1)
+		}
+		trackingConsumerSvc = consumer.NewService(kafkaClient, repo, trackCfg, log, consumerMetrics, freshness)
+		trackingConsumerSvc.SetExecutionApplier(executionRepo)
+		go func() {
+			log.Info("starting tracking approach consumer",
+				slog.String("topic", trackCfg.Kafka.Topic),
+				slog.String("group_id", trackCfg.Kafka.GroupID),
+			)
+			if err := trackingConsumerSvc.Run(ctx); err != nil && ctx.Err() == nil {
+				log.Error("tracking consumer stopped with error", slog.String("error", err.Error()))
+			}
+		}()
+	}
+
 	<-ctx.Done()
 	log.Info("shutdown signal received")
 
 	if consumerSvc != nil {
 		consumerSvc.Close()
+	}
+	if trackingConsumerSvc != nil {
+		trackingConsumerSvc.Close()
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
