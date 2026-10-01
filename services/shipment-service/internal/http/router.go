@@ -139,6 +139,13 @@ func NewRouter(
 		"/internal/v1/transport-executions/{executionId}/stops/{stopId}/tracking-context",
 		trackingContextHandler.Get,
 	)
+	if projectionWriter, ok := trackingContext.(handlers.ExecutionProjectionWriter); ok {
+		projectionHandler := handlers.NewExecutionProjectionHandler(projectionWriter)
+		r.With(internalAuth.Middleware, handlers.RequireNetworkOptimizerCaller).Post(
+			"/internal/v1/transport-executions/from-route-plan-activation",
+			projectionHandler.Create,
+		)
+	}
 	if successorHandler != nil {
 		r.With(internalAuth.Middleware).Post(
 			"/internal/v1/transport-executions/{executionId}/successor-revision",
