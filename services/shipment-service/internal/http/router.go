@@ -144,6 +144,33 @@ func NewRouter(
 			successorHandler.Create,
 		)
 	}
+	if dispositionWriter, ok := trackingContext.(handlers.DeliveryDispositionWriter); ok {
+		dispositionHandler := handlers.NewDeliveryDispositionHandler(dispositionWriter)
+		r.With(internalAuth.Middleware).Post(
+			"/internal/v1/transport-executions/{executionId}/delivery-dispositions",
+			dispositionHandler.Record,
+		)
+		r.With(internalAuth.Middleware).Get(
+			"/internal/v1/transport-executions/{executionId}/delivery-dispositions",
+			dispositionHandler.List,
+		)
+		r.With(internalAuth.Middleware).Post(
+			"/internal/v1/delivery-dispositions/{caseId}/authorize-return",
+			dispositionHandler.AuthorizeReturn,
+		)
+		r.With(internalAuth.Middleware).Post(
+			"/internal/v1/delivery-dispositions/{caseId}/authorize-redirect",
+			dispositionHandler.AuthorizeRedirect,
+		)
+		r.With(internalAuth.Middleware).Post(
+			"/internal/v1/delivery-dispositions/{caseId}/hold",
+			dispositionHandler.Hold,
+		)
+		r.With(internalAuth.Middleware).Post(
+			"/internal/v1/delivery-dispositions/{caseId}/complete",
+			dispositionHandler.Complete,
+		)
+	}
 
 	r.Route("/internal/v1/driver", func(r chi.Router) {
 		r.Post("/tasks", internalTaskHandler.CreateTask)

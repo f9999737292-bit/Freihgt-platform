@@ -66,10 +66,23 @@ func (r *TransportExecutionRepository) CreateSuccessorRevision(ctx context.Conte
 		return domain.SuccessorRevisionResult{}, mapDBError(err)
 	}
 	defer tx.Rollback(ctx)
+	result, err := createSuccessorRevisionInTx(ctx, tx, cmd, digest)
+	if err != nil {
+		return domain.SuccessorRevisionResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.SuccessorRevisionResult{}, mapDBError(err)
+	}
+	return result, nil
+}
 
+// createSuccessorRevisionInTx is the 0.1F route writer. Callers that already hold
+// the execution row lock must pass that same transaction so a failed disposition
+// cannot leave a successor revision committed.
+func createSuccessorRevisionInTx(ctx context.Context, tx pgx.Tx, cmd domain.SuccessorRevisionCommand, digest string) (domain.SuccessorRevisionResult, error) {
 	var operating uuid.UUID
 	var currentRevision uuid.UUID
-	err = tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		SELECT operating_tenant_id, current_revision_id
 		FROM transport.transport_executions
 		WHERE id = $1
@@ -96,14 +109,7 @@ func (r *TransportExecutionRepository) CreateSuccessorRevision(ctx context.Conte
 		return domain.SuccessorRevisionResult{}, mapDBError(err)
 	}
 	if tag.RowsAffected() == 0 {
-		result, replayErr := loadSuccessorReplay(ctx, tx, operating, cmd.IdempotencyKey, digest)
-		if replayErr != nil {
-			return domain.SuccessorRevisionResult{}, replayErr
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return domain.SuccessorRevisionResult{}, mapDBError(err)
-		}
-		return result, nil
+		return loadSuccessorReplay(ctx, tx, operating, cmd.IdempotencyKey, digest)
 	}
 
 	if currentRevision != cmd.ExpectedRevisionID {
@@ -311,9 +317,6 @@ func (r *TransportExecutionRepository) CreateSuccessorRevision(ctx context.Conte
 		commandID: commandID, operatingTenant: operating, revisionID: nextRevision,
 	}, domain.ExecutionCommandResult{StopID: &stopID}); err != nil {
 		return domain.SuccessorRevisionResult{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return domain.SuccessorRevisionResult{}, mapDBError(err)
 	}
 	return result, nil
 }
