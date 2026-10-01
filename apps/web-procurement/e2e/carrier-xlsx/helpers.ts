@@ -7,6 +7,11 @@ export const tenantId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 export const carrierCompanyId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 export const buyerCompanyId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
 export const userId = '8541a3a3-bde7-4fed-9501-37b9953bf904'
+export const expiredCarrierXlsxResponseDeadline = '2020-01-01T00:00:00Z'
+
+export function futureCarrierXlsxResponseDeadline(now = Date.now()): string {
+  return new Date(now + 48 * 60 * 60 * 1000).toISOString()
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -128,9 +133,13 @@ function ownResponseBody(status: 'DRAFT' | 'SUBMITTED') {
 
 export async function stubCarrierTenderWorkspace(
   page: Page,
-  options: { responseStatus?: 'DRAFT' | 'SUBMITTED' | 'MISSING' } = {},
+  options: {
+    responseStatus?: 'DRAFT' | 'SUBMITTED' | 'MISSING'
+    responseDeadline?: string
+  } = {},
 ) {
   const responseStatus = options.responseStatus ?? 'DRAFT'
+  const responseDeadline = options.responseDeadline ?? futureCarrierXlsxResponseDeadline()
   await page.route('**/api/v1/users/**/companies**', async (route) => {
     await fulfillJSON(route, 200, {
       items: [{
@@ -171,7 +180,7 @@ export async function stubCarrierTenderWorkspace(
       rfx_type: 'LANE_TENDER',
       category: 'FREIGHT',
       currency_code: 'RUB',
-      response_deadline: '2026-10-01T12:00:00Z',
+      response_deadline: responseDeadline,
       participant_status: 'INVITED',
       own_response_status: responseStatus === 'MISSING' ? 'NOT_STARTED' : responseStatus,
       own_response_id: responseStatus === 'MISSING' ? null : responseId,
@@ -197,7 +206,7 @@ export async function stubCarrierTenderWorkspace(
         rfx_type: 'LANE_TENDER',
         category: 'FREIGHT',
         currency_code: 'RUB',
-        response_deadline: '2026-10-01T12:00:00Z',
+        response_deadline: responseDeadline,
       })
       return
     }
