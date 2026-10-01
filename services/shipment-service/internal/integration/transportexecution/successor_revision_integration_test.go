@@ -67,16 +67,21 @@ func TestSuccessorRevision(t *testing.T) {
 		if membership(t, env, "transport.transport_execution_revision_stops", seed.revisionID, seed.endID) != "INTRODUCED" {
 			t.Fatal("old completed stop membership changed")
 		}
-		if membership(t, env, "transport.transport_execution_revision_stops", first.RevisionID, seed.endID) != "INHERITED_COMPLETED" {
-			t.Fatal("completed stop was not inherited")
+		if membershipCount(t, env, "transport.transport_execution_revision_stops", first.RevisionID, seed.endID) != 0 {
+			t.Fatal("completed stop gained successor membership")
 		}
 		if membership(t, env, "transport.transport_execution_revision_stops", seed.revisionID, seed.startID) != "SUPERSEDED" ||
 			membership(t, env, "transport.transport_execution_revision_stops", seed.revisionID, seed.cargoID) != "SUPERSEDED" {
 			t.Fatal("open stops were not superseded")
 		}
-		if membership(t, env, "transport.transport_execution_revision_actions", seed.revisionID, seed.actionA) != "INTRODUCED" ||
-			membership(t, env, "transport.transport_execution_revision_actions", first.RevisionID, seed.actionA) != "INHERITED_COMPLETED" {
-			t.Fatal("completed action membership")
+		if membership(t, env, "transport.transport_execution_revision_actions", seed.revisionID, seed.actionA) != "INTRODUCED" {
+			t.Fatal("old completed action membership changed")
+		}
+		if membershipCount(t, env, "transport.transport_execution_revision_actions", first.RevisionID, seed.actionA) != 0 {
+			t.Fatal("completed action gained successor membership")
+		}
+		if orphanRevisionActionCount(t, env, first.RevisionID) != 0 {
+			t.Fatal("successor revision has an action without its stop")
 		}
 		if membership(t, env, "transport.transport_execution_revision_actions", seed.revisionID, seed.actionB) != "SUPERSEDED" {
 			t.Fatal("open action was not superseded")
@@ -174,6 +179,48 @@ func TestSuccessorRevision(t *testing.T) {
 		}
 		if currentRevision(t, env, seed.executionID) != first.RevisionID || revisionStatus(t, env, first.RevisionID) != "ACTIVE" {
 			t.Fatal("failed successor mutated the active revision")
+		}
+	})
+
+	t.Run("arrived stop keeps completed action on old revision only", func(t *testing.T) {
+		seed := seedSuccessorRoute(t, env)
+		arriveStop(t, env, seed.cargoID)
+		completeAction(t, env, seed.actionA)
+		beforeStop := stopFact(t, env, seed.cargoID)
+		beforeAction := actionFact(t, env, seed.actionA)
+		cmd := successorCommand(seed, "partial-arrived")
+		result, err := repo.CreateSuccessorRevision(env.ctx, cmd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		afterStop := stopFact(t, env, seed.cargoID)
+		afterAction := actionFact(t, env, seed.actionA)
+		if afterStop.status != "ARRIVED" || afterStop.arrivedAt != beforeStop.arrivedAt || afterStop != beforeStop {
+			t.Fatal("arrived stop fact changed")
+		}
+		if afterAction.status != "COMPLETED" || afterAction.completedAt != beforeAction.completedAt || afterAction != beforeAction {
+			t.Fatal("completed action fact changed")
+		}
+		if membership(t, env, "transport.transport_execution_revision_stops", seed.revisionID, seed.cargoID) != "SUPERSEDED" {
+			t.Fatal("arrived stop membership was not superseded")
+		}
+		if membership(t, env, "transport.transport_execution_revision_actions", seed.revisionID, seed.actionA) != "INTRODUCED" {
+			t.Fatal("completed action historical membership changed")
+		}
+		if membership(t, env, "transport.transport_execution_revision_actions", seed.revisionID, seed.actionB) != "SUPERSEDED" {
+			t.Fatal("pending action was not superseded")
+		}
+		if membershipCount(t, env, "transport.transport_execution_revision_stops", result.RevisionID, seed.cargoID) != 0 ||
+			membershipCount(t, env, "transport.transport_execution_revision_actions", result.RevisionID, seed.actionA) != 0 ||
+			membershipCount(t, env, "transport.transport_execution_revision_actions", result.RevisionID, seed.actionB) != 0 {
+			t.Fatal("old arrived stop or its actions gained successor membership")
+		}
+		if countWhere(t, env, "transport.transport_execution_revision_stops", "revision_id=$1 AND membership<>'INTRODUCED'", result.RevisionID) != 0 ||
+			countWhere(t, env, "transport.transport_execution_revision_actions", "revision_id=$1 AND membership<>'INTRODUCED'", result.RevisionID) != 0 {
+			t.Fatal("successor revision contains historical membership")
+		}
+		if orphanRevisionActionCount(t, env, result.RevisionID) != 0 || orphanRevisionActionCount(t, env, seed.revisionID) != 0 {
+			t.Fatal("revision action has no stop membership on the same revision")
 		}
 	})
 
@@ -489,6 +536,31 @@ func membership(t *testing.T, env *execEnv, table string, revisionID, id uuid.UU
 		t.Fatal(err)
 	}
 	return value
+}
+
+func membershipCount(t *testing.T, env *execEnv, table string, revisionID, id uuid.UUID) int {
+	t.Helper()
+	column := "stop_id"
+	if table == "transport.transport_execution_revision_actions" {
+		column = "action_id"
+	}
+	return countWhere(t, env, table, "revision_id=$1 AND "+column+"=$2", revisionID, id)
+}
+
+func orphanRevisionActionCount(t *testing.T, env *execEnv, revisionID uuid.UUID) int {
+	t.Helper()
+	var n int
+	if err := env.pool.QueryRow(env.ctx, `
+		SELECT COUNT(*)
+		FROM transport.transport_execution_revision_actions ra
+		JOIN transport.transport_execution_actions a ON a.id = ra.action_id
+		LEFT JOIN transport.transport_execution_revision_stops rs
+		  ON rs.revision_id = ra.revision_id AND rs.stop_id = a.execution_stop_id
+		WHERE ra.revision_id = $1 AND rs.stop_id IS NULL
+	`, revisionID).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
 }
 
 func currentRevision(t *testing.T, env *execEnv, executionID uuid.UUID) uuid.UUID {

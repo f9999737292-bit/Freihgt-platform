@@ -4,6 +4,12 @@ SUCCESSOR_REVISION_IMPLEMENTED=YES
 COMPLETED_HISTORY_IMMUTABLE=YES
 COMPLETED_STOPS_REPARENTED=NO
 COMPLETED_ACTIONS_REPARENTED=NO
+COMPLETED_STOPS_REMAIN_OLD_REVISION_ONLY=YES
+COMPLETED_ACTIONS_REMAIN_OLD_REVISION_ONLY=YES
+SUCCESSOR_CONTAINS_FUTURE_ROUTE_ONLY=YES
+OLD_COMPLETED_STOP_SUCCESSOR_MEMBERSHIP=NO
+OLD_COMPLETED_ACTION_SUCCESSOR_MEMBERSHIP=NO
+ACTION_STOP_REVISION_MEMBERSHIP_CONSISTENT=YES
 OLD_REMAINING_STOPS_SUPERSEDED=YES
 OLD_REMAINING_ACTIONS_SUPERSEDED=YES
 SERVICE_STARTED_REPLAN_LOCK=YES
@@ -17,7 +23,7 @@ READY_FOR_PRODUCTION_EXECUTION=NO
 
 One `transport.transport_executions` row stays the execution root. `current_revision_id` moves to the new ACTIVE revision in the same transaction that marks the previous revision SUPERSEDED. `event_seq` is not reset.
 
-Stop and action rows do not store a revision id. Revision membership is `transport.transport_execution_revision_stops` and `transport.transport_execution_revision_actions`. Completed, skipped, and cancelled stop rows are not updated. Their old membership stays, and the successor revision adds `INHERITED_COMPLETED`. The same rule applies to terminal actions. Open `PLANNED` and `ARRIVED` memberships become `SUPERSEDED`. Stop status and timestamps on those rows stay as they were. `ARRIVED` may be superseded. `SERVICE_STARTED` rejects the whole command with `EXECUTION_STOP_IN_SERVICE` before any revision, membership, outbox, or driver-task write.
+Stop and action rows do not store a revision id. Revision membership is `transport.transport_execution_revision_stops` and `transport.transport_execution_revision_actions`. Completed, skipped, and cancelled stops, and completed, failed, and cancelled actions, stay on the historical revision only. Successor creation does not insert membership for those rows. Open `PLANNED` and `ARRIVED` memberships become `SUPERSEDED`. Stop status and timestamps on those rows stay as they were. `ARRIVED` may be superseded. `SERVICE_STARTED` rejects the whole command with `EXECUTION_STOP_IN_SERVICE` before any revision, membership, outbox, or driver-task write.
 
 Replacement stops and actions are new rows. Action ids are not reused, because the old action row remains the historical fact. New action shipment tenants are copied from the existing participant row. Participants are not inserted again and shipment status is not changed. The current stop is the first new `PLANNED` stop. The request cannot choose it.
 

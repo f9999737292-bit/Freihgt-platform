@@ -43,7 +43,8 @@ type successorParticipant struct {
 }
 
 // CreateSuccessorRevision appends one ACTIVE revision and supersedes the previous remaining route.
-// Completed stop and action rows are not updated. Their revision link is membership, not a parent column.
+// Terminal stop and action rows stay on the historical revision only. The successor revision
+// contains the newly introduced future route.
 func (r *TransportExecutionRepository) CreateSuccessorRevision(ctx context.Context, cmd domain.SuccessorRevisionCommand) (domain.SuccessorRevisionResult, error) {
 	if r == nil || r.pool == nil {
 		return domain.SuccessorRevisionResult{}, apperrors.NotFound("transport execution not found")
@@ -167,19 +168,10 @@ func (r *TransportExecutionRepository) CreateSuccessorRevision(ctx context.Conte
 		return domain.SuccessorRevisionResult{}, mapDBError(err)
 	}
 
-	openStops := map[uuid.UUID]struct{}{}
 	for _, stop := range stops {
 		if terminalStopStatus(stop.Status) {
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO transport.transport_execution_revision_stops (
-					revision_id, stop_id, source_route_plan_stop_id, source_ordinal, membership
-				) VALUES ($1,$2,$3,$4,$5)
-			`, nextRevision, stop.StopID, stop.SourceStopID, stop.SourceOrdinal, domain.MembershipInheritedCompleted); err != nil {
-				return domain.SuccessorRevisionResult{}, mapDBError(err)
-			}
 			continue
 		}
-		openStops[stop.StopID] = struct{}{}
 		if _, err := tx.Exec(ctx, `
 			UPDATE transport.transport_execution_revision_stops
 			SET membership = $3
@@ -190,13 +182,6 @@ func (r *TransportExecutionRepository) CreateSuccessorRevision(ctx context.Conte
 	}
 	for _, action := range actions {
 		if terminalActionStatus(action.Status) {
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO transport.transport_execution_revision_actions (
-					revision_id, action_id, source_route_plan_action_id, source_action_ordinal, membership
-				) VALUES ($1,$2,$3,$4,$5)
-			`, nextRevision, action.ActionID, action.SourceActionID, action.SourceOrdinal, domain.MembershipInheritedCompleted); err != nil {
-				return domain.SuccessorRevisionResult{}, mapDBError(err)
-			}
 			continue
 		}
 		if _, err := tx.Exec(ctx, `
