@@ -5,6 +5,7 @@ import {
   eventId,
   expectPanelVisible,
   expectWorkspaceLoaded,
+  expiredCarrierXlsxResponseDeadline,
   formatCarrierXlsxNetworkProbe,
   fulfillJSON,
   readyPreviewBody,
@@ -162,5 +163,44 @@ test.describe('carrier XLSX update draft', () => {
     await expect(page.getByTestId('carrier-xlsx-retry-preview')).toBeVisible()
     await expect(page.getByTestId('carrier-xlsx-retry-preview')).toBeEnabled()
     await expect(page.getByTestId('carrier-xlsx-commit')).toBeDisabled()
+  })
+
+  test('RFX-XLSX-DATE-01 positive carrier XLSX acceptance fixture has a future deadline', async ({ page }) => {
+    await seedCarrierSession(page)
+    await stubCarrierTenderWorkspace(page, { responseStatus: 'DRAFT' })
+    const eventResponse = page.waitForResponse((resp) => {
+      const url = new URL(resp.url())
+      return resp.request().method() === 'GET' && url.pathname === `/api/v1/carrier/rfx-events/${eventId}`
+    })
+    await page.goto(`/carrier/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
+    const payload = await (await eventResponse).json()
+    expect(Date.parse(payload.response_deadline)).toBeGreaterThan(Date.now())
+    await expectWorkspaceLoaded(page, 'RFX-CARRIER-XLSX-1')
+    await expect(page.getByTestId('carrier-tender-response-status')).toHaveText('Draft')
+    await expect(page.getByText('Response deadline has passed')).toHaveCount(0)
+  })
+
+  test('RFX-XLSX-DATE-02 submit button visible for DRAFT and a future deadline', async ({ page }) => {
+    await seedCarrierSession(page)
+    await stubCarrierTenderWorkspace(page, { responseStatus: 'DRAFT' })
+    await page.goto(`/carrier/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
+    await expectWorkspaceLoaded(page, 'RFX-CARRIER-XLSX-1')
+    await expect(page.getByTestId('carrier-tender-response-status')).toHaveText('Draft')
+    await expect(page.getByTestId('carrier-save-offer')).toBeVisible()
+    await expect(page.getByTestId('carrier-submit-response')).toBeVisible()
+  })
+
+  test('RFX-XLSX-DATE-03 submit button hidden for DRAFT and an expired deadline', async ({ page }) => {
+    expect(Date.parse(expiredCarrierXlsxResponseDeadline)).toBeLessThan(Date.now())
+    await seedCarrierSession(page)
+    await stubCarrierTenderWorkspace(page, {
+      responseStatus: 'DRAFT',
+      responseDeadline: expiredCarrierXlsxResponseDeadline,
+    })
+    await page.goto(`/carrier/tenders/${eventId}`, { waitUntil: 'domcontentloaded' })
+    await expectWorkspaceLoaded(page, 'RFX-CARRIER-XLSX-1')
+    await expect(page.getByTestId('carrier-tender-response-status')).toHaveText('Draft')
+    await expect(page.getByText('Response deadline has passed')).toBeVisible()
+    await expect(page.getByTestId('carrier-submit-response')).toHaveCount(0)
   })
 })
