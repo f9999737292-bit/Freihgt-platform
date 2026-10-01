@@ -55,6 +55,20 @@ func TestDriverStopRouterValidation(t *testing.T) {
 			t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
 		}
 	})
+	t.Run("driver cannot authorize return or redirect", func(t *testing.T) {
+		caseID := uuid.NewString()
+		for _, path := range []string{
+			"/v1/driver/me/delivery-dispositions/" + caseID + "/authorize-return",
+			"/v1/driver/me/delivery-dispositions/" + caseID + "/authorize-redirect",
+			"/v1/driver/me/stops/" + stopID + "/authorize-return",
+			"/v1/driver/me/stops/" + stopID + "/actions/" + uuid.NewString() + "/authorize-redirect",
+		} {
+			rec := serve(router, http.MethodPost, path, tenant, user, "key-auth", []byte(`{}`))
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("%s status %d", path, rec.Code)
+			}
+		}
+	})
 	t.Run("notice tasks stay separate", func(t *testing.T) {
 		rec := serve(router, http.MethodGet, "/v1/driver/me/tasks", "", "", "", nil)
 		if rec.Code == http.StatusNotFound {

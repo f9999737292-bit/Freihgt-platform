@@ -65,7 +65,9 @@ const (
 
 func IsExecutionKafkaEventType(eventType string) bool {
 	switch strings.TrimSpace(eventType) {
-	case EventExecutionPlanCreated, EventExecutionPlanSuperseded, EventRouteStopCurrent, EventRouteStopArrived, EventRouteStopServiceStarted, EventRouteStopCompleted, EventRouteStopSequenceOverridden:
+	case EventExecutionPlanCreated, EventExecutionPlanSuperseded, EventRouteStopCurrent, EventRouteStopArrived, EventRouteStopServiceStarted, EventRouteStopCompleted, EventRouteStopSequenceOverridden,
+		EventDeliveryPartiallyRejected, EventDeliveryRejected, EventCargoDispositionPending,
+		EventCargoReturnAuthorized, EventCargoRedirectAuthorized, EventCargoReturnCompleted, EventCargoRedirectCompleted:
 		return true
 	default:
 		return false

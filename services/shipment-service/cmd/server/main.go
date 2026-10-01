@@ -104,6 +104,7 @@ func main() {
 	}
 
 	executionRepo := repository.NewTransportExecutionRepository(db.Pool)
+	driverStopSvc.BindDeliveryDisposition(executionRepo)
 	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, driverStopSvc, evidenceSvc, cfg.InternalServiceToken, executionRepo)
 
 	server := &http.Server{

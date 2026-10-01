@@ -315,6 +315,28 @@ func (r *TransportExecutionCommandRepository) LoadDriverStop(ctx context.Context
 	return view, operating, driverID, revisionID, nil
 }
 
+// LoadDeliveryAction returns the shipment and cargo of a delivery action on this stop.
+// An action that belongs to another stop is not found.
+func (r *TransportExecutionCommandRepository) LoadDeliveryAction(ctx context.Context, stopID, actionID uuid.UUID) (uuid.UUID, uuid.UUID, error) {
+	var actionType string
+	var owner, shipmentID, cargoID uuid.UUID
+	err := r.pool.QueryRow(ctx, `
+		SELECT action_type, execution_stop_id, shipment_id, cargo_id
+		FROM transport.transport_execution_actions
+		WHERE id = $1
+	`, actionID).Scan(&actionType, &owner, &shipmentID, &cargoID)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && owner != stopID) {
+		return uuid.Nil, uuid.Nil, apperrors.NotFound("execution action not found")
+	}
+	if err != nil {
+		return uuid.Nil, uuid.Nil, mapDBError(err)
+	}
+	if actionType != domain.ActionTypeDelivery {
+		return uuid.Nil, uuid.Nil, domain.ExecutionCommandError(domain.ReasonActionNotFound, false)
+	}
+	return shipmentID, cargoID, nil
+}
+
 func (r *TransportExecutionCommandRepository) LoadStopAction(ctx context.Context, stopID, actionID uuid.UUID) (string, error) {
 	var actionType string
 	var owner uuid.UUID

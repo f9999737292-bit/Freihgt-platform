@@ -112,6 +112,7 @@ func NewRouter(
 		r.Post("/stops/{stopId}/complete", driverStopHandler.Complete)
 		r.Post("/stops/{stopId}/actions/{actionId}/confirm", driverStopHandler.Confirm)
 		r.Post("/stops/{stopId}/actions/{actionId}/fail", driverStopHandler.Fail)
+		r.Post("/stops/{stopId}/actions/{actionId}/delivery-disposition", driverStopHandler.ReportDisposition)
 	})
 
 	r.Route("/v1/vehicles", func(r chi.Router) {
@@ -142,6 +143,33 @@ func NewRouter(
 		r.With(internalAuth.Middleware).Post(
 			"/internal/v1/transport-executions/{executionId}/successor-revision",
 			successorHandler.Create,
+		)
+	}
+	if dispositionWriter, ok := trackingContext.(handlers.DeliveryDispositionWriter); ok {
+		dispositionHandler := handlers.NewDeliveryDispositionHandler(dispositionWriter)
+		r.With(internalAuth.Middleware).Post(
+			"/internal/v1/transport-executions/{executionId}/delivery-dispositions",
+			dispositionHandler.Record,
+		)
+		r.With(internalAuth.Middleware).Get(
+			"/internal/v1/transport-executions/{executionId}/delivery-dispositions",
+			dispositionHandler.List,
+		)
+		r.With(internalAuth.Middleware).Post(
+			"/internal/v1/delivery-dispositions/{caseId}/authorize-return",
+			dispositionHandler.AuthorizeReturn,
+		)
+		r.With(internalAuth.Middleware).Post(
+			"/internal/v1/delivery-dispositions/{caseId}/authorize-redirect",
+			dispositionHandler.AuthorizeRedirect,
+		)
+		r.With(internalAuth.Middleware).Post(
+			"/internal/v1/delivery-dispositions/{caseId}/hold",
+			dispositionHandler.Hold,
+		)
+		r.With(internalAuth.Middleware).Post(
+			"/internal/v1/delivery-dispositions/{caseId}/complete",
+			dispositionHandler.Complete,
 		)
 	}
 

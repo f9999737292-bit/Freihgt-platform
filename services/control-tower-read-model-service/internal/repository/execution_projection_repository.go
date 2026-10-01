@@ -96,6 +96,8 @@ func (r *ExecutionProjectionRepository) ApplyRecord(ctx context.Context, payload
 	switch kind {
 	case domain.RouteApproach:
 		return r.applyApproach(ctx, payload, meta, receivedAt)
+	case domain.RouteDisposition:
+		return r.applyDisposition(ctx, payload, meta, receivedAt)
 	case domain.RouteExecution:
 		return r.applyExecution(ctx, payload, meta, receivedAt)
 	default:

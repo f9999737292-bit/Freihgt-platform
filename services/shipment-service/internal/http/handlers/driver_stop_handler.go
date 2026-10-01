@@ -75,6 +75,92 @@ func (h *DriverStopHandler) Fail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type driverDispositionRequest struct {
+	ShipmentID       string                    `json:"shipmentId"`
+	CargoID          string                    `json:"cargoId"`
+	AcceptedQuantity int                       `json:"acceptedQuantity"`
+	RejectedQuantity int                       `json:"rejectedQuantity"`
+	UOM              string                    `json:"uom"`
+	ReasonCode       string                    `json:"reasonCode"`
+	ReasonComment    string                    `json:"reasonComment"`
+	OccurredAt       *string                   `json:"occurredAt"`
+	Evidence         []dispositionEvidenceBody `json:"evidence"`
+}
+
+// ReportDisposition records accepted and rejected quantity for the authenticated driver.
+// Actor, tenant, execution, and revision are taken from the server. Return and redirect are not on this route.
+func (h *DriverStopHandler) ReportDisposition(w http.ResponseWriter, r *http.Request) {
+	tenantID, userID, err := resolveDriverContext(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	stopID, err := domain.ParseUUID(chi.URLParam(r, "stopId"), "stopId")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	actionID, err := domain.ParseUUID(chi.URLParam(r, "actionId"), "actionId")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if key == "" {
+		respond.Error(w, apperrors.Validation("Idempotency-Key is required", map[string]any{"field": "Idempotency-Key"}))
+		return
+	}
+	var req driverDispositionRequest
+	if err := decodeStrictJSON(r, &req); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipmentID, err := domain.ParseUUID(req.ShipmentID, "shipmentId")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	cargoID, err := domain.ParseUUID(req.CargoID, "cargoId")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	occurred := time.Now().UTC()
+	if req.OccurredAt != nil && strings.TrimSpace(*req.OccurredAt) != "" {
+		parsed, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(*req.OccurredAt))
+		if parseErr != nil {
+			respond.Error(w, apperrors.Validation("occurredAt must be RFC3339", map[string]any{"field": "occurredAt"}))
+			return
+		}
+		occurred = parsed
+	}
+	evidence := make([]domain.DeliveryEvidenceRef, len(req.Evidence))
+	for i, item := range req.Evidence {
+		evidence[i] = domain.DeliveryEvidenceRef{EvidenceType: item.EvidenceType, Source: item.Source, ReferenceID: item.ReferenceID}
+	}
+	result, err := h.service.ReportDeliveryDisposition(r.Context(), tenantID, userID, service.DriverDispositionInput{
+		StopID: stopID, ActionID: actionID, ShipmentID: shipmentID, CargoID: cargoID,
+		Accepted: req.AcceptedQuantity, Rejected: req.RejectedQuantity, UOM: req.UOM,
+		ReasonCode: req.ReasonCode, ReasonComment: req.ReasonComment, IdempotencyKey: key,
+		OccurredAt: occurred, Evidence: evidence,
+	})
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	body := map[string]any{
+		"executionId": result.ExecutionID.String(), "status": result.Status,
+		"acceptedQuantity": result.AcceptedQuantity, "rejectedQuantity": result.RejectedQuantity,
+		"revisionId": result.RevisionID.String(), "replayed": result.Replayed,
+	}
+	if result.CaseID != nil {
+		body["caseId"] = result.CaseID.String()
+	} else {
+		body["caseId"] = nil
+	}
+	respond.JSON(w, http.StatusOK, body)
+}
+
 func (h *DriverStopHandler) command(
 	w http.ResponseWriter,
 	r *http.Request,
