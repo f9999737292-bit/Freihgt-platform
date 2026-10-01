@@ -46,7 +46,10 @@ const (
 	ActionStatusFailed    = "FAILED"
 	ActionStatusCancelled = "CANCELLED"
 
-	MembershipIntroduced = "INTRODUCED"
+	MembershipIntroduced         = "INTRODUCED"
+	MembershipInheritedCompleted = "INHERITED_COMPLETED"
+	MembershipInheritedInService = "INHERITED_IN_SERVICE"
+	MembershipSuperseded         = "SUPERSEDED"
 
 	RouteSubjectLoadOpportunity = "LOAD_OPPORTUNITY"
 	RouteSubjectShipmentCargo   = "SHIPMENT_CARGO"

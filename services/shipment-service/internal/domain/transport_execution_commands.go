@@ -13,16 +13,17 @@ import (
 )
 
 const (
-	CommandArriveStop           = "ARRIVE_STOP"
-	CommandStartStopService     = "START_STOP_SERVICE"
-	CommandCompleteStop         = "COMPLETE_STOP"
-	CommandSkipStop             = "SKIP_STOP"
-	CommandCancelRemainingStops = "CANCEL_REMAINING_STOPS"
-	CommandCancelInServiceStop  = "CANCEL_IN_SERVICE_STOP"
-	CommandConfirmPickup        = "CONFIRM_PICKUP"
-	CommandConfirmDelivery      = "CONFIRM_DELIVERY"
-	CommandFailAction           = "FAIL_ACTION"
-	CommandDepartedPickup       = "DEPARTED_PICKUP"
+	CommandArriveStop              = "ARRIVE_STOP"
+	CommandStartStopService        = "START_STOP_SERVICE"
+	CommandCompleteStop            = "COMPLETE_STOP"
+	CommandSkipStop                = "SKIP_STOP"
+	CommandCancelRemainingStops    = "CANCEL_REMAINING_STOPS"
+	CommandCancelInServiceStop     = "CANCEL_IN_SERVICE_STOP"
+	CommandConfirmPickup           = "CONFIRM_PICKUP"
+	CommandConfirmDelivery         = "CONFIRM_DELIVERY"
+	CommandFailAction              = "FAIL_ACTION"
+	CommandDepartedPickup          = "DEPARTED_PICKUP"
+	CommandCreateSuccessorRevision = "CREATE_SUCCESSOR_REVISION"
 
 	ActorKindDriver   = "DRIVER"
 	ActorKindOperator = "OPERATOR"
@@ -33,6 +34,7 @@ const (
 	OutboxAggregateTypeTransportExecution = "TRANSPORT_EXECUTION"
 
 	EventExecutionPlanCreated        = "shipment.execution_plan.created"
+	EventExecutionPlanSuperseded     = "shipment.execution_plan.superseded"
 	EventRouteStopCurrent            = "shipment.route_stop.current"
 	EventRouteStopArrived            = "shipment.route_stop.arrived"
 	EventRouteStopServiceStarted     = "shipment.route_stop.service_started"
@@ -54,13 +56,16 @@ const (
 	ReasonDriverExecutionAmbiguous = "DRIVER_EXECUTION_AMBIGUOUS"
 	ReasonNotParticipant           = "NOT_PARTICIPANT"
 	ReasonTenantDenied             = "TENANT_DENIED"
+	ReasonRevisionConflict         = "REVISION_CONFLICT"
+	ReasonExecutionStopInService   = "EXECUTION_STOP_IN_SERVICE"
+	ReasonNoRemainingRoute         = "NO_REMAINING_ROUTE"
 	ReasonTerminalStop             = "TERMINAL_STOP"
 	ReasonTerminalAction           = "TERMINAL_ACTION"
 )
 
 func IsExecutionKafkaEventType(eventType string) bool {
 	switch strings.TrimSpace(eventType) {
-	case EventExecutionPlanCreated, EventRouteStopCurrent, EventRouteStopArrived, EventRouteStopServiceStarted, EventRouteStopCompleted, EventRouteStopSequenceOverridden:
+	case EventExecutionPlanCreated, EventExecutionPlanSuperseded, EventRouteStopCurrent, EventRouteStopArrived, EventRouteStopServiceStarted, EventRouteStopCompleted, EventRouteStopSequenceOverridden:
 		return true
 	default:
 		return false

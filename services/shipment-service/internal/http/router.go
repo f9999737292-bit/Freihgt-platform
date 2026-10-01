@@ -48,6 +48,10 @@ func NewRouter(
 	vehicleCapabilityHandler := handlers.NewVehicleCapabilityHandler(vehicleSvc)
 	evidenceHandler := handlers.NewExecutionEvidenceHandler(evidenceSvc)
 	trackingContextHandler := handlers.NewTrackingContextHandler(trackingContext)
+	var successorHandler *handlers.SuccessorRevisionHandler
+	if writer, ok := trackingContext.(handlers.SuccessorRevisionWriter); ok {
+		successorHandler = handlers.NewSuccessorRevisionHandler(writer)
+	}
 	internalAuth := internalauth.Config{Token: internalToken}
 
 	r := chi.NewRouter()
@@ -134,6 +138,12 @@ func NewRouter(
 		"/internal/v1/transport-executions/{executionId}/stops/{stopId}/tracking-context",
 		trackingContextHandler.Get,
 	)
+	if successorHandler != nil {
+		r.With(internalAuth.Middleware).Post(
+			"/internal/v1/transport-executions/{executionId}/successor-revision",
+			successorHandler.Create,
+		)
+	}
 
 	r.Route("/internal/v1/driver", func(r chi.Router) {
 		r.Post("/tasks", internalTaskHandler.CreateTask)

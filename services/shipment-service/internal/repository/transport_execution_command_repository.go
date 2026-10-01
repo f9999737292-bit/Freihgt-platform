@@ -1269,7 +1269,7 @@ func emitExecutionEvent(ctx context.Context, tx pgx.Tx, scope commandScope, even
 	})
 }
 
-func emitExecutionPlanCreated(ctx context.Context, tx pgx.Tx, operatingTenant, executionID, revisionID uuid.UUID, occurred time.Time) error {
+func emitExecutionPlanCreated(ctx context.Context, tx pgx.Tx, operatingTenant, executionID, revisionID uuid.UUID, occurred time.Time, membership string) error {
 	var version int
 	var carrier uuid.UUID
 	var driverID, vehicleID *uuid.UUID
@@ -1286,9 +1286,9 @@ func emitExecutionPlanCreated(ctx context.Context, tx pgx.Tx, operatingTenant, e
 		       s.planned_arrival, s.planned_departure, s.status
 		FROM transport.transport_execution_revision_stops rs
 		JOIN transport.transport_execution_stops s ON s.id = rs.stop_id
-		WHERE rs.revision_id = $1
+		WHERE rs.revision_id = $1 AND ($2 = '' OR rs.membership = $2)
 		ORDER BY rs.source_ordinal
-	`, revisionID)
+	`, revisionID, membership)
 	if err != nil {
 		return mapDBError(err)
 	}
@@ -1316,9 +1316,9 @@ func emitExecutionPlanCreated(ctx context.Context, tx pgx.Tx, operatingTenant, e
 		SELECT a.id, a.execution_stop_id, a.action_type, a.shipment_id, a.cargo_id, a.status
 		FROM transport.transport_execution_revision_actions ra
 		JOIN transport.transport_execution_actions a ON a.id = ra.action_id
-		WHERE ra.revision_id = $1
+		WHERE ra.revision_id = $1 AND ($2 = '' OR ra.membership = $2)
 		ORDER BY a.ordinal
-	`, revisionID)
+	`, revisionID, membership)
 	if err != nil {
 		return mapDBError(err)
 	}
