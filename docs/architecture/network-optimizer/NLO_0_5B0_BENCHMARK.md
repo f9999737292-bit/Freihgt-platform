@@ -20,7 +20,7 @@ P95_MS=2
 P99_MS=2
 ```
 
-Smaller pools are often below the clock resolution, so a zero microsecond sample means less than one millisecond, not zero work. Metro, regional highway, and sparse long-haul at 1,000 points are the same order. This is algorithm time only.
+Smaller pools are often below the clock resolution, so a zero microsecond sample means less than one millisecond, not zero work. Metro, regional highway, and sparse long-haul at 1,000 points are the same order. The published milliseconds are that local prefilter rounded from one workstation sample of 31 rounds, using index `floor((n-1)*q)`. The test does not assert those milliseconds. They are not NLO search latency.
 
 ## Call accounting
 

@@ -37,9 +37,22 @@ PARALLELISM=1
 RETRY_COUNT=0
 ```
 
-Discovery 1,000 is the largest pool whose local prefilter was measured, and that stage stayed under 2 milliseconds P99. Routing 25 is one synchronous matrix page. Final evaluation is the same 25 because scoring does not make another provider call. The four matrix calls and two route calls are the ellipse shape at that page: deadhead, two direction batches, one loaded-leg page, plus the two release-to-target routes.
+Discovery 1,000 is the largest pool whose local prefilter was measured. That P99 is about 2 milliseconds of local projection time on one workstation. It is not search latency and not provider latency. Routing 25 is one synchronous matrix page. Final evaluation is the same 25 because scoring does not make another provider call. The four matrix calls and two route calls are the ellipse shape at that page: deadhead, two direction batches, one loaded-leg page, plus the two release-to-target routes.
 
-A provider timeout, 429, 5xx, invalid body, missing route, or open circuit does not retry and does not fall back to Haversine. The candidate is `ROAD_DISTANCE_UNKNOWN` unless every required road term is already present. A partial matrix keeps only cells without an error. When the hard budget is reached, no further call starts. Already complete candidates remain, in the existing deterministic score order.
+```text
+CAPS_RUNTIME_ENFORCED_NOW=NO
+LOCAL_PREFILTER_LATENCY_ONLY=YES
+PROVIDER_SLA_PROVEN=NO
+PROVIDER_LATENCY_BENCHMARKED=NO
+SEARCH_HARD_BUDGET_IS_SAFETY_WATCHDOG=YES
+SEARCH_SOFT_BUDGET_IS_PROVIDER_SLO=NO
+```
+
+`REQUEST_TIMEOUT_MS` is the existing HTTP client timeout. `SEARCH_SOFT_BUDGET_MS` is that same timeout: one timed-out call ends the search. `SEARCH_HARD_BUDGET_MS` and `TOTAL_PROVIDER_BUDGET_MS` are 6 sequential calls times that timeout. They are a safety watchdog. They are not a 2GIS SLO.
+
+The discovery cap keeps the existing marketplace order `created_at DESC, id`, then sorts that page by load id. It is not an unordered limit and it is not the 1,000 lowest load ids. Ranked output keeps the existing comparator: score descending, evidence descending, road kilometres ascending, then load id.
+
+A provider timeout, 429, 5xx, invalid body, missing route, or open circuit does not retry and does not fall back to Haversine. The current adapter has no circuit breaker; if one is added, an open circuit uses this same fail-closed rule. The candidate is `ROAD_DISTANCE_UNKNOWN` unless every required road term is already present. A partial matrix keeps only cells without an error. When the hard budget is reached, no further call starts. Already complete candidates remain, in that same comparator.
 
 Logs and metrics may count candidates, pruned rows, matrix calls, route calls, provider latency, total search time, timeouts, and degraded results. They do not carry coordinates, location ids, addresses, or provider secrets.
 

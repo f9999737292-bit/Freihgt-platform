@@ -10,7 +10,7 @@ BACKHAUL_RUNTIME_IMPLEMENTED=NO
 
 | Wave | Content | Uses |
 | --- | --- | --- |
-| NLO-0.5B1 | Stop `ListMarketplaceLoads` at the discovery cap of 1,000 after the existing visibility rules. Keep the cheap corridor or radius prefilter before any road call. | Current marketplace query |
+| NLO-0.5B1 | Stop `ListMarketplaceLoads` at 1,000 rows in the existing order `created_at DESC, id`, after the current visibility predicate. Do not add a provider call in this wave. | Current marketplace query |
 | NLO-0.5B2 | Send at most 25 prefilter survivors to the routing port. Stop at 4 matrix calls and 2 route calls. Honor the 5 second call timeout and the 30 second search watchdog. | Existing `BatchMatrix` and 2GIS adapter |
 | NLO-0.5B3 | One-load corridor and four-leg ellipse feasibility, including service duration from the NLO-0.4 policy when a plan is built. | NLO-0.5A scope |
 | NLO-0.5B4 | Score and persist that bounded run with the existing search record and score profile. | BNO-0.1C2 ranking |
