@@ -1,12 +1,12 @@
 package repository
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -709,9 +709,57 @@ type planAction struct {
 	Status     string    `json:"status"`
 }
 
+var emptyUUIDJSONKeys = map[string]struct{}{
+	"stop_id": {}, "action_id": {}, "location_id": {},
+	"carrier_company_id": {}, "driver_id": {}, "vehicle_id": {},
+}
+
+// normalizeEmptyUUIDStrings turns blank UUID fields into JSON null.
+// PostgreSQL jsonb republishes TMS payloads with a space after the colon
+// (`"action_id": ""`), which the previous exact-byte replace did not match.
+func normalizeEmptyUUIDStrings(payload []byte) []byte {
+	var decoded any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return payload
+	}
+	if !nullEmptyUUIDStrings(decoded) {
+		return payload
+	}
+	out, err := json.Marshal(decoded)
+	if err != nil {
+		return payload
+	}
+	return out
+}
+
+func nullEmptyUUIDStrings(value any) bool {
+	changed := false
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, child := range typed {
+			if _, ok := emptyUUIDJSONKeys[key]; ok {
+				if text, ok := child.(string); ok && strings.TrimSpace(text) == "" {
+					typed[key] = nil
+					changed = true
+					continue
+				}
+			}
+			if nullEmptyUUIDStrings(child) {
+				changed = true
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if nullEmptyUUIDStrings(child) {
+				changed = true
+			}
+		}
+	}
+	return changed
+}
+
 func parseExecutionEvent(payload []byte) (executionEvent, error) {
-	normalized := bytes.ReplaceAll(payload, []byte(`"stop_id":""`), []byte(`"stop_id":null`))
-	normalized = bytes.ReplaceAll(normalized, []byte(`"action_id":""`), []byte(`"action_id":null`))
+	normalized := normalizeEmptyUUIDStrings(payload)
 	var event executionEvent
 	if err := json.Unmarshal(normalized, &event); err != nil {
 		return executionEvent{}, err
