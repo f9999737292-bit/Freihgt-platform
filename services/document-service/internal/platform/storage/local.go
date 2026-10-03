@@ -9,9 +9,16 @@ import (
 	"strings"
 )
 
+type ObjectMetadata struct {
+	SizeBytes int64
+}
+
 type ObjectStore interface {
 	Put(ctx context.Context, objectKey string, reader io.Reader, maxBytes int64) (int64, error)
+	Get(ctx context.Context, objectKey string) (io.ReadCloser, error)
 	Exists(ctx context.Context, objectKey string) (bool, error)
+	Metadata(ctx context.Context, objectKey string) (ObjectMetadata, error)
+	Delete(ctx context.Context, objectKey string) error
 }
 
 type LocalObjectStore struct {
@@ -72,6 +79,45 @@ func (s *LocalObjectStore) Put(ctx context.Context, objectKey string, reader io.
 		return 0, err
 	}
 	return written, nil
+}
+
+func (s *LocalObjectStore) Get(ctx context.Context, objectKey string) (io.ReadCloser, error) {
+	_ = ctx
+	path, err := s.objectPath(objectKey)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
+func (s *LocalObjectStore) Metadata(ctx context.Context, objectKey string) (ObjectMetadata, error) {
+	_ = ctx
+	path, err := s.objectPath(objectKey)
+	if err != nil {
+		return ObjectMetadata{}, err
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return ObjectMetadata{}, err
+	}
+	return ObjectMetadata{SizeBytes: info.Size()}, nil
+}
+
+func (s *LocalObjectStore) Delete(ctx context.Context, objectKey string) error {
+	_ = ctx
+	path, err := s.objectPath(objectKey)
+	if err != nil {
+		return err
+	}
+	err = os.Remove(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 func (s *LocalObjectStore) Exists(ctx context.Context, objectKey string) (bool, error) {
