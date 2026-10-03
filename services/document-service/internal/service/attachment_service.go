@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -96,8 +97,25 @@ func (s *AttachmentService) Create(ctx context.Context, documentID uuid.UUID, in
 	}
 	id := uuid.New()
 	key := fmt.Sprintf("tenants/%s/documents/%s/attachments/%s", in.TenantID, documentID, id)
-	if _, err := s.store.Put(ctx, key, bytes.NewReader(content), s.maxByte); err != nil {
-		return nil, apperrors.Internal("failed to store attachment", err)
+	if err := storage.ValidateObjectKey(key); err != nil {
+		return nil, mapStoreErr(err)
+	}
+	exists, err := s.store.Exists(ctx, key)
+	if err != nil {
+		return nil, mapStoreErr(err)
+	}
+	if exists {
+		return nil, apperrors.Conflict("object already exists", map[string]any{"error_code": "OBJECT_UPLOAD_FAILED"})
+	}
+	putCtx := storage.WithUserMetadata(ctx, map[string]string{
+		"attachment_id": id.String(),
+		"document_id":   documentID.String(),
+		"tenant_id":     in.TenantID.String(),
+		"sha256":        sum,
+		"media_type":    media,
+	})
+	if _, err := s.store.Put(putCtx, key, bytes.NewReader(content), s.maxByte); err != nil {
+		return nil, mapStoreErr(err)
 	}
 	var idem *string
 	if in.IdempotencyKey != "" {
@@ -130,17 +148,9 @@ func (s *AttachmentService) Open(ctx context.Context, tenantID, documentID, atta
 	if err != nil {
 		return nil, nil, err
 	}
-	body, err := s.store.Get(ctx, item.StorageKey)
-	if err != nil {
-		return nil, nil, apperrors.NotFound("attachment content not found")
-	}
-	content, err := io.ReadAll(body)
-	_ = body.Close()
+	content, err := s.readVerified(ctx, item)
 	if err != nil {
 		return nil, nil, err
-	}
-	if domain.SHA256Hex(content) != item.SHA256 || int64(len(content)) != item.SizeBytes {
-		return nil, nil, apperrors.Conflict("attachment bytes do not match the stored digest", map[string]any{"field": "sha256"})
 	}
 	return item, io.NopCloser(bytes.NewReader(content)), nil
 }
@@ -152,6 +162,9 @@ func (s *AttachmentService) Finalize(ctx context.Context, tenantID, documentID, 
 	}
 	if current.Status == domain.AttachmentStatusFinalized {
 		return current, nil
+	}
+	if _, err := s.readVerified(ctx, current); err != nil {
+		return nil, err
 	}
 	item, err := s.repo.Finalize(ctx, tenantID, documentID, attachmentID, time.Now().UTC())
 	if err != nil {
@@ -168,6 +181,56 @@ func (s *AttachmentService) Finalize(ctx context.Context, tenantID, documentID, 
 		return nil, err
 	}
 	return item, nil
+}
+
+func (s *AttachmentService) DeleteDraft(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) error {
+	item, err := s.Get(ctx, tenantID, documentID, attachmentID)
+	if err != nil {
+		return err
+	}
+	if item.Status != domain.AttachmentStatusDraft {
+		return apperrors.Conflict("finalized object delete is not allowed", map[string]any{"error_code": "OBJECT_UPLOAD_FAILED"})
+	}
+	if err := s.store.Delete(ctx, item.StorageKey); err != nil {
+		return mapStoreErr(err)
+	}
+	return s.repo.DeleteDraft(ctx, tenantID, documentID, attachmentID)
+}
+
+func (s *AttachmentService) readVerified(ctx context.Context, item *domain.Attachment) ([]byte, error) {
+	body, err := s.store.Get(ctx, item.StorageKey)
+	if err != nil {
+		return nil, mapStoreErr(err)
+	}
+	content, err := io.ReadAll(io.LimitReader(body, s.maxByte+1))
+	_ = body.Close()
+	if err != nil {
+		return nil, mapStoreErr(err)
+	}
+	if int64(len(content)) > s.maxByte || domain.SHA256Hex(content) != item.SHA256 || int64(len(content)) != item.SizeBytes {
+		storage.RecordIntegrityFailure()
+		return nil, apperrors.Conflict("object integrity mismatch", map[string]any{"error_code": "OBJECT_INTEGRITY_MISMATCH"})
+	}
+	return content, nil
+}
+
+func mapStoreErr(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, storage.ErrObjectNotFound):
+		return apperrors.NotFound("object not found")
+	case errors.Is(err, storage.ErrObjectExists):
+		return apperrors.Conflict("object already exists", map[string]any{"error_code": "OBJECT_UPLOAD_FAILED"})
+	case errors.Is(err, storage.ErrIntegrityMismatch):
+		return apperrors.Conflict("object integrity mismatch", map[string]any{"error_code": "OBJECT_INTEGRITY_MISMATCH"})
+	case errors.Is(err, storage.ErrStorageUnavailable), errors.Is(err, storage.ErrInvalidStorageConfig):
+		return apperrors.Internal("object storage unavailable", nil)
+	case errors.Is(err, storage.ErrDownloadFailed):
+		return apperrors.Internal("object download failed", nil)
+	default:
+		return apperrors.Internal("object upload failed", nil)
+	}
 }
 
 type AttachSignatureInput struct {

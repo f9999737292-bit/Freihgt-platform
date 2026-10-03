@@ -45,9 +45,14 @@ func main() {
 
 	docSvc := service.NewDocumentService(docRepo)
 	signingSvc := service.NewSigningService(signingRepo, docRepo)
-	store, err := storage.NewLocalObjectStore(cfg.StorageRoot)
+	objectCfg, err := storage.LoadConfig(cfg.StorageRoot)
 	if err != nil {
-		log.Error("failed to init object storage", slog.String("error", err.Error()))
+		log.Error("failed to init object storage", slog.String("error", "object storage configuration is invalid"))
+		os.Exit(1)
+	}
+	store, err := storage.Open(objectCfg)
+	if err != nil {
+		log.Error("failed to init object storage", slog.String("error", "object storage configuration is invalid"))
 		os.Exit(1)
 	}
 	attachmentSvc := service.NewAttachmentService(docRepo, store, repository.NewAttachmentRepository(db.Pool))

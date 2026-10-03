@@ -117,6 +117,20 @@ func (r *AttachmentRepository) InsertSignature(ctx context.Context, item domain.
 	return tx.Commit(ctx)
 }
 
+func (r *AttachmentRepository) DeleteDraft(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx, `
+		DELETE FROM documents.document_attachments
+		WHERE id = $1 AND document_id = $2 AND tenant_id = $3 AND status = 'DRAFT'`,
+		attachmentID, documentID, tenantID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return apperrors.Conflict("finalized object delete is not allowed", map[string]any{"error_code": "OBJECT_UPLOAD_FAILED"})
+	}
+	return nil
+}
+
 func (r *AttachmentRepository) GetSignature(ctx context.Context, tenantID, attachmentID, signatureID uuid.UUID) (*domain.AttachmentSignature, error) {
 	row := r.pool.QueryRow(ctx, `
 		SELECT id, attachment_id, tenant_id, signature_format, signature_reference,

@@ -89,7 +89,10 @@ func (s *LocalObjectStore) Get(ctx context.Context, objectKey string) (io.ReadCl
 	}
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		if os.IsNotExist(err) {
+			return nil, ErrObjectNotFound
+		}
+		return nil, ErrDownloadFailed
 	}
 	return file, nil
 }
@@ -102,7 +105,10 @@ func (s *LocalObjectStore) Metadata(ctx context.Context, objectKey string) (Obje
 	}
 	info, err := os.Stat(path)
 	if err != nil {
-		return ObjectMetadata{}, err
+		if os.IsNotExist(err) {
+			return ObjectMetadata{}, ErrObjectNotFound
+		}
+		return ObjectMetadata{}, ErrStorageUnavailable
 	}
 	return ObjectMetadata{SizeBytes: info.Size()}, nil
 }
