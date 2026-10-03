@@ -254,6 +254,12 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/documents/{id}", "get", "Get document by ID", "Documents", True, True, None),
     ("/api/v1/documents/{id}/versions", "post", "Create document version", "Documents", True, True, None),
     ("/api/v1/documents/{id}/files", "post", "Add document file metadata", "Documents", True, True, None),
+    ("/api/v1/documents/{id}/attachments", "post", "Upload a document attachment and store the server SHA-256", "Documents", True, True, "edo_attachment_create"),
+    ("/api/v1/documents/{id}/attachments/{attachmentId}", "get", "Get attachment metadata", "Documents", True, True, "edo_attachment_get"),
+    ("/api/v1/documents/{id}/attachments/{attachmentId}/content", "get", "Download attachment bytes", "Documents", True, True, "edo_attachment_content"),
+    ("/api/v1/documents/{id}/attachments/{attachmentId}/finalize", "post", "Finalize an attachment", "Documents", True, True, "edo_attachment_finalize"),
+    ("/api/v1/documents/{id}/attachments/{attachmentId}/signatures", "post", "Attach signature metadata", "Documents", True, True, "edo_attachment_signature_create"),
+    ("/api/v1/documents/{id}/attachments/{attachmentId}/signatures/{signatureId}", "get", "Get attachment signature verification status", "Documents", True, True, "edo_attachment_signature_get"),
     ("/api/v1/documents/{id}/ready-for-signing", "post", "Move document to ready for signing", "Documents", True, True, None),
     ("/api/v1/documents/{id}/signing-sessions", "post", "Create signing session", "Signing", True, True, None),
     ("/api/v1/documents/{id}/cancel", "post", "Cancel document", "Documents", True, True, None),
@@ -479,6 +485,7 @@ NO_REQUEST_BODY_PROFILES = frozenset({
     "tl_archive",
     "tl_fork_draft",
     "tl_delete",
+    "edo_attachment_finalize",
 })
 
 QUESTIONNAIRE_NO_CONTENT_PROFILES = frozenset({
@@ -612,6 +619,12 @@ PROFILE_OPERATION_IDS = {
     "erp_get_integration_capabilities": "getErpIntegrationCapabilities",
     "carrier_invited_event_get": "get_carrier_invited_rfx_event",
     "xlsx_create_template_buyer_draft": "get_buyer_new_rfx_event_xlsx_create_template",
+    "edo_attachment_create": "post_document_attachment",
+    "edo_attachment_get": "get_document_attachment",
+    "edo_attachment_content": "get_document_attachment_content",
+    "edo_attachment_finalize": "post_document_attachment_finalize",
+    "edo_attachment_signature_create": "post_document_attachment_signature",
+    "edo_attachment_signature_get": "get_document_attachment_signature",
 }
 
 EXCEL_EXCHANGE_COMMIT_PROFILES = frozenset({"xlsx_import_commit_buyer_draft", "xlsx_import_commit_carrier_response"})
@@ -1441,6 +1454,42 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
+    elif profile == "edo_attachment_create":
+        lines.extend([
+            "        - name: X-File-Name",
+            "          in: header",
+            "          required: true",
+            "          description: Basename only. Path separators and parent segments are rejected.",
+            "          schema:",
+            "            type: string",
+            "        - name: X-Document-Version-ID",
+            "          in: header",
+            "          required: false",
+            "          schema:",
+            "            type: string",
+            "            format: uuid",
+            "        - name: X-Content-SHA256",
+            "          in: header",
+            "          required: false",
+            "          description: Optional client checksum. The server SHA-256 is canonical and must match when this header is sent.",
+            "          schema:",
+            "            type: string",
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: false",
+            "          schema:",
+            "            type: string",
+            "            maxLength: 128",
+        ])
+    elif profile == "edo_attachment_signature_create":
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: false",
+            "          schema:",
+            "            type: string",
+            "            maxLength: 128",
+        ])
     elif profile in {"bno_foundation_mutation", "bno_prediction"} and method == "post":
         lines.extend([
             "        - name: Idempotency-Key",
@@ -1675,7 +1724,19 @@ def render_operation(
         )
         return "\n".join(lines)
 
-    if (
+    if profile == "edo_attachment_create":
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          application/octet-stream:",
+                "            schema:",
+                "              type: string",
+                "              format: binary",
+            ]
+        )
+    elif (
         method in {"post", "patch", "put"}
         and profile not in NO_REQUEST_BODY_PROFILES
         and profile not in EXCEL_EXCHANGE_PREVIEW_PROFILES
@@ -1793,6 +1854,27 @@ def render_operation(
             )
         binary_lines.append("")
         lines.extend(binary_lines)
+        return "\n".join(lines)
+
+    if profile == "edo_attachment_content":
+        lines.extend(
+            [
+                "      responses:",
+                "        '200':",
+                "          description: Attachment bytes. X-Content-SHA256 is the stored server digest.",
+                "          headers:",
+                "            X-Content-SHA256:",
+                "              schema:",
+                "                type: string",
+                "          content:",
+                "            application/octet-stream:",
+                "              schema:",
+                "                type: string",
+                "                format: binary",
+                ERROR_RESPONSES.rstrip("\n"),
+                "",
+            ]
+        )
         return "\n".join(lines)
 
     if profile in EXCEL_EXCHANGE_PREVIEW_PROFILES:
@@ -2174,6 +2256,8 @@ def render_operation(
         success_code = "200"
     elif profile in {"driver_stop_list", "driver_stop_command", "driver_stop_fail"}:
         success_code = "200"
+    elif profile == "edo_attachment_finalize":
+        success_code = "200"
     elif profile == "bno_compatibility":
         success_code = "200" if method != "post" or path.endswith("/evaluate") or path.endswith("/activate") or path.endswith("/retire") else "201"
     elif method == "post" and tag not in {"Gateway", "Auth"}:
@@ -2187,6 +2271,12 @@ def render_operation(
         success_desc = "Payment voided or idempotent success"
     elif profile == "reconcile_payment":
         success_desc = "Payment reconciled or idempotent success"
+    elif profile == "edo_attachment_finalize":
+        success_desc = "Attachment finalized. A repeat finalize returns the same row."
+    elif profile == "edo_attachment_signature_create":
+        success_desc = "Signature metadata stored with verification_status UNVERIFIED. No cryptographic verifier runs."
+    elif profile == "edo_attachment_signature_get":
+        success_desc = "Signature metadata. verification_status stays UNVERIFIED without a cryptographic verifier."
 
     response_schema = READ_RESPONSE_SCHEMAS.get(profile or "")
     if profile == "bno_compatibility" and path.endswith("/evaluate"):
