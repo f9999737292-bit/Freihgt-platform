@@ -98,7 +98,7 @@ func TestConcurrentExceptionIdempotency(t *testing.T) {
 
 	outboxCount := countRows(ctx, env.pool, `
 		SELECT COUNT(*) FROM transport.shipment_event_outbox
-		WHERE tenant_id=$1 AND event_type='driver.exception_reported' AND aggregate_id=$2`,
+		WHERE tenant_id=$1 AND event_type='driver.problem.reported' AND aggregate_id=$2`,
 		fix.TenantID, fix.ShipmentID)
 	require.Equal(t, int64(1), outboxCount)
 }
@@ -140,7 +140,7 @@ func seedSecondDriverShipment(t *testing.T, pool *pgxpool.Pool, tenantID, carrie
 	destID := uuid.New()
 	orderID := uuid.New()
 	for _, row := range []struct {
-		id uuid.UUID
+		id        uuid.UUID
 		typ, name string
 	}{
 		{shipperID, "SHIPPER", "Shipper B"},
@@ -151,7 +151,7 @@ func seedSecondDriverShipment(t *testing.T, pool *pgxpool.Pool, tenantID, carrie
 		require.NoError(t, err)
 	}
 	for _, loc := range []struct {
-		id uuid.UUID
+		id   uuid.UUID
 		name string
 	}{
 		{originID, "Origin B"},

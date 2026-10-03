@@ -176,7 +176,7 @@ func (s *Service) processRecord(ctx context.Context, record *kgo.Record) bool {
 
 	kind, _ := domain.ClassifyEventPayload(record.Value)
 	switch kind {
-	case domain.RouteExecution, domain.RouteApproach:
+	case domain.RouteExecution, domain.RouteApproach, domain.RouteDisposition:
 		if s.execution == nil {
 			s.metrics.ObserveError("EXECUTION_APPLIER_MISSING")
 			return false
@@ -189,6 +189,7 @@ func (s *Service) processRecord(ctx context.Context, record *kgo.Record) bool {
 				slog.Int64("offset", meta.Offset),
 				slog.String("error", err.Error()),
 			)
+			s.rewindRecord(record)
 			return false
 		}
 		return s.commitRecord(ctx, record, meta, "")
@@ -235,6 +236,17 @@ func (s *Service) processRecord(ctx context.Context, record *kgo.Record) bool {
 	}
 
 	return s.commitRecord(ctx, record, meta, event.EventID.String())
+}
+
+func (s *Service) rewindRecord(record *kgo.Record) {
+	if s.client == nil || record == nil {
+		return
+	}
+	s.client.SetOffsets(map[string]map[int32]kgo.EpochOffset{
+		record.Topic: {
+			record.Partition: {Offset: record.Offset},
+		},
+	})
 }
 
 func (s *Service) commitRecord(ctx context.Context, record *kgo.Record, meta domain.KafkaRecordMeta, eventID string) bool {
