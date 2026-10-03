@@ -56,6 +56,9 @@ type Tx interface {
 	GetLoad(context.Context, uuid.UUID) (domain.LoadOpportunity, error)
 	ListOwnLoads(context.Context, uuid.UUID, int, int) ([]domain.LoadOpportunity, error)
 	ListMarketplaceLoads(context.Context, uuid.UUID, *uuid.UUID, int, int) ([]domain.LoadOpportunity, error)
+	// CountMarketplaceLoads counts the same visibility predicate as ListMarketplaceLoads.
+	// It does not load those rows into memory.
+	CountMarketplaceLoads(context.Context, uuid.UUID, *uuid.UUID) (int, error)
 	// ListPublicConsolidationPool is the carrier consolidation source.
 	// It is not the human marketplace list.
 	ListPublicConsolidationPool(context.Context, uuid.UUID, *uuid.UUID) ([]domain.LoadOpportunity, error)

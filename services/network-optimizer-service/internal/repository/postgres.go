@@ -224,19 +224,31 @@ func (t *pgTx) ListPublicConsolidationPoolLimited(ctx context.Context, viewer uu
 	return scanLoads(rows)
 }
 
+// marketplaceVisibilitySQL is the tenant and publication predicate for marketplace discovery.
+// $1 is the viewer tenant. $2 is the viewer company, used only for invited-carrier rows.
+const marketplaceVisibilitySQL = `status='PUBLISHED' AND owner_tenant_id <> $1 AND (
+			visibility_scope IN ('MARKETPLACE', 'ANONYMIZED_MARKETPLACE')
+			OR (visibility_scope='INVITED_CARRIERS' AND $2::uuid IS NOT NULL AND $2 = ANY(invited_carrier_company_ids))
+		)`
+
 func (t *pgTx) ListMarketplaceLoads(ctx context.Context, viewer uuid.UUID, company *uuid.UUID, limit, offset int) ([]domain.LoadOpportunity, error) {
 	rows, err := t.tx.Query(ctx, `
 		SELECT `+loadColumns+` FROM network_optimizer.load_opportunities
-		WHERE status='PUBLISHED' AND owner_tenant_id <> $1 AND (
-			visibility_scope IN ('MARKETPLACE', 'ANONYMIZED_MARKETPLACE')
-			OR (visibility_scope='INVITED_CARRIERS' AND $2::uuid IS NOT NULL AND $2 = ANY(invited_carrier_company_ids))
-		)
+		WHERE `+marketplaceVisibilitySQL+`
 		ORDER BY created_at DESC, id LIMIT $3 OFFSET $4`, viewer, company, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	return scanLoads(rows)
+}
+
+func (t *pgTx) CountMarketplaceLoads(ctx context.Context, viewer uuid.UUID, company *uuid.UUID) (int, error) {
+	var n int
+	err := t.tx.QueryRow(ctx, `
+		SELECT count(*) FROM network_optimizer.load_opportunities
+		WHERE `+marketplaceVisibilitySQL, viewer, company).Scan(&n)
+	return n, err
 }
 
 func (t *pgTx) ActiveLoadBySource(ctx context.Context, tenant uuid.UUID, sourceType string, sourceID uuid.UUID) (domain.LoadOpportunity, error) {
