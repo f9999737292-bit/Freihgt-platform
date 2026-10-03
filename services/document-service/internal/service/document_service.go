@@ -110,8 +110,12 @@ func (s *DocumentService) AddFile(ctx context.Context, id uuid.UUID, in domain.C
 		return nil, err
 	}
 
-	if _, err := s.documents.GetByIDAndTenant(ctx, id, in.TenantID); err != nil {
+	doc, err := s.documents.GetByIDAndTenant(ctx, id, in.TenantID)
+	if err != nil {
 		return nil, err
+	}
+	if domain.IsSignedEvidenceClass(doc.DocumentStatus) {
+		return nil, apperrors.Conflict("signed document file attachment is immutable", map[string]any{"document_status": doc.DocumentStatus})
 	}
 	belongs, err := s.documents.VersionBelongsToDocument(ctx, in.DocumentVersionID, id)
 	if err != nil {
