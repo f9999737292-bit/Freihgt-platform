@@ -223,16 +223,54 @@ func (s *Service) targetRoute(ctx context.Context, tenant uuid.UUID, capacity do
 }
 
 func (s *Service) visibleLoads(ctx context.Context, actor Actor) ([]domain.LoadOpportunity, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var loads []domain.LoadOpportunity
+	var visible int
 	err := s.store.Within(ctx, func(tx repository.Tx) error {
-		rows, err := tx.ListMarketplaceLoads(ctx, actor.TenantID, actor.CompanyID, 100000, 0)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		count, err := tx.CountMarketplaceLoads(ctx, actor.TenantID, actor.CompanyID)
 		if err != nil {
 			return err
 		}
-		loads = rows
+		rows, err := tx.ListMarketplaceLoads(ctx, actor.TenantID, actor.CompanyID, domain.CandidateDiscoveryCap, 0)
+		if err != nil {
+			return err
+		}
+		visible = count
+		loads = boundDiscoveryCandidates(rows)
 		return nil
 	})
-	return loads, err
+	if err != nil {
+		return nil, err
+	}
+	pruned := visible - len(loads)
+	if pruned < 0 {
+		pruned = 0
+	}
+	bnometrics.RecordCandidateDiscovery(visible, visible, pruned, len(loads))
+	return loads, nil
+}
+
+// boundDiscoveryCandidates keeps the first CandidateDiscoveryCap rows and drops a repeated load id.
+// The caller supplies rows already ordered by created_at DESC, id. This function does not reshuffle them.
+func boundDiscoveryCandidates(rows []domain.LoadOpportunity) []domain.LoadOpportunity {
+	seen := make(map[uuid.UUID]struct{}, len(rows))
+	out := make([]domain.LoadOpportunity, 0, len(rows))
+	for _, row := range rows {
+		if _, ok := seen[row.ID]; ok {
+			continue
+		}
+		seen[row.ID] = struct{}{}
+		out = append(out, row)
+		if len(out) == domain.CandidateDiscoveryCap {
+			break
+		}
+	}
+	return out
 }
 
 type evaluatedLoad struct {
@@ -302,6 +340,7 @@ func (s *Service) evaluateLoads(ctx context.Context, tenant uuid.UUID, capacity 
 		prefiltered = append(prefiltered, load)
 		early[load.ID] = item
 	}
+	bnometrics.RecordCandidatePrefilterPass(len(prefiltered))
 	roads := s.roadFacts(ctx, release, target, availableAt, policy, prefiltered)
 	out := make([]evaluatedLoad, 0, len(loads))
 	for _, load := range loads {
