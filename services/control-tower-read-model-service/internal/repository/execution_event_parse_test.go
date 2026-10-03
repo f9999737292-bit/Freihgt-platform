@@ -10,6 +10,39 @@ import (
 	"github.com/freight-platform/control-tower-read-model-service/internal/domain"
 )
 
+func TestParseExecutionEventAcceptsActionIDForms(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		action string
+	}{
+		{name: "CT-GAP-01 spaced empty", action: `"action_id": ""`},
+		{name: "CT-GAP-02 compact empty", action: `"action_id":""`},
+		{name: "CT-GAP-03 null", action: `"action_id":null`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			event := parseStopWithAction(t, tc.action)
+			if event.ActionID != nil {
+				t.Fatal("optional action_id must decode as absent")
+			}
+			if event.Sequence != 2 || event.StopID == nil {
+				t.Fatalf("identity %+v", event)
+			}
+		})
+	}
+}
+
+func parseStopWithAction(t *testing.T, actionField string) executionEvent {
+	t.Helper()
+	payload := []byte(`{"event_id":"` + uuid.NewString() + `","event_type":"shipment.route_stop.current","operating_tenant_id":"` + uuid.NewString() + `","execution_id":"` + uuid.NewString() + `","revision_id":"` + uuid.NewString() + `","event_sequence":2,"stop_id":"` + uuid.NewString() + `",` + actionField + `,"occurred_at":"2026-10-03T09:31:47Z"}`)
+	event, err := parseExecutionEvent(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return event
+}
+
 func TestParseExecutionEventAcceptsJsonbSpacedEmptyActionID(t *testing.T) {
 	t.Parallel()
 	operating := uuid.New()

@@ -94,6 +94,12 @@ func TestStagingExecutionSequenceGapRemediation(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("disposition count %d", count)
 	}
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM control_tower.delivery_disposition_inbox WHERE disposition_case_id=$1 AND processing_outcome='applied'`, caseID).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("disposition inbox %d", count)
+	}
 
 	if err := repo.ApplyRecord(ctx, current, meta, now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
@@ -131,6 +137,31 @@ func TestStagingExecutionSequenceGapRemediation(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatal("foreign stop created an execution root")
+	}
+
+	execFormats := uuid.New()
+	revFormats := uuid.New()
+	stopFormats := uuid.New()
+	meta.Offset = 200
+	formatPlan := executionPlan(t, operating, execFormats, revFormats, carrier, 1, now, []map[string]any{
+		{"stop_id": stopFormats.String(), "ordinal": 0, "stop_role": "CARGO", "point_kind": "CANONICAL_LOCATION", "status": "PLANNED"},
+	}, nil)
+	if err := repo.ApplyRecord(ctx, formatPlan, meta, now); err != nil {
+		t.Fatal(err)
+	}
+	meta.Offset = 201
+	compact := []byte(`{"event_id":"` + uuid.NewString() + `","event_type":"` + domain.EventRouteStopCurrent + `","operating_tenant_id":"` + operating.String() + `","execution_id":"` + execFormats.String() + `","revision_id":"` + revFormats.String() + `","event_sequence":2,"stop_id":"` + stopFormats.String() + `","action_id":"","occurred_at":"` + now.Format(time.RFC3339Nano) + `"}`)
+	if err := repo.ApplyRecord(ctx, compact, meta, now); err != nil {
+		t.Fatal(err)
+	}
+	meta.Offset = 202
+	nullAction := []byte(`{"event_id":"` + uuid.NewString() + `","event_type":"` + domain.EventRouteStopArrived + `","operating_tenant_id":"` + operating.String() + `","execution_id":"` + execFormats.String() + `","revision_id":"` + revFormats.String() + `","event_sequence":3,"stop_id":"` + stopFormats.String() + `","action_id":null,"occurred_at":"` + now.Format(time.RFC3339Nano) + `"}`)
+	if err := repo.ApplyRecord(ctx, nullAction, meta, now); err != nil {
+		t.Fatal(err)
+	}
+	formats := mustGet(t, repo, execFormats)
+	if formats.GapDetected || formats.LastEventSequence != 3 || formats.ActiveRevisionID != revFormats {
+		t.Fatalf("compact and null action_id gap=%v seq=%d", formats.GapDetected, formats.LastEventSequence)
 	}
 }
 

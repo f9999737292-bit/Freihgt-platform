@@ -290,6 +290,23 @@ func TestDispositionEventUsesExecutionApplier(t *testing.T) {
 	assert.Equal(t, int32(0), repo.processCalls.Load())
 }
 
+func TestUnsupportedSchemaStillFailClosed(t *testing.T) {
+	t.Parallel()
+	repo := &mockProjectionRepo{}
+	committer := &mockCommitter{}
+	applier := &mockExecutionApplier{}
+	svc := newTestService(repo, committer)
+	svc.SetExecutionApplier(applier)
+	record := &kgo.Record{Topic: "shipment.status.v1", Partition: 0, Offset: 8, Value: []byte(`{"eventType":"shipment.status.changed","schemaVersion":2}`)}
+
+	ok := svc.processRecord(context.Background(), record)
+
+	assert.True(t, ok)
+	assert.Equal(t, 0, applier.calls)
+	assert.Equal(t, int32(1), repo.deadLetterCalls.Load())
+	assert.Equal(t, int32(0), repo.processCalls.Load())
+}
+
 func TestUnknownEventFailClosed(t *testing.T) {
 	t.Parallel()
 	repo := &mockProjectionRepo{}
