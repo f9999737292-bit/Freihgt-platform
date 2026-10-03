@@ -2,6 +2,8 @@
 
 Safe creation of sibling worktrees for parallel agents. **Never** create worktrees inside the main repository directory (e.g. `D:\Projects\freight-platform\worktrees\...`).
 
+Docker ownership for those worktrees is in [DOCKER_MULTI_AGENT_POLICY.md](DOCKER_MULTI_AGENT_POLICY.md). A feature worktree must not create or replace the canonical `freight_*` stack.
+
 ## Naming conventions
 
 ### Branch
@@ -117,3 +119,34 @@ Never use `git worktree remove --force` or destructive clean without explicit ow
 ## Dirty worktree policy
 
 If `git status --short` is non-empty in an existing worktree, report it in the Task Contract / handoff. Do not stash or discard foreign changes.
+
+## Docker closeout gate
+
+Required before a task is closed. Details and forbidden commands are in [DOCKER_MULTI_AGENT_POLICY.md](DOCKER_MULTI_AGENT_POLICY.md).
+
+Record:
+
+```text
+WORKTREE_CLEAN=
+TEMP_DOCKER_PROJECT=
+TEMP_CONTAINERS=
+TEMP_VOLUMES=
+TEMP_NETWORKS=
+DOCKER_CLOSEOUT=
+CANONICAL_STACK_UNCHANGED=
+```
+
+Close the task project only:
+
+```text
+docker compose -p <project> stop
+docker compose -p <project> rm -f
+```
+
+Do not use `docker compose down -v` unless the task marked `DISPOSABLE_TEST_DATA=YES`. Do not run `docker system prune`, `docker volume prune`, or `docker image prune -a`.
+
+Inventory, read-only:
+
+```text
+bash scripts/ops/docker_multi_agent_inventory.sh
+```
