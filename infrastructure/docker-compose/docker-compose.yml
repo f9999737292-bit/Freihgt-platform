@@ -331,15 +331,7 @@ services:
         condition: service_healthy
       transport-order-service:
         condition: service_healthy
-      rfx-service:
-        condition: service_healthy
       shipment-service:
-        condition: service_healthy
-      document-service:
-        condition: service_healthy
-      billing-register-service:
-        condition: service_healthy
-      low-code-service:
         condition: service_healthy
     networks:
       - freight-platform-network

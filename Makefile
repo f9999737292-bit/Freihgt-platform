@@ -55,6 +55,9 @@ K6 ?= k6
 	platform-build platform-build-serial platform-build-service bintrans-staging-release-build \
 	platform-up platform-up-no-build platform-up-safe platform-up-backend-only \
 	platform-down platform-restart platform-logs platform-ps platform-health \
+	tms-lite-up tms-lite-stop tms-lite-status \
+	tms-api-up tms-api-stop tms-api-status \
+	tms-e2e-up tms-e2e-stop tms-e2e-status \
 	observability-up observability-down observability-logs metrics-check health-check ready-check \
 	db-metrics-check generate-db-metrics-traffic db-pool-metrics-check postgres-logs \
 	python-check python-check-win 	docker-readiness ports-check bash-check \
@@ -102,6 +105,15 @@ help:
 	@echo "  make platform-logs     Follow platform logs"
 	@echo "  make platform-ps       Show platform container status"
 	@echo "  make platform-health   Curl health endpoints for all services"
+	@echo "  make tms-lite-up       Start postgres + shipment-service (no rebuild, no volume delete)"
+	@echo "  make tms-lite-stop     Stop TMS-lite containers"
+	@echo "  make tms-lite-status   Show TMS-lite container status"
+	@echo "  make tms-api-up        Start local TMS API set (no rebuild, no volume delete)"
+	@echo "  make tms-api-stop      Stop TMS API containers"
+	@echo "  make tms-api-status    Show TMS API container status"
+	@echo "  make tms-e2e-up        Start TMS API plus Redpanda and Control Tower (containers only)"
+	@echo "  make tms-e2e-stop      Stop TMS E2E containers"
+	@echo "  make tms-e2e-status    Show TMS E2E container status"
 	@echo ""
 	@echo "Observability:"
 	@echo "  make observability-up  Start Prometheus + Grafana"
@@ -287,6 +299,37 @@ bintrans-staging-release-build:
 
 platform-up-backend-only:
 	$(COMPOSE) up -d --no-build postgres $(BACKEND_SERVICES)
+
+# Local TMS development sets. Explicit service targets, not new Compose profiles.
+# Stop targets do not remove containers, networks, or volumes.
+# tms-e2e-up starts messaging/read-model containers only. It does not set
+# SHIPMENT_OUTBOX_ENABLED, SHIPMENT_OUTBOX_TRANSPORT, or CONTROL_TOWER_CONSUMER_ENABLED.
+tms-lite-up:
+	$(COMPOSE) up -d --no-build postgres shipment-service
+
+tms-lite-stop:
+	$(COMPOSE) stop shipment-service postgres
+
+tms-lite-status:
+	$(COMPOSE) ps postgres shipment-service
+
+tms-api-up:
+	$(COMPOSE) up -d --no-build postgres identity-service company-service transport-order-service shipment-service api-gateway
+
+tms-api-stop:
+	$(COMPOSE) stop api-gateway shipment-service transport-order-service identity-service company-service postgres
+
+tms-api-status:
+	$(COMPOSE) ps postgres identity-service company-service transport-order-service shipment-service api-gateway
+
+tms-e2e-up:
+	$(COMPOSE) --profile messaging --profile read-model up -d --no-build postgres identity-service company-service transport-order-service shipment-service api-gateway redpanda control-tower-read-model-service
+
+tms-e2e-stop:
+	$(COMPOSE) --profile messaging --profile read-model stop control-tower-read-model-service redpanda api-gateway shipment-service transport-order-service identity-service company-service postgres
+
+tms-e2e-status:
+	$(COMPOSE) --profile messaging --profile read-model ps postgres identity-service company-service transport-order-service shipment-service api-gateway redpanda control-tower-read-model-service
 
 platform-down:
 	$(COMPOSE) down
