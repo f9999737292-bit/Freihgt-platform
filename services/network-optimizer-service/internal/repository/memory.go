@@ -176,15 +176,36 @@ func locationKey(id *uuid.UUID) string {
 	return id.String()
 }
 
-func (t *memTx) ListMarketplaceLoads(_ context.Context, viewer uuid.UUID, company *uuid.UUID, limit, offset int) ([]domain.LoadOpportunity, error) {
-	var rows []domain.LoadOpportunity
+func (t *memTx) ListMarketplaceLoads(ctx context.Context, viewer uuid.UUID, company *uuid.UUID, limit, offset int) ([]domain.LoadOpportunity, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	rows := t.visibleMarketplaceLoads(viewer, company)
+	return pageLoads(rows, limit, offset), nil
+}
+
+func (t *memTx) CountMarketplaceLoads(ctx context.Context, viewer uuid.UUID, company *uuid.UUID) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, load := range t.loads {
+		if ok, _ := domain.LoadVisible(load, viewer, company); ok {
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (t *memTx) visibleMarketplaceLoads(viewer uuid.UUID, company *uuid.UUID) []domain.LoadOpportunity {
+	rows := make([]domain.LoadOpportunity, 0)
 	for _, load := range t.loads {
 		if ok, _ := domain.LoadVisible(load, viewer, company); ok {
 			rows = append(rows, copyLoad(load))
 		}
 	}
 	sortLoads(rows)
-	return pageLoads(rows, limit, offset), nil
+	return rows
 }
 
 func (t *memTx) ActiveLoadBySource(_ context.Context, tenant uuid.UUID, sourceType string, sourceID uuid.UUID) (domain.LoadOpportunity, error) {

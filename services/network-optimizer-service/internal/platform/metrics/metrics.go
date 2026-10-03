@@ -126,6 +126,44 @@ var (
 
 func SearchPool(size int) { CandidatePoolSize.Observe(float64(size)) }
 
+var (
+	CandidateDiscovered = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_candidate_discovered_total",
+		Help: "Marketplace loads matching the visibility predicate before the discovery cap. Aggregate only.",
+	})
+	CandidateVisibilityPass = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_candidate_visibility_pass_total",
+		Help: "Marketplace loads that passed tenant and visibility rules before the discovery cap. Aggregate only.",
+	})
+	CandidatePrefilterPass = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_candidate_prefilter_pass_total",
+		Help: "Bounded candidates that passed cheap geometry prefilters before any road call. Aggregate only.",
+	})
+	CandidatePruned = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_candidate_pruned_total",
+		Help: "Visible marketplace loads dropped by the server discovery cap. Aggregate only.",
+	})
+	CandidateReturned = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_candidate_returned_total",
+		Help: "Visible marketplace loads kept by the server discovery cap. Aggregate only.",
+	})
+)
+
+// RecordCandidateDiscovery adds aggregate discovery counters.
+// The arguments are counts. They must not carry coordinates, addresses,
+// location identifiers, customer labels, or provider secrets.
+func RecordCandidateDiscovery(discovered, visibilityPass, pruned, returned int) {
+	CandidateDiscovered.Add(float64(discovered))
+	CandidateVisibilityPass.Add(float64(visibilityPass))
+	CandidatePruned.Add(float64(pruned))
+	CandidateReturned.Add(float64(returned))
+}
+
+// RecordCandidatePrefilterPass adds the cheap-prefilter survivor count.
+func RecordCandidatePrefilterPass(passed int) {
+	CandidatePrefilterPass.Add(float64(passed))
+}
+
 func RoutingError() { RoutingErrors.Inc() }
 
 func MatrixBatches(count int) { MatrixBatchCount.Add(float64(count)) }
