@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -41,8 +42,18 @@ func TestS3PutGetRoundTripAndNoOverwrite(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("exists %v %v", ok, err)
 	}
-	if _, err := store.Put(ctx, key, bytes.NewReader(body), int64(len(body))); err == nil {
-		t.Fatal("overwrite was allowed")
+	replacement := []byte("%PDF-1.7 replaced")
+	if _, err := store.Put(ctx, key, bytes.NewReader(replacement), int64(len(replacement))); !errors.Is(err, ErrObjectExists) {
+		t.Fatalf("overwrite err=%v", err)
+	}
+	got, err = store.Get(ctx, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer got.Close()
+	read, _ = io.ReadAll(got)
+	if !bytes.Equal(read, body) {
+		t.Fatalf("conditional put replaced original %q", read)
 	}
 	if _, err := store.Put(ctx, "../secret", bytes.NewReader(body), 100); err == nil {
 		t.Fatal("traversal key was accepted")

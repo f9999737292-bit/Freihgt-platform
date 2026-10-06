@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -75,7 +76,10 @@ func (s *LocalObjectStore) Put(ctx context.Context, objectKey string, reader io.
 	if written > maxBytes {
 		return 0, fmt.Errorf("file exceeds max size")
 	}
-	if err := os.Rename(tmpName, path); err != nil {
+	if err := os.Link(tmpName, path); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return 0, ErrObjectExists
+		}
 		return 0, err
 	}
 	return written, nil
