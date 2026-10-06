@@ -17,10 +17,22 @@ import (
 	"github.com/freight-platform/document-service/internal/repository"
 )
 
+type attachmentPersistence interface {
+	FindByIdempotency(ctx context.Context, tenantID uuid.UUID, key string) (*domain.Attachment, error)
+	Insert(ctx context.Context, item domain.Attachment) error
+	Get(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) (*domain.Attachment, error)
+	Finalize(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID, at time.Time) (*domain.Attachment, error)
+	FindSignatureByIdempotency(ctx context.Context, tenantID, attachmentID uuid.UUID, key string) (*domain.AttachmentSignature, error)
+	InsertSignature(ctx context.Context, item domain.AttachmentSignature) error
+	DeleteDraft(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) error
+	GetSignature(ctx context.Context, tenantID, attachmentID, signatureID uuid.UUID) (*domain.AttachmentSignature, error)
+	InsertAudit(ctx context.Context, tenantID, documentID uuid.UUID, attachmentID, signatureID, actor *uuid.UUID, eventType, idempotencyKey string) error
+}
+
 type AttachmentService struct {
 	docs    DocumentStore
 	store   storage.ObjectStore
-	repo    *repository.AttachmentRepository
+	repo    attachmentPersistence
 	maxByte int64
 }
 
@@ -99,13 +111,6 @@ func (s *AttachmentService) Create(ctx context.Context, documentID uuid.UUID, in
 	key := fmt.Sprintf("tenants/%s/documents/%s/attachments/%s", in.TenantID, documentID, id)
 	if err := storage.ValidateObjectKey(key); err != nil {
 		return nil, mapStoreErr(err)
-	}
-	exists, err := s.store.Exists(ctx, key)
-	if err != nil {
-		return nil, mapStoreErr(err)
-	}
-	if exists {
-		return nil, apperrors.Conflict("object already exists", map[string]any{"error_code": "OBJECT_UPLOAD_FAILED"})
 	}
 	putCtx := storage.WithUserMetadata(ctx, map[string]string{
 		"attachment_id": id.String(),
