@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -16,8 +17,18 @@ import (
 	"github.com/freight-platform/document-service/internal/service"
 )
 
+type attachmentUseCase interface {
+	Create(ctx context.Context, documentID uuid.UUID, in service.CreateAttachmentInput) (*domain.Attachment, error)
+	Get(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) (*domain.Attachment, error)
+	Open(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) (*domain.Attachment, io.ReadCloser, error)
+	Finalize(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID, actor *uuid.UUID) (*domain.Attachment, error)
+	AttachSignature(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID, in service.AttachSignatureInput) (*domain.AttachmentSignature, error)
+	AttachDetachedSignature(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID, in service.DetachedSignatureInput) (*domain.AttachmentSignature, error)
+	GetSignature(ctx context.Context, tenantID, documentID, attachmentID, signatureID uuid.UUID) (*domain.AttachmentSignature, error)
+}
+
 type AttachmentHandler struct {
-	service *service.AttachmentService
+	service attachmentUseCase
 }
 
 func NewAttachmentHandler(service *service.AttachmentService) *AttachmentHandler {
@@ -104,9 +115,45 @@ func (h *AttachmentHandler) AttachSignature(w http.ResponseWriter, r *http.Reque
 		respond.Error(w, err)
 		return
 	}
+	if strings.TrimSpace(r.Header.Get("X-Verification-Status")) != "" {
+		respond.Error(w, apperrors.Validation("verification status is server-derived", map[string]any{"field": "verification_status"}))
+		return
+	}
+	mediaType := r.Header.Get("Content-Type")
+	if i := strings.Index(mediaType, ";"); i >= 0 {
+		mediaType = mediaType[:i]
+	}
+	mediaType = strings.TrimSpace(strings.ToLower(mediaType))
+	if mediaType == domain.SignatureMediaTypePKCS7 {
+		format := strings.TrimSpace(r.Header.Get("X-Signature-Format"))
+		if format == "" {
+			format = "CAdES"
+		}
+		if format != "CAdES" {
+			respond.Error(w, apperrors.Validation("signature format is not allowed", map[string]any{"field": "signature_format"}))
+			return
+		}
+		sig, err := h.service.AttachDetachedSignature(r.Context(), tenantID, documentID, attachmentID, service.DetachedSignatureInput{
+			Body: r.Body, IdempotencyKey: r.Header.Get("Idempotency-Key"), ActorUserID: optionalActor(r),
+		})
+		if err != nil {
+			respond.Error(w, err)
+			return
+		}
+		respond.JSON(w, http.StatusCreated, signatureJSON(sig))
+		return
+	}
+	if mediaType != "" && mediaType != "application/json" {
+		respond.Error(w, apperrors.Validation("content type is not allowed", map[string]any{"field": "content_type"}))
+		return
+	}
 	var req signatureRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
+		return
+	}
+	if req.VerificationStatus != nil {
+		respond.Error(w, apperrors.Validation("verification status is server-derived", map[string]any{"field": "verification_status"}))
 		return
 	}
 	if req.TenantID != "" && req.TenantID != tenantID.String() {
@@ -163,6 +210,7 @@ type signatureRequest struct {
 	CertificateSerial     *string `json:"certificate_serial"`
 	CertificateThumbprint *string `json:"certificate_thumbprint"`
 	SigningTime           string  `json:"signing_time"`
+	VerificationStatus    *string `json:"verification_status"`
 }
 
 func documentAndTenant(r *http.Request) (uuid.UUID, uuid.UUID, error) {
@@ -229,21 +277,30 @@ func attachmentJSON(item *domain.Attachment) map[string]any {
 }
 
 func signatureJSON(item *domain.AttachmentSignature) map[string]any {
+	status := item.VerificationStatus
+	if item.EffectiveStatus != "" {
+		status = item.EffectiveStatus
+	}
+	var reason any
+	if item.ReasonCode != "" {
+		reason = item.ReasonCode
+	}
 	return map[string]any{
-		"signature_id":           item.ID.String(),
-		"attachment_id":          item.AttachmentID.String(),
-		"tenant_id":              item.TenantID.String(),
-		"signature_format":       item.SignatureFormat,
-		"signature_reference":    item.SignatureReference,
-		"certificate_subject":    item.CertificateSubject,
-		"certificate_issuer":     item.CertificateIssuer,
-		"certificate_serial":     item.CertificateSerial,
-		"certificate_thumbprint": item.CertificateThumbprint,
-		"signing_time":           formatTime(item.SigningTime),
-		"verification_status":    item.VerificationStatus,
-		"verification_time":      formatTime(item.VerificationTime),
-		"verification_error":     item.VerificationError,
-		"created_at":             item.CreatedAt.UTC().Format(time.RFC3339),
+		"signature_id":             item.ID.String(),
+		"attachment_id":            item.AttachmentID.String(),
+		"tenant_id":                item.TenantID.String(),
+		"signature_format":         item.SignatureFormat,
+		"signature_reference":      item.SignatureReference,
+		"certificate_subject":      item.CertificateSubject,
+		"certificate_issuer":       item.CertificateIssuer,
+		"certificate_serial":       item.CertificateSerial,
+		"certificate_thumbprint":   item.CertificateThumbprint,
+		"signing_time":             formatTime(item.SigningTime),
+		"verification_status":      status,
+		"verification_reason_code": reason,
+		"verification_time":        formatTime(item.VerificationTime),
+		"verification_error":       item.VerificationError,
+		"created_at":               item.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 

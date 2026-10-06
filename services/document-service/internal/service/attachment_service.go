@@ -27,17 +27,21 @@ type attachmentPersistence interface {
 	DeleteDraft(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) error
 	GetSignature(ctx context.Context, tenantID, attachmentID, signatureID uuid.UUID) (*domain.AttachmentSignature, error)
 	InsertAudit(ctx context.Context, tenantID, documentID uuid.UUID, attachmentID, signatureID, actor *uuid.UUID, eventType, idempotencyKey string) error
+	SignatureBlobDigest(ctx context.Context, tenantID, signatureID uuid.UUID) (string, error)
+	LatestEvidence(ctx context.Context, tenantID, signatureID uuid.UUID) (string, string, error)
+	InsertDetachedSignature(ctx context.Context, sig domain.AttachmentSignature, objectKey string, size int64, sum, mediaType, profile string, attemptedAt time.Time, verifierVersion, policyID, policyVersion string, documentID uuid.UUID, actor *uuid.UUID) error
 }
 
 type AttachmentService struct {
-	docs    DocumentStore
-	store   storage.ObjectStore
-	repo    attachmentPersistence
-	maxByte int64
+	docs     DocumentStore
+	store    storage.ObjectStore
+	repo     attachmentPersistence
+	verifier SignatureVerifier
+	maxByte  int64
 }
 
 func NewAttachmentService(docs DocumentStore, store storage.ObjectStore, repo *repository.AttachmentRepository) *AttachmentService {
-	return &AttachmentService{docs: docs, store: store, repo: repo, maxByte: domain.MaxAttachmentBytes}
+	return &AttachmentService{docs: docs, store: store, repo: repo, verifier: UnavailableSignatureVerifier{}, maxByte: domain.MaxAttachmentBytes}
 }
 
 type CreateAttachmentInput struct {
@@ -304,14 +308,111 @@ func (s *AttachmentService) AttachSignature(ctx context.Context, tenantID, docum
 	if err := s.repo.InsertAudit(ctx, tenantID, documentID, &attachmentID, &sig.ID, in.ActorUserID, domain.EventSignatureAttached, in.IdempotencyKey); err != nil {
 		return nil, err
 	}
-	return s.repo.GetSignature(ctx, tenantID, attachmentID, sig.ID)
+	return s.finishSignature(ctx, tenantID, attachmentID, sig.ID)
+}
+
+type DetachedSignatureInput struct {
+	Body           io.Reader
+	IdempotencyKey string
+	ActorUserID    *uuid.UUID
+}
+
+func (s *AttachmentService) AttachDetachedSignature(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID, in DetachedSignatureInput) (*domain.AttachmentSignature, error) {
+	item, err := s.Get(ctx, tenantID, documentID, attachmentID)
+	if err != nil {
+		return nil, err
+	}
+	if item.Status != domain.AttachmentStatusFinalized {
+		return nil, apperrors.Conflict("signature metadata requires a finalized attachment", nil)
+	}
+	content, err := readBounded(in.Body, domain.MaxSignatureBytes)
+	if err != nil {
+		return nil, err
+	}
+	if len(content) == 0 {
+		return nil, apperrors.Validation("empty signature is not allowed", map[string]any{"field": "body"})
+	}
+	sum := domain.SHA256Hex(content)
+	if in.IdempotencyKey != "" {
+		existing, err := s.repo.FindSignatureByIdempotency(ctx, tenantID, attachmentID, in.IdempotencyKey)
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil {
+			stored, err := s.repo.SignatureBlobDigest(ctx, tenantID, existing.ID)
+			if err != nil {
+				return nil, apperrors.Conflict("idempotency key was used for different content", nil)
+			}
+			if stored == sum && existing.SignatureFormat == "CAdES" {
+				return s.finishSignature(ctx, tenantID, attachmentID, existing.ID)
+			}
+			return nil, apperrors.Conflict("idempotency key was used for different content", nil)
+		}
+	}
+	id := uuid.New()
+	key := domain.SignatureObjectKey(tenantID, documentID, attachmentID, id)
+	if err := storage.ValidateObjectKey(key); err != nil {
+		return nil, mapStoreErr(err)
+	}
+	if _, err := s.store.Put(ctx, key, bytes.NewReader(content), domain.MaxSignatureBytes); err != nil {
+		return nil, mapStoreErr(err)
+	}
+	attachmentBytes, err := s.readVerified(ctx, item)
+	if err != nil {
+		_ = s.store.Delete(ctx, key)
+		return nil, err
+	}
+	result, err := s.verifier.Verify(ctx, VerificationInput{
+		AttachmentSHA256: item.SHA256,
+		Attachment:       bytes.NewReader(attachmentBytes),
+		Signature:        content,
+		Format:           "CAdES",
+		PolicyID:         domain.PolicyQualifiedCAdES,
+		PolicyVersion:    domain.PolicyVersionV1,
+	})
+	if err != nil || result.Status != domain.VerificationPending || result.ReasonCode != domain.ReasonVerifierUnavailable {
+		_ = s.store.Delete(ctx, key)
+		return nil, apperrors.Internal("signature verifier result is not allowed", nil)
+	}
+	var idem *string
+	if in.IdempotencyKey != "" {
+		idem = &in.IdempotencyKey
+	}
+	sig := domain.AttachmentSignature{
+		ID: id, AttachmentID: attachmentID, TenantID: tenantID,
+		SignatureFormat: "CAdES", SignatureReference: domain.OpaqueSignatureReference(id),
+		VerificationStatus: domain.VerificationUnverified, IdempotencyKey: idem,
+	}
+	if err := s.repo.InsertDetachedSignature(ctx, sig, key, int64(len(content)), sum, domain.SignatureMediaTypePKCS7, domain.SignatureProfileCAdESBES, result.AttemptedAt, result.VerifierVersion, result.PolicyID, result.PolicyVersion, documentID, in.ActorUserID); err != nil {
+		_ = s.store.Delete(ctx, key)
+		return nil, err
+	}
+	return s.finishSignature(ctx, tenantID, attachmentID, id)
+}
+
+func (s *AttachmentService) finishSignature(ctx context.Context, tenantID, attachmentID, signatureID uuid.UUID) (*domain.AttachmentSignature, error) {
+	sig, err := s.repo.GetSignature(ctx, tenantID, attachmentID, signatureID)
+	if err != nil {
+		return nil, err
+	}
+	status, reason, err := s.repo.LatestEvidence(ctx, tenantID, signatureID)
+	if err != nil {
+		return nil, err
+	}
+	if status == "" {
+		sig.EffectiveStatus = domain.VerificationUnverified
+		return sig, nil
+	}
+	sig.EffectiveStatus = status
+	sig.ReasonCode = reason
+	return sig, nil
 }
 
 func (s *AttachmentService) GetSignature(ctx context.Context, tenantID, documentID, attachmentID, signatureID uuid.UUID) (*domain.AttachmentSignature, error) {
 	if _, err := s.Get(ctx, tenantID, documentID, attachmentID); err != nil {
 		return nil, err
 	}
-	return s.repo.GetSignature(ctx, tenantID, attachmentID, signatureID)
+	return s.finishSignature(ctx, tenantID, attachmentID, signatureID)
 }
 
 func readBounded(r io.Reader, maxBytes int64) ([]byte, error) {

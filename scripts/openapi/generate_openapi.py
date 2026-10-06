@@ -1486,9 +1486,16 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "        - name: Idempotency-Key",
             "          in: header",
             "          required: false",
+            "          description: Exact binary replay returns the existing signature. The same key with different bytes or format conflicts.",
             "          schema:",
             "            type: string",
             "            maxLength: 128",
+            "        - name: X-Signature-Format",
+            "          in: header",
+            "          required: false",
+            "          description: Binary path only. Empty means CAdES. XMLDSIG and any other value are rejected.",
+            "          schema:",
+            "            type: string",
         ])
     elif profile in {"bno_foundation_mutation", "bno_prediction"} and method == "post":
         lines.extend([
@@ -1734,6 +1741,24 @@ def render_operation(
                 "            schema:",
                 "              type: string",
                 "              format: binary",
+            ]
+        )
+    elif profile == "edo_attachment_signature_create":
+        lines.extend(
+            [
+                "      requestBody:",
+                "        required: true",
+                "        content:",
+                "          application/json:",
+                "            schema:",
+                "              type: object",
+                "              additionalProperties: true",
+                "            description: Metadata-only signature. A verification_status field is rejected. The stored acceptance status stays UNVERIFIED.",
+                "          application/pkcs7-signature:",
+                "            schema:",
+                "              type: string",
+                "              format: binary",
+                "            description: Detached CAdES-BES bytes, maximum 1048576. The server generates the object key and SHA-256. Client verification status, certificate evidence, and storage keys are not accepted. Effective result is PENDING / VERIFIER_UNAVAILABLE, not qualified VALID. The storage object key is not returned.",
             ]
         )
     elif (
@@ -2274,9 +2299,9 @@ def render_operation(
     elif profile == "edo_attachment_finalize":
         success_desc = "Attachment finalized. A repeat finalize returns the same row."
     elif profile == "edo_attachment_signature_create":
-        success_desc = "Signature metadata stored with verification_status UNVERIFIED. No cryptographic verifier runs."
+        success_desc = "Signature metadata stored with verification_status UNVERIFIED for JSON. A detached PKCS#7 body returns effective status PENDING and verification_reason_code VERIFIER_UNAVAILABLE. No qualified VALID is produced."
     elif profile == "edo_attachment_signature_get":
-        success_desc = "Signature metadata. verification_status stays UNVERIFIED without a cryptographic verifier."
+        success_desc = "Effective verification status. Legacy metadata-only signatures stay UNVERIFIED. A detached signature with unavailable verifier evidence is PENDING with verification_reason_code VERIFIER_UNAVAILABLE. The storage object key is not included."
 
     response_schema = READ_RESPONSE_SCHEMAS.get(profile or "")
     if profile == "bno_compatibility" and path.endswith("/evaluate"):

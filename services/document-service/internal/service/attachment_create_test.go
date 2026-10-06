@@ -112,6 +112,15 @@ func (r *stubRepo) GetSignature(context.Context, uuid.UUID, uuid.UUID, uuid.UUID
 func (r *stubRepo) InsertAudit(context.Context, uuid.UUID, uuid.UUID, *uuid.UUID, *uuid.UUID, *uuid.UUID, string, string) error {
 	return nil
 }
+func (r *stubRepo) SignatureBlobDigest(context.Context, uuid.UUID, uuid.UUID) (string, error) {
+	return "", nil
+}
+func (r *stubRepo) LatestEvidence(context.Context, uuid.UUID, uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (r *stubRepo) InsertDetachedSignature(context.Context, domain.AttachmentSignature, string, int64, string, string, string, time.Time, string, string, string, uuid.UUID, *uuid.UUID) error {
+	return nil
+}
 
 func TestCreateDoesNotCallExists(t *testing.T) {
 	store := &recordingStore{}
