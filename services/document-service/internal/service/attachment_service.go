@@ -28,7 +28,7 @@ type attachmentPersistence interface {
 	GetSignature(ctx context.Context, tenantID, attachmentID, signatureID uuid.UUID) (*domain.AttachmentSignature, error)
 	InsertAudit(ctx context.Context, tenantID, documentID uuid.UUID, attachmentID, signatureID, actor *uuid.UUID, eventType, idempotencyKey string) error
 	SignatureBlobDigest(ctx context.Context, tenantID, signatureID uuid.UUID) (string, error)
-	LatestEvidence(ctx context.Context, tenantID, signatureID uuid.UUID) (string, string, error)
+	LatestEvidence(ctx context.Context, tenantID, signatureID uuid.UUID, policyID, policyVersion string) (string, string, error)
 	InsertDetachedSignature(ctx context.Context, sig domain.AttachmentSignature, objectKey string, size int64, sum, mediaType, profile string, attemptedAt time.Time, verifierVersion, policyID, policyVersion string, documentID uuid.UUID, actor *uuid.UUID) error
 }
 
@@ -318,6 +318,10 @@ type DetachedSignatureInput struct {
 }
 
 func (s *AttachmentService) AttachDetachedSignature(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID, in DetachedSignatureInput) (*domain.AttachmentSignature, error) {
+	idempotencyKey, err := ValidateBinaryIdempotencyKey(in.IdempotencyKey)
+	if err != nil {
+		return nil, err
+	}
 	item, err := s.Get(ctx, tenantID, documentID, attachmentID)
 	if err != nil {
 		return nil, err
@@ -333,21 +337,19 @@ func (s *AttachmentService) AttachDetachedSignature(ctx context.Context, tenantI
 		return nil, apperrors.Validation("empty signature is not allowed", map[string]any{"field": "body"})
 	}
 	sum := domain.SHA256Hex(content)
-	if in.IdempotencyKey != "" {
-		existing, err := s.repo.FindSignatureByIdempotency(ctx, tenantID, attachmentID, in.IdempotencyKey)
+	existing, err := s.repo.FindSignatureByIdempotency(ctx, tenantID, attachmentID, idempotencyKey)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		stored, err := s.repo.SignatureBlobDigest(ctx, tenantID, existing.ID)
 		if err != nil {
-			return nil, err
-		}
-		if existing != nil {
-			stored, err := s.repo.SignatureBlobDigest(ctx, tenantID, existing.ID)
-			if err != nil {
-				return nil, apperrors.Conflict("idempotency key was used for different content", nil)
-			}
-			if stored == sum && existing.SignatureFormat == "CAdES" {
-				return s.finishSignature(ctx, tenantID, attachmentID, existing.ID)
-			}
 			return nil, apperrors.Conflict("idempotency key was used for different content", nil)
 		}
+		if stored == sum && existing.SignatureFormat == "CAdES" {
+			return s.finishSignature(ctx, tenantID, attachmentID, existing.ID)
+		}
+		return nil, apperrors.Conflict("idempotency key was used for different content", nil)
 	}
 	id := uuid.New()
 	key := domain.SignatureObjectKey(tenantID, documentID, attachmentID, id)
@@ -374,20 +376,35 @@ func (s *AttachmentService) AttachDetachedSignature(ctx context.Context, tenantI
 		_ = s.store.Delete(ctx, key)
 		return nil, apperrors.Internal("signature verifier result is not allowed", nil)
 	}
-	var idem *string
-	if in.IdempotencyKey != "" {
-		idem = &in.IdempotencyKey
-	}
 	sig := domain.AttachmentSignature{
 		ID: id, AttachmentID: attachmentID, TenantID: tenantID,
 		SignatureFormat: "CAdES", SignatureReference: domain.OpaqueSignatureReference(id),
-		VerificationStatus: domain.VerificationUnverified, IdempotencyKey: idem,
+		VerificationStatus: domain.VerificationUnverified, IdempotencyKey: &idempotencyKey,
 	}
 	if err := s.repo.InsertDetachedSignature(ctx, sig, key, int64(len(content)), sum, domain.SignatureMediaTypePKCS7, domain.SignatureProfileCAdESBES, result.AttemptedAt, result.VerifierVersion, result.PolicyID, result.PolicyVersion, documentID, in.ActorUserID); err != nil {
+		// A commit response can be lost after PostgreSQL commits. Deleting the
+		// object in that case would leave a committed row pointing at missing
+		// bytes. If the commit did not land, the object remains an orphan until
+		// a later reconciliation. The same Idempotency-Key returns the stored
+		// signature when the row exists and does not report success here.
+		if repository.IsCommitOutcomeUnknown(err) {
+			return nil, apperrors.Internal("signature commit outcome is unknown", nil)
+		}
 		_ = s.store.Delete(ctx, key)
 		return nil, err
 	}
 	return s.finishSignature(ctx, tenantID, attachmentID, id)
+}
+
+func ValidateBinaryIdempotencyKey(raw string) (string, error) {
+	key := strings.TrimSpace(raw)
+	if key == "" {
+		return "", apperrors.Validation("idempotency key is required", map[string]any{"field": "Idempotency-Key"})
+	}
+	if len(key) > 128 {
+		return "", apperrors.Validation("idempotency key exceeds 128 characters", map[string]any{"field": "Idempotency-Key"})
+	}
+	return key, nil
 }
 
 func (s *AttachmentService) finishSignature(ctx context.Context, tenantID, attachmentID, signatureID uuid.UUID) (*domain.AttachmentSignature, error) {
@@ -395,7 +412,7 @@ func (s *AttachmentService) finishSignature(ctx context.Context, tenantID, attac
 	if err != nil {
 		return nil, err
 	}
-	status, reason, err := s.repo.LatestEvidence(ctx, tenantID, signatureID)
+	status, reason, err := s.repo.LatestEvidence(ctx, tenantID, signatureID, domain.PolicyQualifiedCAdES, domain.PolicyVersionV1)
 	if err != nil {
 		return nil, err
 	}

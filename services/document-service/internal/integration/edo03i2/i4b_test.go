@@ -49,7 +49,7 @@ func TestI4BMigrationAndDetachedSignature(t *testing.T) {
 	}
 	draftDoc := mustInsertDocument(t, pool, tenant, "I4B-DRAFT", "DRAFT")
 	draft := decode(t, upload(router, draftDoc, tenant, "draft.pdf", "application/pdf", "", "", []byte("%PDF-1.7\ndraft")))
-	draftSig := do(router, http.MethodPost, "/v1/documents/"+draftDoc.String()+"/attachments/"+draft["attachment_id"].(string)+"/signatures", tenant, map[string]string{"Content-Type": "application/pkcs7-signature"}, []byte("draft-sig"))
+	draftSig := do(router, http.MethodPost, "/v1/documents/"+draftDoc.String()+"/attachments/"+draft["attachment_id"].(string)+"/signatures", tenant, map[string]string{"Content-Type": "application/pkcs7-signature", "Idempotency-Key": "draft-1"}, []byte("draft-sig"))
 	if draftSig.Code != http.StatusConflict {
 		t.Fatalf("draft signature status=%d", draftSig.Code)
 	}
@@ -81,11 +81,17 @@ func TestI4BMigrationAndDetachedSignature(t *testing.T) {
 
 	body := []byte("detached-signature-bytes")
 	other := uuid.New()
-	cross := do(router, http.MethodPost, "/v1/documents/"+doc.String()+"/attachments/"+attachmentID+"/signatures", other, map[string]string{"Content-Type": "application/pkcs7-signature"}, body)
+	cross := do(router, http.MethodPost, "/v1/documents/"+doc.String()+"/attachments/"+attachmentID+"/signatures", other, map[string]string{"Content-Type": "application/pkcs7-signature", "Idempotency-Key": "cross-1"}, body)
 	if cross.Code != http.StatusNotFound {
 		t.Fatalf("cross-tenant status=%d", cross.Code)
 	}
-	oversize := do(router, http.MethodPost, "/v1/documents/"+doc.String()+"/attachments/"+attachmentID+"/signatures", tenant, map[string]string{"Content-Type": "application/pkcs7-signature"}, bytesRepeat(domain.MaxSignatureBytes+1))
+	missingKey := do(router, http.MethodPost, "/v1/documents/"+doc.String()+"/attachments/"+attachmentID+"/signatures", tenant, map[string]string{"Content-Type": "application/pkcs7-signature"}, body)
+	blankKey := do(router, http.MethodPost, "/v1/documents/"+doc.String()+"/attachments/"+attachmentID+"/signatures", tenant, map[string]string{"Content-Type": "application/pkcs7-signature", "Idempotency-Key": "   "}, body)
+	longKey := do(router, http.MethodPost, "/v1/documents/"+doc.String()+"/attachments/"+attachmentID+"/signatures", tenant, map[string]string{"Content-Type": "application/pkcs7-signature", "Idempotency-Key": strings.Repeat("k", 129)}, body)
+	if missingKey.Code != http.StatusBadRequest || blankKey.Code != http.StatusBadRequest || longKey.Code != http.StatusBadRequest {
+		t.Fatalf("idempotency status missing=%d blank=%d long=%d", missingKey.Code, blankKey.Code, longKey.Code)
+	}
+	oversize := do(router, http.MethodPost, "/v1/documents/"+doc.String()+"/attachments/"+attachmentID+"/signatures", tenant, map[string]string{"Content-Type": "application/pkcs7-signature", "Idempotency-Key": "oversize"}, bytesRepeat(domain.MaxSignatureBytes+1))
 	if oversize.Code != http.StatusBadRequest {
 		t.Fatalf("oversize status=%d", oversize.Code)
 	}
@@ -152,6 +158,68 @@ func TestI4BMigrationAndDetachedSignature(t *testing.T) {
 	_, err = pool.Exec(ctx, `DELETE FROM documents.attachment_signature_blobs`)
 	if err == nil {
 		t.Fatal("blob delete was allowed")
+	}
+	var legacyID uuid.UUID
+	if err := pool.QueryRow(ctx, `SELECT id FROM documents.attachment_signatures WHERE signature_reference = 'objects/sig-1'`).Scan(&legacyID); err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, `
+		INSERT INTO documents.signature_verification_evidence (
+			signature_id, tenant_id, verification_status, reason_code, attempted_at, verifier_version, policy_id, policy_version
+		) VALUES ($1,$2,'PENDING','VERIFIER_UNAVAILABLE', now(), 'x','QUALIFIED_CADES_BES','v1')`, legacyID, tenant)
+	if err == nil {
+		t.Fatal("evidence without a server blob was stored")
+	}
+	_, err = pool.Exec(ctx, `
+		INSERT INTO documents.signature_verification_evidence (
+			signature_id, tenant_id, verification_status, reason_code, attempted_at, verifier_version, policy_id, policy_version
+		) VALUES ($1,$2,'PENDING','VERIFIER_UNAVAILABLE', now(), 'x','OTHER_POLICY','v9')`, got["signature_id"], tenant)
+	if err != nil {
+		t.Fatalf("other-policy evidence: %v", err)
+	}
+	evidenceRepo := repository.NewAttachmentRepository(pool)
+	binaryID := uuid.MustParse(got["signature_id"].(string))
+	status, reason, err := evidenceRepo.LatestEvidence(ctx, tenant, binaryID, domain.PolicyQualifiedCAdES, domain.PolicyVersionV1)
+	if err != nil || status != "PENDING" || reason != "VERIFIER_UNAVAILABLE" {
+		t.Fatalf("qualified evidence status=%s reason=%s err=%v", status, reason, err)
+	}
+	otherOnly := uuid.New()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO documents.attachment_signatures (
+			id, attachment_id, tenant_id, signature_format, signature_reference, verification_status
+		) VALUES ($1,$2,$3,'CAdES',$4,'UNVERIFIED')`,
+		otherOnly, attachmentID, tenant, "bintrans:attachment-signature:"+otherOnly.String()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO documents.signature_verification_history (signature_id, tenant_id, verification_status)
+		VALUES ($1,$2,'UNVERIFIED')`, otherOnly, tenant); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO documents.attachment_signature_blobs (
+			signature_id, tenant_id, object_key, size_bytes, sha256, media_type, profile
+		) VALUES ($1,$2,$3,1,$4,'application/pkcs7-signature','CAdES-BES')`,
+		otherOnly, tenant, "tenants/"+tenant.String()+"/documents/"+doc.String()+"/attachment-signatures/"+attachmentID+"/"+otherOnly.String(), strings.Repeat("ab", 32)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO documents.signature_verification_evidence (
+			signature_id, tenant_id, verification_status, reason_code, attempted_at, verifier_version, policy_id, policy_version
+		) VALUES ($1,$2,'PENDING','VERIFIER_UNAVAILABLE', now(), 'x','OTHER_POLICY','v9')`, otherOnly, tenant); err != nil {
+		t.Fatal(err)
+	}
+	otherStatus, otherReason, err := evidenceRepo.LatestEvidence(ctx, tenant, otherOnly, domain.PolicyQualifiedCAdES, domain.PolicyVersionV1)
+	if err != nil || otherStatus != "" || otherReason != "" {
+		t.Fatalf("other policy overrode qualified lookup status=%s reason=%s err=%v", otherStatus, otherReason, err)
+	}
+	foreignStatus, foreignReason, err := evidenceRepo.LatestEvidence(ctx, tenant, otherOnly, "OTHER_POLICY", "v9")
+	if err != nil || foreignStatus != "PENDING" || foreignReason != "VERIFIER_UNAVAILABLE" {
+		t.Fatalf("other policy lookup status=%s reason=%s err=%v", foreignStatus, foreignReason, err)
+	}
+	otherRead := decode(t, do(router, http.MethodGet, "/v1/documents/"+doc.String()+"/attachments/"+attachmentID+"/signatures/"+otherOnly.String(), tenant, nil, nil))
+	if otherRead["verification_status"] != "UNVERIFIED" {
+		t.Fatalf("other policy became effective %#v", otherRead)
 	}
 	read := do(router, http.MethodGet, "/v1/documents/"+doc.String()+"/attachments/"+attachmentID+"/signatures/"+got["signature_id"].(string), tenant, nil, nil)
 	readJSON := decode(t, read)

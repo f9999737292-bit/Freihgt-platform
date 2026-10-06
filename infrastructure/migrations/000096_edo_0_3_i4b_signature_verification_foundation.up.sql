@@ -16,6 +16,7 @@ CREATE TABLE documents.attachment_signature_blobs (
     CONSTRAINT chk_attachment_signature_blob_size CHECK (size_bytes > 0 AND size_bytes <= 1048576),
     CONSTRAINT chk_attachment_signature_blob_sha256 CHECK (sha256 ~ '^[0-9a-f]{64}$'),
     CONSTRAINT chk_attachment_signature_blob_profile CHECK (profile = 'CAdES-BES'),
+    -- profile is the accepted upload profile, not a cryptographic observation of CAdES-BES.
     CONSTRAINT fk_attachment_signature_blob_signature
         FOREIGN KEY (signature_id, tenant_id)
         REFERENCES documents.attachment_signatures (id, tenant_id)
@@ -54,11 +55,17 @@ CREATE TABLE documents.signature_verification_evidence (
     ),
     CONSTRAINT fk_signature_evidence_signature
         FOREIGN KEY (signature_id, tenant_id)
-        REFERENCES documents.attachment_signatures (id, tenant_id)
+        REFERENCES documents.attachment_signatures (id, tenant_id),
+    CONSTRAINT fk_signature_evidence_blob
+        FOREIGN KEY (signature_id, tenant_id)
+        REFERENCES documents.attachment_signature_blobs (signature_id, tenant_id)
 );
 
-CREATE INDEX idx_signature_evidence_signature
-    ON documents.signature_verification_evidence (tenant_id, signature_id, created_at);
+COMMENT ON COLUMN documents.attachment_signature_blobs.profile IS
+    'Accepted upload profile declared by the binary path. Not server-verified CAdES evidence and not a basis for VALID.';
+
+CREATE INDEX idx_signature_evidence_policy
+    ON documents.signature_verification_evidence (tenant_id, signature_id, policy_id, policy_version, created_at);
 
 CREATE OR REPLACE FUNCTION documents.edo_i4b_reject_blob_rewrite()
 RETURNS trigger

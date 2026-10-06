@@ -133,6 +133,10 @@ func (h *AttachmentHandler) AttachSignature(w http.ResponseWriter, r *http.Reque
 			respond.Error(w, apperrors.Validation("signature format is not allowed", map[string]any{"field": "signature_format"}))
 			return
 		}
+		if _, err := service.ValidateBinaryIdempotencyKey(r.Header.Get("Idempotency-Key")); err != nil {
+			respond.Error(w, err)
+			return
+		}
 		sig, err := h.service.AttachDetachedSignature(r.Context(), tenantID, documentID, attachmentID, service.DetachedSignatureInput{
 			Body: r.Body, IdempotencyKey: r.Header.Get("Idempotency-Key"), ActorUserID: optionalActor(r),
 		})

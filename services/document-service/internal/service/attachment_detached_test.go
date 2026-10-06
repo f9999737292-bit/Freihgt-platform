@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/freight-platform/document-service/internal/domain"
 	apperrors "github.com/freight-platform/document-service/internal/platform/errors"
 	"github.com/freight-platform/document-service/internal/platform/storage"
+	"github.com/freight-platform/document-service/internal/repository"
 )
 
 type countingStore struct {
@@ -44,14 +46,17 @@ func (s *countingStore) Delete(ctx context.Context, key string) error {
 }
 
 type detachedRepo struct {
-	attachment *domain.Attachment
-	sig        *domain.AttachmentSignature
-	blobSum    string
-	status     string
-	reason     string
-	inserts    int
-	failInsert bool
-	audits     []string
+	attachment           *domain.Attachment
+	sig                  *domain.AttachmentSignature
+	blobSum              string
+	status               string
+	reason               string
+	inserts              int
+	failInsert           bool
+	commitUnknown        bool
+	persistBeforeUnknown bool
+	lastPolicy           string
+	audits               []string
 }
 
 func (r *detachedRepo) FindByIdempotency(context.Context, uuid.UUID, string) (*domain.Attachment, error) {
@@ -91,13 +96,31 @@ func (r *detachedRepo) SignatureBlobDigest(context.Context, uuid.UUID, uuid.UUID
 	}
 	return r.blobSum, nil
 }
-func (r *detachedRepo) LatestEvidence(context.Context, uuid.UUID, uuid.UUID) (string, string, error) {
+func (r *detachedRepo) LatestEvidence(_ context.Context, _, _ uuid.UUID, policyID, policyVersion string) (string, string, error) {
+	r.lastPolicy = policyID + "/" + policyVersion
+	if policyID != domain.PolicyQualifiedCAdES || policyVersion != domain.PolicyVersionV1 {
+		return "", "", nil
+	}
 	return r.status, r.reason, nil
 }
 func (r *detachedRepo) InsertDetachedSignature(_ context.Context, sig domain.AttachmentSignature, objectKey string, size int64, sum, _, _ string, _ time.Time, _, _, _ string, _ uuid.UUID, _ *uuid.UUID) error {
+	if r.commitUnknown {
+		if r.persistBeforeUnknown {
+			r.storeInserted(sig, sum)
+		}
+		return repository.UnknownCommitOutcome(errors.New("connection reset"))
+	}
 	if r.failInsert {
 		return errors.New("db down")
 	}
+	if objectKey == "" || size <= 0 {
+		return errors.New("missing blob")
+	}
+	r.storeInserted(sig, sum)
+	return nil
+}
+
+func (r *detachedRepo) storeInserted(sig domain.AttachmentSignature, sum string) {
 	r.inserts++
 	copied := sig
 	copied.VerificationStatus = domain.VerificationUnverified
@@ -105,10 +128,6 @@ func (r *detachedRepo) InsertDetachedSignature(_ context.Context, sig domain.Att
 	r.blobSum = sum
 	r.status = domain.VerificationPending
 	r.reason = domain.ReasonVerifierUnavailable
-	if objectKey == "" || size <= 0 {
-		return errors.New("missing blob")
-	}
-	return nil
 }
 
 type trustDocs struct {
@@ -185,6 +204,9 @@ func TestDetachedSignatureFoundation(t *testing.T) {
 			t.Fatalf("unexpected audit %s", event)
 		}
 	}
+	if repo.lastPolicy != domain.PolicyQualifiedCAdES+"/"+domain.PolicyVersionV1 {
+		t.Fatalf("effective policy %s", repo.lastPolicy)
+	}
 	replay, err := svc.AttachDetachedSignature(context.Background(), tenant, documentID, attachmentID, DetachedSignatureInput{
 		Body: bytes.NewReader(payload), IdempotencyKey: "sig-1",
 	})
@@ -210,14 +232,14 @@ func TestDetachedSignatureFoundation(t *testing.T) {
 func TestDetachedSignatureRejectsOversizedDraftAndValidResult(t *testing.T) {
 	svc, store, repo, _, documentID, tenant := newDetachedFixture(t)
 	_, err := svc.AttachDetachedSignature(context.Background(), tenant, documentID, repo.attachment.ID, DetachedSignatureInput{
-		Body: bytes.NewReader(bytes.Repeat([]byte("a"), domain.MaxSignatureBytes+1)),
+		Body: bytes.NewReader(bytes.Repeat([]byte("a"), domain.MaxSignatureBytes+1)), IdempotencyKey: "oversize",
 	})
 	if err == nil {
 		t.Fatal("oversize signature was accepted")
 	}
 	repo.attachment.Status = domain.AttachmentStatusDraft
 	_, err = svc.AttachDetachedSignature(context.Background(), tenant, documentID, repo.attachment.ID, DetachedSignatureInput{
-		Body: bytes.NewReader([]byte("sig")),
+		Body: bytes.NewReader([]byte("sig")), IdempotencyKey: "draft",
 	})
 	if err == nil {
 		t.Fatal("draft signature was accepted")
@@ -225,7 +247,7 @@ func TestDetachedSignatureRejectsOversizedDraftAndValidResult(t *testing.T) {
 	repo.attachment.Status = domain.AttachmentStatusFinalized
 	svc.verifier = validVerifier{}
 	_, err = svc.AttachDetachedSignature(context.Background(), tenant, documentID, repo.attachment.ID, DetachedSignatureInput{
-		Body: bytes.NewReader([]byte("sig")),
+		Body: bytes.NewReader([]byte("sig")), IdempotencyKey: "valid-result",
 	})
 	if err == nil || repo.inserts != 0 {
 		t.Fatalf("VALID was stored err=%v inserts=%d", err, repo.inserts)
@@ -239,7 +261,7 @@ func TestDetachedSignatureCleansUpAfterDatabaseFailure(t *testing.T) {
 	svc, store, repo, _, documentID, tenant := newDetachedFixture(t)
 	repo.failInsert = true
 	_, err := svc.AttachDetachedSignature(context.Background(), tenant, documentID, repo.attachment.ID, DetachedSignatureInput{
-		Body: bytes.NewReader([]byte("sig")),
+		Body: bytes.NewReader([]byte("sig")), IdempotencyKey: "db-down",
 	})
 	if err == nil || store.deletes == 0 || repo.inserts != 0 {
 		t.Fatalf("err=%v deletes=%d inserts=%d", err, store.deletes, repo.inserts)
@@ -253,5 +275,44 @@ func TestUnavailableVerifierDoesNotInventEvidence(t *testing.T) {
 	})
 	if err != nil || result.Status != domain.VerificationPending || result.ReasonCode != domain.ReasonVerifierUnavailable {
 		t.Fatalf("%+v %v", result, err)
+	}
+}
+
+func TestBinaryIdempotencyKeyRequired(t *testing.T) {
+	svc, store, _, _, documentID, tenant := newDetachedFixture(t)
+	attachmentID := uuid.New()
+	for _, key := range []string{"", "   ", strings.Repeat("k", 129)} {
+		_, err := svc.AttachDetachedSignature(context.Background(), tenant, documentID, attachmentID, DetachedSignatureInput{
+			Body: bytes.NewReader([]byte("sig")), IdempotencyKey: key,
+		})
+		var appErr *apperrors.AppError
+		if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeValidation || store.puts != 0 {
+			t.Fatalf("key %q err=%v puts=%d", key, err, store.puts)
+		}
+	}
+}
+
+func TestUnknownCommitDoesNotDeleteObject(t *testing.T) {
+	svc, store, repo, _, documentID, tenant := newDetachedFixture(t)
+	repo.commitUnknown = true
+	repo.persistBeforeUnknown = true
+	_, err := svc.AttachDetachedSignature(context.Background(), tenant, documentID, repo.attachment.ID, DetachedSignatureInput{
+		Body: bytes.NewReader([]byte("sig")), IdempotencyKey: "ambiguous",
+	})
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeInternal || store.deletes != 0 || repo.inserts != 1 {
+		t.Fatalf("err=%v deletes=%d inserts=%d", err, store.deletes, repo.inserts)
+	}
+	body, err := store.Get(context.Background(), store.lastKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = body.Close()
+	repo.commitUnknown = false
+	replay, err := svc.AttachDetachedSignature(context.Background(), tenant, documentID, repo.attachment.ID, DetachedSignatureInput{
+		Body: bytes.NewReader([]byte("sig")), IdempotencyKey: "ambiguous",
+	})
+	if err != nil || replay.ID != repo.sig.ID || store.puts != 1 {
+		t.Fatalf("retry id=%v puts=%d err=%v", replay, store.puts, err)
 	}
 }

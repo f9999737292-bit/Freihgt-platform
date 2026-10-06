@@ -157,14 +157,15 @@ func (r *AttachmentRepository) SignatureBlobDigest(ctx context.Context, tenantID
 	return sum, err
 }
 
-func (r *AttachmentRepository) LatestEvidence(ctx context.Context, tenantID, signatureID uuid.UUID) (string, string, error) {
+func (r *AttachmentRepository) LatestEvidence(ctx context.Context, tenantID, signatureID uuid.UUID, policyID, policyVersion string) (string, string, error) {
 	var status, reason string
 	err := r.pool.QueryRow(ctx, `
 		SELECT verification_status, reason_code
 		FROM documents.signature_verification_evidence
 		WHERE signature_id = $1 AND tenant_id = $2
+		  AND policy_id = $3 AND policy_version = $4
 		ORDER BY created_at DESC, id DESC
-		LIMIT 1`, signatureID, tenantID).Scan(&status, &reason)
+		LIMIT 1`, signatureID, tenantID, policyID, policyVersion).Scan(&status, &reason)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", "", nil
 	}
@@ -218,7 +219,10 @@ func (r *AttachmentRepository) InsertDetachedSignature(ctx context.Context, sig 
 		sig.TenantID, documentID, sig.AttachmentID, sig.ID, actor, idem); err != nil {
 		return mapUnique(err)
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return ClassifyCommitError(err)
+	}
+	return nil
 }
 
 func (r *AttachmentRepository) InsertAudit(ctx context.Context, tenantID, documentID uuid.UUID, attachmentID, signatureID, actor *uuid.UUID, eventType, idempotencyKey string) error {

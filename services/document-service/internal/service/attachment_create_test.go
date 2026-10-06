@@ -115,7 +115,7 @@ func (r *stubRepo) InsertAudit(context.Context, uuid.UUID, uuid.UUID, *uuid.UUID
 func (r *stubRepo) SignatureBlobDigest(context.Context, uuid.UUID, uuid.UUID) (string, error) {
 	return "", nil
 }
-func (r *stubRepo) LatestEvidence(context.Context, uuid.UUID, uuid.UUID) (string, string, error) {
+func (r *stubRepo) LatestEvidence(context.Context, uuid.UUID, uuid.UUID, string, string) (string, string, error) {
 	return "", "", nil
 }
 func (r *stubRepo) InsertDetachedSignature(context.Context, domain.AttachmentSignature, string, int64, string, string, string, time.Time, string, string, string, uuid.UUID, *uuid.UUID) error {

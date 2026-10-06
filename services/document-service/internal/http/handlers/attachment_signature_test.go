@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -63,6 +64,7 @@ func TestAttachSignatureRoutesBinaryAndRejectsClientStatus(t *testing.T) {
 	}
 	binReq := httptest.NewRequest(http.MethodPost, path, bytes.NewReader([]byte("sig")))
 	binReq.Header.Set("Content-Type", "application/pkcs7-signature")
+	binReq.Header.Set("Idempotency-Key", "bin-1")
 	binReq.Header.Set("X-Tenant-ID", tenant.String())
 	binRec := httptest.NewRecorder()
 	router.ServeHTTP(binRec, binReq)
@@ -72,10 +74,25 @@ func TestAttachSignatureRoutesBinaryAndRejectsClientStatus(t *testing.T) {
 	xmlReq := httptest.NewRequest(http.MethodPost, path, bytes.NewReader([]byte("<sig/>")))
 	xmlReq.Header.Set("Content-Type", "application/pkcs7-signature")
 	xmlReq.Header.Set("X-Signature-Format", "XMLDSIG")
+	xmlReq.Header.Set("Idempotency-Key", "bin-xml")
 	xmlReq.Header.Set("X-Tenant-ID", tenant.String())
 	xmlRec := httptest.NewRecorder()
 	router.ServeHTTP(xmlRec, xmlReq)
 	if xmlRec.Code != http.StatusBadRequest {
 		t.Fatalf("xmldsig status=%d", xmlRec.Code)
+	}
+	for _, key := range []string{"", "   ", strings.Repeat("k", 129)} {
+		req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader([]byte("sig")))
+		req.Header.Set("Content-Type", "application/pkcs7-signature")
+		req.Header.Set("Idempotency-Key", key)
+		req.Header.Set("X-Tenant-ID", tenant.String())
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("key %q status=%d", key, rec.Code)
+		}
+	}
+	if fake.detached != 1 {
+		t.Fatalf("detached calls=%d", fake.detached)
 	}
 }

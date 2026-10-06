@@ -20540,7 +20540,7 @@
             "name": "Idempotency-Key",
             "in": "header",
             "required": false,
-            "description": "Exact binary replay returns the existing signature. The same key with different bytes or format conflicts.",
+            "description": "Optional for application/json. Required for application/pkcs7-signature: a missing, blank, or longer-than-128-character key is rejected. An exact binary replay returns the existing signature. The same key with different bytes conflicts.",
             "schema": {
               "type": "string",
               "maxLength": 128
@@ -20571,7 +20571,7 @@
                 "type": "string",
                 "format": "binary"
               },
-              "description": "Detached CAdES-BES bytes, maximum 1048576. The server generates the object key and SHA-256. Client verification status, certificate evidence, and storage keys are not accepted. Effective result is PENDING / VERIFIER_UNAVAILABLE, not qualified VALID. The storage object key is not returned."
+              "description": "Detached CAdES-BES bytes, maximum 1048576. Idempotency-Key is required for this content type. The server generates the object key and SHA-256. Client verification status, certificate evidence, and storage keys are not accepted. The stored profile is the accepted upload profile, not server-verified format evidence. Effective result is PENDING / VERIFIER_UNAVAILABLE, not qualified VALID. The storage object key is not returned."
             }
           }
         },

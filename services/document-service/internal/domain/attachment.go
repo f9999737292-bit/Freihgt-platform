@@ -30,8 +30,11 @@ const (
 	VerifierVersionUnavailable = "unavailable-v0"
 	PolicyQualifiedCAdES       = "QUALIFIED_CADES_BES"
 	PolicyVersionV1            = "v1"
-	SignatureProfileCAdESBES   = "CAdES-BES"
-	SignatureMediaTypePKCS7    = "application/pkcs7-signature"
+	// SignatureProfileCAdESBES is the accepted upload profile for the binary path.
+	// I4B does not parse CMS. This value is not server-verified format evidence
+	// and cannot support a VALID result.
+	SignatureProfileCAdESBES = "CAdES-BES"
+	SignatureMediaTypePKCS7  = "application/pkcs7-signature"
 
 	EventAttachmentCreated   = "edo.attachment.created"
 	EventAttachmentFinalized = "edo.attachment.finalized"
