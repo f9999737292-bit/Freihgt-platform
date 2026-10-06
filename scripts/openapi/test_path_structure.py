@@ -654,6 +654,14 @@ def assert_driver_disposition_contract(spec: dict) -> None:
     if len(idempotency) != 1 or idempotency[0].get("required") is not True:
         print("delivery disposition Idempotency-Key must be required", file=sys.stderr)
         raise SystemExit(1)
+    schema = idempotency[0].get("schema", {})
+    if schema.get("minLength") != 1 or schema.get("maxLength") != 128:
+        print("delivery disposition Idempotency-Key length bounds changed", file=sys.stderr)
+        raise SystemExit(1)
+    description = idempotency[0].get("description", "")
+    if "version lifecycle mutation" in description or "recording a driver delivery disposition" not in description:
+        print("delivery disposition Idempotency-Key description is not specific", file=sys.stderr)
+        raise SystemExit(1)
     schemas = spec.get("components", {}).get("schemas", {})
     request = schemas.get("DriverDeliveryDispositionRequest", {})
     properties = request.get("properties", {})

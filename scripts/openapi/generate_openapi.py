@@ -1569,6 +1569,17 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
+    elif profile == "driver_delivery_disposition":
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: true",
+            "          description: Required client-supplied idempotency key for recording a driver delivery disposition. Exact replay is safe; reuse with a conflicting request is rejected. Maximum 128 characters.",
+            "          schema:",
+            "            type: string",
+            "            minLength: 1",
+            "            maxLength: 128",
+        ])
     elif profile in IDEMPOTENCY_HEADER_PROFILES - {"priced_transport_order_create"}:
         lines.extend([
             "        - name: Idempotency-Key",

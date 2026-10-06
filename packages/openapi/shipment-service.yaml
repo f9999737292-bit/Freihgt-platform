@@ -1126,7 +1126,7 @@ paths:
         - name: Idempotency-Key
           in: header
           required: true
-          description: Client-supplied idempotency key for version lifecycle mutation (max 128 chars).
+          description: Required client-supplied idempotency key for recording a driver delivery disposition. Exact replay is safe; reuse with a conflicting request is rejected. Maximum 128 characters.
           schema:
             type: string
             minLength: 1
