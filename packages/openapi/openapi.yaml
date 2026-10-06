@@ -10914,6 +10914,93 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/driver/me/stops/{stopId}/actions/{actionId}/delivery-disposition:
+    post:
+      tags: [Drivers]
+      summary: Record the delivery quantity result for the current stop action
+      operationId: post_record_the_delivery_quantity_result_for_the_current_stop_action
+      description: |
+        Records accepted and rejected quantity for the authenticated driver.
+        Driver, tenant, execution, revision, and actor identity are derived by the server.
+        This route does not authorize return or redirect.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: stopId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: actionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Client-supplied idempotency key for version lifecycle mutation (max 128 chars).
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverDeliveryDispositionRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDeliveryDispositionResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/drivers:
     post:
       tags: [Drivers]
@@ -22611,7 +22698,48 @@ components:
       properties:
         occurredAt: {type: string, format: date-time}
         expectedVersion: {type: integer, minimum: 1}
-        reasonCode: {type: string}
+        reasonCode:
+          type: string
+          enum: [TRAFFIC, VEHICLE_BREAKDOWN, ACCIDENT, LOADING_DELAY, UNLOADING_DELAY, CARGO_ISSUE, DOCUMENT_ISSUE, CUSTOMER_UNAVAILABLE, ROUTE_BLOCKED, OTHER]
+    DriverDeliveryEvidenceRef:
+      type: object
+      additionalProperties: false
+      description: Existing evidence metadata reference. This contract does not upload evidence.
+      properties:
+        evidenceType: {type: string}
+        source: {type: string}
+        referenceId: {type: string}
+    DriverDeliveryDispositionRequest:
+      type: object
+      additionalProperties: false
+      required: [shipmentId, cargoId, acceptedQuantity, rejectedQuantity, uom]
+      properties:
+        shipmentId: {type: string, format: uuid}
+        cargoId: {type: string, format: uuid}
+        acceptedQuantity: {type: integer, minimum: 0}
+        rejectedQuantity: {type: integer, minimum: 0}
+        uom: {type: string, enum: [PALLET]}
+        reasonCode:
+          type: string
+          enum: [DAMAGE, MIS_SORT, SHORTAGE, OVERAGE, PACKAGING_DAMAGE, TEMPERATURE_DEVIATION, QUALITY_REJECTION, DOCUMENT_PROBLEM, WRONG_PRODUCT, EXPIRED_PRODUCT, CUSTOMER_REFUSAL, OTHER]
+        reasonComment: {type: string}
+        occurredAt: {type: string, format: date-time}
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverDeliveryEvidenceRef'
+    DriverDeliveryDispositionResponse:
+      type: object
+      additionalProperties: false
+      required: [executionId, caseId, status, acceptedQuantity, rejectedQuantity, revisionId, replayed]
+      properties:
+        executionId: {type: string, format: uuid}
+        caseId: {type: string, format: uuid, nullable: true}
+        status: {type: string}
+        acceptedQuantity: {type: integer}
+        rejectedQuantity: {type: integer}
+        revisionId: {type: string, format: uuid}
+        replayed: {type: boolean}
     DriverStopCommandResponse:
       type: object
       additionalProperties: false

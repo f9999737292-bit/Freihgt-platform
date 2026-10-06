@@ -115,6 +115,10 @@ func (c *Client) FailStopAction(ctx context.Context, reqCtx RequestContext, stop
 	return c.doJSONWithIdempotency(ctx, reqCtx, http.MethodPost, "/v1/driver/me/stops/"+stopID+"/actions/"+actionID+"/fail", body, idempotencyKey)
 }
 
+func (c *Client) ReportDeliveryDisposition(ctx context.Context, reqCtx RequestContext, stopID, actionID string, body []byte, idempotencyKey string) (json.RawMessage, int, error) {
+	return c.doJSONWithIdempotency(ctx, reqCtx, http.MethodPost, "/v1/driver/me/stops/"+stopID+"/actions/"+actionID+"/delivery-disposition", body, idempotencyKey)
+}
+
 func (c *Client) doJSONWithIdempotency(ctx context.Context, reqCtx RequestContext, method, path string, body []byte, idempotencyKey string) (json.RawMessage, int, error) {
 	var reader io.Reader
 	if body != nil {
