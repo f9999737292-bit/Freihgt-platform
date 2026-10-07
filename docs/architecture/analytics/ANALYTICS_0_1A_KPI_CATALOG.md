@@ -60,11 +60,11 @@ KPI_ID=OPS_SHIPMENTS_TOTAL
 KPI_NAME=Shipments total
 KPI_DOMAIN=OPERATIONS
 KPI_VERSION_PROPOSED=1
-BUSINESS_DEFINITION=Count of shipment rows in the tenant.
-NUMERATOR=shipments matching inclusion
+BUSINESS_DEFINITION=v1 count of shipment rows the canonical read already returns: tenant match and deleted_at IS NULL (shipment_repository.go).
+NUMERATOR=shipments matching that read
 DENOMINATOR=1
-INCLUSION_RULE=transport.shipments for the server-derived tenant
-EXCLUSION_RULE=deleted_at IS NOT NULL is how shipment reads filter today; analytics must state whether soft-deleted rows stay in a historical count. NOT frozen.
+INCLUSION_RULE=transport.shipments for the server-derived tenant with deleted_at IS NULL
+EXCLUSION_RULE=deleted_at IS NOT NULL. A later version would be required before soft-deleted rows re-enter the population. A past-day snapshot that includes rows deleted after that day is out of v1.
 TIME_BASIS=created_at for a created-in-window count
 TIME_WINDOW=SEE_DEFAULT
 SOURCE_OF_TRUTH=SRC-SHIPMENT
@@ -83,7 +83,7 @@ CURRENT_IMPLEMENTATION=Shipment list totals and Control Tower status summary tot
 READINESS=READY
 BLOCKER=
 OWNER_AGENT=C for the fact; E for the KPI definition
-NOTES=A point-in-time population of a past day is NOT supported. created_at supports cohorts of shipments that still exist or whose deleted rows are explicitly included.
+NOTES=A point-in-time population of a past day is NOT supported. v1 cohorts use created_at on rows that still pass deleted_at IS NULL.
 ```
 
 ### OPS_SHIPMENTS_ACTIVE
@@ -2289,12 +2289,12 @@ KPI_ID=FIN_SURCHARGES
 KPI_NAME=Surcharges
 KPI_DOMAIN=FINANCE
 KPI_VERSION_PROPOSED=1
-BUSINESS_DEFINITION=Accessorial and extra charge amounts. settlement_accessorials, register extra_charges, and contract rate components are related but not one row.
-NUMERATOR=sum per currency of the chosen source
+BUSINESS_DEFINITION=Accessorial amounts exist in more than one store: settlement_accessorials, billing_register_items.extra_charges, and contract rate components. v1 does not choose one population, and adding them would double-count.
+NUMERATOR=NOT frozen
 DENOMINATOR=1
-INCLUSION_RULE=settlement_accessorials.amount or billing_register_items.extra_charges
-EXCLUSION_RULE=base freight and penalties
-TIME_BASIS=settlement time
+INCLUSION_RULE=NOT frozen
+EXCLUSION_RULE=base freight and penalties; do not sum the three stores into one total
+TIME_BASIS=settlement time when the settlement store is used; not frozen as the KPI clock
 TIME_WINDOW=SEE_DEFAULT
 SOURCE_OF_TRUTH=SRC-BILLING
 SOURCE_SERVICE=billing-register-service
@@ -2309,10 +2309,10 @@ LATE_EVENT_POLICY_CURRENT=SEE_DEFAULT
 CORRECTION_POLICY_CURRENT=SEE_DEFAULT
 NULL_POLICY=null excluded
 CURRENT_IMPLEMENTATION=settlement accessorials and register extra_charges
-READINESS=READY
-BLOCKER=
+READINESS=PARTIAL
+BLOCKER=One surcharge population is not frozen
 OWNER_AGENT=UNASSIGNED_SOURCE_DOMAIN
-NOTES=Ready as a per-currency sum of register extra_charges or approved accessorials, stated as that source. A blended surcharge across all three stores is not ready. CURRENCY_SOURCE=parent currency. FINANCIAL_FINALITY=billing line. MIXED_CURRENCY_SAFE=NO.
+NOTES=CURRENCY_SOURCE=parent currency. FINANCIAL_FINALITY=billing line. MIXED_CURRENCY_SAFE=NO. Downgraded from READY in R1 because the inclusion rule was an unresolved OR.
 ```
 
 ### FIN_PENALTIES
@@ -2581,7 +2581,15 @@ NOTES=MIXED_CURRENCY_SAFE=NO. Shipment FINANCIALLY_CLOSED has no amount by itsel
 
 ## Documents
 
-`DocumentStatus=SIGNED` is a workflow count. It is not `DOC_QUALIFIED_TRUST_COUNT`.
+Three document concepts stay separate:
+
+| Concept | KPI | What it counts |
+| --- | --- | --- |
+| WORKFLOW_SIGNED | DOC_SIGNED_STATUS_COUNT | Current `document_status=SIGNED` |
+| CRYPTOGRAPHICALLY_VERIFIED | DOC_VERIFIED_SIGNATURE_COUNT | A verifier result that the signature checked out |
+| QUALIFIED_TRUSTED | DOC_QUALIFIED_TRUST_COUNT | Qualified policy `QUALIFIED_CADES_BES` |
+
+`DocumentStatus=SIGNED` is not cryptographic verification and not qualified trust. Legacy `verification_status=VALID` is not cryptographic verification. `VERIFIER_UNAVAILABLE` is not verified.
 
 ### DOC_DOCUMENTS_CREATED
 
@@ -2590,11 +2598,11 @@ KPI_ID=DOC_DOCUMENTS_CREATED
 KPI_NAME=Documents created
 KPI_DOMAIN=DOCUMENT
 KPI_VERSION_PROPOSED=1
-BUSINESS_DEFINITION=Count of documents.documents.
-NUMERATOR=rows
+BUSINESS_DEFINITION=v1 count of documents.documents rows the canonical read already returns: tenant match and deleted_at IS NULL (document_repository.go list filter).
+NUMERATOR=those rows
 DENOMINATOR=1
-INCLUSION_RULE=tenant documents
-EXCLUSION_RULE=UNKNOWN soft-delete behavior; not re-specified here
+INCLUSION_RULE=tenant_id match and deleted_at IS NULL
+EXCLUSION_RULE=deleted_at IS NOT NULL. A past-day snapshot that puts later-deleted documents back in is out of v1.
 TIME_BASIS=created_at
 TIME_WINDOW=SEE_DEFAULT
 SOURCE_OF_TRUTH=SRC-DOCUMENT
@@ -2689,30 +2697,30 @@ KPI_ID=DOC_VERIFIED_SIGNATURE_COUNT
 KPI_NAME=Verified signature count
 KPI_DOMAIN=DOCUMENT
 KPI_VERSION_PROPOSED=1
-BUSINESS_DEFINITION=Signatures with a cryptographic verification result. Legacy signing can persist verification_status VALID without that check. Attachment evidence cannot be VALID yet.
-NUMERATOR=UNKNOWN which VALID rows are real verifications
-DENOMINATOR=signatures
-INCLUSION_RULE=NOT safe to count VALID
-EXCLUSION_RULE=legacy VALID is not this numerator
-TIME_BASIS=verification_time or attempted_at
+BUSINESS_DEFINITION=Count of signatures that a cryptographic verifier has accepted. This is not WORKFLOW_SIGNED and not QUALIFIED_TRUSTED.
+NUMERATOR=NOT_FOUND as a trustworthy population
+DENOMINATOR=signatures in scope once a verifier result exists
+INCLUSION_RULE=NOT_FOUND
+EXCLUSION_RULE=legacy verification_status=VALID; document_status=SIGNED; evidence reason VERIFIER_UNAVAILABLE; 000096 PENDING
+TIME_BASIS=NOT_FOUND
 TIME_WINDOW=SEE_DEFAULT
-SOURCE_OF_TRUTH=SRC-DOCUMENT and SRC-SIGNATURE-EVIDENCE
+SOURCE_OF_TRUTH=SRC-SIGNATURE-EVIDENCE
 SOURCE_SERVICE=document-service
-SOURCE_FIELDS=signatures verification_status; signature_verification_evidence
-EVENT_TIME=attempted_at on evidence; verification_time on attachment signatures is forced toward UNVERIFIED by the I2 trigger
-PROCESSING_TIME=created_at
+SOURCE_FIELDS=legacy signatures.verification_status; signature_verification_evidence.verification_status and reason_code
+EVENT_TIME=NOT_FOUND for a real verification
+PROCESSING_TIME=evidence created_at records an unavailable verifier, not a success
 DIMENSIONS=TENANT
 TENANT_SCOPE=SEE_DEFAULT
 FRESHNESS=SEE_DEFAULT
-HISTORY_CLASS=EVENT_HISTORY for evidence
-LATE_EVENT_POLICY_CURRENT=SEE_DEFAULT
-CORRECTION_POLICY_CURRENT=SEE_DEFAULT
-NULL_POLICY=SEE_DEFAULT
+HISTORY_CLASS=EVENT_HISTORY for evidence attempts
+LATE_EVENT_POLICY_CURRENT=append-only evidence
+CORRECTION_POLICY_CURRENT=a later attempt would be a new row; none can be VALID under 000096
+NULL_POLICY=do not coerce missing verification to verified
 CURRENT_IMPLEMENTATION=ADR-EDO-010 and 000096
-READINESS=PARTIAL
-BLOCKER=VALID is overloaded
+READINESS=BLOCKED
+BLOCKER=GAP-B-003
 OWNER_AGENT=B
-NOTES=Do not display this as qualified trust.
+NOTES=LEGACY_VALID_COUNTED_AS_CRYPTO_VERIFIED=NO. DOCUMENT_STATUS_SIGNED_COUNTED_AS_QUALIFIED_TRUST=NO. Qualified trust remains GAP-B-002.
 ```
 
 ### DOC_QUALIFIED_TRUST_COUNT
@@ -2849,7 +2857,19 @@ NOTES=This duration is not a qualified-trust duration.
 
 ## Network intelligence
 
-Observability metrics are listed so they are not later mistaken for business KPIs. Agent D's search, scoring, and acceptance semantics remain a dependency. Design documents for backhaul are not facts.
+Observability metrics are listed so they are not later mistaken for business KPIs. Agent D owns planned search and plan facts. Agent C owns executed distance. Design documents for backhaul are not facts. PR #218 was not in main at R1.
+
+```
+CANDIDATE_ROAD_DEADHEAD_KM_FACT=FOUND
+CANDIDATE_ROAD_DEADHEAD_COLUMN=network_optimizer.match_candidates.road_deadhead_km
+CANDIDATE_ROAD_DEADHEAD_IS_EXECUTED_DEADHEAD=NO
+CANDIDATE_ROAD_DEADHEAD_IS_FLEET_DEADHEAD=NO
+NLO_PLAN_OWNER=YES
+NLO_EXECUTION_OWNER=NO
+TMS_EXECUTION_OWNER=YES
+```
+
+`NET_LOADED_KM`, `NET_EMPTY_KM`, `NET_DEADHEAD_KM`, and `NET_DEADHEAD_PCT` mean executed network distance. They do not mean a sum of candidate-search deadhead. Planned candidate deadhead may be used for search diagnostics and candidate comparison. It is not one of these KPI ids.
 
 ### NET_CANDIDATES_DISCOVERED
 
@@ -3089,30 +3109,30 @@ KPI_ID=NET_DEADHEAD_KM
 KPI_NAME=Deadhead kilometres
 KPI_DOMAIN=NETWORK
 KPI_VERSION_PROPOSED=1
-BUSINESS_DEFINITION=Sum of match_candidates.road_deadhead_km. This is candidate search deadhead, not executed empty kilometres and not deadhead reduction.
-NUMERATOR=sum of road_deadhead_km
+BUSINESS_DEFINITION=Executed network deadhead kilometres. Not a sum of candidate-search alternatives.
+NUMERATOR=NOT_FOUND
 DENOMINATOR=1
-INCLUSION_RULE=non-null road_deadhead_km
-EXCLUSION_RULE=straight-line; policy max_deadhead_km
-TIME_BASIS=search time
+INCLUSION_RULE=NOT_FOUND
+EXCLUSION_RULE=do not sum match_candidates.road_deadhead_km; that column is candidate diagnostics only
+TIME_BASIS=NOT_FOUND
 TIME_WINDOW=SEE_DEFAULT
-SOURCE_OF_TRUTH=SRC-NLO-SEARCH
-SOURCE_SERVICE=network-optimizer-service
-SOURCE_FIELDS=road_deadhead_km
-EVENT_TIME=search time
-PROCESSING_TIME=UNKNOWN
-DIMENSIONS=TENANT; anonymized views must not reveal exact coordinates
-TENANT_SCOPE=search tenant
+SOURCE_OF_TRUTH=NOT_FOUND for executed deadhead
+SOURCE_SERVICE=shipment-service
+SOURCE_FIELDS=NOT_FOUND executed deadhead; candidate column is not this KPI
+EVENT_TIME=NOT_FOUND
+PROCESSING_TIME=NOT_FOUND
+DIMENSIONS=TENANT
+TENANT_SCOPE=operating tenant of the execution
 FRESHNESS=SEE_DEFAULT
-HISTORY_CLASS=EVENT_HISTORY if candidates are retained
+HISTORY_CLASS=UNKNOWN
 LATE_EVENT_POLICY_CURRENT=SEE_DEFAULT
 CORRECTION_POLICY_CURRENT=SEE_DEFAULT
-NULL_POLICY=null excluded
-CURRENT_IMPLEMENTATION=000079
-READINESS=PARTIAL
-BLOCKER=Candidate measure versus network execution measure; D semantics may move
-OWNER_AGENT=D
-NOTES=
+NULL_POLICY=SEE_DEFAULT
+CURRENT_IMPLEMENTATION=NOT_FOUND
+READINESS=BLOCKED
+BLOCKER=GAP-C-006
+OWNER_AGENT=C
+NOTES=CANDIDATE_ROAD_DEADHEAD_KM_FACT=FOUND. CANDIDATE_ROAD_DEADHEAD_IS_EXECUTED_DEADHEAD=NO. CANDIDATE_ROAD_DEADHEAD_IS_FLEET_DEADHEAD=NO. BLOCKED because the candidate column can be mistaken for this KPI. Planned NLO distance, if added later, needs its own KPI id and stays PLANNED.
 ```
 
 ### NET_LOADED_KM
@@ -3126,16 +3146,16 @@ BUSINESS_DEFINITION=Executed loaded distance.
 NUMERATOR=NOT_FOUND
 DENOMINATOR=1
 INCLUSION_RULE=NOT_FOUND
-EXCLUSION_RULE=min_loaded_distance_km is a policy threshold
+EXCLUSION_RULE=min_loaded_distance_km is an NLO policy threshold, not executed loaded distance
 TIME_BASIS=NOT_FOUND
 TIME_WINDOW=SEE_DEFAULT
 SOURCE_OF_TRUTH=NOT_FOUND
-SOURCE_SERVICE=network-optimizer-service
+SOURCE_SERVICE=shipment-service
 SOURCE_FIELDS=NOT_FOUND
 EVENT_TIME=NOT_FOUND
 PROCESSING_TIME=NOT_FOUND
 DIMENSIONS=TENANT
-TENANT_SCOPE=SEE_DEFAULT
+TENANT_SCOPE=operating tenant of the execution
 FRESHNESS=SEE_DEFAULT
 HISTORY_CLASS=UNKNOWN
 LATE_EVENT_POLICY_CURRENT=SEE_DEFAULT
@@ -3143,9 +3163,9 @@ CORRECTION_POLICY_CURRENT=SEE_DEFAULT
 NULL_POLICY=SEE_DEFAULT
 CURRENT_IMPLEMENTATION=NOT_FOUND
 READINESS=NOT_SUPPORTED
-BLOCKER=GAP-D-002
-OWNER_AGENT=D
-NOTES=Classed NOT_SUPPORTED because no column exists. The gap register still asks D for the fact before a later phase can become PARTIAL.
+BLOCKER=GAP-C-006
+OWNER_AGENT=C
+NOTES=No executed loaded_km column. NOT_SUPPORTED until TMS records it. Do not substitute an NLO planned leg.
 ```
 
 ### NET_EMPTY_KM
@@ -3159,16 +3179,16 @@ BUSINESS_DEFINITION=Executed empty kilometres. Not candidate deadhead.
 NUMERATOR=NOT_FOUND
 DENOMINATOR=1
 INCLUSION_RULE=NOT_FOUND
-EXCLUSION_RULE=road_deadhead_km
+EXCLUSION_RULE=match_candidates.road_deadhead_km is not executed empty km
 TIME_BASIS=NOT_FOUND
 TIME_WINDOW=SEE_DEFAULT
 SOURCE_OF_TRUTH=NOT_FOUND
-SOURCE_SERVICE=network-optimizer-service
+SOURCE_SERVICE=shipment-service
 SOURCE_FIELDS=NOT_FOUND
 EVENT_TIME=NOT_FOUND
 PROCESSING_TIME=NOT_FOUND
 DIMENSIONS=TENANT
-TENANT_SCOPE=SEE_DEFAULT
+TENANT_SCOPE=operating tenant of the execution
 FRESHNESS=SEE_DEFAULT
 HISTORY_CLASS=UNKNOWN
 LATE_EVENT_POLICY_CURRENT=SEE_DEFAULT
@@ -3176,9 +3196,9 @@ CORRECTION_POLICY_CURRENT=SEE_DEFAULT
 NULL_POLICY=SEE_DEFAULT
 CURRENT_IMPLEMENTATION=NOT_FOUND
 READINESS=NOT_SUPPORTED
-BLOCKER=GAP-D-002
-OWNER_AGENT=D
-NOTES=
+BLOCKER=GAP-C-006
+OWNER_AGENT=C
+NOTES=No executed empty_km column.
 ```
 
 ### NET_DEADHEAD_PCT
@@ -3188,20 +3208,20 @@ KPI_ID=NET_DEADHEAD_PCT
 KPI_NAME=Deadhead percent
 KPI_DOMAIN=NETWORK
 KPI_VERSION_PROPOSED=1
-BUSINESS_DEFINITION=Deadhead or empty km divided by total km. Empty and loaded km are NOT_FOUND. Candidate deadhead alone has no total.
-NUMERATOR=NOT_FOUND
-DENOMINATOR=NOT_FOUND
+BUSINESS_DEFINITION=Executed deadhead kilometres divided by executed total kilometres. Candidate deadhead has no executed total.
+NUMERATOR=NET_DEADHEAD_KM
+DENOMINATOR=executed loaded plus executed empty, or another TMS total once GAP-C-006 exists
 INCLUSION_RULE=NOT_FOUND
-EXCLUSION_RULE=do not divide road_deadhead_km by itself
+EXCLUSION_RULE=do not divide summed road_deadhead_km by itself or by a planned NLO distance
 TIME_BASIS=NOT_FOUND
 TIME_WINDOW=SEE_DEFAULT
 SOURCE_OF_TRUTH=NOT_FOUND
-SOURCE_SERVICE=network-optimizer-service
+SOURCE_SERVICE=shipment-service
 SOURCE_FIELDS=NOT_FOUND
 EVENT_TIME=NOT_FOUND
 PROCESSING_TIME=NOT_FOUND
 DIMENSIONS=TENANT
-TENANT_SCOPE=SEE_DEFAULT
+TENANT_SCOPE=operating tenant of the execution
 FRESHNESS=SEE_DEFAULT
 HISTORY_CLASS=UNKNOWN
 LATE_EVENT_POLICY_CURRENT=SEE_DEFAULT
@@ -3209,9 +3229,9 @@ CORRECTION_POLICY_CURRENT=SEE_DEFAULT
 NULL_POLICY=empty denominator forbidden
 CURRENT_IMPLEMENTATION=NOT_FOUND
 READINESS=BLOCKED
-BLOCKER=GAP-D-002
-OWNER_AGENT=D
-NOTES=BLOCKED rather than NOT_SUPPORTED because a deadhead component exists and a false percent could be invented from it.
+BLOCKER=GAP-C-006
+OWNER_AGENT=C
+NOTES=BLOCKED because candidate road_deadhead_km exists and a false percent could be built from it. The percent is an executed TMS measure.
 ```
 
 ### NET_CAPACITY_UTILIZATION
@@ -3786,7 +3806,7 @@ KPI_ID=EXEC_DEADHEAD_PCT
 KPI_NAME=Executive deadhead percent
 KPI_DOMAIN=EXECUTIVE
 KPI_VERSION_PROPOSED=1
-BUSINESS_DEFINITION=Pointer to NET_DEADHEAD_PCT.
+BUSINESS_DEFINITION=Pointer to NET_DEADHEAD_PCT. Executed TMS percent. Not an NLO candidate sum.
 NUMERATOR=NET_DEADHEAD_PCT
 DENOMINATOR=same
 INCLUSION_RULE=NOT_FOUND
@@ -3794,7 +3814,7 @@ EXCLUSION_RULE=same
 TIME_BASIS=NOT_FOUND
 TIME_WINDOW=SEE_DEFAULT
 SOURCE_OF_TRUTH=NOT_FOUND
-SOURCE_SERVICE=network-optimizer-service
+SOURCE_SERVICE=shipment-service
 SOURCE_FIELDS=NOT_FOUND
 EVENT_TIME=NOT_FOUND
 PROCESSING_TIME=NOT_FOUND
@@ -3807,8 +3827,8 @@ CORRECTION_POLICY_CURRENT=SEE_DEFAULT
 NULL_POLICY=SEE_DEFAULT
 CURRENT_IMPLEMENTATION=NOT_FOUND
 READINESS=BLOCKED
-BLOCKER=GAP-D-002
-OWNER_AGENT=D
+BLOCKER=GAP-C-006
+OWNER_AGENT=C
 NOTES=
 ```
 
@@ -3916,7 +3936,7 @@ NOTES=
 | FIN_COST_PER_PALLET | FINANCE | PARTIAL | CURRENT_STATE_ONLY | C | null pallets |
 | FIN_COST_PER_TON | FINANCE | BLOCKED | CURRENT_STATE_ONLY | C | GAP-C-004 |
 | FIN_BASE_FREIGHT | FINANCE | READY | CURRENT_STATE_ONLY | UNASSIGNED | |
-| FIN_SURCHARGES | FINANCE | READY | CURRENT_STATE_ONLY | UNASSIGNED | |
+| FIN_SURCHARGES | FINANCE | PARTIAL | CURRENT_STATE_ONLY | UNASSIGNED | surcharge population |
 | FIN_PENALTIES | FINANCE | READY | CURRENT_STATE_ONLY | UNASSIGNED | |
 | FIN_BILLED_AMOUNT | FINANCE | READY | EVENT_HISTORY | UNASSIGNED | |
 | FIN_PAID_AMOUNT | FINANCE | READY | CURRENT_STATE_ONLY | UNASSIGNED | |
@@ -3928,7 +3948,7 @@ NOTES=
 | DOC_DOCUMENTS_CREATED | DOCUMENT | READY | CURRENT_STATE_ONLY | B | |
 | DOC_READY_FOR_SIGNING | DOCUMENT | READY | CURRENT_STATE_ONLY | B | |
 | DOC_SIGNED_STATUS_COUNT | DOCUMENT | READY | CURRENT_STATE_ONLY | B | status only, not trust |
-| DOC_VERIFIED_SIGNATURE_COUNT | DOCUMENT | PARTIAL | EVENT_HISTORY | B | legacy VALID |
+| DOC_VERIFIED_SIGNATURE_COUNT | DOCUMENT | BLOCKED | EVENT_HISTORY | B | GAP-B-003 |
 | DOC_QUALIFIED_TRUST_COUNT | DOCUMENT | BLOCKED | EVENT_HISTORY | B | GAP-B-002 |
 | DOC_SIGNATURE_PENDING_COUNT | DOCUMENT | PARTIAL | EVENT_HISTORY | B | which pending |
 | DOC_DOCUMENT_COMPLETENESS | DOCUMENT | BLOCKED | UNKNOWN | B | GAP-B-001 |
@@ -3940,10 +3960,10 @@ NOTES=
 | NET_CANDIDATES_RANKED | NETWORK | PARTIAL | EVENT_HISTORY | D | rank contract |
 | NET_SEARCH_DURATION | NETWORK | NOT_SUPPORTED | UNKNOWN | D | observability |
 | NET_PROVIDER_CALLS | NETWORK | NOT_SUPPORTED | UNKNOWN | D | no call fact |
-| NET_DEADHEAD_KM | NETWORK | PARTIAL | EVENT_HISTORY | D | candidate versus executed |
-| NET_LOADED_KM | NETWORK | NOT_SUPPORTED | UNKNOWN | D | GAP-D-002 |
-| NET_EMPTY_KM | NETWORK | NOT_SUPPORTED | UNKNOWN | D | GAP-D-002 |
-| NET_DEADHEAD_PCT | NETWORK | BLOCKED | UNKNOWN | D | GAP-D-002 |
+| NET_DEADHEAD_KM | NETWORK | BLOCKED | UNKNOWN | C | GAP-C-006 |
+| NET_LOADED_KM | NETWORK | NOT_SUPPORTED | UNKNOWN | C | GAP-C-006 |
+| NET_EMPTY_KM | NETWORK | NOT_SUPPORTED | UNKNOWN | C | GAP-C-006 |
+| NET_DEADHEAD_PCT | NETWORK | BLOCKED | UNKNOWN | C | GAP-C-006 |
 | NET_CAPACITY_UTILIZATION | NETWORK | PARTIAL | EVENT_HISTORY | D | score JSON only |
 | NET_BACKHAUL_OPPORTUNITIES | NETWORK | NOT_SUPPORTED | UNKNOWN | D | GAP-D-003 |
 | NET_BACKHAUL_ACCEPTED | NETWORK | NOT_SUPPORTED | UNKNOWN | D | GAP-D-003 |
@@ -3961,16 +3981,16 @@ NOTES=
 | EXEC_DELIVERY_REJECTION_RATE | EXECUTIVE | PARTIAL | EVENT_HISTORY | C | denominator |
 | EXEC_BILLED_AMOUNT | EXECUTIVE | READY | EVENT_HISTORY | UNASSIGNED | |
 | EXEC_OUTSTANDING_AMOUNT | EXECUTIVE | READY | CURRENT_STATE_ONLY | UNASSIGNED | |
-| EXEC_DEADHEAD_PCT | EXECUTIVE | BLOCKED | UNKNOWN | D | GAP-D-002 |
+| EXEC_DEADHEAD_PCT | EXECUTIVE | BLOCKED | UNKNOWN | C | GAP-C-006 |
 | EXEC_CAPACITY_UTILIZATION | EXECUTIVE | PARTIAL | EVENT_HISTORY | D | score JSON |
 
 ## Totals
 
 ```
 KPI_TOTAL=114
-KPI_READY=18
-KPI_PARTIAL=66
-KPI_BLOCKED=21
+KPI_READY=17
+KPI_PARTIAL=65
+KPI_BLOCKED=23
 KPI_NOT_SUPPORTED=9
 ```
 
@@ -3981,23 +4001,23 @@ By domain:
 | OPERATIONS | 25 | 3 | 19 | 3 | 0 | 0.500 |
 | PROCUREMENT | 16 | 2 | 12 | 2 | 0 | 0.500 |
 | CARRIER | 16 | 0 | 11 | 5 | 0 | 0.344 |
-| FINANCE | 19 | 7 | 9 | 2 | 1 | 0.605 |
-| DOCUMENT | 8 | 3 | 3 | 2 | 0 | 0.563 |
-| NETWORK | 18 | 0 | 7 | 3 | 8 | 0.194 |
+| FINANCE | 19 | 6 | 10 | 2 | 1 | 0.579 |
+| DOCUMENT | 8 | 3 | 2 | 3 | 0 | 0.500 |
+| NETWORK | 18 | 0 | 6 | 4 | 8 | 0.167 |
 | EXECUTIVE | 12 | 3 | 5 | 4 | 0 | 0.458 |
-| ALL | 114 | 18 | 66 | 21 | 9 | 0.447 |
+| ALL | 114 | 17 | 65 | 23 | 9 | 0.434 |
 
 ```
 OPERATIONS_ANALYTICS_READINESS=0.500
 PROCUREMENT_ANALYTICS_READINESS=0.500
 CARRIER_ANALYTICS_READINESS=0.344
-FINANCE_ANALYTICS_READINESS=0.605
-DOCUMENT_ANALYTICS_READINESS=0.563
-NETWORK_ANALYTICS_READINESS=0.194
+FINANCE_ANALYTICS_READINESS=0.579
+DOCUMENT_ANALYTICS_READINESS=0.500
+NETWORK_ANALYTICS_READINESS=0.167
 EXECUTIVE_ANALYTICS_READINESS=0.458
-OVERALL_CATALOG_READINESS=0.447
-READINESS_METHOD=READY=1, PARTIAL=0.5, BLOCKED=0, NOT_SUPPORTED=0; score = weighted sum / count. 51 / 114 = 0.447.
+OVERALL_CATALOG_READINESS=0.434
+READINESS_METHOD=READY=1, PARTIAL=0.5, BLOCKED=0, NOT_SUPPORTED=0; score = weighted sum / count. 49.5 / 114 = 0.434.
 ```
 
-Check: 3+19+3=25. 2+12+2=16. 0+11+5=16. 7+9+2+1=19. 3+3+2=8. 0+7+3+8=18. 3+5+4=12. 25+16+16+19+8+18+12=114. 18+66+21+9=114.
+Check: 3+19+3=25. 2+12+2=16. 0+11+5=16. 6+10+2+1=19. 3+2+3=8. 0+6+4+8=18. 3+5+4=12. 25+16+16+19+8+18+12=114. 17+65+23+9=114. R1 moved FIN_SURCHARGES READY to PARTIAL, DOC_VERIFIED_SIGNATURE_COUNT PARTIAL to BLOCKED, and NET_DEADHEAD_KM PARTIAL to BLOCKED.
 

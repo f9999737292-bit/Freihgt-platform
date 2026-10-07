@@ -72,6 +72,21 @@ BLOCKS_ANALYTICS_PHASE=Document trust analytics (after Agent B unblocks the veri
 PRIORITY=P1
 ```
 
+### GAP-B-003
+
+```
+GAP_ID=GAP-B-003
+KPI_IDS_AFFECTED=DOC_VERIFIED_SIGNATURE_COUNT
+MISSING_FACT=A countable cryptographically verified signature population
+WHY_CURRENT_DATA_INSUFFICIENT=Three different concepts exist and must stay separate. WORKFLOW_SIGNED is document_status=SIGNED. CRYPTOGRAPHICALLY_VERIFIED would be a verifier result that a signature checked out. QUALIFIED_TRUSTED is GAP-B-002 (policy QUALIFIED_CADES_BES). Legacy signing can persist verification_status=VALID without a cryptographic check (ADR-EDO-010). Migration 000096 evidence allows only PENDING and VERIFIER_UNAVAILABLE. Neither legacy VALID, DocumentStatus=SIGNED, nor VERIFIER_UNAVAILABLE is a trustworthy verified count. The qualified-trust gap does not by itself define this non-qualified cryptographic population.
+AUTHORITATIVE_OWNER=document-service / EDO
+OWNER_AGENT=B
+SUGGESTED_SOURCE_CONTRACT=A verification result whose status means cryptographically verified, with verifier identity, attempted_at, and an explicit statement that legacy session VALID is excluded. Do not reuse document_status. Do not treat qualified trust and cryptographic verification as the same flag.
+REQUIRES_PRODUCT_CHANGE=YES
+BLOCKS_ANALYTICS_PHASE=Document verification analytics
+PRIORITY=P1
+```
+
 ### GAP-RFX-001
 
 ```
@@ -98,7 +113,7 @@ MISSING_FACT=Executed distance in kilometres for the shipment or transport order
 WHY_CURRENT_DATA_INSUFFICIENT=NOT_FOUND: distance_km on transport.shipments or transport orders. network_optimizer policy columns min_loaded_distance_km and max_deadhead_km are thresholds, not executed distance. match_candidates.road_deadhead_km is a search-candidate deadhead, not the loaded trip distance.
 AUTHORITATIVE_OWNER=shipment-service / transport execution
 OWNER_AGENT=C
-SUGGESTED_SOURCE_CONTRACT=executed_loaded_distance_km, distance_source, measured_at, tenant_id on the execution or shipment. Do not reuse NLO deadhead.
+SUGGESTED_SOURCE_CONTRACT=executed_loaded_distance_km, distance_source, measured_at, tenant_id on the execution or shipment. Do not reuse NLO candidate deadhead. Network loaded, empty, and deadhead kilometres are GAP-C-006, same owner, not Agent D.
 REQUIRES_PRODUCT_CHANGE=YES
 BLOCKS_ANALYTICS_PHASE=ANALYTICS-0.5
 PRIORITY=P1
@@ -134,6 +149,23 @@ BLOCKS_ANALYTICS_PHASE=ANALYTICS-0.3
 PRIORITY=P1
 ```
 
+### GAP-C-006
+
+```
+GAP_ID=GAP-C-006
+KPI_IDS_AFFECTED=NET_LOADED_KM, NET_EMPTY_KM, NET_DEADHEAD_KM, NET_DEADHEAD_PCT, EXEC_DEADHEAD_PCT
+MISSING_FACT=Executed loaded kilometres, executed empty kilometres, and executed deadhead kilometres
+WHY_CURRENT_DATA_INSUFFICIENT=NOT_FOUND on shipment, execution, or tracking tables. network_optimizer.match_candidates.road_deadhead_km is a candidate-search fact. Summing those alternatives is not executed deadhead, accepted-plan deadhead, fleet empty kilometres, or network deadhead. NLO_0_4D_ARCHITECTURE_FREEZE.md sets NLO_PLAN_OWNER=YES, NLO_EXECUTION_OWNER=NO, TMS_EXECUTION_OWNER=YES, NLO_WRITES_TMS_DB=NO, TMS_WRITES_NLO_DB=NO. Agent D must not become the source of executed transport distance.
+AUTHORITATIVE_OWNER=shipment-service / TMS execution
+OWNER_AGENT=C
+SUGGESTED_SOURCE_CONTRACT=Possible later fields, not a frozen schema: execution_id, execution_revision_id, shipment_id, loaded_distance_km, empty_distance_km, deadhead_distance_km, distance_source, measurement_window, occurred_at, tenant_id. Planned NLO distances stay on network-optimizer-service and must be labeled PLANNED or OPTIMIZED.
+REQUIRES_PRODUCT_CHANGE=YES
+BLOCKS_ANALYTICS_PHASE=ANALYTICS-0.6, ANALYTICS-0.7
+PRIORITY=P2
+```
+
+GAP-D-002 is withdrawn. It assigned this executed-distance fact to Agent D. The replacement is GAP-C-006.
+
 ### GAP-E-001
 
 ```
@@ -154,28 +186,13 @@ PRIORITY=P1
 ```
 GAP_ID=GAP-D-001
 KPI_IDS_AFFECTED=NET_AVG_DEADHEAD_REDUCTION_KM
-MISSING_FACT=Deadhead kilometres saved against a declared baseline for an accepted plan
-WHY_CURRENT_DATA_INSUFFICIENT=match_candidates.road_deadhead_km is candidate deadhead. NOT_FOUND: a reduction column or baseline-versus-accepted fact.
+MISSING_FACT=Planned deadhead kilometres saved against a declared baseline for an accepted plan
+WHY_CURRENT_DATA_INSUFFICIENT=match_candidates.road_deadhead_km is candidate-search deadhead, not a reduction and not executed distance. NOT_FOUND: a planned reduction column or baseline-versus-accepted fact. This gap is PLANNED / OPTIMIZED only. Executed deadhead is GAP-C-006.
 AUTHORITATIVE_OWNER=network-optimizer-service
 OWNER_AGENT=D
-SUGGESTED_SOURCE_CONTRACT=accepted plan id, baseline_deadhead_km, resulting_deadhead_km, reduction_km, distance_source, occurred_at. Mark the fact version while B2/B3/B4 semantics move.
+SUGGESTED_SOURCE_CONTRACT=accepted plan id, baseline_deadhead_km, resulting_planned_deadhead_km, reduction_km, distance_source, occurred_at. Label the fact PLANNED. Mark the fact version while later NLO waves move. Do not read PR #218 until it is in main.
 REQUIRES_PRODUCT_CHANGE=YES
 BLOCKS_ANALYTICS_PHASE=ANALYTICS-0.6
-PRIORITY=P2
-```
-
-### GAP-D-002
-
-```
-GAP_ID=GAP-D-002
-KPI_IDS_AFFECTED=NET_LOADED_KM, NET_EMPTY_KM, NET_DEADHEAD_PCT, EXEC_DEADHEAD_PCT
-MISSING_FACT=Executed loaded kilometres and empty kilometres
-WHY_CURRENT_DATA_INSUFFICIENT=NOT_FOUND: loaded_km and empty_km columns. Policy thresholds and candidate deadhead are different measures.
-AUTHORITATIVE_OWNER=network-optimizer-service for network intelligence; do not borrow shipment status as distance
-OWNER_AGENT=D
-SUGGESTED_SOURCE_CONTRACT=trip or plan fact with loaded_km, empty_km, deadhead_km, unit, calculation_version, tenant or anonymized marketplace scope
-REQUIRES_PRODUCT_CHANGE=YES
-BLOCKS_ANALYTICS_PHASE=ANALYTICS-0.6, ANALYTICS-0.7
 PRIORITY=P2
 ```
 
@@ -227,22 +244,24 @@ PRIORITY=P2
 ## Totals
 
 ```
-SOURCE_CONTRACT_GAP_TOTAL=14
+SOURCE_CONTRACT_GAP_TOTAL=15
 AGENT_A_GAPS=0
-AGENT_B_GAPS=2
-AGENT_C_GAPS=5
-AGENT_D_GAPS=5
+AGENT_B_GAPS=3
+AGENT_C_GAPS=6
+AGENT_D_GAPS=4
 AGENT_E_GAPS=1
 UNASSIGNED_SOURCE_DOMAIN_GAPS=1
 P0_GAPS=3
-P1_GAPS=6
+P1_GAPS=7
 P2_GAPS=5
 ```
 
 P0 = GAP-C-001, GAP-C-002, GAP-B-001.
 
-P1 = GAP-B-002, GAP-RFX-001, GAP-C-003, GAP-C-004, GAP-C-005, GAP-E-001.
+P1 = GAP-B-002, GAP-B-003, GAP-RFX-001, GAP-C-003, GAP-C-004, GAP-C-005, GAP-E-001.
 
-P2 = GAP-D-001 through GAP-D-005.
+P2 = GAP-C-006, GAP-D-001, GAP-D-003, GAP-D-004, GAP-D-005.
+
+GAP-D-002 is not in the total. Executed distance moved to GAP-C-006.
 
 Definition choices that are not missing source facts (dwell interval, which actual-cost stage, which financial-close marker, reporting timezone, participation definition) are inputs to Analytics-0.1B. They are recorded in the current-state document, not as fake source facts.

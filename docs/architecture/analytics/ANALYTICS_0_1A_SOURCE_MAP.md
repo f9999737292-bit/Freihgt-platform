@@ -1,6 +1,6 @@
 # Analytics-0.1A source map
 
-Classification is from code and migrations on `9ec52621d272b9ca24e5a57f73448acfd0ebef3c`. Runtime was **NOT_RUN**.
+Classification is from code and migrations on `origin/main` `ab55af609223c2ad4fcb197b8237b760b6db6104` (R1). Original 0.1A base: `9ec52621d272b9ca24e5a57f73448acfd0ebef3c`. Runtime was **NOT_RUN**. PR #218 was not merged, so bounded-routing counters from that draft are not listed.
 
 History class is one of `CURRENT_STATE_ONLY`, `EVENT_HISTORY`, `STATUS_HISTORY`, `SNAPSHOT_HISTORY`, `FULL_REBUILDABLE_HISTORY`, `UNKNOWN`.
 
@@ -376,7 +376,7 @@ HISTORY_CLASS=EVENT_HISTORY for stored runs and candidates if rows are retained;
 MUTABILITY=search results persisted; in-memory store exists for tests (search_memory.go)
 REBUILDABLE=PARTIAL for fields that were persisted. route_increase_km is API-only (GAP-D-005).
 CURRENT_CONSUMERS=NLO search API
-NOTES=Candidate deadhead is not fleet empty km. straight.go forbids storing straight-line distance as road_deadhead_km. Agent D semantics for routing bounds and scoring are still a dependency. Unstable relative to later NLO waves.
+NOTES=CANDIDATE_ROAD_DEADHEAD_KM_FACT=FOUND on match_candidates.road_deadhead_km. CANDIDATE_ROAD_DEADHEAD_IS_EXECUTED_DEADHEAD=NO. CANDIDATE_ROAD_DEADHEAD_IS_FLEET_DEADHEAD=NO. Do not sum alternative candidates and call the result NET_DEADHEAD_KM. straight.go forbids storing straight-line distance as road_deadhead_km. NLO owns the planned search fact. TMS owns executed distance (GAP-C-006). Agent D scoring remains a dependency. Unstable relative to later NLO waves. NLO_0_5B2_IN_MAIN=NO.
 CLASS=CANONICAL_EVENT for persisted candidates; some response fields are PROVISIONAL
 ```
 
@@ -413,7 +413,7 @@ HISTORY_CLASS=UNKNOWN (metrics retention is outside this repository)
 MUTABILITY=counter / histogram
 REBUILDABLE=NO as business history
 CURRENT_CONSUMERS=observability
-NOTES=OBSERVABILITY_ONLY. NOT_FOUND: provider_calls_total. Do not use these as executive or network business KPIs.
+NOTES=OBSERVABILITY_ONLY=YES. NOT_FOUND on this main: provider_calls_total, route-call counters, matrix-call counters, or budget-exhaustion counters from PR #218. Those draft values are not current facts. NLO_CURRENT_STATE_REFRESH_REQUIRED_AFTER_PR218=YES. Do not use Prometheus as executive or network business KPIs.
 ```
 
 ## Dimensions
