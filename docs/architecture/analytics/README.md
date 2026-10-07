@@ -46,3 +46,21 @@ This directory holds the Analytics-0.1A inventory and the Analytics-0.1B archite
 The inventory recorded `DWH_DECISION=DEFERRED_TO_LATER_PHASE` and `ANALYTICS_STORAGE_DECISION=NOT_FROZEN`. Those sentences remain true of 0.1A. Analytics-0.1B freezes storage as hybrid operational reads plus later analytics projections, with `DWH_V1_REQUIRED_NOW=NO`.
 
 No analytics service, warehouse, table, migration, API, or UI is created by 0.1A or 0.1B. Analytics-0.2 computation is frozen to a future analytics-service. The public route stays on the API gateway. The shipment read contract is still required from shipment-service.
+
+## Analytics-0.2B
+
+`ANALYTICS_SERVICE_IMPLEMENTED=YES`
+
+`services/analytics-service` is a stateless process on port 8097. It has no database, no analytics tables, and no migration. It reads `GET /internal/v1/analytics/operations-foundation` from shipment-service and maps exactly five KPIs at `definitionVersion=1`: `OPS_SHIPMENTS_TOTAL`, `OPS_ON_TIME_DELIVERY`, `OPS_ON_TIME_DELIVERY_RATE`, `OPS_RETURN_CASES`, and `OPS_REDIRECT_CASES`.
+
+The public route is `GET /api/v1/analytics/kpis/{kpiId}` on api-gateway. The gateway authenticates the JWT, authorizes the analytics read role, and forwards the payload. It does not compute the KPI. Driver is denied. Query filters and a details route are not part of this release.
+
+`DWH_IMPLEMENTED=NO`
+
+`HISTORICAL_ANALYTICS_READY=NO`
+
+`ANALYTICS_STATELESS=YES`
+
+`MIGRATION_CREATED=NO`
+
+0.1A readiness totals are unchanged.

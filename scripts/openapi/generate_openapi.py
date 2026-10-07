@@ -36,6 +36,7 @@ TAGS = [
     "Rate Simulation",
     "Freight Costs",
     "Network Optimizer",
+    "Analytics",
 ]
 
 COMMON_HEADER = """      parameters:
@@ -375,6 +376,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/network/compatibility/rule-sets/{id}/retire", "post", "Retire a compatibility rule set", "Network Optimizer", True, True, "bno_compatibility"),
     ("/api/v1/network/compatibility/cargo-equipment/evaluate", "post", "Evaluate cargo equipment compatibility", "Network Optimizer", True, True, "bno_compatibility"),
     ("/api/v1/network/compatibility/groupage/evaluate", "post", "Evaluate groupage compatibility", "Network Optimizer", True, True, "bno_compatibility"),
+    ("/api/v1/analytics/kpis/{kpiId}", "get", "Read one tenant operations KPI", "Analytics", True, True, "analytics_kpi"),
 ]
 
 SERVICE_TAGS = {
@@ -389,6 +391,7 @@ SERVICE_TAGS = {
     "contract-rate-service.yaml": {"Transport Contracts", "Rate Cards", "Rate Simulation"},
     "freight-cost-service.yaml": {"Freight Costs"},
     "network-optimizer-service.yaml": {"Network Optimizer"},
+    "analytics-service.yaml": {"Analytics"},
 }
 
 VOID_DESCRIPTIONS = {
@@ -1211,6 +1214,7 @@ TEMPLATE_RESPONSE_SCHEMAS = {
     "tl_rule_create": "RfxTemplateQuestionRule",
     "tl_rule_update": "RfxTemplateQuestionRule",
     "e5_clone": "RfxCloneEventFromTemplateResponse",
+    "analytics_kpi": "AnalyticsKPIResponse",
 }
 
 READ_RESPONSE_SCHEMAS = {
@@ -1403,6 +1407,22 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
     if with_headers:
         lines.extend(HEADER_PARAMETER_REFS)
     for param in path_params:
+        if param == "kpiId":
+            lines.extend([
+                "        - name: kpiId",
+                "          in: path",
+                "          required: true",
+                "          description: Frozen Analytics-0.2 KPI identifier. Query filters are not supported and are rejected.",
+                "          schema:",
+                "            type: string",
+                "            enum:",
+                "              - OPS_SHIPMENTS_TOTAL",
+                "              - OPS_ON_TIME_DELIVERY",
+                "              - OPS_ON_TIME_DELIVERY_RATE",
+                "              - OPS_RETURN_CASES",
+                "              - OPS_REDIRECT_CASES",
+            ])
+            continue
         lines.extend([
             f"        - name: {param}",
             "          in: path",
@@ -2322,6 +2342,8 @@ def render_operation(
         success_desc = "Signature metadata stored with verification_status UNVERIFIED for JSON. A detached PKCS#7 body returns effective status PENDING and verification_reason_code VERIFIER_UNAVAILABLE. No qualified VALID is produced."
     elif profile == "edo_attachment_signature_get":
         success_desc = "Effective verification status. Legacy metadata-only signatures stay UNVERIFIED. A detached signature with unavailable verifier evidence is PENDING with verification_reason_code VERIFIER_UNAVAILABLE. The storage object key is not included."
+    elif profile == "analytics_kpi":
+        success_desc = "Tenant operations KPI. COUNT is an integer >= 0. RATIO is a decimal fraction from 0.0 to 1.0, not a percent. An empty rate population returns numerator 0, denominator 0, and value null. dataFreshness.status is UNKNOWN until the source supplies a watermark. generatedAt is the analytics response time."
 
     response_schema = READ_RESPONSE_SCHEMAS.get(profile or "")
     if profile == "bno_compatibility" and path.endswith("/evaluate"):
@@ -2373,6 +2395,17 @@ def render_operation(
             ERROR_RESPONSES.rstrip("\n"),
         ]
     )
+    if profile == "analytics_kpi":
+        lines.extend(
+            [
+                "        '503':",
+                "          description: Operations analytics source is unavailable. No KPI number is returned.",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErrorResponse'",
+            ]
+        )
     if profile in CARRIER_WORKSPACE_UNBOUND_422_PROFILES:
         lines.extend(
             [
@@ -5295,9 +5328,64 @@ def payment_components_block() -> str:
 """
 
 
+def analytics_components_block() -> str:
+    return """
+    AnalyticsKPIResponse:
+      type: object
+      additionalProperties: false
+      required: [kpiId, definitionVersion, measure, generatedAt, dataFreshness, completeness]
+      properties:
+        kpiId:
+          type: string
+          enum: [OPS_SHIPMENTS_TOTAL, OPS_ON_TIME_DELIVERY, OPS_ON_TIME_DELIVERY_RATE, OPS_RETURN_CASES, OPS_REDIRECT_CASES]
+        definitionVersion:
+          type: integer
+          enum: [1]
+        measure:
+          $ref: '#/components/schemas/AnalyticsKPIMeasure'
+        generatedAt:
+          type: string
+          format: date-time
+          description: Analytics response time in UTC. This is not a source watermark.
+        dataFreshness:
+          $ref: '#/components/schemas/AnalyticsDataFreshness'
+        completeness:
+          type: string
+          enum: [COMPLETE, PARTIAL]
+    AnalyticsKPIMeasure:
+      type: object
+      additionalProperties: false
+      required: [type, value]
+      properties:
+        type:
+          type: string
+          enum: [COUNT, RATIO]
+        value:
+          type: number
+          nullable: true
+          description: COUNT is an integer >= 0. RATIO is a decimal fraction in the range 0.0 to 1.0, not a percent. When the rate denominator is 0, value is null.
+        numerator:
+          type: integer
+          minimum: 0
+        denominator:
+          type: integer
+          minimum: 0
+    AnalyticsDataFreshness:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [UNKNOWN]
+          description: UNKNOWN because the operations source contract has no watermark.
+"""
+
+
 def components_block(
     *,
     include_payment_components: bool = False,
+    include_analytics_components: bool = False,
     include_e1_version_lifecycle: bool = False,
     include_e4_template_library: bool = False,
     include_e7_late_submission: bool = False,
@@ -5315,6 +5403,8 @@ def components_block(
     )
     if include_payment_components:
         block = block.rstrip() + "\n" + payment_components_block()
+    if include_analytics_components:
+        block = block.rstrip() + "\n" + analytics_components_block()
     return block
 
 
@@ -5324,6 +5414,7 @@ def build_spec(
     endpoints: list[tuple[str, str, str, str, bool, bool, str | None]],
     *,
     include_payment_components: bool = False,
+    include_analytics_components: bool = False,
     include_e1_version_lifecycle: bool = False,
     include_e4_template_library: bool = False,
     include_e7_late_submission: bool = False,
@@ -5348,7 +5439,7 @@ tags:
 {tags_yaml}
 paths:
 {render_paths(endpoints)}
-{components_block(include_payment_components=include_payment_components, include_e1_version_lifecycle=include_e1_version_lifecycle, include_e4_template_library=include_e4_template_library, include_e7_late_submission=include_e7_late_submission, include_e7_excel_exchange=include_e7_excel_exchange, include_e7_erp_preview=include_e7_erp_preview, include_oauth_integration=include_oauth_integration)}
+{components_block(include_payment_components=include_payment_components, include_analytics_components=include_analytics_components, include_e1_version_lifecycle=include_e1_version_lifecycle, include_e4_template_library=include_e4_template_library, include_e7_late_submission=include_e7_late_submission, include_e7_excel_exchange=include_e7_excel_exchange, include_e7_erp_preview=include_e7_erp_preview, include_oauth_integration=include_oauth_integration)}
 """
     ).strip() + "\n"
 
@@ -5365,6 +5456,7 @@ SERVICE_DISPLAY_NAMES = {
     "contract-rate-service.yaml": "Contract Rate Service",
     "freight-cost-service.yaml": "Freight Cost Service",
     "network-optimizer-service.yaml": "Network Optimizer Service",
+    "analytics-service.yaml": "Analytics Service",
 }
 
 
@@ -5377,6 +5469,7 @@ def main() -> None:
         "Unified HTTP API for the Freight Platform exposed via api-gateway.",
         ENDPOINTS,
         include_payment_components=True,
+        include_analytics_components=True,
         include_e1_version_lifecycle=True,
         include_e4_template_library=True,
         include_e7_late_submission=True,
@@ -5394,6 +5487,7 @@ def main() -> None:
             f"OpenAPI specification for {title}.",
             service_endpoints,
             include_payment_components=(filename == "payment-service.yaml"),
+            include_analytics_components=(filename == "analytics-service.yaml"),
             include_e1_version_lifecycle=(filename == "rfx-service.yaml"),
             include_e4_template_library=(filename == "rfx-service.yaml"),
             include_e7_late_submission=(filename == "rfx-service.yaml"),

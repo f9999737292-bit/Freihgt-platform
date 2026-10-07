@@ -27,6 +27,7 @@ type ServiceURLs struct {
 	ContractRate     string
 	FreightCost      string
 	NetworkOptimizer string
+	Analytics        string
 }
 
 type ControlTowerConfig struct {
@@ -196,6 +197,7 @@ func Load() (Config, error) {
 			ContractRate:     getEnv("CONTRACT_RATE_SERVICE_URL", "http://localhost:8091"),
 			FreightCost:      getEnv("FREIGHT_COST_SERVICE_URL", "http://localhost:8092"),
 			NetworkOptimizer: getEnv("NETWORK_OPTIMIZER_SERVICE_URL", "http://localhost:8096"),
+			Analytics:        getEnv("ANALYTICS_SERVICE_URL", "http://localhost:8097"),
 		},
 		AuthEnabled:                authEnabled,
 		JWTSecret:                  jwtSecret,
