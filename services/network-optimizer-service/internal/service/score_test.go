@@ -652,10 +652,10 @@ func TestScorePool100CandidatesDeterministic(t *testing.T) {
 	first := w.search(w.actor(), cap.ID, radiusPolicy(5000, 0))
 	calls := w.routes.calls
 	second := w.search(w.actor(), cap.ID, radiusPolicy(5000, 0))
-	if first.EligibleCandidateCount != 100 || candidateKey(first) != candidateKey(second) || !sortIsIDOrder(first.Candidates) {
+	if first.EligibleCandidateCount != domain.CandidateRoutingCap || candidateKey(first) != candidateKey(second) || !sortIsIDOrder(first.Candidates) {
 		t.Fatalf("count %d", first.EligibleCandidateCount)
 	}
-	if calls != 4 || w.routes.maxDests > routing.SyncMatrixLimit {
+	if calls != 1 || w.routes.maxDests > routing.SyncMatrixLimit {
 		t.Fatalf("calls %d max dests %d", calls, w.routes.maxDests)
 	}
 }

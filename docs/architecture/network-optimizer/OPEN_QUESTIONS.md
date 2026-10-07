@@ -17,4 +17,4 @@ These do not block the freeze. They block specific later stages.
 
 No open question authorizes product code, a migration, or a deploy.
 
-NLO-0.5A leaves Q4 open. `STAGING_PROVIDER_APPROVAL_REQUIRED=YES`. The 2GIS adapter exists and is not a staging approval. Also still unset, and not assigned numbers in this freeze: next-load candidate cap before road routing, maximum matrix calls per search, search time budget, routing SLA, and provider commercial terms. Exact road distance on anonymized loads stays in the existing coarse buckets. Rate absence stays `UNPRICED`.
+NLO-0.5A leaves Q4 open. `STAGING_PROVIDER_APPROVAL_REQUIRED=YES`. The 2GIS adapter exists and is not a staging approval. NLO-0.5B1 enforces a discovery cap of 1000. NLO-0.5B2 enforces a routing cap of 25, 4 matrix calls, 2 route calls, 6 provider calls, a 5 second request timeout, and a 30 second watchdog. Routing SLA and provider commercial terms remain unknown. `EXTERNAL_PROVIDER_BENCHMARK=BLOCKED`. `PROVIDER_SLA_PROVEN=NO`. Exact road distance on anonymized loads stays in the existing coarse buckets. Rate absence stays `UNPRICED`.
