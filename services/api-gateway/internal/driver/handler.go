@@ -79,6 +79,10 @@ func (h *Handler) FailStopAction(w http.ResponseWriter, r *http.Request) {
 	h.proxyActionCommand(w, r, h.client.FailStopAction)
 }
 
+func (h *Handler) ReportDeliveryDisposition(w http.ResponseWriter, r *http.Request) {
+	h.proxyActionCommand(w, r, h.client.ReportDeliveryDisposition)
+}
+
 func (h *Handler) proxyStopCommand(w http.ResponseWriter, r *http.Request, call func(context.Context, RequestContext, string, []byte, string) (json.RawMessage, int, error)) {
 	stopID := strings.TrimSpace(chi.URLParam(r, "stopId"))
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))

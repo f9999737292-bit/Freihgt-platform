@@ -207,6 +207,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Post("/api/v1/driver/me/stops/{stopId}/complete", driverHandler.CompleteStop)
 		r.Post("/api/v1/driver/me/stops/{stopId}/actions/{actionId}/confirm", driverHandler.ConfirmStopAction)
 		r.Post("/api/v1/driver/me/stops/{stopId}/actions/{actionId}/fail", driverHandler.FailStopAction)
+		r.Post("/api/v1/driver/me/stops/{stopId}/actions/{actionId}/delivery-disposition", driverHandler.ReportDeliveryDisposition)
 		r.Get("/api/v1/driver/me/tasks", driverHandler.ListTasks)
 		r.Get("/api/v1/driver/me/tasks/{taskId}", driverHandler.GetTask)
 		r.Post("/api/v1/driver/me/tasks/{taskId}/read", driverHandler.MarkTaskRead)
