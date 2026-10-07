@@ -14,5 +14,8 @@ describe('operation id generation', () => {
     const id = createOperationId('delay', '00000000-0000-0000-0000-000000000001')
     expect(isValidOperationId(id)).toBe(true)
     expect(id.length).toBeLessThanOrEqual(128)
+    const stopId = createOperationId('start-service', '00000000-0000-0000-0000-000000000001')
+    expect(isValidOperationId(stopId)).toBe(true)
+    expect(stopId.length).toBeLessThanOrEqual(128)
   })
 })
