@@ -18,6 +18,13 @@ const LOCATION_ID = '55555555-5555-4555-8555-555555555555'
 const ACTION_ID = '66666666-6666-4666-8666-666666666666'
 const NEXT_LOCATION_ID = '99999999-9999-4999-8999-999999999999'
 const NEXT_SHIPMENT_ID = '88888888-8888-4888-8888-888888888888'
+const ACTION_A = 'a1111111-1111-4111-8111-111111111111'
+const ACTION_B = 'b2222222-2222-4222-8222-222222222222'
+const SHIPMENT_S1 = 'c1111111-1111-4111-8111-111111111111'
+const SHIPMENT_S2 = 'd2222222-2222-4222-8222-222222222222'
+const CARGO_C1 = 'e1111111-1111-4111-8111-111111111111'
+const CARGO_C2 = 'f2222222-2222-4222-8222-222222222222'
+const NIL_UUID = '00000000-0000-0000-0000-000000000000'
 
 function task(overrides: Partial<DriverStopTask> = {}): DriverStopTask {
   return {
@@ -32,10 +39,39 @@ function task(overrides: Partial<DriverStopTask> = {}): DriverStopTask {
     version: 3,
     position: 'CURRENT',
     actionSummary: {
-      actions: [{ actionId: ACTION_ID, actionType: 'DELIVERY', cargoId: CARGO_ID, ordinal: 1 }],
+      actions: [
+        { actionId: ACTION_ID, actionType: 'DELIVERY', shipmentId: SHIPMENT_ID, cargoId: CARGO_ID, ordinal: 1 },
+      ],
       counts: { DELIVERY: 1 },
     },
     ...overrides,
+  }
+}
+
+function multiShipmentStop(stopShipmentId: string | null = null): DriverStopTask {
+  return task({
+    shipmentId: stopShipmentId,
+    status: 'SERVICE_STARTED',
+    version: 5,
+    actionSummary: {
+      actions: [
+        { actionId: ACTION_A, actionType: 'DELIVERY', shipmentId: SHIPMENT_S1, cargoId: CARGO_C1, ordinal: 1 },
+        { actionId: ACTION_B, actionType: 'DELIVERY', shipmentId: SHIPMENT_S2, cargoId: CARGO_C2, ordinal: 2 },
+      ],
+      counts: { DELIVERY: 2 },
+    },
+  })
+}
+
+function dispositionResult(acceptedQuantity: number, rejectedQuantity: number) {
+  return {
+    executionId: '77777777-7777-4777-8777-777777777777',
+    caseId: rejectedQuantity > 0 ? 'case' : null,
+    status: 'OPEN',
+    acceptedQuantity,
+    rejectedQuantity,
+    revisionId: 'rev',
+    replayed: false,
   }
 }
 
@@ -538,5 +574,149 @@ describe('stops navigation', () => {
     await wrapper.get('[data-testid="nav-stops"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/stops')
+  })
+})
+
+describe('MULTI_SHIPMENT_STOP', () => {
+  function assertActionIdentity(body: Record<string, unknown> | undefined, shipmentId: string, cargoId: string, otherShipmentId: string) {
+    expect(body?.shipmentId).toBe(shipmentId)
+    expect(body?.cargoId).toBe(cargoId)
+    expect(body?.shipmentId).not.toBe(otherShipmentId)
+    expect(body?.shipmentId).not.toBe(NIL_UUID)
+    expect(body?.shipmentId).not.toBe('')
+    expect(body?.shipmentId).not.toBeNull()
+    expect(body).not.toHaveProperty('executionId')
+    expect(body).not.toHaveProperty('revisionId')
+    expect(body).not.toHaveProperty('actorId')
+    expect(body).not.toHaveProperty('actorKind')
+    expect(body).not.toHaveProperty('tenantId')
+    expect(body).not.toHaveProperty('driverId')
+    expect(body).not.toHaveProperty('operatingTenantId')
+  }
+
+  it('renders both delivery forms when the stop shipment id is null', async () => {
+    const { wrapper } = await mountStops(() => json(stopsResponse(multiShipmentStop(), null)))
+    const current = wrapper.get('[data-testid="current-stop"]')
+    expect(current.text()).toContain('SERVICE_STARTED')
+    expect(current.text()).toContain('—')
+    expect(current.text()).toContain(SHIPMENT_S1)
+    expect(current.text()).toContain(SHIPMENT_S2)
+    expect(wrapper.find(`[data-testid="disposition-form-${ACTION_A}"]`).exists()).toBe(true)
+    expect(wrapper.find(`[data-testid="disposition-form-${ACTION_B}"]`).exists()).toBe(true)
+    expect(wrapper.find('[data-testid="authorize-return"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="authorize-redirect"]').exists()).toBe(false)
+    expect(current.text()).not.toContain(NIL_UUID)
+  })
+
+  it('accepts action A with its own shipment and cargo', async () => {
+    const { wrapper } = await mountStops((_url, init) => {
+      if (init?.method === 'POST') return json(dispositionResult(2, 0))
+      return json(stopsResponse(multiShipmentStop(), null))
+    })
+    await wrapper.get(`[data-testid="accepted-${ACTION_A}"]`).setValue('2')
+    await wrapper.get(`[data-testid="disposition-form-${ACTION_A}"]`).trigger('submit')
+    await flushPromises()
+    const posted = sentRequests().find((call) => call.method === 'POST')
+    expect(posted?.url).toContain(`/actions/${ACTION_A}/delivery-disposition`)
+    expect(posted?.url).not.toContain(ACTION_B)
+    assertActionIdentity(posted?.body, SHIPMENT_S1, CARGO_C1, SHIPMENT_S2)
+    expect(posted?.body).toMatchObject({ acceptedQuantity: 2, rejectedQuantity: 0, uom: 'PALLET', evidence: [] })
+    expect(posted?.body).not.toHaveProperty('reasonCode')
+    expect(posted?.headers['X-Tenant-ID']).toBeUndefined()
+    expect(posted?.headers['X-Driver-ID']).toBeUndefined()
+    expect(wrapper.get('[data-testid="notice"]').text()).toBe('Результат доставки зарегистрирован')
+  })
+
+  it('requires a reason for a partial rejection of action A', async () => {
+    const { wrapper } = await mountStops((_url, init) => {
+      if (init?.method === 'POST') return json(dispositionResult(1, 1))
+      return json(stopsResponse(multiShipmentStop(), null))
+    })
+    await wrapper.get(`[data-testid="accepted-${ACTION_A}"]`).setValue('1')
+    await wrapper.get(`[data-testid="rejected-${ACTION_A}"]`).setValue('1')
+    await wrapper.get(`[data-testid="disposition-form-${ACTION_A}"]`).trigger('submit')
+    await flushPromises()
+    expect(sentRequests().some((call) => call.method === 'POST')).toBe(false)
+    await wrapper.get(`[data-testid="disposition-reason-${ACTION_A}"]`).setValue('DAMAGE')
+    await wrapper.get(`[data-testid="disposition-form-${ACTION_A}"]`).trigger('submit')
+    await flushPromises()
+    const posted = sentRequests().find((call) => call.method === 'POST')
+    expect(posted?.url).toContain(`/actions/${ACTION_A}/delivery-disposition`)
+    assertActionIdentity(posted?.body, SHIPMENT_S1, CARGO_C1, SHIPMENT_S2)
+    expect(posted?.body).toMatchObject({ acceptedQuantity: 1, rejectedQuantity: 1, reasonCode: 'DAMAGE', uom: 'PALLET' })
+  })
+
+  it('rejects action B with its own shipment and cargo', async () => {
+    const { wrapper } = await mountStops((_url, init) => {
+      if (init?.method === 'POST') return json(dispositionResult(0, 3))
+      return json(stopsResponse(multiShipmentStop(), null))
+    })
+    await wrapper.get(`[data-testid="rejected-${ACTION_B}"]`).setValue('3')
+    await wrapper.get(`[data-testid="disposition-reason-${ACTION_B}"]`).setValue('SHORTAGE')
+    await wrapper.get(`[data-testid="disposition-form-${ACTION_B}"]`).trigger('submit')
+    await flushPromises()
+    const posted = sentRequests().find((call) => call.method === 'POST')
+    expect(posted?.url).toContain(`/actions/${ACTION_B}/delivery-disposition`)
+    expect(posted?.url).not.toContain(ACTION_A)
+    assertActionIdentity(posted?.body, SHIPMENT_S2, CARGO_C2, SHIPMENT_S1)
+    expect(posted?.body).toMatchObject({ acceptedQuantity: 0, rejectedQuantity: 3, reasonCode: 'SHORTAGE', uom: 'PALLET' })
+  })
+
+  it('still requires a comment when the multi-shipment reason is other', async () => {
+    const { wrapper } = await mountStops((_url, init) => {
+      if (init?.method === 'POST') return json(dispositionResult(0, 1))
+      return json(stopsResponse(multiShipmentStop(), null))
+    })
+    await wrapper.get(`[data-testid="rejected-${ACTION_A}"]`).setValue('1')
+    await wrapper.get(`[data-testid="disposition-reason-${ACTION_A}"]`).setValue('OTHER')
+    await wrapper.get(`[data-testid="disposition-form-${ACTION_A}"]`).trigger('submit')
+    await flushPromises()
+    expect(sentRequests().some((call) => call.method === 'POST')).toBe(false)
+    expect(wrapper.get('[data-testid="notice"]').text()).toContain('комментарий')
+    await wrapper.get(`[data-testid="disposition-comment-${ACTION_A}"]`).setValue('seal broken')
+    await wrapper.get(`[data-testid="disposition-form-${ACTION_A}"]`).trigger('submit')
+    await flushPromises()
+    const posted = sentRequests().find((call) => call.method === 'POST')
+    assertActionIdentity(posted?.body, SHIPMENT_S1, CARGO_C1, SHIPMENT_S2)
+    expect(posted?.body).toMatchObject({ reasonCode: 'OTHER', reasonComment: 'seal broken' })
+  })
+
+  it('reuses the stored action identity when the response is unknown', async () => {
+    const keys: string[] = []
+    const bodies: Record<string, unknown>[] = []
+    let posts = 0
+    const { wrapper } = await mountStops((_url, init) => {
+      if (init?.method === 'POST') {
+        posts += 1
+        keys.push(((init.headers ?? {}) as Record<string, string>)['Idempotency-Key'] ?? '')
+        bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+        throw new TypeError('network down')
+      }
+      const stop = multiShipmentStop(posts > 0 ? SHIPMENT_S2 : null)
+      return json(stopsResponse(stop, null))
+    })
+    await wrapper.get(`[data-testid="accepted-${ACTION_A}"]`).setValue('2')
+    await wrapper.get(`[data-testid="disposition-form-${ACTION_A}"]`).trigger('submit')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="notice"]').text()).toContain('неизвестен')
+    await wrapper.get('[data-testid="retry"]').trigger('click')
+    await flushPromises()
+    expect(keys).toHaveLength(2)
+    expect(keys[1]).toBe(keys[0])
+    expect(bodies).toHaveLength(2)
+    expect(bodies[1]).toEqual(bodies[0])
+    assertActionIdentity(bodies[0], SHIPMENT_S1, CARGO_C1, SHIPMENT_S2)
+    assertActionIdentity(bodies[1], SHIPMENT_S1, CARGO_C1, SHIPMENT_S2)
+  })
+
+  it('does not send a zero shipment id', async () => {
+    const stop = multiShipmentStop()
+    stop.actionSummary.actions[0].shipmentId = NIL_UUID
+    const { wrapper } = await mountStops(() => json(stopsResponse(stop, null)))
+    await wrapper.get(`[data-testid="accepted-${ACTION_A}"]`).setValue('1')
+    await wrapper.get(`[data-testid="disposition-form-${ACTION_A}"]`).trigger('submit')
+    await flushPromises()
+    expect(sentRequests().some((call) => call.method === 'POST')).toBe(false)
+    expect(wrapper.get('[data-testid="notice"]').text()).toContain('действия')
   })
 })

@@ -263,7 +263,7 @@ async function submitDisposition(action: DriverStopActionFact) {
   const draft = drafts.value[action.actionId]
   if (!draft) return
   if (!loadStoredCommand('disposition', action.actionId)) {
-    const issue = dispositionIssue(current.shipmentId, action.cargoId, draft)
+    const issue = dispositionIssue(action.shipmentId, action.cargoId, draft)
     if (issue) {
       notice.value = t(`stops.issues.${issue}`)
       uncertain.value = false
@@ -276,7 +276,7 @@ async function submitDisposition(action: DriverStopActionFact) {
     'disposition',
     action.actionId,
     () => {
-      const body = buildDispositionBody(current.shipmentId ?? '', action.cargoId, draft, nowIso())
+      const body = buildDispositionBody(action.shipmentId, action.cargoId, draft, nowIso())
       if (!body) {
         throw new Error('delivery disposition is invalid')
       }
@@ -427,7 +427,7 @@ onMounted(loadStops)
                 @submit.prevent="submitDisposition(action)"
               >
                 <h4>{{ t('stops.disposition') }}</h4>
-                <p>{{ t('stops.shipmentId') }}: {{ showValue(stops.current.shipmentId) }}</p>
+                <p>{{ t('stops.shipmentId') }}: {{ showValue(action.shipmentId) }}</p>
                 <p>{{ action.cargoId }}</p>
                 <label>
                   {{ t('stops.accepted') }}

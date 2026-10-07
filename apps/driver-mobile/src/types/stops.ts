@@ -46,6 +46,7 @@ export type DriverDispositionReasonCode = (typeof DISPOSITION_REASON_CODES)[numb
 export interface DriverStopActionFact {
   actionId: string
   actionType: DriverStopActionType
+  shipmentId: string
   cargoId: string
   ordinal: number
 }

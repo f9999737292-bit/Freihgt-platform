@@ -22,6 +22,11 @@ export const CLIENT_FORBIDDEN_FIELDS = [
 ] as const
 
 const CONFLICT_CODES = ['VERSION_CONFLICT', 'STALE_REVISION', 'TERMINAL_ACTION', 'STOP_NOT_CURRENT'] as const
+const NIL_UUID = '00000000-0000-0000-0000-000000000000'
+
+function usableIdentity(value: string | null | undefined): value is string {
+  return typeof value === 'string' && value.trim() !== '' && value !== NIL_UUID
+}
 
 export type StopFailureKind =
   | 'unauthorized'
@@ -76,7 +81,7 @@ export function dispositionIssue(
   cargoId: string | null | undefined,
   draft: DispositionDraft,
 ): DispositionIssue | null {
-  if (!shipmentId || !cargoId) return 'shipment'
+  if (!usableIdentity(shipmentId) || !usableIdentity(cargoId)) return 'shipment'
   if (!Number.isInteger(draft.accepted) || !Number.isInteger(draft.rejected)) return 'quantity'
   if (draft.accepted < 0 || draft.rejected < 0 || draft.accepted + draft.rejected <= 0) return 'quantity'
   if (draft.rejected > 0 && !isDispositionReason(draft.reasonCode)) return 'reason'

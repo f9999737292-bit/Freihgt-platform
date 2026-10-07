@@ -169,7 +169,7 @@
       "quantity": "Enter accepted and rejected quantities. Their sum must be greater than zero.",
       "reason": "A rejection reason is required.",
       "comment": "Other requires a comment.",
-      "shipment": "The server did not provide shipment data for this stop."
+      "shipment": "The server did not provide shipment data for this action."
     },
     "dispositionReasons": {
       "DAMAGE": "Damage",

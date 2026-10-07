@@ -169,7 +169,7 @@
       "quantity": "请填写接受和拒收数量，合计必须大于零。",
       "reason": "拒收时必须填写原因。",
       "comment": "选择“其他”时必须填写备注。",
-      "shipment": "服务器未提供此停靠点的运单数据。"
+      "shipment": "服务器未提供此操作的运单数据。"
     },
     "dispositionReasons": {
       "DAMAGE": "破损",
