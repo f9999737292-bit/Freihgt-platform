@@ -164,6 +164,45 @@ func RecordCandidatePrefilterPass(passed int) {
 	CandidatePrefilterPass.Add(float64(passed))
 }
 
+var (
+	RoutingCandidatesSelected = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_routing_candidates_selected_total",
+		Help: "Cheap-prefilter survivors selected for the routing provider. Aggregate only.",
+	})
+	RoutingCandidatesPruned = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_routing_candidates_pruned_total",
+		Help: "Cheap-prefilter survivors withheld from the routing provider by the routing cap. Aggregate only.",
+	})
+	ProviderRouteCalls = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_provider_route_calls_total",
+		Help: "Route provider calls that were allowed to start. Aggregate only.",
+	})
+	ProviderMatrixCalls = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bno_provider_matrix_calls_total",
+		Help: "Matrix provider calls that were allowed to start. Aggregate only.",
+	})
+	ProviderBudgetExhausted = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "bno_provider_budget_exhausted_total",
+		Help: "Provider calls that were not started because a search budget was exhausted.",
+	}, []string{"reason"})
+)
+
+func RecordRoutingSelection(selected, pruned int) {
+	RoutingCandidatesSelected.Add(float64(selected))
+	RoutingCandidatesPruned.Add(float64(pruned))
+}
+
+func ProviderRouteCall() { ProviderRouteCalls.Inc() }
+
+func ProviderMatrixCall() { ProviderMatrixCalls.Inc() }
+
+func ProviderBudget(reason string) {
+	switch reason {
+	case "deadline", "matrix", "route", "total", "provider_error", "dimension":
+		ProviderBudgetExhausted.WithLabelValues(reason).Inc()
+	}
+}
+
 func RoutingError() { RoutingErrors.Inc() }
 
 func MatrixBatches(count int) { MatrixBatchCount.Add(float64(count)) }

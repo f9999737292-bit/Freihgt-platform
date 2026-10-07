@@ -455,7 +455,7 @@ func TestBNO206To240NextLoadSearch(t *testing.T) {
 		w.routes.defaultM = 10000
 		w.routes.defaultSec = 600
 		doc := w.search(w.actor(), cap.ID, radiusPolicy(5000, 0))
-		if doc.EligibleCandidateCount != 30 || w.routes.maxDests > routing.SyncMatrixLimit || w.routes.calls < 2 {
+		if doc.EligibleCandidateCount != domain.CandidateRoutingCap || w.routes.maxDests > routing.SyncMatrixLimit || w.routes.calls != 1 {
 			t.Fatalf("count %d calls %d max %d", doc.EligibleCandidateCount, w.routes.calls, w.routes.maxDests)
 		}
 		if !sortIsIDOrder(doc.Candidates) {
@@ -727,13 +727,18 @@ type scripted struct {
 	calls                  int
 	routeCalls             int
 	maxDests               int
+	maxOrigins             int
 	sawHaversineSubstitute bool
+	failAfter              int
+	failErr                error
+	cellErr                map[string]error
+	attempts               int
 }
 
-func (s *scripted) Route(context.Context, routing.RouteRequest) (routing.RouteResult, error) {
+func (s *scripted) Route(ctx context.Context, _ routing.RouteRequest) (routing.RouteResult, error) {
 	s.routeCalls++
-	if s.fail {
-		return routing.RouteResult{}, routing.ErrProviderUnavailable
+	if err := s.gate(ctx); err != nil {
+		return routing.RouteResult{}, err
 	}
 	line := s.line
 	if len(line) == 0 {
@@ -742,16 +747,19 @@ func (s *scripted) Route(context.Context, routing.RouteRequest) (routing.RouteRe
 	return routing.RouteResult{DistanceM: s.baselineM, DurationSeconds: 1, Geometry: routing.Geometry{Type: "LineString", Coordinates: line}}, nil
 }
 
-func (s *scripted) Matrix(_ context.Context, req routing.MatrixRequest) (routing.MatrixResult, error) {
+func (s *scripted) Matrix(ctx context.Context, req routing.MatrixRequest) (routing.MatrixResult, error) {
 	s.calls++
 	if len(req.Destinations) > s.maxDests {
 		s.maxDests = len(req.Destinations)
 	}
+	if len(req.Origins) > s.maxOrigins {
+		s.maxOrigins = len(req.Origins)
+	}
+	if err := s.gate(ctx); err != nil {
+		return routing.MatrixResult{}, err
+	}
 	if len(req.Origins) > routing.SyncMatrixLimit || len(req.Destinations) > routing.SyncMatrixLimit {
 		return routing.MatrixResult{}, routing.ErrInvalidResponse
-	}
-	if s.fail {
-		return routing.MatrixResult{}, routing.ErrProviderUnavailable
 	}
 	cells := make([]routing.MatrixCell, 0, len(req.Origins)*len(req.Destinations))
 	for i, origin := range req.Origins {
@@ -762,10 +770,29 @@ func (s *scripted) Matrix(_ context.Context, req routing.MatrixRequest) (routing
 			} else if s.defaultM > 0 {
 				cell = routing.MatrixCell{OriginIndex: i, DestinationIndex: j, DistanceM: s.defaultM, DurationSeconds: s.defaultSec}
 			}
+			if err, ok := s.cellErr[roadKey(origin, dest)]; ok {
+				cell.Err = err
+				cell.DistanceM = 0
+				cell.DurationSeconds = 0
+			}
 			cells = append(cells, cell)
 		}
 	}
 	return routing.MatrixResult{Cells: cells}, nil
+}
+
+func (s *scripted) gate(context.Context) error {
+	s.attempts++
+	if s.fail {
+		return routing.ErrProviderUnavailable
+	}
+	if s.failAfter > 0 && s.attempts >= s.failAfter {
+		if s.failErr != nil {
+			return s.failErr
+		}
+		return routing.ErrTimeout
+	}
+	return nil
 }
 
 func roadKey(a, b routing.Point) string {

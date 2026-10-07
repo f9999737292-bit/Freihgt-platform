@@ -92,7 +92,7 @@ func TestNLO05B1BoundedCandidateDiscovery(t *testing.T) {
 		w.routes.defaultSec = 600
 		left := w.search(w.actor(), cap.ID, radiusPolicy(500, 0))
 		right := w.search(w.actor(), cap.ID, radiusPolicy(500, 0))
-		if idKey(candidateIDs(left)) != idKey(candidateIDs(right)) || len(left.Candidates) != 30 {
+		if idKey(candidateIDs(left)) != idKey(candidateIDs(right)) || len(left.Candidates) != domain.CandidateRoutingCap {
 			t.Fatalf("search order %s %s", idKey(candidateIDs(left)), idKey(candidateIDs(right)))
 		}
 	})
