@@ -311,4 +311,4 @@ ANALYTICS_STORAGE_DECISION=NOT_FROZEN
 READY_FOR_ANALYTICS_0_1B=NO
 ```
 
-This file is still an inventory. Controller acceptance of the R1 remediation is required before Analytics-0.1B. It is not a license to create tables.
+Those three flags are the 0.1A inventory result. Analytics-0.1B freezes the open decisions in `ANALYTICS_0_1B_ARCHITECTURE.md`. Readiness totals and source facts in this file stay as inventoried.

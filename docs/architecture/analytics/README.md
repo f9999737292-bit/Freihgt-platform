@@ -2,7 +2,7 @@
 
 Agent E owns analytics. Source transactional domains stay with their owners.
 
-This directory is the Analytics-0.1A inventory. It is not an architecture freeze and not an analytics service.
+This directory holds the Analytics-0.1A inventory and the Analytics-0.1B architecture freeze. 0.1A evidence is unchanged. 0.1B does not create an analytics service.
 
 ## Baseline
 
@@ -24,6 +24,12 @@ This directory is the Analytics-0.1A inventory. It is not an architecture freeze
 | [ANALYTICS_0_1A_SOURCE_MAP.md](ANALYTICS_0_1A_SOURCE_MAP.md) | Classified data sources |
 | [ANALYTICS_0_1A_KPI_CATALOG.md](ANALYTICS_0_1A_KPI_CATALOG.md) | Canonical KPI catalog and readiness totals |
 | [ANALYTICS_0_1A_SOURCE_CONTRACT_GAPS.md](ANALYTICS_0_1A_SOURCE_CONTRACT_GAPS.md) | Missing facts and which agent owns them |
+| [ANALYTICS_0_1B_ARCHITECTURE.md](ANALYTICS_0_1B_ARCHITECTURE.md) | Canonical KPI and analytics architecture freeze |
+| [adr/ADR-AN-001-canonical-kpi-ownership.md](adr/ADR-AN-001-canonical-kpi-ownership.md) | Who owns KPI meaning |
+| [adr/ADR-AN-002-analytics-storage-boundary.md](adr/ADR-AN-002-analytics-storage-boundary.md) | First storage boundary |
+| [adr/ADR-AN-003-time-late-event-restatement.md](adr/ADR-AN-003-time-late-event-restatement.md) | Time, late events, restatement |
+| [adr/ADR-AN-004-tenant-and-dimension-model.md](adr/ADR-AN-004-tenant-and-dimension-model.md) | Tenant scope and dimensions |
+| [adr/ADR-AN-005-control-tower-vs-analytics.md](adr/ADR-AN-005-control-tower-vs-analytics.md) | Control Tower boundary |
 
 ## Rules used in this inventory
 
@@ -35,10 +41,8 @@ This directory is the Analytics-0.1A inventory. It is not an architecture freeze
 - Prometheus counters are observability, not the BI warehouse.
 - Network Intelligence KPIs that depend on Agent D's still-moving NLO facts are marked partial, blocked, or not supported. Design notes such as `ADR-NET-023` are not persisted facts: `backhaul` is absent from `services/network-optimizer-service` and from `infrastructure/migrations`.
 
-## Explicitly not decided
+## 0.1A left these open
 
-`DWH_DECISION=DEFERRED_TO_LATER_PHASE`
+The inventory recorded `DWH_DECISION=DEFERRED_TO_LATER_PHASE` and `ANALYTICS_STORAGE_DECISION=NOT_FROZEN`. Those sentences remain true of 0.1A. Analytics-0.1B freezes storage as hybrid operational reads plus later analytics projections, with `DWH_V1_REQUIRED_NOW=NO`.
 
-`ANALYTICS_STORAGE_DECISION=NOT_FROZEN`
-
-No analytics service, warehouse, table, migration, API, or UI was created in this phase.
+No analytics service, warehouse, table, migration, API, or UI is created by 0.1A or 0.1B.
