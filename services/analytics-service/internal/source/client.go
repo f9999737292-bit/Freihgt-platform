@@ -1,6 +1,7 @@
 package source
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -88,35 +89,48 @@ func (c *Client) Fetch(ctx context.Context, tenantID string) (kpi.Snapshot, erro
 		}
 		return kpi.Snapshot{}, &Error{Reason: reason}
 	}
-	var payload struct {
-		TenantID                  string `json:"tenantId"`
-		ShipmentTotal             int64  `json:"shipmentTotal"`
-		OnTimeDeliveryDenominator int64  `json:"onTimeDeliveryDenominator"`
-		OnTimeDeliveryNumerator   int64  `json:"onTimeDeliveryNumerator"`
-		ReturnCaseCount           int64  `json:"returnCaseCount"`
-		RedirectCaseCount         int64  `json:"redirectCaseCount"`
-	}
-	decoder := json.NewDecoder(strings.NewReader(string(body)))
+	return decodeSnapshot(body, tenantID)
+}
+
+type sourceDocument struct {
+	TenantID                  *string `json:"tenantId"`
+	ShipmentTotal             *int64  `json:"shipmentTotal"`
+	OnTimeDeliveryDenominator *int64  `json:"onTimeDeliveryDenominator"`
+	OnTimeDeliveryNumerator   *int64  `json:"onTimeDeliveryNumerator"`
+	ReturnCaseCount           *int64  `json:"returnCaseCount"`
+	RedirectCaseCount         *int64  `json:"redirectCaseCount"`
+}
+
+func decodeSnapshot(body []byte, tenantID string) (kpi.Snapshot, error) {
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
+	var payload sourceDocument
 	if err := decoder.Decode(&payload); err != nil {
 		return kpi.Snapshot{}, &Error{Reason: "malformed", Err: err}
 	}
-	if payload.TenantID != tenantID {
-		return kpi.Snapshot{}, &Error{Reason: "wrong_tenant"}
-	}
-	if _, err := uuid.Parse(payload.TenantID); err != nil {
+	var extra struct{}
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
 		return kpi.Snapshot{}, &Error{Reason: "malformed", Err: err}
 	}
-	if !consistent(payload.ShipmentTotal, payload.OnTimeDeliveryDenominator, payload.OnTimeDeliveryNumerator, payload.ReturnCaseCount, payload.RedirectCaseCount) {
+	if payload.TenantID == nil || payload.ShipmentTotal == nil || payload.OnTimeDeliveryDenominator == nil || payload.OnTimeDeliveryNumerator == nil || payload.ReturnCaseCount == nil || payload.RedirectCaseCount == nil {
+		return kpi.Snapshot{}, &Error{Reason: "malformed"}
+	}
+	if *payload.TenantID != tenantID {
+		return kpi.Snapshot{}, &Error{Reason: "wrong_tenant"}
+	}
+	if _, err := uuid.Parse(*payload.TenantID); err != nil {
+		return kpi.Snapshot{}, &Error{Reason: "malformed", Err: err}
+	}
+	if !consistent(*payload.ShipmentTotal, *payload.OnTimeDeliveryDenominator, *payload.OnTimeDeliveryNumerator, *payload.ReturnCaseCount, *payload.RedirectCaseCount) {
 		return kpi.Snapshot{}, &Error{Reason: "inconsistent"}
 	}
 	return kpi.Snapshot{
-		TenantID:                  payload.TenantID,
-		ShipmentTotal:             payload.ShipmentTotal,
-		OnTimeDeliveryDenominator: payload.OnTimeDeliveryDenominator,
-		OnTimeDeliveryNumerator:   payload.OnTimeDeliveryNumerator,
-		ReturnCaseCount:           payload.ReturnCaseCount,
-		RedirectCaseCount:         payload.RedirectCaseCount,
+		TenantID:                  *payload.TenantID,
+		ShipmentTotal:             *payload.ShipmentTotal,
+		OnTimeDeliveryDenominator: *payload.OnTimeDeliveryDenominator,
+		OnTimeDeliveryNumerator:   *payload.OnTimeDeliveryNumerator,
+		ReturnCaseCount:           *payload.ReturnCaseCount,
+		RedirectCaseCount:         *payload.RedirectCaseCount,
 	}, nil
 }
 

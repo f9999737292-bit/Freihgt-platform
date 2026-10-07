@@ -48,6 +48,82 @@ func TestClientValidatesSource(t *testing.T) {
 	}
 }
 
+func TestMissingRequiredSourceFieldsFailClosed(t *testing.T) {
+	complete := completeSource(tenantA, 0, 0, 0, 0, 0)
+	fields := []string{
+		"tenantId",
+		"shipmentTotal",
+		"onTimeDeliveryDenominator",
+		"onTimeDeliveryNumerator",
+		"returnCaseCount",
+		"redirectCaseCount",
+	}
+	for _, field := range fields {
+		t.Run(field+" omitted", func(t *testing.T) {
+			assertMalformed(t, cloneWithout(t, complete, field))
+		})
+	}
+	t.Run("explicit zeros", func(t *testing.T) {
+		raw, err := json.Marshal(complete)
+		if err != nil {
+			t.Fatal(err)
+		}
+		snap, err := decodeSnapshot(raw, tenantA)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if snap.ShipmentTotal != 0 || snap.OnTimeDeliveryDenominator != 0 || snap.OnTimeDeliveryNumerator != 0 || snap.ReturnCaseCount != 0 || snap.RedirectCaseCount != 0 {
+			t.Fatalf("%+v", snap)
+		}
+	})
+	raw, err := json.Marshal(complete)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("trailing second document", func(t *testing.T) {
+		assertMalformed(t, append(append([]byte{}, raw...), []byte(`{"shipmentTotal":1}`)...))
+	})
+	t.Run("trailing non-whitespace", func(t *testing.T) {
+		assertMalformed(t, append(append([]byte{}, raw...), []byte(" trailing")...))
+	})
+}
+
+func completeSource(tenantID string, shipmentTotal, denominator, numerator, returns, redirects int64) map[string]any {
+	return map[string]any{
+		"tenantId":                  tenantID,
+		"shipmentTotal":             shipmentTotal,
+		"onTimeDeliveryDenominator": denominator,
+		"onTimeDeliveryNumerator":   numerator,
+		"returnCaseCount":           returns,
+		"redirectCaseCount":         redirects,
+	}
+}
+
+func cloneWithout(t *testing.T, source map[string]any, field string) []byte {
+	t.Helper()
+	cloned := make(map[string]any, len(source)-1)
+	for key, value := range source {
+		if key == field {
+			continue
+		}
+		cloned[key] = value
+	}
+	raw, err := json.Marshal(cloned)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
+func assertMalformed(t *testing.T, body []byte) {
+	t.Helper()
+	_, err := decodeSnapshot(body, tenantA)
+	sourceErr, ok := err.(*Error)
+	if !ok || sourceErr.Reason != "malformed" {
+		t.Fatalf("err=%v body=%s", err, body)
+	}
+}
+
 func TestClientFailClosed(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -58,8 +134,8 @@ func TestClientFailClosed(t *testing.T) {
 	}{
 		{name: "http 500", status: http.StatusInternalServerError, body: map[string]any{}, reason: "http_5xx"},
 		{name: "malformed", status: http.StatusOK, body: "not-json", reason: "malformed"},
-		{name: "wrong tenant", status: http.StatusOK, body: map[string]any{"tenantId": "22222222-2222-2222-2222-222222222222", "shipmentTotal": 1}, reason: "wrong_tenant"},
-		{name: "inconsistent", status: http.StatusOK, body: map[string]any{"tenantId": tenantA, "shipmentTotal": 1, "onTimeDeliveryDenominator": 2, "onTimeDeliveryNumerator": 1}, reason: "inconsistent"},
+		{name: "wrong tenant", status: http.StatusOK, body: completeSource("22222222-2222-2222-2222-222222222222", 1, 0, 0, 0, 0), reason: "wrong_tenant"},
+		{name: "inconsistent", status: http.StatusOK, body: completeSource(tenantA, 1, 2, 1, 0, 0), reason: "inconsistent"},
 		{name: "timeout", status: http.StatusOK, delay: 200 * time.Millisecond, body: map[string]any{"tenantId": tenantA}, reason: "timeout"},
 	}
 	for _, tt := range cases {

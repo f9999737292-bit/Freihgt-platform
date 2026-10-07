@@ -101,6 +101,50 @@ func TestSourceFailuresFailClosed(t *testing.T) {
 	}
 }
 
+func TestOmittedSourceFieldReturnsNoKPI(t *testing.T) {
+	fields := []string{
+		"tenantId",
+		"shipmentTotal",
+		"onTimeDeliveryDenominator",
+		"onTimeDeliveryNumerator",
+		"returnCaseCount",
+		"redirectCaseCount",
+	}
+	for _, field := range fields {
+		t.Run(field, func(t *testing.T) {
+			payload := map[string]any{
+				"tenantId":                  testTenant,
+				"shipmentTotal":             0,
+				"onTimeDeliveryDenominator": 0,
+				"onTimeDeliveryNumerator":   0,
+				"returnCaseCount":           0,
+				"redirectCaseCount":         0,
+			}
+			delete(payload, field)
+			raw, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(raw)
+			}))
+			defer server.Close()
+			log := slog.New(slog.NewTextHandler(io.Discard, nil))
+			router := NewRouter(log, config.Config{
+				Environment:   "test",
+				ShipmentURL:   server.URL,
+				InternalToken: testToken,
+				SourceTimeout: time.Second,
+			}, source.NewClient(config.Config{ShipmentURL: server.URL, InternalToken: testToken, SourceTimeout: time.Second}))
+			rec := request(t, router, http.MethodGet, "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", testToken, "api-gateway", testTenant, "")
+			if rec.Code != http.StatusServiceUnavailable || strings.Contains(rec.Body.String(), `"kpiId"`) {
+				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
 func TestHandlerMapsLiveSourceFailures(t *testing.T) {
 	cases := []struct {
 		name   string
