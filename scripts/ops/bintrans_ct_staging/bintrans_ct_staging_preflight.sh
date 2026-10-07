@@ -141,7 +141,7 @@ grep -q 'SHIPMENT_OUTBOX_ENABLED: "true"' "${render_runtime}" \
 check_no_wide_bind() {
   local cfg="$1"
   local label="$2"
-  if grep -E 'published: "(5432|19092|9090|8080|8081|8082|8083|8084|8085|8086|8087|8088|8090|8091|8092|3000|3001)"' "${cfg}" >/dev/null; then
+  if grep -E 'published: "(5432|19092|9090|8080|8081|8082|8083|8084|8085|8086|8087|8088|8089|8090|8091|8092|3000|3001)"' "${cfg}" >/dev/null; then
     while IFS= read -r pub_line; do
       port="${pub_line#*published: \"}"
       port="${port%%\"*}"
@@ -149,7 +149,7 @@ check_no_wide_bind() {
       if ! echo "${block}" | grep -q 'host_ip: 127.0.0.1'; then
         bintrans_fail "dangerous host bind ${port} without 127.0.0.1 in ${label}"
       fi
-    done < <(grep -E 'published: "(5432|19092|9090|8080|8081|8082|8083|8084|8085|8086|8087|8088|8090|8091|8092|3000|3001)"' "${cfg}" || true)
+    done < <(grep -E 'published: "(5432|19092|9090|8080|8081|8082|8083|8084|8085|8086|8087|8088|8089|8090|8091|8092|3000|3001)"' "${cfg}" || true)
   fi
 }
 

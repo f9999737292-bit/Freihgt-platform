@@ -211,6 +211,7 @@ bintrans_runtime_service_names=(
   contract-rate-service
   freight-cost-service
   control-tower-read-model-service
+  tracking-service
   api-gateway
 )
 
@@ -227,6 +228,7 @@ bintrans_runtime_image_vars=(
   BINTRANS_CONTRACT_RATE_IMAGE
   BINTRANS_FREIGHT_COST_IMAGE
   BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE
+  BINTRANS_TRACKING_IMAGE
   BINTRANS_API_GATEWAY_IMAGE
 )
 

@@ -60,6 +60,7 @@ BINTRANS_PAYMENT_IMAGE=cr.selcloud.ru/bintrans-staging/payment-service@sha256:${
 BINTRANS_CONTRACT_RATE_IMAGE=cr.selcloud.ru/bintrans-staging/contract-rate-service@sha256:${d}
 BINTRANS_FREIGHT_COST_IMAGE=cr.selcloud.ru/bintrans-staging/freight-cost-service@sha256:${d}
 BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE=cr.selcloud.ru/bintrans-staging/control-tower-read-model-service@sha256:${d}
+BINTRANS_TRACKING_IMAGE=cr.selcloud.ru/bintrans-staging/tracking-service@sha256:${d}
 BINTRANS_API_GATEWAY_IMAGE=cr.selcloud.ru/bintrans-staging/api-gateway@sha256:${d}
 EOF
 }
@@ -157,7 +158,7 @@ echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde
 digest_images "${FAKE_DIGEST}" >> "${env_e}"
 run_expect_pass "VALID_SHADOW_DIGEST_CONFIG" "${env_e}"
 
-# J: distinct digest refs across all 13 services (must not false-positive mixed tags)
+# J: distinct digest refs across all 14 services (must not false-positive mixed tags)
 env_j="${tmpdir}/distinct_digest.env"
 base_env > "${env_j}"
 echo 'JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' >> "${env_j}"

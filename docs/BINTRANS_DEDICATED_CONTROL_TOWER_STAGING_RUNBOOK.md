@@ -12,19 +12,19 @@
 | Runtime images | Digest-pinned `@sha256:` preferred; OCI `org.opencontainers.image.revision` must match `DEPLOYED_GIT_SHA` |
 | VM checkout | Record `DEPLOY_TOOLING_SHA` (scripts checkout) separately from `RELEASE_SHA` (`DEPLOYED_GIT_SHA`) |
 
-**Application services (13):** identity, company, transport-order, rfx, shipment, document, billing-register, low-code, **payment**, **contract-rate**, **freight-cost**, control-tower-read-model, api-gateway.
+**Application services (14):** identity, company, transport-order, rfx, shipment, document, billing-register, low-code, **payment**, **contract-rate**, **freight-cost**, control-tower-read-model, **tracking**, api-gateway.
 
 Control Tower mode: **shadow** — **PRIMARY MUST REMAIN DISABLED**
 
 ### Operator release sequence
 
 1. Checkout exact release SHA on operator workstation/VM
-2. Build all 13 application images: `make bintrans-staging-release-build`  
+2. Build all 14 application images: `make bintrans-staging-release-build`
    (uses `docker-compose.yml` + `docker-compose.bintrans-ct-staging.yml`; passes `BINTRANS_GIT_SHA` + `BINTRANS_IMAGE_VERSION=git-<short SHA>`)
-3. Validate OCI revision on all 13: `bintrans_ct_staging_image_provenance_check.sh`
+3. Validate OCI revision on all 14: `bintrans_ct_staging_image_provenance_check.sh`
 4. Publish to `cr.selcloud.ru/bintrans-staging` (`bintrans_ct_staging_registry_publish.sh` prepare-only)
 5. Operator manually tags and pushes release images; capture registry digests
-6. Populate all 13 digest-pinned `BINTRANS_*_IMAGE` vars in protected env
+6. Populate all 14 digest-pinned `BINTRANS_*_IMAGE` vars in protected env
 5. `bintrans_ct_staging_backup.sh` → operator sets `BACKUP_VERIFIED=YES`
 6. `bintrans_ct_staging_migrate_gate.sh` (gate-only) → review target → `CONFIRM_MIGRATION_TARGET=true` only when approved
 7. `bintrans_ct_staging_runtime_preflight.sh` PASS
