@@ -24,6 +24,7 @@ POSTGRES_PASSWORD=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd
 BINTRANS_REGISTRY=cr.selcloud.ru/bintrans-staging
 BINTRANS_IMAGE_TAG=${FIXTURE_TAG}
 INTERNAL_SERVICE_TOKEN=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+TRACKING_PROVIDER_SECRETS=generic:0123456789abcdef0123456789abcdef0123456789abcdef
 API_GATEWAY_HOST_PORT=18080
 CONTROL_TOWER_READ_MODEL_HOST_PORT=8089
 PROMETHEUS_PORT=9090
@@ -170,5 +171,36 @@ while IFS= read -r svc; do
   idx=$((idx + 1))
 done < <(bash -c 'source "'"${ROOT}"'/scripts/ops/bintrans_ct_staging/bintrans_ct_staging_common.sh"; printf "%s\n" "${bintrans_runtime_service_names[@]}"')
 run_expect_pass "DISTINCT_DIGEST_REFS_ALL_SERVICES" "${env_j}"
+
+rewrite_tracking_secret() {
+  local src="$1" dest="$2" value="$3"
+  grep -v '^TRACKING_PROVIDER_SECRETS=' "${src}" > "${dest}"
+  printf 'TRACKING_PROVIDER_SECRETS=%s\n' "${value}" >> "${dest}"
+}
+
+# K: development generic provider secret is rejected
+env_k="${tmpdir}/dev_tracking_secret.env"
+rewrite_tracking_secret "${env_j}" "${env_k}" "dev_generic_tracking_secret"
+run_expect_fail "DEV_GENERIC_TRACKING_SECRET" "${env_k}"
+
+# L: prefixed development secret is rejected
+env_l="${tmpdir}/prefixed_dev_tracking_secret.env"
+rewrite_tracking_secret "${env_j}" "${env_l}" "generic:dev_generic_tracking_secret"
+run_expect_fail "PREFIXED_DEV_GENERIC_TRACKING_SECRET" "${env_l}"
+
+# M: empty provider secret is rejected
+env_m="${tmpdir}/empty_tracking_secret.env"
+rewrite_tracking_secret "${env_j}" "${env_m}" ""
+run_expect_fail "EMPTY_TRACKING_PROVIDER_SECRETS" "${env_m}"
+
+# N: placeholder provider secret is rejected
+env_n="${tmpdir}/placeholder_tracking_secret.env"
+rewrite_tracking_secret "${env_j}" "${env_n}" "generic:changeme"
+run_expect_fail "PLACEHOLDER_TRACKING_PROVIDER_SECRETS" "${env_n}"
+
+# O: missing provider secret is rejected
+env_o="${tmpdir}/missing_tracking_secret.env"
+grep -v '^TRACKING_PROVIDER_SECRETS=' "${env_j}" > "${env_o}"
+run_expect_fail "MISSING_TRACKING_PROVIDER_SECRETS" "${env_o}"
 
 echo "bintrans-ct-staging-runtime-preflight-selfcheck: PASS"

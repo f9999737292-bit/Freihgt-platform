@@ -146,10 +146,12 @@ services:
     restart: unless-stopped
     ports: !override []
     environment:
+      ENVIRONMENT: staging
       TRACKING_SERVICE_PORT: "8089"
       DATABASE_URL: *bintrans_database_url
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       TRACKING_INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      TRACKING_PROVIDER_SECRETS: ${TRACKING_PROVIDER_SECRETS}
       TRACKING_LOSS_DETECTOR_ENABLED: "false"
       LOG_LEVEL: info
     depends_on:

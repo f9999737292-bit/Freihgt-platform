@@ -165,7 +165,7 @@ Read-only / minimally mutating sequence for operator after Phase R:
 
 | Category | Check | Tool / method |
 |----------|-------|---------------|
-| **A. Infrastructure** | Foundation + 10 runtime services; migrate forbidden; observability optional | `bintrans_ct_staging_runtime_health.sh` |
+| **A. Infrastructure** | Foundation + 14 runtime services; migrate forbidden; observability optional | `bintrans_ct_staging_runtime_health.sh` |
 | **B. Authentication** | identity-service + gateway up; JWT issuance requires valid credentials | Manual login once cohort exists; not required for container health |
 | **C. Service connectivity** | Gateway `/health`; internal routing | `curl` localhost gateway |
 | **D. Database** | postgres `pg_isready` | `bintrans_ct_staging_runtime_health.sh` |
@@ -176,11 +176,13 @@ Read-only / minimally mutating sequence for operator after Phase R:
 
 **Empty cohort rejected:** `cohort manifest is empty` / `cohort manifest has no approved tenants` (`cohort.go`).
 
-### Full-stack health gate contract (14 approved services)
+### Full-stack health gate contract (18 approved services)
 
 Approved running compose project services:
 
-`postgres`, `redpanda`, 10 runtime services, `prometheus`, `grafana`.
+`postgres`, `redpanda`, 14 runtime services, `prometheus`, `grafana`.
+
+Application service count is 14. Full-stack service count is 18: 2 foundation services, 14 application services, and 2 observability services.
 
 Forbidden: `migrate`. Any other service name → FAIL.
 
@@ -193,6 +195,18 @@ Forbidden: `migrate`. Any other service name → FAIL.
 | E — unknown project service | any | FAIL | FAIL |
 
 Health scripts validate explicit required subsets plus approved project-wide enumeration. Observability presence does **not** fail runtime health.
+
+### Network optimizer runtime drift
+
+NLO_RUNTIME_CONFIG_TRACKED=NO
+
+NLO_COMPOSE_DRIFT=YES
+
+The tracked canonical runtime pack has 14 application services and does not include `network-optimizer-service`. Live Selectel has a separately observed NLO runtime. NLO_TRACKING_URL_WIRED=NOT_PROVEN until that live runtime configuration is captured and reconciled.
+
+If `network-optimizer-service` is running under the same compose project, the tracked project-service health gate may classify it as an unknown service. Do not weaken the health gate to hide that drift.
+
+NLO_DRIFT_MUST_BE_RECONCILED_BEFORE_RELEASE_GATE=YES
 
 ### Operator-supplied live evidence (2026-08-11; not re-verified by repository tooling in this section)
 
@@ -478,7 +492,7 @@ Health after start:
 Prerequisites beyond foundation/migration:
 
 1. `JWT_SECRET` set in protected env (non-placeholder; externalized via `docker-compose.bintrans-ct-staging.yml`)
-2. Digest-pinned `BINTRANS_*_IMAGE` for all 10 runtime services
+2. Digest-pinned `BINTRANS_*_IMAGE` for all 14 runtime services
 3. `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_preflight.sh` PASS
 
 After migration version 19 + digest-pinned images:
@@ -554,7 +568,7 @@ See also (on `a1c246d`):
 |--------|---------|
 | `bintrans_ct_staging_preflight.sh` | Static validation (foundation + compose; no JWT required) |
 | `bintrans_ct_staging_runtime_preflight.sh` | Runtime deploy gate (JWT + digest images + shadow mode) |
-| `bintrans_ct_staging_runtime_up.sh` | Start 10 runtime services (`--no-build`, excludes migrate/observability) |
+| `bintrans_ct_staging_runtime_up.sh` | Start 14 runtime services (`--no-build`, excludes migrate/observability) |
 | `bintrans_ct_staging_runtime_up_selfcheck.sh` | Runtime wrapper static contract |
 | `bintrans_ct_staging_runtime_health.sh` | Post-start health (read-only) |
 | `bintrans_ct_staging_runtime_health_selfcheck.sh` | Runtime health service-set contract (offline) |
