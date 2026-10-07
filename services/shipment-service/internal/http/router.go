@@ -11,6 +11,7 @@ import (
 	"github.com/freight-platform/shared-go/observability"
 	sharedpprof "github.com/freight-platform/shared-go/pprof"
 	"github.com/freight-platform/shipment-service/internal/http/handlers"
+	"github.com/freight-platform/shipment-service/internal/repository"
 	"github.com/freight-platform/shipment-service/internal/service"
 )
 
@@ -177,6 +178,16 @@ func NewRouter(
 		r.With(internalAuth.Middleware).Post(
 			"/internal/v1/delivery-dispositions/{caseId}/complete",
 			dispositionHandler.Complete,
+		)
+	}
+
+	if sourceDB, ok := db.(repository.QueryRower); ok && sourceDB != nil {
+		sourceHandler := handlers.NewOperationsAnalyticsSourceHandler(
+			service.NewOperationsAnalyticsSourceService(repository.NewOperationsAnalyticsSourceRepository(sourceDB)),
+		)
+		r.With(internalAuth.Middleware, handlers.RequireAnalyticsCaller).Get(
+			"/internal/v1/analytics/operations-foundation",
+			sourceHandler.Get,
 		)
 	}
 
