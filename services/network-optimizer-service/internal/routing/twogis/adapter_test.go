@@ -20,6 +20,9 @@ func TestTwoGISProviderName(t *testing.T) {
 	if adapter.ProviderName() != "2GIS" {
 		t.Fatalf("provider %s", adapter.ProviderName())
 	}
+	if adapter.client.Timeout != 5*time.Second {
+		t.Fatalf("request timeout %s", adapter.client.Timeout)
+	}
 }
 
 func TestBNO180TwoGISMapping(t *testing.T) {

@@ -114,6 +114,13 @@ func (s *Service) SearchNextLoad(ctx context.Context, actor Actor, cmd SearchCom
 	if err != nil {
 		return Result{}, err
 	}
+	if s.routes != nil {
+		ctx = routing.WithSearchProvider(ctx, routing.NewSearchBudget(s.routes, started, s.now, routing.SearchBudgetPolicy{
+			HardBudget: domain.SearchHardBudget, RequestTimeout: domain.ProviderRequestTimeout,
+			MaxMatrixCalls: domain.MaxMatrixCallsPerSearch, MaxRouteCalls: domain.MaxRouteCallsPerSearch,
+			MaxProviderCalls: domain.MaxProviderCallsTotal, MatrixDimension: domain.MatrixDimensionLimit,
+		}))
+	}
 	target, line, err := s.targetRoute(ctx, actor.TenantID, capacity, effective, availableAt)
 	if err != nil {
 		return Result{}, err
@@ -211,12 +218,12 @@ func (s *Service) targetRoute(ctx context.Context, tenant uuid.UUID, capacity do
 	if policy.SearchMode == domain.SearchRadius || s.routes == nil {
 		return target, nil, nil
 	}
-	result, err := s.routes.Route(ctx, routing.RouteRequest{
+	result, err := s.routingProvider(ctx).Route(ctx, routing.RouteRequest{
 		Origin: routing.Point{Latitude: *capacity.Latitude, Longitude: *capacity.Longitude}, Destination: target,
 		DepartureAt: &availableAt, RouteMode: routing.RouteFastest, TrafficMode: routing.TrafficStatistical,
 	})
 	if err != nil {
-		bnometrics.RoutingError()
+		noteRouting(err)
 		return target, nil, nil
 	}
 	return target, result.Geometry.Coordinates, nil
@@ -341,7 +348,14 @@ func (s *Service) evaluateLoads(ctx context.Context, tenant uuid.UUID, capacity 
 		early[load.ID] = item
 	}
 	bnometrics.RecordCandidatePrefilterPass(len(prefiltered))
-	roads := s.roadFacts(ctx, release, target, availableAt, policy, prefiltered)
+	routed := prefiltered
+	pruned := 0
+	if len(prefiltered) > domain.CandidateRoutingCap {
+		pruned = len(prefiltered) - domain.CandidateRoutingCap
+		routed = prefiltered[:domain.CandidateRoutingCap]
+	}
+	bnometrics.RecordRoutingSelection(len(routed), pruned)
+	roads := s.roadFacts(ctx, release, target, availableAt, policy, routed)
 	out := make([]evaluatedLoad, 0, len(loads))
 	for _, load := range loads {
 		item := early[load.ID]
@@ -426,22 +440,43 @@ type roadFact struct {
 	baseline         *float64
 }
 
+func (s *Service) routingProvider(ctx context.Context) routing.Provider {
+	if provider := routing.SearchProvider(ctx); provider != nil {
+		return provider
+	}
+	return s.routes
+}
+
+func noteRouting(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, routing.ErrSearchBudget) || errors.Is(err, context.Canceled) {
+		return true
+	}
+	bnometrics.RoutingError()
+	return true
+}
+
 func (s *Service) roadFacts(ctx context.Context, release, target routing.Point, availableAt time.Time, policy domain.NextLoadSearchPolicy, loads []domain.LoadOpportunity) map[uuid.UUID]roadFact {
 	facts := map[uuid.UUID]roadFact{}
-	if s.routes == nil || len(loads) == 0 {
+	provider := s.routingProvider(ctx)
+	if provider == nil || len(loads) == 0 {
 		return facts
+	}
+	if len(loads) > domain.CandidateRoutingCap {
+		loads = loads[:domain.CandidateRoutingCap]
 	}
 	destinations := make([]routing.Point, 0, len(loads))
 	for _, load := range loads {
 		destinations = append(destinations, routing.Point{Latitude: *load.Pickup.Latitude, Longitude: *load.Pickup.Longitude})
 	}
-	matrix, err := routing.BatchMatrix(ctx, s.routes, routing.MatrixRequest{
+	matrix, err := routing.BatchMatrix(ctx, provider, routing.MatrixRequest{
 		Origins: []routing.Point{release}, Destinations: destinations, DepartureAt: &availableAt,
 		RouteMode: routing.RouteFastest, TrafficMode: routing.TrafficStatistical,
 	}, routing.SyncMatrixLimit)
 	bnometrics.MatrixBatches(batchCount(len(destinations)))
-	if err != nil {
-		bnometrics.RoutingError()
+	if noteRouting(err) {
 		return facts
 	}
 	for _, cell := range matrix.Cells {
@@ -462,12 +497,11 @@ func (s *Service) roadFacts(ctx context.Context, release, target routing.Point, 
 		}
 		return facts
 	}
-	baseline, err := s.routes.Route(ctx, routing.RouteRequest{
+	baseline, err := provider.Route(ctx, routing.RouteRequest{
 		Origin: release, Destination: target, DepartureAt: &availableAt,
 		RouteMode: routing.RouteFastest, TrafficMode: routing.TrafficStatistical,
 	})
-	if err != nil {
-		bnometrics.RoutingError()
+	if noteRouting(err) {
 		return facts
 	}
 	baseKm := float64(baseline.DistanceM) / 1000
@@ -512,12 +546,11 @@ func (s *Service) fillDirection(ctx context.Context, loads []domain.LoadOpportun
 		if end > len(points) {
 			end = len(points)
 		}
-		matrix, err := routing.BatchMatrix(ctx, s.routes, routing.MatrixRequest{
+		matrix, err := routing.BatchMatrix(ctx, s.routingProvider(ctx), routing.MatrixRequest{
 			Origins: points[start:end], Destinations: []routing.Point{target}, DepartureAt: &availableAt,
 			RouteMode: routing.RouteFastest, TrafficMode: routing.TrafficStatistical,
 		}, routing.SyncMatrixLimit)
-		if err != nil {
-			bnometrics.RoutingError()
+		if noteRouting(err) {
 			return
 		}
 		for _, cell := range matrix.Cells {
@@ -572,12 +605,11 @@ func (s *Service) fillLoadedLeg(ctx context.Context, loads []domain.LoadOpportun
 			origins = append(origins, item.from)
 			destinations = append(destinations, item.to)
 		}
-		matrix, err := routing.BatchMatrix(ctx, s.routes, routing.MatrixRequest{
+		matrix, err := routing.BatchMatrix(ctx, s.routingProvider(ctx), routing.MatrixRequest{
 			Origins: origins, Destinations: destinations, DepartureAt: &availableAt,
 			RouteMode: routing.RouteFastest, TrafficMode: routing.TrafficStatistical,
 		}, routing.SyncMatrixLimit)
-		if err != nil {
-			bnometrics.RoutingError()
+		if noteRouting(err) {
 			return
 		}
 		for _, cell := range matrix.Cells {

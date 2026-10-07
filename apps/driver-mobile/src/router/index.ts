@@ -18,6 +18,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/stops',
+      name: 'stops',
+      component: () => import('@/pages/StopsPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/shipments/:shipmentId',
       name: 'shipment-detail',
       component: () => import('@/pages/ShipmentDetailPage.vue'),

@@ -59,6 +59,7 @@ onMounted(loadShipments)
       <ion-toolbar color="primary">
         <ion-title>{{ t('shipments.title') }}</ion-title>
         <ion-buttons slot="end">
+          <ion-button data-testid="nav-stops" @click="router.push('/stops')">{{ t('stops.nav') }}</ion-button>
           <ion-button @click="logout">{{ t('common.logout') }}</ion-button>
         </ion-buttons>
       </ion-toolbar>

@@ -24,7 +24,7 @@ NLO-0.3A is FROZEN_ACCEPTED and CLOSED. NLO-0.3B is IMPLEMENTED / CLOSED on main
 | NLO-0.2 | Predictive next load: rule-based `PredictedCapacity` from shipment plus tracking ETA, top N, no ML | NLO-0.1, tracking ETA read |
 | NLO-0.3 | Current-trip residual context, pairwise same-origin/same-destination feasibility, and one additional current-trip load. Planning only | NLO-0.2, B2 groupage, explicit publication |
 | NLO-0.4 | Persistent route execution: multi-stop shipment, shared legs, accepted plan activation, driver multi-stop tasks | NLO-0.3 planning proof, ADR-NET-005 |
-| NLO-0.5 | Backhaul and roundtrip with corridor search and road distance. NLO-0.5A is a docs freeze based on main `00b53de9`: one load, existing corridor and ellipse, no chain. It is not on main until that docs change is merged | Routing provider port |
+| NLO-0.5 | Backhaul and roundtrip with corridor search and road distance. NLO-0.5A is merged at `4c8b22e8`: one load, existing corridor and ellipse, no chain. NLO-0.5B1 caps discovery at 1000. NLO-0.5B2 caps routing at 25 and the provider budget at 4 matrix calls, 2 route calls, and 6 calls total. Backhaul runtime is not complete | Routing provider port |
 | NLO-0.6 | Regional routing, open and closed | NLO-0.4 plan model |
 | NLO-0.7 | Urban Moscow profile populated from sourced rules, not from solver branches | city-rules data ownership |
 | NLO-0.8 | Urban Saint Petersburg as a second profile | NLO-0.7 profile mechanism |
@@ -44,6 +44,6 @@ Dependencies: trusted tenant headers; read APIs for shipment, tracking ETA, loca
 
 Planning contracts for multi-stop routes may exist from NLO-0.4. Production multi-stop execution stays gated until the execution domain supports stops and legs.
 
-NLO-0.5A discovery is docs only on `discovery/nlo-backhaul-roundtrip-v0.5a`, based on main `00b53de9`. It is not on main until this docs change is merged. `NLO_0_5A=ARCHITECTURE_FROZEN_PENDING_CONTROLLER_REVIEW`. `NLO_0_5_IMPLEMENTATION_AUTHORIZED=NO`. See [NLO_0_5_IMPLEMENTATION_ROADMAP.md](NLO_0_5_IMPLEMENTATION_ROADMAP.md).
+NLO-0.5A is merged at `4c8b22e8`. NLO-0.5B1 enforces discovery 1000. NLO-0.5B2 enforces the routing budget. `BACKHAUL_RUNTIME_IMPLEMENTED=NO`. `ROUNDTRIP_RUNTIME_IMPLEMENTED=NO`. See [NLO_0_5B_IMPLEMENTATION_ROADMAP.md](NLO_0_5B_IMPLEMENTATION_ROADMAP.md) and [ADR-NET-024](adr/ADR-NET-024-bounded-backhaul-search-policy.md).
 
 Risks: builders may treat Haversine as road distance; a query might scan shipments across tenants; multi-stop UI might be promised before execution can store stops; missing pallet data might be treated as zero.

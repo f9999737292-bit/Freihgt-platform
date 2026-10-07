@@ -176,3 +176,181 @@ describe('TENANT_NOT_CLIENT_CONTROLLED_TEST', () => {
     expect(headers.Authorization).toBe('Bearer token')
   })
 })
+
+const STOP_ID = '11111111-1111-4111-8111-111111111111'
+const ACTION_ID = '66666666-6666-4666-8666-666666666666'
+const SHIPMENT_ID = '33333333-3333-4333-8333-333333333333'
+const CARGO_ID = '44444444-4444-4444-8444-444444444444'
+
+function stopFetch(body: unknown) {
+  const fetchMock = vi.fn(async () =>
+    new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+function sentRequest(fetchMock: ReturnType<typeof vi.fn>) {
+  const call = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit]
+  const headers = (call[1]?.headers ?? {}) as Record<string, string>
+  const raw = call[1]?.body
+  return {
+    url: new URL(String(call[0])),
+    method: call[1]?.method,
+    headers,
+    body: typeof raw === 'string' ? JSON.parse(raw) as Record<string, unknown> : undefined,
+  }
+}
+
+describe('GET_STOPS_TEST', () => {
+  it('loads current and next stops from the public driver route', async () => {
+    const fetchMock = stopFetch({ current: null, next: null })
+    const http = new HttpClient({ getToken: () => 'token', isOnline: () => true })
+    const result = await createDriverApi(http).getMyStops()
+    const sent = sentRequest(fetchMock)
+    expect(result.outcome).toBe('SUCCESS')
+    expect(sent.method).toBe('GET')
+    expect(sent.url.pathname).toBe('/api/v1/driver/me/stops')
+    expect(sent.headers.Authorization).toBe('Bearer token')
+    expect(sent.headers['Idempotency-Key']).toBeUndefined()
+  })
+})
+
+describe('ARRIVE_STOP_TEST', () => {
+  it('posts the stop command with an idempotency key', async () => {
+    const fetchMock = stopFetch({
+      taskId: 'task',
+      executionStopId: STOP_ID,
+      status: 'ARRIVED',
+      version: 4,
+      replayed: false,
+    })
+    const http = new HttpClient({ getToken: () => 'token', isOnline: () => true })
+    const body = { occurredAt: '2026-10-07T08:00:00.000Z', expectedVersion: 3 }
+    const result = await createDriverApi(http).arriveStop(STOP_ID, body, 'driver-mobile-op:arrive:key')
+    const sent = sentRequest(fetchMock)
+    expect(result.outcome).toBe('SUCCESS')
+    expect(sent.method).toBe('POST')
+    expect(sent.url.pathname).toBe(`/api/v1/driver/me/stops/${STOP_ID}/arrive`)
+    expect(sent.headers['Idempotency-Key']).toBe('driver-mobile-op:arrive:key')
+    expect(sent.body).toEqual(body)
+  })
+})
+
+describe('START_SERVICE_TEST', () => {
+  it('posts start-service with the server version', async () => {
+    const fetchMock = stopFetch({
+      taskId: 'task',
+      executionStopId: STOP_ID,
+      status: 'SERVICE_STARTED',
+      version: 5,
+      replayed: false,
+    })
+    const http = new HttpClient({ getToken: () => 'token', isOnline: () => true })
+    const body = { occurredAt: '2026-10-07T08:05:00.000Z', expectedVersion: 4 }
+    await createDriverApi(http).startStopService(STOP_ID, body, 'driver-mobile-op:start:key')
+    const sent = sentRequest(fetchMock)
+    expect(sent.method).toBe('POST')
+    expect(sent.url.pathname).toBe(`/api/v1/driver/me/stops/${STOP_ID}/start-service`)
+    expect(sent.headers['Idempotency-Key']).toBe('driver-mobile-op:start:key')
+    expect(sent.body).toEqual(body)
+  })
+})
+
+describe('COMPLETE_STOP_TEST', () => {
+  it('posts complete with the server version', async () => {
+    const fetchMock = stopFetch({
+      taskId: 'task',
+      executionStopId: STOP_ID,
+      status: 'COMPLETED',
+      version: 6,
+      replayed: false,
+    })
+    const http = new HttpClient({ getToken: () => 'token', isOnline: () => true })
+    const body = { occurredAt: '2026-10-07T08:20:00.000Z', expectedVersion: 5 }
+    await createDriverApi(http).completeStop(STOP_ID, body, 'driver-mobile-op:complete:key')
+    const sent = sentRequest(fetchMock)
+    expect(sent.method).toBe('POST')
+    expect(sent.url.pathname).toBe(`/api/v1/driver/me/stops/${STOP_ID}/complete`)
+    expect(sent.headers['Idempotency-Key']).toBe('driver-mobile-op:complete:key')
+    expect(sent.body).toEqual(body)
+  })
+})
+
+describe('CONFIRM_ACTION_TEST', () => {
+  it('posts confirm for the server action id', async () => {
+    const fetchMock = stopFetch({
+      taskId: 'task',
+      executionStopId: STOP_ID,
+      status: 'SERVICE_STARTED',
+      version: 6,
+      actionStatus: 'CONFIRMED',
+      replayed: false,
+    })
+    const http = new HttpClient({ getToken: () => 'token', isOnline: () => true })
+    const body = { occurredAt: '2026-10-07T08:10:00.000Z', expectedVersion: 5 }
+    await createDriverApi(http).confirmStopAction(STOP_ID, ACTION_ID, body, 'driver-mobile-op:confirm:key')
+    const sent = sentRequest(fetchMock)
+    expect(sent.method).toBe('POST')
+    expect(sent.url.pathname).toBe(`/api/v1/driver/me/stops/${STOP_ID}/actions/${ACTION_ID}/confirm`)
+    expect(sent.headers['Idempotency-Key']).toBe('driver-mobile-op:confirm:key')
+    expect(sent.body).toEqual(body)
+  })
+})
+
+describe('FAIL_ACTION_TEST', () => {
+  it('posts a bounded fail reason and no comment', async () => {
+    const fetchMock = stopFetch({
+      taskId: 'task',
+      executionStopId: STOP_ID,
+      status: 'SERVICE_STARTED',
+      version: 6,
+      actionStatus: 'FAILED',
+      replayed: false,
+    })
+    const http = new HttpClient({ getToken: () => 'token', isOnline: () => true })
+    const body = { occurredAt: '2026-10-07T08:12:00.000Z', expectedVersion: 5, reasonCode: 'TRAFFIC' as const }
+    await createDriverApi(http).failStopAction(STOP_ID, ACTION_ID, body, 'driver-mobile-op:fail:key')
+    const sent = sentRequest(fetchMock)
+    expect(sent.method).toBe('POST')
+    expect(sent.url.pathname).toBe(`/api/v1/driver/me/stops/${STOP_ID}/actions/${ACTION_ID}/fail`)
+    expect(sent.headers['Idempotency-Key']).toBe('driver-mobile-op:fail:key')
+    expect(sent.body).toEqual(body)
+    expect(sent.body).not.toHaveProperty('reasonComment')
+    expect(sent.body).not.toHaveProperty('comment')
+  })
+})
+
+describe('DELIVERY_DISPOSITION_TEST', () => {
+  it('posts pallet quantities and an empty evidence list', async () => {
+    const fetchMock = stopFetch({
+      executionId: 'exec',
+      caseId: null,
+      status: 'OPEN',
+      acceptedQuantity: 1,
+      rejectedQuantity: 1,
+      revisionId: 'rev',
+      replayed: false,
+    })
+    const http = new HttpClient({ getToken: () => 'token', isOnline: () => true })
+    const body = {
+      shipmentId: SHIPMENT_ID,
+      cargoId: CARGO_ID,
+      acceptedQuantity: 1,
+      rejectedQuantity: 1,
+      uom: 'PALLET' as const,
+      reasonCode: 'DAMAGE' as const,
+      reasonComment: 'torn wrap',
+      occurredAt: '2026-10-07T08:15:00.000Z',
+      evidence: [] as [],
+    }
+    await createDriverApi(http).reportDeliveryDisposition(STOP_ID, ACTION_ID, body, 'driver-mobile-op:disposition:key')
+    const sent = sentRequest(fetchMock)
+    expect(sent.method).toBe('POST')
+    expect(sent.url.pathname).toBe(
+      `/api/v1/driver/me/stops/${STOP_ID}/actions/${ACTION_ID}/delivery-disposition`,
+    )
+    expect(sent.headers['Idempotency-Key']).toBe('driver-mobile-op:disposition:key')
+    expect(sent.body).toEqual(body)
+  })
+})
