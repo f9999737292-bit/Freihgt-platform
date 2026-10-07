@@ -40659,6 +40659,7 @@
         "required": [
           "actionId",
           "actionType",
+          "shipmentId",
           "cargoId",
           "ordinal"
         ],
@@ -40673,6 +40674,10 @@
               "PICKUP",
               "DELIVERY"
             ]
+          },
+          "shipmentId": {
+            "type": "string",
+            "format": "uuid"
           },
           "cargoId": {
             "type": "string",

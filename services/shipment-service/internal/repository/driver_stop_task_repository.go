@@ -123,7 +123,7 @@ func summarizeStopActions(actions []actionTaskSource) (domain.DriverStopActionSu
 	same := true
 	for _, action := range actions {
 		summary.Actions = append(summary.Actions, domain.DriverStopActionFact{
-			ActionID: action.ID, ActionType: action.ActionType, CargoID: action.CargoID, Ordinal: action.Ordinal,
+			ActionID: action.ID, ActionType: action.ActionType, ShipmentID: action.ShipmentID, CargoID: action.CargoID, Ordinal: action.Ordinal,
 		})
 		summary.Counts[action.ActionType]++
 		if shipmentID == nil {
@@ -260,6 +260,10 @@ func (r *TransportExecutionCommandRepository) ListCurrentNext(ctx context.Contex
 	if err := rows.Err(); err != nil {
 		return domain.DriverCurrentNextStops{}, mapDBError(err)
 	}
+	rows.Close()
+	if err := enrichActionShipmentIDs(ctx, tx, views); err != nil {
+		return domain.DriverCurrentNextStops{}, err
+	}
 	var result domain.DriverCurrentNextStops
 	if len(views) > 0 {
 		views[0].Position = domain.DriverStopPositionCurrent
@@ -372,6 +376,58 @@ func (r *TransportExecutionCommandRepository) FindAssignedParticipant(ctx contex
 		return uuid.Nil, uuid.Nil, uuid.Nil, false, mapDBError(err)
 	}
 	return executionID, revisionID, shipmentTenant, true, nil
+}
+
+// enrichActionShipmentIDs replaces any materialized action shipment with the
+// canonical transport.transport_execution_actions.shipment_id. Older
+// action_summary documents omit the field; a stored value is not authoritative.
+func enrichActionShipmentIDs(ctx context.Context, tx pgx.Tx, views []domain.DriverStopTaskView) error {
+	for i := range views {
+		if len(views[i].ActionSummary.Actions) == 0 {
+			continue
+		}
+		rows, err := tx.Query(ctx, `
+			SELECT id, shipment_id
+			FROM transport.transport_execution_actions
+			WHERE execution_stop_id = $1
+		`, views[i].ExecutionStopID)
+		if err != nil {
+			return mapDBError(err)
+		}
+		canonical := map[uuid.UUID]uuid.UUID{}
+		for rows.Next() {
+			var actionID, shipmentID uuid.UUID
+			if err := rows.Scan(&actionID, &shipmentID); err != nil {
+				rows.Close()
+				return mapDBError(err)
+			}
+			if shipmentID == uuid.Nil {
+				rows.Close()
+				return apperrors.Internal("driver stop action shipment is missing", nil)
+			}
+			canonical[actionID] = shipmentID
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return mapDBError(err)
+		}
+		rows.Close()
+		if err := applyCanonicalActionShipments(&views[i].ActionSummary, canonical); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func applyCanonicalActionShipments(summary *domain.DriverStopActionSummary, canonical map[uuid.UUID]uuid.UUID) error {
+	for i := range summary.Actions {
+		shipmentID, ok := canonical[summary.Actions[i].ActionID]
+		if !ok || shipmentID == uuid.Nil {
+			return apperrors.Internal("driver stop action shipment is missing", nil)
+		}
+		summary.Actions[i].ShipmentID = shipmentID
+	}
+	return nil
 }
 
 func scanDriverStopTask(rows pgx.Rows) (domain.DriverStopTaskView, error) {
