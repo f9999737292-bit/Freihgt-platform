@@ -21,6 +21,7 @@ type DriverStopActionSummary struct {
 type DriverStopActionFact struct {
 	ActionID   uuid.UUID `json:"actionId"`
 	ActionType string    `json:"actionType"`
+	ShipmentID uuid.UUID `json:"shipmentId"`
 	CargoID    uuid.UUID `json:"cargoId"`
 	Ordinal    int       `json:"ordinal"`
 }

@@ -4933,10 +4933,11 @@ components:
 """ + rfx_components + """    DriverStopActionFact:
       type: object
       additionalProperties: false
-      required: [actionId, actionType, cargoId, ordinal]
+      required: [actionId, actionType, shipmentId, cargoId, ordinal]
       properties:
         actionId: {type: string, format: uuid}
         actionType: {type: string, enum: [PICKUP, DELIVERY]}
+        shipmentId: {type: string, format: uuid}
         cargoId: {type: string, format: uuid}
         ordinal: {type: integer}
     DriverStopActionSummary:
