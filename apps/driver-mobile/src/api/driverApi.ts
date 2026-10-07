@@ -15,6 +15,14 @@ import type {
   DriverShipmentDetail,
   DriverShipmentListResponse,
 } from '@/types/driver'
+import type {
+  DriverCurrentNextStopsResponse,
+  DriverDeliveryDispositionRequest,
+  DriverDeliveryDispositionResponse,
+  DriverStopCommandRequest,
+  DriverStopCommandResponse,
+  DriverStopFailRequest,
+} from '@/types/stops'
 
 export function createDriverApi(http: HttpClient) {
   return {
@@ -103,6 +111,63 @@ export function createDriverApi(http: HttpClient) {
         'POST',
         `/api/v1/driver/me/shipments/${encodeURIComponent(shipmentId)}/pod/uploads/${encodeURIComponent(uploadId)}/complete`,
         { body },
+      )
+    },
+
+    getMyStops() {
+      return http.request<DriverCurrentNextStopsResponse>('GET', '/api/v1/driver/me/stops')
+    },
+
+    arriveStop(stopId: string, body: DriverStopCommandRequest, idempotencyKey: string) {
+      return http.request<DriverStopCommandResponse>(
+        'POST',
+        `/api/v1/driver/me/stops/${encodeURIComponent(stopId)}/arrive`,
+        { body, idempotencyKey },
+      )
+    },
+
+    startStopService(stopId: string, body: DriverStopCommandRequest, idempotencyKey: string) {
+      return http.request<DriverStopCommandResponse>(
+        'POST',
+        `/api/v1/driver/me/stops/${encodeURIComponent(stopId)}/start-service`,
+        { body, idempotencyKey },
+      )
+    },
+
+    completeStop(stopId: string, body: DriverStopCommandRequest, idempotencyKey: string) {
+      return http.request<DriverStopCommandResponse>(
+        'POST',
+        `/api/v1/driver/me/stops/${encodeURIComponent(stopId)}/complete`,
+        { body, idempotencyKey },
+      )
+    },
+
+    confirmStopAction(stopId: string, actionId: string, body: DriverStopCommandRequest, idempotencyKey: string) {
+      return http.request<DriverStopCommandResponse>(
+        'POST',
+        `/api/v1/driver/me/stops/${encodeURIComponent(stopId)}/actions/${encodeURIComponent(actionId)}/confirm`,
+        { body, idempotencyKey },
+      )
+    },
+
+    failStopAction(stopId: string, actionId: string, body: DriverStopFailRequest, idempotencyKey: string) {
+      return http.request<DriverStopCommandResponse>(
+        'POST',
+        `/api/v1/driver/me/stops/${encodeURIComponent(stopId)}/actions/${encodeURIComponent(actionId)}/fail`,
+        { body, idempotencyKey },
+      )
+    },
+
+    reportDeliveryDisposition(
+      stopId: string,
+      actionId: string,
+      body: DriverDeliveryDispositionRequest,
+      idempotencyKey: string,
+    ) {
+      return http.request<DriverDeliveryDispositionResponse>(
+        'POST',
+        `/api/v1/driver/me/stops/${encodeURIComponent(stopId)}/actions/${encodeURIComponent(actionId)}/delivery-disposition`,
+        { body, idempotencyKey },
       )
     },
   }
