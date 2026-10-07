@@ -2,6 +2,7 @@ package analytics
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -20,11 +21,17 @@ func NewClient(httpClient *http.Client, baseURL, token string) *Client {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
+	dedicated := *httpClient
+	dedicated.CheckRedirect = refuseAnalyticsRedirect
 	return &Client{
 		baseURL:    strings.TrimRight(strings.TrimSpace(baseURL), "/"),
 		token:      token,
-		httpClient: httpClient,
+		httpClient: &dedicated,
 	}
+}
+
+func refuseAnalyticsRedirect(*http.Request, []*http.Request) error {
+	return errors.New("analytics service redirect is not followed")
 }
 
 func (c *Client) GetKPI(ctx context.Context, kpiID, tenantID, rawQuery string) (int, []byte, error) {

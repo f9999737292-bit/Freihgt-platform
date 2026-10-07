@@ -98,6 +98,63 @@ func TestAnalyticsGatewayAccessAndSpoofing(t *testing.T) {
 	}
 }
 
+func TestAnalyticsGatewayRejectsRedirect(t *testing.T) {
+	const (
+		secret       = "analytics-gateway-secret"
+		gatewayToken = "gateway-internal-token"
+		tenantA      = "11111111-1111-1111-1111-111111111111"
+	)
+	identity := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"roles": []string{"SHIPPER_ADMIN"}})
+	}))
+	defer identity.Close()
+	token := signAnalyticsToken(t, secret, "user-1", tenantA)
+
+	for _, status := range []int{http.StatusFound, http.StatusTemporaryRedirect} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			var targetHits int
+			var tokenSeen, tenantSeen, callerSeen string
+			target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				targetHits++
+				tokenSeen = r.Header.Get("X-Internal-Service-Token")
+				tenantSeen = r.Header.Get("X-Tenant-ID")
+				callerSeen = r.Header.Get("X-Internal-Service-Name")
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"kpiId":"OPS_SHIPMENTS_TOTAL","measure":{"type":"COUNT","value":99}}`))
+			}))
+			defer target.Close()
+			analytics := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, target.URL+"/stolen", status)
+			}))
+			defer analytics.Close()
+			router := analyticsRouter(t, secret, gatewayToken, identity.URL, analytics.URL)
+			rec := serveAnalytics(t, router, token, "", "", "")
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+			}
+			if targetHits != 0 || tokenSeen != "" || tenantSeen != "" || callerSeen != "" {
+				t.Fatalf("redirect target hits=%d token=%q tenant=%q caller=%q", targetHits, tokenSeen, tenantSeen, callerSeen)
+			}
+			if strings.Contains(rec.Body.String(), `"value"`) || strings.Contains(rec.Body.String(), "99") {
+				t.Fatalf("returned a kpi: %s", rec.Body.String())
+			}
+		})
+	}
+
+	t.Run("no redirect", func(t *testing.T) {
+		analytics := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"kpiId":"OPS_SHIPMENTS_TOTAL","definitionVersion":1,"measure":{"type":"COUNT","value":4},"generatedAt":"2026-10-07T18:00:00Z","dataFreshness":{"status":"UNKNOWN"},"completeness":"COMPLETE"}`))
+		}))
+		defer analytics.Close()
+		router := analyticsRouter(t, secret, gatewayToken, identity.URL, analytics.URL)
+		rec := serveAnalytics(t, router, token, "", "", "")
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"value":4`) {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+	})
+}
+
 func TestAnalyticsGatewayDependencyDown(t *testing.T) {
 	identity := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"roles": []string{"SHIPPER_ADMIN"}})
