@@ -193,6 +193,9 @@ func TestDriverStopTasks(t *testing.T) {
 		if strings.Contains(body, fx.ships[0].tenantID.String()) || strings.Contains(body, "operatingTenantId") || strings.Contains(body, "routePlanId") {
 			t.Fatalf("private payload %s", body)
 		}
+		if !strings.Contains(body, fx.ships[0].shipmentID.String()) {
+			t.Fatalf("single-shipment stop hid shipment id: %s", body)
+		}
 	})
 
 	t.Run("wrong driver and tenant", func(t *testing.T) {
@@ -250,6 +253,62 @@ func TestDriverStopTasks(t *testing.T) {
 		}
 		if !strings.Contains(body, `"shipmentId":null`) {
 			t.Fatalf("multi-shipment current exposed a shipment id: %s", body)
+		}
+	})
+
+	t.Run("multi shipment action identity", func(t *testing.T) {
+		fx := newFixture(t, env, []string{domain.ShipmentStatusPickupSlotBooked, domain.ShipmentStatusPickupSlotBooked}, [][]actionSpec{{
+			{0, domain.ActionTypeDelivery},
+			{1, domain.ActionTypeDelivery},
+		}})
+		if countWhere(t, env, "transport.driver_stop_tasks", "execution_stop_id=$1 AND shipment_id IS NULL", fx.stops[1]) != 1 {
+			t.Fatal("multi-shipment stop stored a stop-level shipment id")
+		}
+		user := bindFixtureDriver(t, env, fx)
+		assertMultiShipmentActions(t, router, fx, user)
+
+		if _, err := env.pool.Exec(env.ctx, `
+			UPDATE transport.driver_stop_tasks
+			SET action_summary = jsonb_set(
+				action_summary,
+				'{actions}',
+				(
+					SELECT COALESCE(jsonb_agg(item - 'shipmentId'), '[]'::jsonb)
+					FROM jsonb_array_elements(action_summary->'actions') AS item
+				)
+			)
+			WHERE execution_stop_id = $1
+		`, fx.stops[1]); err != nil {
+			t.Fatal(err)
+		}
+		assertMultiShipmentActions(t, router, fx, user)
+
+		stale := uuid.New()
+		if _, err := env.pool.Exec(env.ctx, `
+			UPDATE transport.driver_stop_tasks
+			SET action_summary = jsonb_set(action_summary, '{actions,0,shipmentId}', to_jsonb($2::text), true)
+			WHERE execution_stop_id = $1
+		`, fx.stops[1], stale.String()); err != nil {
+			t.Fatal(err)
+		}
+		body := assertMultiShipmentActions(t, router, fx, user)
+		if strings.Contains(body, stale.String()) {
+			t.Fatalf("stale materialized shipment id was returned: %s", body)
+		}
+		if strings.Contains(body, "00000000-0000-0000-0000-000000000000") {
+			t.Fatalf("zero shipment id was exposed: %s", body)
+		}
+
+		actionID := fx.actions[1][0]
+		shipmentID, cargoID, err := repo.LoadDeliveryAction(env.ctx, fx.stops[1], actionID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if shipmentID != fx.ships[0].shipmentID || cargoID != fx.ships[0].cargoID {
+			t.Fatalf("canonical action identity %s %s", shipmentID, cargoID)
+		}
+		if !strings.Contains(body, `"shipmentId":"`+shipmentID.String()+`"`) || !strings.Contains(body, `"cargoId":"`+cargoID.String()+`"`) {
+			t.Fatalf("public action identity is not the disposition pair: %s", body)
 		}
 	})
 
@@ -865,6 +924,43 @@ func assertTaskMirrorsStop(t *testing.T, env *execEnv, stopID uuid.UUID) {
 	if stopStatus != taskState || stopVersion != taskVersion {
 		t.Fatalf("stop %s/%d task %s/%d", stopStatus, stopVersion, taskState, taskVersion)
 	}
+}
+
+func assertMultiShipmentActions(t *testing.T, router http.Handler, fx execFixture, user uuid.UUID) string {
+	t.Helper()
+	body := listStops(t, router, fx.operating, user)
+	var payload struct {
+		Current *struct {
+			ShipmentID    *string `json:"shipmentId"`
+			ActionSummary struct {
+				Actions []struct {
+					ActionType string `json:"actionType"`
+					ShipmentID string `json:"shipmentId"`
+					CargoID    string `json:"cargoId"`
+				} `json:"actions"`
+			} `json:"actionSummary"`
+		} `json:"current"`
+	}
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Current == nil || payload.Current.ShipmentID != nil {
+		t.Fatalf("stop-level shipment id = %v body %s", payload.Current, body)
+	}
+	found := map[string]string{}
+	for _, action := range payload.Current.ActionSummary.Actions {
+		if action.ActionType != domain.ActionTypeDelivery || action.ShipmentID == "" || action.ShipmentID == uuid.Nil.String() {
+			t.Fatalf("action identity %s", body)
+		}
+		found[action.ShipmentID] = action.CargoID
+	}
+	if found[fx.ships[0].shipmentID.String()] != fx.ships[0].cargoID.String() {
+		t.Fatalf("action A %+v body %s", found, body)
+	}
+	if found[fx.ships[1].shipmentID.String()] != fx.ships[1].cargoID.String() {
+		t.Fatalf("action B %+v body %s", found, body)
+	}
+	return body
 }
 
 func listStops(t *testing.T, router http.Handler, tenantID, userID uuid.UUID) string {
