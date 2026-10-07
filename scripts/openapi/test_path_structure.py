@@ -603,6 +603,88 @@ def assert_route_plan_activation_422(spec: dict, label: str) -> None:
             raise SystemExit(1)
 
 
+DISPOSITION_REASONS = [
+    "DAMAGE",
+    "MIS_SORT",
+    "SHORTAGE",
+    "OVERAGE",
+    "PACKAGING_DAMAGE",
+    "TEMPERATURE_DEVIATION",
+    "QUALITY_REJECTION",
+    "DOCUMENT_PROBLEM",
+    "WRONG_PRODUCT",
+    "EXPIRED_PRODUCT",
+    "CUSTOMER_REFUSAL",
+    "OTHER",
+]
+FAIL_REASONS = [
+    "TRAFFIC",
+    "VEHICLE_BREAKDOWN",
+    "ACCIDENT",
+    "LOADING_DELAY",
+    "UNLOADING_DELAY",
+    "CARGO_ISSUE",
+    "DOCUMENT_ISSUE",
+    "CUSTOMER_UNAVAILABLE",
+    "ROUTE_BLOCKED",
+    "OTHER",
+]
+
+
+def assert_driver_disposition_contract(spec: dict) -> None:
+    path = "/api/v1/driver/me/stops/{stopId}/actions/{actionId}/delivery-disposition"
+    operation = spec.get("paths", {}).get(path, {}).get("post")
+    if not isinstance(operation, dict):
+        print("delivery disposition path missing", file=sys.stderr)
+        raise SystemExit(1)
+    for forbidden in (
+        "/api/v1/driver/me/stops/{stopId}/authorize-return",
+        "/api/v1/driver/me/stops/{stopId}/actions/{actionId}/authorize-redirect",
+        "/api/v1/driver/me/delivery-dispositions/{caseId}/authorize-return",
+        "/api/v1/driver/me/delivery-dispositions/{caseId}/authorize-redirect",
+        "/api/v1/driver/me/delivery-dispositions/{caseId}/hold",
+    ):
+        if forbidden in spec.get("paths", {}):
+            print(f"driver authorization route must stay unpublished: {forbidden}", file=sys.stderr)
+            raise SystemExit(1)
+    idempotency = [
+        item for item in operation.get("parameters", [])
+        if item.get("name") == "Idempotency-Key" and item.get("in") == "header"
+    ]
+    if len(idempotency) != 1 or idempotency[0].get("required") is not True:
+        print("delivery disposition Idempotency-Key must be required", file=sys.stderr)
+        raise SystemExit(1)
+    schema = idempotency[0].get("schema", {})
+    if schema.get("minLength") != 1 or schema.get("maxLength") != 128:
+        print("delivery disposition Idempotency-Key length bounds changed", file=sys.stderr)
+        raise SystemExit(1)
+    description = idempotency[0].get("description", "")
+    if "version lifecycle mutation" in description or "recording a driver delivery disposition" not in description:
+        print("delivery disposition Idempotency-Key description is not specific", file=sys.stderr)
+        raise SystemExit(1)
+    schemas = spec.get("components", {}).get("schemas", {})
+    request = schemas.get("DriverDeliveryDispositionRequest", {})
+    properties = request.get("properties", {})
+    if properties.get("reasonCode", {}).get("enum") != DISPOSITION_REASONS:
+        print("disposition reasonCode enum is not the backend set", file=sys.stderr)
+        raise SystemExit(1)
+    if properties.get("uom", {}).get("enum") != ["PALLET"]:
+        print("disposition uom must be PALLET", file=sys.stderr)
+        raise SystemExit(1)
+    for forbidden in ("actorId", "actorKind", "executionId", "revisionId", "operatingTenantId", "tenantId"):
+        if forbidden in properties:
+            print(f"disposition request exposes {forbidden}", file=sys.stderr)
+            raise SystemExit(1)
+    fail = schemas.get("DriverStopFailRequest", {}).get("properties", {}).get("reasonCode", {})
+    if fail.get("enum") != FAIL_REASONS:
+        print("fail reasonCode enum is not the backend set", file=sys.stderr)
+        raise SystemExit(1)
+    response = schemas.get("DriverDeliveryDispositionResponse", {})
+    if response.get("properties", {}).get("caseId", {}).get("nullable") is not True:
+        print("disposition caseId must be nullable", file=sys.stderr)
+        raise SystemExit(1)
+
+
 def main() -> int:
     targets = [
         OPENAPI_DIR / "payment-service.yaml",
@@ -696,6 +778,11 @@ def main() -> int:
     print("GATEWAY_QUESTIONNAIRE_ROUTE_PARITY=PASS")
     print("GATEWAY_CARRIER_RESPONSE_ROUTE_PARITY=PASS")
     print("OPENAPI_422_PARITY=PASS")
+    assert_driver_disposition_contract(unified_spec)
+    print("DELIVERY_DISPOSITION_PATH_PRESENT=YES")
+    print("IDEMPOTENCY_KEY_REQUIRED=YES")
+    print("DISPOSITION_REASON_ENUM_BOUNDED=YES")
+    print("FAIL_REASON_ENUM_BOUNDED=YES")
     return 0
 
 

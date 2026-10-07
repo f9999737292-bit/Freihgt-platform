@@ -243,6 +243,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/driver/me/stops/{stopId}/complete", "post", "Complete the current driver stop", "Drivers", True, True, "driver_stop_command"),
     ("/api/v1/driver/me/stops/{stopId}/actions/{actionId}/confirm", "post", "Confirm the server-resolved pickup or delivery action", "Drivers", True, True, "driver_stop_command"),
     ("/api/v1/driver/me/stops/{stopId}/actions/{actionId}/fail", "post", "Fail a driver stop action", "Drivers", True, True, "driver_stop_fail"),
+    ("/api/v1/driver/me/stops/{stopId}/actions/{actionId}/delivery-disposition", "post", "Record the delivery quantity result for the current stop action", "Drivers", True, True, "driver_delivery_disposition"),
     ("/api/v1/drivers", "post", "Create driver", "Drivers", True, True, None),
     ("/api/v1/drivers", "get", "List drivers", "Drivers", True, True, None),
     ("/api/v1/drivers/{id}", "get", "Get driver by ID", "Drivers", True, True, None),
@@ -547,6 +548,7 @@ IDEMPOTENCY_HEADER_PROFILES = frozenset({
     "ls_reject",
     "driver_stop_command",
     "driver_stop_fail",
+    "driver_delivery_disposition",
 })
 
 LATE_SUBMISSION_IDEMPOTENCY_PROFILES = frozenset({"ls_create", "ls_approve", "ls_reject"})
@@ -1567,6 +1569,17 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
+    elif profile == "driver_delivery_disposition":
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: true",
+            "          description: Required client-supplied idempotency key for recording a driver delivery disposition. Exact replay is safe; reuse with a conflicting request is rejected. Maximum 128 characters.",
+            "          schema:",
+            "            type: string",
+            "            minLength: 1",
+            "            maxLength: 128",
+        ])
     elif profile in IDEMPOTENCY_HEADER_PROFILES - {"priced_transport_order_create"}:
         lines.extend([
             "        - name: Idempotency-Key",
@@ -1662,6 +1675,11 @@ def render_operation(
                 lines.append(f"        {desc_line}")
             else:
                 lines.append("")
+    elif profile == "driver_delivery_disposition":
+        lines.append("      description: |")
+        lines.append("        Records accepted and rejected quantity for the authenticated driver.")
+        lines.append("        Driver, tenant, execution, revision, and actor identity are derived by the server.")
+        lines.append("        This route does not authorize return or redirect.")
 
     parameters = render_parameters(path, method, with_headers, profile)
     if parameters:
@@ -1788,6 +1806,8 @@ def render_operation(
             lines.append("              $ref: '#/components/schemas/DriverStopCommandRequest'")
         elif profile == "driver_stop_fail":
             lines.append("              $ref: '#/components/schemas/DriverStopFailRequest'")
+        elif profile == "driver_delivery_disposition":
+            lines.append("              $ref: '#/components/schemas/DriverDeliveryDispositionRequest'")
         else:
             lines.extend(
                 [
@@ -2254,7 +2274,7 @@ def render_operation(
         success_code = "200"
     elif profile in {"bno_route_plan_accept", "bno_route_plan_activate"}:
         success_code = "200"
-    elif profile in {"driver_stop_list", "driver_stop_command", "driver_stop_fail"}:
+    elif profile in {"driver_stop_list", "driver_stop_command", "driver_stop_fail", "driver_delivery_disposition"}:
         success_code = "200"
     elif profile == "edo_attachment_finalize":
         success_code = "200"
@@ -2293,6 +2313,8 @@ def render_operation(
         response_schema = "DriverCurrentNextStopsResponse"
     if profile in {"driver_stop_command", "driver_stop_fail"}:
         response_schema = "DriverStopCommandResponse"
+    if profile == "driver_delivery_disposition":
+        response_schema = "DriverDeliveryDispositionResponse"
     if method == "get" and path == "/api/v1/network/marketplace/load-opportunities/{id}":
         response_schema = "NetworkMarketplaceLoad"
     elif method == "get" and path == "/api/v1/network/marketplace/capacities/{id}":
@@ -4950,7 +4972,48 @@ components:
       properties:
         occurredAt: {type: string, format: date-time}
         expectedVersion: {type: integer, minimum: 1}
-        reasonCode: {type: string}
+        reasonCode:
+          type: string
+          enum: [TRAFFIC, VEHICLE_BREAKDOWN, ACCIDENT, LOADING_DELAY, UNLOADING_DELAY, CARGO_ISSUE, DOCUMENT_ISSUE, CUSTOMER_UNAVAILABLE, ROUTE_BLOCKED, OTHER]
+    DriverDeliveryEvidenceRef:
+      type: object
+      additionalProperties: false
+      description: Existing evidence metadata reference. This contract does not upload evidence.
+      properties:
+        evidenceType: {type: string}
+        source: {type: string}
+        referenceId: {type: string}
+    DriverDeliveryDispositionRequest:
+      type: object
+      additionalProperties: false
+      required: [shipmentId, cargoId, acceptedQuantity, rejectedQuantity, uom]
+      properties:
+        shipmentId: {type: string, format: uuid}
+        cargoId: {type: string, format: uuid}
+        acceptedQuantity: {type: integer, minimum: 0}
+        rejectedQuantity: {type: integer, minimum: 0}
+        uom: {type: string, enum: [PALLET]}
+        reasonCode:
+          type: string
+          enum: [DAMAGE, MIS_SORT, SHORTAGE, OVERAGE, PACKAGING_DAMAGE, TEMPERATURE_DEVIATION, QUALITY_REJECTION, DOCUMENT_PROBLEM, WRONG_PRODUCT, EXPIRED_PRODUCT, CUSTOMER_REFUSAL, OTHER]
+        reasonComment: {type: string}
+        occurredAt: {type: string, format: date-time}
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverDeliveryEvidenceRef'
+    DriverDeliveryDispositionResponse:
+      type: object
+      additionalProperties: false
+      required: [executionId, caseId, status, acceptedQuantity, rejectedQuantity, revisionId, replayed]
+      properties:
+        executionId: {type: string, format: uuid}
+        caseId: {type: string, format: uuid, nullable: true}
+        status: {type: string}
+        acceptedQuantity: {type: integer}
+        rejectedQuantity: {type: integer}
+        revisionId: {type: string, format: uuid}
+        replayed: {type: boolean}
     DriverStopCommandResponse:
       type: object
       additionalProperties: false

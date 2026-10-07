@@ -10043,7 +10043,48 @@ components:
       properties:
         occurredAt: {type: string, format: date-time}
         expectedVersion: {type: integer, minimum: 1}
-        reasonCode: {type: string}
+        reasonCode:
+          type: string
+          enum: [TRAFFIC, VEHICLE_BREAKDOWN, ACCIDENT, LOADING_DELAY, UNLOADING_DELAY, CARGO_ISSUE, DOCUMENT_ISSUE, CUSTOMER_UNAVAILABLE, ROUTE_BLOCKED, OTHER]
+    DriverDeliveryEvidenceRef:
+      type: object
+      additionalProperties: false
+      description: Existing evidence metadata reference. This contract does not upload evidence.
+      properties:
+        evidenceType: {type: string}
+        source: {type: string}
+        referenceId: {type: string}
+    DriverDeliveryDispositionRequest:
+      type: object
+      additionalProperties: false
+      required: [shipmentId, cargoId, acceptedQuantity, rejectedQuantity, uom]
+      properties:
+        shipmentId: {type: string, format: uuid}
+        cargoId: {type: string, format: uuid}
+        acceptedQuantity: {type: integer, minimum: 0}
+        rejectedQuantity: {type: integer, minimum: 0}
+        uom: {type: string, enum: [PALLET]}
+        reasonCode:
+          type: string
+          enum: [DAMAGE, MIS_SORT, SHORTAGE, OVERAGE, PACKAGING_DAMAGE, TEMPERATURE_DEVIATION, QUALITY_REJECTION, DOCUMENT_PROBLEM, WRONG_PRODUCT, EXPIRED_PRODUCT, CUSTOMER_REFUSAL, OTHER]
+        reasonComment: {type: string}
+        occurredAt: {type: string, format: date-time}
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriverDeliveryEvidenceRef'
+    DriverDeliveryDispositionResponse:
+      type: object
+      additionalProperties: false
+      required: [executionId, caseId, status, acceptedQuantity, rejectedQuantity, revisionId, replayed]
+      properties:
+        executionId: {type: string, format: uuid}
+        caseId: {type: string, format: uuid, nullable: true}
+        status: {type: string}
+        acceptedQuantity: {type: integer}
+        rejectedQuantity: {type: integer}
+        revisionId: {type: string, format: uuid}
+        replayed: {type: boolean}
     DriverStopCommandResponse:
       type: object
       additionalProperties: false
