@@ -462,7 +462,11 @@ Service → registry path (tag baseline):
 | document-service | `cr.selcloud.ru/bintrans-staging/document-service:git-b75eb3d` |
 | billing-register-service | `cr.selcloud.ru/bintrans-staging/billing-register-service:git-b75eb3d` |
 | low-code-service | `cr.selcloud.ru/bintrans-staging/low-code-service:git-b75eb3d` |
+| payment-service | `cr.selcloud.ru/bintrans-staging/payment-service:git-b75eb3d` |
+| contract-rate-service | `cr.selcloud.ru/bintrans-staging/contract-rate-service:git-b75eb3d` |
+| freight-cost-service | `cr.selcloud.ru/bintrans-staging/freight-cost-service:git-b75eb3d` |
 | control-tower-read-model-service | `cr.selcloud.ru/bintrans-staging/control-tower-read-model-service:git-b75eb3d` |
+| tracking-service | `cr.selcloud.ru/bintrans-staging/tracking-service:git-b75eb3d` |
 | api-gateway | `cr.selcloud.ru/bintrans-staging/api-gateway:git-b75eb3d` |
 
 `localization-service` is **not** in the runtime set.
@@ -509,10 +513,11 @@ docker compose \
   up -d \
   identity-service company-service transport-order-service rfx-service \
   shipment-service document-service billing-register-service low-code-service \
-  control-tower-read-model-service api-gateway
+  payment-service contract-rate-service freight-cost-service \
+  control-tower-read-model-service tracking-service api-gateway
 ```
 
-Restart order recommendation: identity → company → transport-order → rfx → shipment → document → billing → low-code → read-model → gateway.
+Restart order recommendation: identity → company → transport-order → rfx → shipment → document → billing-register → low-code → payment → contract-rate → freight-cost → control-tower-read-model → tracking → api-gateway.
 
 ### Shadow safety semantics (source proof)
 
@@ -577,7 +582,7 @@ See also (on `a1c246d`):
 | `bintrans_ct_staging_migrate_version_parser_selfcheck.sh` | Parser regression (no DB) |
 | `bintrans_ct_staging_migration_parser_selfcheck.sh` | Alias for parser selfcheck |
 | `bintrans_ct_staging_runtime_preflight_selfcheck.sh` | Runtime preflight regression (no DB) |
-| `bintrans_ct_staging_runtime_images_validate.sh` | Canonical digest validator (10 services + repo name match) |
+| `bintrans_ct_staging_runtime_images_validate.sh` | Canonical digest validator (14 services + repo name match) |
 | `bintrans_ct_staging_runtime_images_validate_selfcheck.sh` | Digest validator regression |
 | `bintrans_ct_staging_registry_digest_validate.sh` | Alias for runtime_images_validate |
 | `bintrans_ct_staging_registry_publish.sh` | Registry publish prepare (no login/push) |
