@@ -698,9 +698,16 @@ paths:
         - name: Idempotency-Key
           in: header
           required: false
+          description: "Optional for application/json. Required for application/pkcs7-signature: a missing, blank, or longer-than-128-character key is rejected. An exact binary replay returns the existing signature. The same key with different bytes conflicts."
           schema:
             type: string
             maxLength: 128
+        - name: X-Signature-Format
+          in: header
+          required: false
+          description: Binary path only. Empty means CAdES. XMLDSIG and any other value are rejected.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -708,11 +715,17 @@ paths:
             schema:
               type: object
               additionalProperties: true
+            description: Metadata-only signature. A verification_status field is rejected. The stored acceptance status stays UNVERIFIED.
+          application/pkcs7-signature:
+            schema:
+              type: string
+              format: binary
+            description: Detached CAdES-BES bytes, maximum 1048576. Idempotency-Key is required for this content type. The server generates the object key and SHA-256. Client verification status, certificate evidence, and storage keys are not accepted. The stored profile is the accepted upload profile, not server-verified format evidence. Effective result is PENDING / VERIFIER_UNAVAILABLE, not qualified VALID. The storage object key is not returned.
       security:
         - bearerAuth: []
       responses:
         '201':
-          description: Signature metadata stored with verification_status UNVERIFIED. No cryptographic verifier runs.
+          description: Signature metadata stored with verification_status UNVERIFIED for JSON. A detached PKCS#7 body returns effective status PENDING and verification_reason_code VERIFIER_UNAVAILABLE. No qualified VALID is produced.
           content:
             application/json:
               schema:
@@ -788,7 +801,7 @@ paths:
         - bearerAuth: []
       responses:
         '200':
-          description: Signature metadata. verification_status stays UNVERIFIED without a cryptographic verifier.
+          description: Effective verification status. Legacy metadata-only signatures stay UNVERIFIED. A detached signature with unavailable verifier evidence is PENDING with verification_reason_code VERIFIER_UNAVAILABLE. The storage object key is not included.
           content:
             application/json:
               schema:

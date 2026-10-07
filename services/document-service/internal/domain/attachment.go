@@ -24,12 +24,23 @@ const (
 	VerificationUnverified = "UNVERIFIED"
 
 	MaxAttachmentBytes = 10 << 20
+	MaxSignatureBytes  = 1 << 20
 
-	EventAttachmentCreated    = "edo.attachment.created"
-	EventAttachmentFinalized  = "edo.attachment.finalized"
-	EventSignatureAttached    = "edo.signature.attached"
-	EventSignatureVerified    = "edo.signature.verified"
-	EventVerificationFailed   = "edo.signature.verification_failed"
+	ReasonVerifierUnavailable  = "VERIFIER_UNAVAILABLE"
+	VerifierVersionUnavailable = "unavailable-v0"
+	PolicyQualifiedCAdES       = "QUALIFIED_CADES_BES"
+	PolicyVersionV1            = "v1"
+	// SignatureProfileCAdESBES is the accepted upload profile for the binary path.
+	// I4B does not parse CMS. This value is not server-verified format evidence
+	// and cannot support a VALID result.
+	SignatureProfileCAdESBES = "CAdES-BES"
+	SignatureMediaTypePKCS7  = "application/pkcs7-signature"
+
+	EventAttachmentCreated   = "edo.attachment.created"
+	EventAttachmentFinalized = "edo.attachment.finalized"
+	EventSignatureAttached   = "edo.signature.attached"
+	EventSignatureVerified   = "edo.signature.verified"
+	EventVerificationFailed  = "edo.signature.verification_failed"
 )
 
 func IsSignedEvidenceClass(status string) bool {
@@ -149,4 +160,16 @@ type AttachmentSignature struct {
 	VerificationError     *string
 	IdempotencyKey        *string
 	CreatedAt             time.Time
+	EffectiveStatus       string
+	ReasonCode            string
+}
+
+func OpaqueSignatureReference(id uuid.UUID) string {
+	return "bintrans:attachment-signature:" + id.String()
+}
+
+func SignatureObjectKey(tenantID, documentID, attachmentID, signatureID uuid.UUID) string {
+	// Sibling of the attachment object key. The local store maps a key to a file,
+	// so a signature key must not extend the attachment key as a directory.
+	return "tenants/" + tenantID.String() + "/documents/" + documentID.String() + "/attachment-signatures/" + attachmentID.String() + "/" + signatureID.String()
 }

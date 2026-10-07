@@ -29,6 +29,9 @@ func TestI2AttachmentFoundation(t *testing.T) {
 	if err := execMigration(ctx, pool, "000095_edo_0_3_i2_signed_file_attachment.up.sql"); err != nil {
 		t.Fatalf("I2-15 up: %v", err)
 	}
+	if err := execMigration(ctx, pool, "000096_edo_0_3_i4b_signature_verification_foundation.up.sql"); err != nil {
+		t.Fatalf("I4B up: %v", err)
+	}
 	root := t.TempDir()
 	store, err := storage.NewLocalObjectStore(root)
 	if err != nil {
