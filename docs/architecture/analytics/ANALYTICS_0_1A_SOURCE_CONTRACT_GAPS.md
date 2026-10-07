@@ -155,7 +155,7 @@ PRIORITY=P1
 GAP_ID=GAP-C-006
 KPI_IDS_AFFECTED=NET_LOADED_KM, NET_EMPTY_KM, NET_DEADHEAD_KM, NET_DEADHEAD_PCT, EXEC_DEADHEAD_PCT
 MISSING_FACT=Executed loaded kilometres, executed empty kilometres, and executed deadhead kilometres
-WHY_CURRENT_DATA_INSUFFICIENT=NOT_FOUND on shipment, execution, or tracking tables. network_optimizer.match_candidates.road_deadhead_km is a candidate-search fact. Summing those alternatives is not executed deadhead, accepted-plan deadhead, fleet empty kilometres, or network deadhead. NLO_0_4D_ARCHITECTURE_FREEZE.md sets NLO_PLAN_OWNER=YES, NLO_EXECUTION_OWNER=NO, TMS_EXECUTION_OWNER=YES, NLO_WRITES_TMS_DB=NO, TMS_WRITES_NLO_DB=NO. Agent D must not become the source of executed transport distance.
+WHY_CURRENT_DATA_INSUFFICIENT=NOT_FOUND on shipment, execution, or tracking tables. network_optimizer.match_candidates.road_deadhead_km is a candidate-search fact. Summing those alternatives is not executed deadhead, accepted-plan deadhead, fleet empty kilometres, or network deadhead. NLO-0.5B2 counters bno_routing_candidates_selected_total and bno_routing_candidates_pruned_total are aggregate observability. They are not executed distance. NLO_0_4D_ARCHITECTURE_FREEZE.md sets NLO_PLAN_OWNER=YES, NLO_EXECUTION_OWNER=NO, TMS_EXECUTION_OWNER=YES, NLO_WRITES_TMS_DB=NO, TMS_WRITES_NLO_DB=NO. Agent D must not become the source of executed transport distance.
 AUTHORITATIVE_OWNER=shipment-service / TMS execution
 OWNER_AGENT=C
 SUGGESTED_SOURCE_CONTRACT=Possible later fields, not a frozen schema: execution_id, execution_revision_id, shipment_id, loaded_distance_km, empty_distance_km, deadhead_distance_km, distance_source, measurement_window, occurred_at, tenant_id. Planned NLO distances stay on network-optimizer-service and must be labeled PLANNED or OPTIMIZED.
@@ -190,7 +190,7 @@ MISSING_FACT=Planned deadhead kilometres saved against a declared baseline for a
 WHY_CURRENT_DATA_INSUFFICIENT=match_candidates.road_deadhead_km is candidate-search deadhead, not a reduction and not executed distance. NOT_FOUND: a planned reduction column or baseline-versus-accepted fact. This gap is PLANNED / OPTIMIZED only. Executed deadhead is GAP-C-006.
 AUTHORITATIVE_OWNER=network-optimizer-service
 OWNER_AGENT=D
-SUGGESTED_SOURCE_CONTRACT=accepted plan id, baseline_deadhead_km, resulting_planned_deadhead_km, reduction_km, distance_source, occurred_at. Label the fact PLANNED. Mark the fact version while later NLO waves move. Do not read PR #218 until it is in main.
+SUGGESTED_SOURCE_CONTRACT=accepted plan id, baseline_deadhead_km, resulting_planned_deadhead_km, reduction_km, distance_source, occurred_at. Label the fact PLANNED. NLO-0.5B2 is in main and adds routing selection counters only. Those counters are not this reduction fact.
 REQUIRES_PRODUCT_CHANGE=YES
 BLOCKS_ANALYTICS_PHASE=ANALYTICS-0.6
 PRIORITY=P2
@@ -202,7 +202,7 @@ PRIORITY=P2
 GAP_ID=GAP-D-003
 KPI_IDS_AFFECTED=NET_BACKHAUL_OPPORTUNITIES, NET_BACKHAUL_ACCEPTED, NET_BACKHAUL_CONVERSION
 MISSING_FACT=Backhaul opportunity and backhaul acceptance
-WHY_CURRENT_DATA_INSUFFICIENT=NOT_FOUND in network-optimizer-service Go code and in infrastructure/migrations. route_plans.status=ACCEPTED is a route-plan acceptance, not a backhaul fact. Docs ADR-NET-023 and NLO_0_5A_BACKHAUL_MODEL are design material, not a persisted fact.
+WHY_CURRENT_DATA_INSUFFICIENT=NOT_FOUND as a persisted backhaul fact in network-optimizer-service Go code and in infrastructure/migrations. route_plans.status=ACCEPTED is a route-plan acceptance, not a backhaul fact. ADR-NET-024 is accepted for bounded search and states BACKHAUL_RUNTIME_IMPLEMENTED=NO and ROUNDTRIP_RUNTIME_IMPLEMENTED=NO. bno_routing_candidates_selected_total is an aggregate counter, not an accepted backhaul opportunity.
 AUTHORITATIVE_OWNER=network-optimizer-service
 OWNER_AGENT=D
 SUGGESTED_SOURCE_CONTRACT=backhaul_opportunity_id, feasibility result, accepted_at, tenant scope, anonymization class. Do not alias route-plan ACCEPTED.
@@ -239,6 +239,33 @@ SUGGESTED_SOURCE_CONTRACT=Persist route_increase_km, distance_source, and policy
 REQUIRES_PRODUCT_CHANGE=YES
 BLOCKS_ANALYTICS_PHASE=ANALYTICS-0.6 historical route increase
 PRIORITY=P2
+```
+
+## R2 review against `c505c84`
+
+Each row is OPEN, CLOSED, or CHANGED from evidence on this main. No gap closed. No gap changed owner or priority.
+
+| Gap | Status | Evidence |
+| --- | --- | --- |
+| GAP-C-001 | OPEN | No new in-full quantity fact. DELIVERED, stop completed, delivery action, and driver UI are still not in-full. |
+| GAP-C-002 | OPEN | No new POD requirement fact. |
+| GAP-C-003 | OPEN | No executed distance for cost per km. |
+| GAP-C-004 | OPEN | Cargo weight still has no unit column in this merge. |
+| GAP-C-005 | OPEN | No carrier-assignment rejection fact. |
+| GAP-C-006 | OPEN | Executed loaded, empty, and deadhead distance still NOT_FOUND. Routing counters do not close it. |
+| GAP-B-001 | OPEN | Document completeness policy unchanged. |
+| GAP-B-002 | OPEN | No I4C production verifier. Qualified trust stays blocked. |
+| GAP-B-003 | OPEN | No cryptographic verified-signature population. Legacy VALID, SIGNED, and VERIFIER_UNAVAILABLE stay excluded. |
+| GAP-RFX-001 | OPEN | No tender baseline in this merge. |
+| GAP-E-001 | OPEN | No carrier score weights. |
+| GAP-D-001 | OPEN | No planned deadhead-reduction fact. Selection counters are not a reduction. |
+| GAP-D-003 | OPEN | ADR-NET-024 says backhaul runtime and roundtrip runtime are not implemented. |
+| GAP-D-004 | OPEN | No search-to-accept link. |
+| GAP-D-005 | OPEN | route_increase_km is still not a match_candidates column. |
+
+```
+R2_GAPS_CLOSED=0
+R2_GAPS_CHANGED=0
 ```
 
 ## Totals

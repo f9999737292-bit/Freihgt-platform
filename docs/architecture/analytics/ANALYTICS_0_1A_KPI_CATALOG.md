@@ -37,7 +37,7 @@ OTIF_IN_FULL_COMPONENT=BLOCKED
 OTIF_CURRENT_READINESS=BLOCKED
 ```
 
-On-time can be investigated from `planned_delivery_at` and `actual_delivery_at`. Control Tower `kpi.onTime` is a different formula (`sla.Compute` `ReasonOnSchedule`). In-full is not established by `DELIVERED`. Quantity fields exist only on disposition cases, and a zero-rejection delivery does not open a case. Detail is in `ANALYTICS_0_1A_CURRENT_STATE.md`. Gap: `GAP-C-001`.
+On-time can be investigated from `planned_delivery_at` and `actual_delivery_at`. Control Tower `kpi.onTime` is a different formula (`sla.Compute` `ReasonOnSchedule`). In-full is not established by `DELIVERED`, a completed stop, a delivery action, or the driver-mobile acceptance UI. Quantity fields exist only on disposition cases, and a zero-rejection delivery does not open a case. R2 rechecked current main `c505c84` and did not find a new canonical quantity fact. `OTIF_READINESS=BLOCKED`. Detail is in `ANALYTICS_0_1A_CURRENT_STATE.md`. Gap: `GAP-C-001`.
 
 ## Dwell special review
 
@@ -2857,7 +2857,18 @@ NOTES=This duration is not a qualified-trust duration.
 
 ## Network intelligence
 
-Observability metrics are listed so they are not later mistaken for business KPIs. Agent D owns planned search and plan facts. Agent C owns executed distance. Design documents for backhaul are not facts. PR #218 was not in main at R1.
+Observability metrics are listed so they are not later mistaken for business KPIs. Agent D owns planned search and plan facts. Agent C owns executed distance. Design documents for backhaul are not facts. NLO-0.5B2 is in main at `c505c84`. Its provider and routing counters stay observability. They do not raise network readiness.
+
+```
+PROVIDER_CALL_COUNTERS_FOUND=YES
+PROVIDER_CALL_COUNTERS_ARE_BUSINESS_KPI=NO
+PROVIDER_CALL_COUNTERS_ARE_OBSERVABILITY=YES
+ROUTING_SELECTION_COUNTERS_FOUND=YES
+OBSERVABILITY_ONLY=YES
+BACKHAUL_OPPORTUNITY_FACT_READY=NO
+EXECUTED_DISTANCE_FACT_READY=NO
+DEADHEAD_REDUCTION_READY=NO
+```
 
 ```
 CANDIDATE_ROAD_DEADHEAD_KM_FACT=FOUND
@@ -3076,30 +3087,30 @@ KPI_ID=NET_PROVIDER_CALLS
 KPI_NAME=Provider calls
 KPI_DOMAIN=NETWORK
 KPI_VERSION_PROPOSED=1
-BUSINESS_DEFINITION=Not a business KPI. NOT_FOUND as provider_calls_total. routing_provider is stored on the search run. Routing errors and matrix batches are Prometheus counters.
-NUMERATOR=NOT_FOUND
+BUSINESS_DEFINITION=Not a business KPI. Aggregate Prometheus counters now exist: bno_provider_route_calls_total and bno_provider_matrix_calls_total. They are observability, not a persisted business call fact.
+NUMERATOR=NOT_FOUND as a business fact
 DENOMINATOR=1
-INCLUSION_RULE=NOT_FOUND
-EXCLUSION_RULE=do not count bno_routing_errors_total as calls
+INCLUSION_RULE=NOT_FOUND as a business fact
+EXCLUSION_RULE=do not count bno_routing_errors_total as calls; do not promote the Prometheus counters into this KPI
 TIME_BASIS=NOT_FOUND
 TIME_WINDOW=SEE_DEFAULT
 SOURCE_OF_TRUTH=SRC-NLO-METRICS
 SOURCE_SERVICE=network-optimizer-service
-SOURCE_FIELDS=routing_provider on the run; error and batch metrics
+SOURCE_FIELDS=bno_provider_route_calls_total, bno_provider_matrix_calls_total; routing_provider on the search run
 EVENT_TIME=NOT_FOUND
 PROCESSING_TIME=scrape
-DIMENSIONS=routing_provider on the business row is allowed; metric labels must stay low cardinality
+DIMENSIONS=routing_provider on the business row is allowed; metric labels must stay low cardinality and must not add tenant, customer, or shipment ids
 TENANT_SCOPE=SEE_DEFAULT
 FRESHNESS=SEE_DEFAULT
 HISTORY_CLASS=UNKNOWN
 LATE_EVENT_POLICY_CURRENT=SEE_DEFAULT
 CORRECTION_POLICY_CURRENT=SEE_DEFAULT
 NULL_POLICY=SEE_DEFAULT
-CURRENT_IMPLEMENTATION=metrics.go and search run column
+CURRENT_IMPLEMENTATION=metrics.go counters; search run column
 READINESS=NOT_SUPPORTED
-BLOCKER=No call fact
+BLOCKER=Observability counters are not a business KPI
 OWNER_AGENT=D
-NOTES=
+NOTES=PROVIDER_CALL_COUNTERS_FOUND=YES. PROVIDER_CALL_COUNTERS_ARE_OBSERVABILITY=YES. PROVIDER_CALL_COUNTERS_ARE_BUSINESS_KPI=NO. Classification remains NOT_SUPPORTED as a business KPI. Network readiness does not rise because these counters exist.
 ```
 
 ### NET_DEADHEAD_KM
@@ -3959,7 +3970,7 @@ NOTES=
 | NET_CANDIDATES_FEASIBLE | NETWORK | PARTIAL | EVENT_HISTORY | D | eligibility vocabulary |
 | NET_CANDIDATES_RANKED | NETWORK | PARTIAL | EVENT_HISTORY | D | rank contract |
 | NET_SEARCH_DURATION | NETWORK | NOT_SUPPORTED | UNKNOWN | D | observability |
-| NET_PROVIDER_CALLS | NETWORK | NOT_SUPPORTED | UNKNOWN | D | no call fact |
+| NET_PROVIDER_CALLS | NETWORK | NOT_SUPPORTED | UNKNOWN | D | observability only |
 | NET_DEADHEAD_KM | NETWORK | BLOCKED | UNKNOWN | C | GAP-C-006 |
 | NET_LOADED_KM | NETWORK | NOT_SUPPORTED | UNKNOWN | C | GAP-C-006 |
 | NET_EMPTY_KM | NETWORK | NOT_SUPPORTED | UNKNOWN | C | GAP-C-006 |
@@ -4019,5 +4030,5 @@ OVERALL_CATALOG_READINESS=0.434
 READINESS_METHOD=READY=1, PARTIAL=0.5, BLOCKED=0, NOT_SUPPORTED=0; score = weighted sum / count. 49.5 / 114 = 0.434.
 ```
 
-Check: 3+19+3=25. 2+12+2=16. 0+11+5=16. 6+10+2+1=19. 3+2+3=8. 0+6+4+8=18. 3+5+4=12. 25+16+16+19+8+18+12=114. 17+65+23+9=114. R1 moved FIN_SURCHARGES READY to PARTIAL, DOC_VERIFIED_SIGNATURE_COUNT PARTIAL to BLOCKED, and NET_DEADHEAD_KM PARTIAL to BLOCKED.
+Check: 3+19+3=25. 2+12+2=16. 0+11+5=16. 6+10+2+1=19. 3+2+3=8. 0+6+4+8=18. 3+5+4=12. 25+16+16+19+8+18+12=114. 17+65+23+9=114. R1 moved FIN_SURCHARGES READY to PARTIAL, DOC_VERIFIED_SIGNATURE_COUNT PARTIAL to BLOCKED, and NET_DEADHEAD_KM PARTIAL to BLOCKED. R2 against `c505c84` changed no readiness status. `READINESS_CHANGED_FROM_R1=NO`. Provider call counters and routing selection counters stay outside the business score. `DOC_VERIFIED_SIGNATURE_COUNT=BLOCKED` and `DOC_QUALIFIED_TRUST_COUNT=BLOCKED`. `OTIF_READINESS=BLOCKED`.
 

@@ -1,20 +1,45 @@
 # Analytics-0.1A current state
 
-R1 refreshed this inventory against `origin/main` `ab55af609223c2ad4fcb197b8237b760b6db6104`. The original 0.1A base remains `9ec52621d272b9ca24e5a57f73448acfd0ebef3c`. Migration head is still `000096`. Runtime and database queries were **NOT_RUN**.
+R2 refreshed this inventory against `origin/main` `c505c84bd432d7bd039b97968506a375522c165c`. The original 0.1A base remains `9ec52621d272b9ca24e5a57f73448acfd0ebef3c`. Migration head is still `000096`. Runtime and database queries were **NOT_RUN**.
 
-PR #218 (`feat(nlo): enforce bounded routing stage v0.5b2`) was **OPEN** and not merged at this refresh. Its draft metrics and caps are not current-state facts.
+NLO-0.5B2 and the driver-stop frontend from PR #215 are in this main. The R2 merge did not add an analytics history store.
 
 ```
-NLO_0_5B2_IN_MAIN=NO
-NLO_CURRENT_STATE_REFRESH_REQUIRED_AFTER_PR218=YES
+NLO_0_5B2_IN_MAIN=YES
+NLO_CURRENT_STATE_REFRESH_REQUIRED_AFTER_PR218=NO
 NLO_PLAN_OWNER=YES
 NLO_EXECUTION_OWNER=NO
 TMS_EXECUTION_OWNER=YES
 NLO_WRITES_TMS_DB=NO
 TMS_WRITES_NLO_DB=NO
+DISCOVERY_CAP=1000
+ROUTING_CAP=25
+MATRIX_DIMENSION_LIMIT=25
+MAX_MATRIX_CALLS=4
+MAX_ROUTE_CALLS=2
+MAX_PROVIDER_CALLS=6
+PROVIDER_REQUEST_TIMEOUT=5s
+SEARCH_HARD_BUDGET=30s
+RETRY_COUNT=0
+PARALLELISM=1
+FINAL_EVALUATION_CAP_RUNTIME_ENFORCED=NO
+BACKHAUL_RUNTIME_COMPLETE=NO
+ROUNDTRIP_RUNTIME_IMPLEMENTED=NO
 ```
 
+The caps are `CandidateDiscoveryCap` and the constants in `services/network-optimizer-service/internal/domain/routing_bound.go`. Search applies the routing budget in `internal/service/search.go`. `CandidateFinalEvaluationCap` is declared and is not enforced on scoring or persistence (`routing_bound.go` comment; `docs/architecture/network-optimizer/adr/ADR-NET-024-bounded-backhaul-search-policy.md`). `SearchParallelism = 1` and `ProviderRetryCount = 0` are the declared bounds. ADR-NET-024 states calls are sequential and there is no retry. That ADR also states backhaul chain runtime and roundtrip runtime are not implemented. Test names that say "roundtrip" in the optimizer are request/response fingerprints, not a roundtrip product.
+
 Those ownership flags are frozen in `docs/architecture/network-optimizer/NLO_0_4D_ARCHITECTURE_FREEZE.md` and `NLO_0_4D_I1_EXECUTION_PROJECTION_API.md`. Executed loaded, empty, and deadhead distance belong to shipment-service / TMS (Agent C). NLO may own planned or optimized search and plan distances only.
+
+PR #215 is in this main. `DriverStopActionFact.shipmentId` is required and is replaced from `transport.transport_execution_actions.shipment_id` (`enrichActionShipmentIDs` in `driver_stop_task_repository.go`). A stored action summary is not authoritative. A multi-shipment stop may have `driver_stop_tasks.shipment_id` null while each action carries its shipment. `apps/driver-mobile` reads `action.shipmentId`. That is frontend behavior on an existing execution fact.
+
+```
+ACTION_LEVEL_SHIPMENT_ID_IN_MAIN=YES
+MULTI_SHIPMENT_STOP_CONTRACT_IN_MAIN=YES
+DRIVER_215_CHANGES_KPI_READINESS=NO
+```
+
+It does not add an analytics history store, an in-full quantity, executed distance, or a new OTIF component.
 
 `ANALYTICS_SERVICE_EXISTS=NO`. No `services/analytics-service` directory.
 
@@ -278,7 +303,7 @@ Decisions only. No choice is made here.
 19. Actual cost means `CURRENT_ACTUAL` or `FINAL_ACTUAL`.
 20. Financial close marker.
 21. Carrier score policy (GAP-E-001) after source components exist.
-22. NLO planned facts stay with Agent D. Executed distance stays with Agent C (GAP-C-006). Do not freeze deadhead reduction, backhaul, or utilization while those planned facts are missing or only inside score JSON. Re-read NLO metrics after PR #218 merges. Do not promote provider-call counters into business KPIs.
+22. NLO planned facts stay with Agent D. Executed distance stays with Agent C (GAP-C-006). Provider route and matrix counters on this main are observability. They do not close deadhead reduction, backhaul, search-to-accept conversion, or executed distance.
 
 ```
 DWH_DECISION=DEFERRED_TO_LATER_PHASE

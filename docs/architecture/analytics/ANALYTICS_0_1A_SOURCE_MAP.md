@@ -1,6 +1,6 @@
 # Analytics-0.1A source map
 
-Classification is from code and migrations on `origin/main` `ab55af609223c2ad4fcb197b8237b760b6db6104` (R1). Original 0.1A base: `9ec52621d272b9ca24e5a57f73448acfd0ebef3c`. Runtime was **NOT_RUN**. PR #218 was not merged, so bounded-routing counters from that draft are not listed.
+Classification is from code and migrations on `origin/main` `c505c84bd432d7bd039b97968506a375522c165c` (R2). Original 0.1A base: `9ec52621d272b9ca24e5a57f73448acfd0ebef3c`. Runtime was **NOT_RUN**. NLO-0.5B2 is in this main.
 
 History class is one of `CURRENT_STATE_ONLY`, `EVENT_HISTORY`, `STATUS_HISTORY`, `SNAPSHOT_HISTORY`, `FULL_REBUILDABLE_HISTORY`, `UNKNOWN`.
 
@@ -77,7 +77,7 @@ HISTORY_CLASS=CURRENT_STATE_ONLY
 MUTABILITY=current row; terminal stops immutable (000089 triggers, ADR-TMS-004)
 REBUILDABLE=NO as a versioned stop history. Command audit is separate.
 CURRENT_CONSUMERS=driver stop tasks, Control Tower execution_stop_projection (000092)
-NOTES=Column names are arrived_at and completed_at. NOT_FOUND: arrival_at, service_completed_at, dwell_seconds.
+NOTES=Column names are arrived_at and completed_at. NOT_FOUND: arrival_at, service_completed_at, dwell_seconds. ACTION_LEVEL_SHIPMENT_ID_IN_MAIN=YES. DriverStopActionFact.shipmentId is server-derived from transport.transport_execution_actions.shipment_id and is required. MULTI_SHIPMENT_STOP_CONTRACT_IN_MAIN=YES: stop.shipmentId may be null; action.shipmentId identifies the shipment. DRIVER_215_CHANGES_KPI_READINESS=NO. The driver-mobile stops page is a consumer, not a history store.
 ```
 
 ### SRC-EXECUTION-COMMAND-AUDIT
@@ -376,7 +376,7 @@ HISTORY_CLASS=EVENT_HISTORY for stored runs and candidates if rows are retained;
 MUTABILITY=search results persisted; in-memory store exists for tests (search_memory.go)
 REBUILDABLE=PARTIAL for fields that were persisted. route_increase_km is API-only (GAP-D-005).
 CURRENT_CONSUMERS=NLO search API
-NOTES=CANDIDATE_ROAD_DEADHEAD_KM_FACT=FOUND on match_candidates.road_deadhead_km. CANDIDATE_ROAD_DEADHEAD_IS_EXECUTED_DEADHEAD=NO. CANDIDATE_ROAD_DEADHEAD_IS_FLEET_DEADHEAD=NO. Do not sum alternative candidates and call the result NET_DEADHEAD_KM. straight.go forbids storing straight-line distance as road_deadhead_km. NLO owns the planned search fact. TMS owns executed distance (GAP-C-006). Agent D scoring remains a dependency. Unstable relative to later NLO waves. NLO_0_5B2_IN_MAIN=NO.
+NOTES=CANDIDATE_ROAD_DEADHEAD_KM_FACT=FOUND on match_candidates.road_deadhead_km. CANDIDATE_ROAD_DEADHEAD_IS_EXECUTED_DEADHEAD=NO. CANDIDATE_ROAD_DEADHEAD_IS_FLEET_DEADHEAD=NO. Do not sum alternative candidates and call the result NET_DEADHEAD_KM. straight.go forbids storing straight-line distance as road_deadhead_km. NLO owns the planned search fact. TMS owns executed distance (GAP-C-006). NLO_0_5B2_IN_MAIN=YES adds routing caps and aggregate counters. It does not add executed distance, deadhead reduction, or a backhaul fact. route_increase_km is still not a match_candidates column (GAP-D-005).
 CLASS=CANONICAL_EVENT for persisted candidates; some response fields are PROVISIONAL
 ```
 
@@ -406,14 +406,14 @@ OWNER_AGENT=D
 SERVICE=network-optimizer-service
 TABLE_OR_OBJECT=Prometheus metrics in internal/platform/metrics/metrics.go
 EVENT_OR_API=process metrics
-KEY_FIELDS=examples: bno_search_runs_total, bno_search_duration_seconds, bno_routing_errors_total, bno_matrix_batches_total, bno_score_duration_seconds, discovery cap counters
+KEY_FIELDS=bno_search_runs_total, bno_search_duration_seconds, bno_routing_errors_total, bno_matrix_batches_total, bno_candidate_discovered_total, bno_candidate_visibility_pass_total, bno_candidate_prefilter_pass_total, bno_candidate_pruned_total, bno_candidate_returned_total, bno_routing_candidates_selected_total, bno_routing_candidates_pruned_total, bno_provider_route_calls_total, bno_provider_matrix_calls_total, bno_provider_budget_exhausted_total
 TIME_FIELDS=scrape time
-TENANT_SCOPE=UNKNOWN label set; high-cardinality business ids must not be added for BI
+TENANT_SCOPE=counters are process aggregates. bno_provider_budget_exhausted_total label reason is a closed set (deadline, matrix, route, total, provider_error, dimension). No tenant, customer, or shipment label was found on these counters.
 HISTORY_CLASS=UNKNOWN (metrics retention is outside this repository)
 MUTABILITY=counter / histogram
 REBUILDABLE=NO as business history
 CURRENT_CONSUMERS=observability
-NOTES=OBSERVABILITY_ONLY=YES. NOT_FOUND on this main: provider_calls_total, route-call counters, matrix-call counters, or budget-exhaustion counters from PR #218. Those draft values are not current facts. NLO_CURRENT_STATE_REFRESH_REQUIRED_AFTER_PR218=YES. Do not use Prometheus as executive or network business KPIs.
+NOTES=OBSERVABILITY_ONLY=YES. PROVIDER_CALL_COUNTERS_FOUND=YES. PROVIDER_CALL_COUNTERS_ARE_OBSERVABILITY=YES. PROVIDER_CALL_COUNTERS_ARE_BUSINESS_KPI=NO. ROUTING_SELECTION_COUNTERS_FOUND=YES. RecordCandidateDiscovery and RecordRoutingSelection add counts only. They are not canonical business history and do not prove accepted backhaul, executed distance, deadhead reduction, or utilization.
 ```
 
 ## Dimensions

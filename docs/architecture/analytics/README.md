@@ -9,11 +9,11 @@ This directory is the Analytics-0.1A inventory. It is not an architecture freeze
 | Item | Value |
 | --- | --- |
 | `ORIGINAL_0_1A_BASE` | `9ec52621d272b9ca24e5a57f73448acfd0ebef3c` |
-| `ORIGIN_MAIN` inspected by R1 | `ab55af609223c2ad4fcb197b8237b760b6db6104` |
+| `FINAL_BASELINE_INSPECTED` | `c505c84bd432d7bd039b97968506a375522c165c` |
 | Branch | `discovery/analytics-current-state-v0.1a` |
 | Worktree | `D:\Projects\freight-platform-wt\analytics-current-state-v0.1a` |
-| Migration head on that main | `000096_edo_0_3_i4b_signature_verification_foundation` (no migration files in the R1 merge) |
-| `NLO_0_5B2_IN_MAIN` | `NO` (PR #218 was OPEN at R1) |
+| Migration head | `000096` (R2 merge added no migration files) |
+| `NLO_0_5B2_IN_MAIN` | `YES` |
 | Inspection | Static repository evidence. Runtime queries were **NOT_RUN**. |
 
 ## Documents
