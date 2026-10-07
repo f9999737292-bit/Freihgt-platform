@@ -39,7 +39,7 @@ qualified verifier adapter
 selected engine
 ```
 
-`VERIFIER_TOPOLOGY=LOCAL_DAEMON`. Vendor APIs stay behind the adapter. Signature bytes do not leave BINTRANS. IPC, health, license path, and package update remain unknown until a build is pinned.
+`VERIFIER_TOPOLOGY=PROVISIONAL_LOCAL_DAEMON`. `LOCAL_DAEMON` is the BINTRANS preferred integration topology, subject to confirmation that the selected certified build permits that execution environment. A container, a sidecar, and a daemon package are not already inside a certified execution. Vendor APIs stay behind the adapter. Signature bytes do not leave BINTRANS. IPC, health, license path, and package update remain unknown until a build is pinned and that execution environment is confirmed.
 
 6. `PRIVATE_KEY_REQUIRED_FOR_VERIFY=NO`. `PRIVATE_KEYS_STORED_BY_BINTRANS=NO`. A candidate that needs the signer's private key to verify is rejected.
 7. The first format stays detached CAdES-BES. The qualified allowlist stays GOST R 34.10-2012 and GOST R 34.11-2012, both 256 and 512. GOST R 34.10-2001, MD5, SHA-1, XMLDSig, embedded PDF signatures, and bare PKCS#7 are rejected. Those allowlist flags are policy. They are not a claim that an examined product implements both bit lengths.
@@ -57,7 +57,7 @@ Full source cards, candidate matrices, and the missing-evidence list: [edo-0.3-i
 - Qualified `VALID` stays unavailable. The live writer remains `UnavailableSignatureVerifier`.
 - `DocumentStatus=SIGNED` from the legacy signing session is still not document-level trust closure.
 - I4C-B cannot lawfully treat this record as permission to install КриптоПро, ViPNet, or SVS.
-- A later selection needs the certificate scope, the exact build, detached CAdES-BES verification, both GOST 2012 lengths, Linux server viability, and a license that does not require signer private keys. Until that revision, the daemon's IPC and package pin stay unknown on purpose.
+- A later selection needs the certificate scope, the exact build, detached CAdES-BES verification, both GOST 2012 lengths, Linux server viability, and a license that does not require signer private keys. The preferred local daemon is provisional until that build's certified execution environment is confirmed. Until that revision, IPC and package pin stay unknown on purpose.
 - `000096` continues to refuse `VALID` and `INVALID`.
 
 ## References

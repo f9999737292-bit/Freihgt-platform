@@ -375,16 +375,17 @@ selected engine
 Vendor types, command lines, and certificate-store handles stay inside the adapter. Domain code keeps calling `VerifySignature` and maps the port result. `UnavailableSignatureVerifier` remains the default until a qualified adapter is deployed.
 
 ```text
-VERIFIER_TOPOLOGY=LOCAL_DAEMON
+VERIFIER_TOPOLOGY=PROVISIONAL_LOCAL_DAEMON
 PROCESS_ISOLATION=YES
 IPC_PROTOCOL=UNKNOWN
 HEALTHCHECK=UNKNOWN
 LICENSE_LOCATION=UNKNOWN
 PACKAGE_UPDATE_MODEL=UNKNOWN
 SIGNATURE_BYTES_LEAVE_BINTRANS=NO
+CERTIFIED_EXECUTION_ENVIRONMENT=UNCONFIRMED
 ```
 
-`LOCAL_DAEMON` is the proposed shape: a separate process on the same host or pod network namespace, so a CSP or SVS-like library is not linked into the Go service, and signature bytes are not sent to an external operator. IPC, health, license path, and package update stay `UNKNOWN` until an engine is pinned. Inventing gRPC, a socket path, or a container image would pretend a product was selected.
+`LOCAL_DAEMON` is the BINTRANS preferred integration topology, subject to confirmation that the selected certified build permits that execution environment. The preference is a separate process on the same host, so a CSP or SVS-like library is not linked into the Go service, and signature bytes are not sent to an external operator. `ENGINE_SELECTION` remains `BLOCKED`. A container, a sidecar, and a daemon package are not already inside a certified execution. IPC, health, license path, and package update stay `UNKNOWN` until an engine is pinned and that build's certified environment is confirmed. Inventing gRPC, a socket path, or a container image would pretend a product was selected.
 
 `IN_PROCESS` is not the proposal. It puts the vendor API in the service process. `REMOTE_SERVICE` is not the proposal. The only remote product opened here is Windows-only, has no opened conformity certificate, and would send signature bytes outside the service. An operator service remains the exchange port, not this daemon.
 
@@ -473,7 +474,8 @@ The application repository does not gain a `certs/` tree. A copied root without 
 REVOCATION_PRIMARY=CRL
 REVOCATION_FALLBACK=OCSP
 CACHE=YES
-CACHE_MAX_AGE=the CRL nextUpdate, and never longer than 12 hours
+CACHE_MAX_AGE=not longer than the CRL nextUpdate, and not longer than 12 hours
+CRL_CACHE_12H_CLASSIFICATION=BINTRANS_POLICY
 NETWORK_TIMEOUT=10s
 STALE_CACHE_BEHAVIOR=PENDING
 INFRA_FAILURE_TO_INVALID=NO
@@ -490,7 +492,7 @@ Mappings:
 | Network timeout | PENDING / `NETWORK_TIMEOUT` |
 | Confirmed revocation at the policy time base | INVALID / `CERT_REVOKED` |
 
-A stale cache is unavailable evidence. It is not a successful "not revoked" answer. `CACHE_MAX_AGE` also respects the twelve-hour registry update duty noted from 63-FZ article 13 in I4A. This pass did not re-quote that amendment.
+A stale cache is unavailable evidence. It is not a successful "not revoked" answer. The 12-hour cap is `BINTRANS_POLICY`. It is a conservative application bound. It is not a statutory CRL-cache TTL. No authoritative source opened for this note requires that exact cache lifetime. The registry-update obligation recorded from 63-FZ article 13 in I4A is a duty on the certification center. It does not automatically set the application's CRL-cache lifetime. This pass did not re-quote that amendment.
 
 ## 13. Network and SSRF
 
@@ -667,8 +669,8 @@ Design only. No staging change in I4C-A.
 
 | Vector | Expected | Material |
 |---|---|---|
-| `VALID_GOST_256` | INVALID until an engine is qualified; then VALID | Test-only key, labelled not conformity evidence |
-| `VALID_GOST_512` | same | Test-only key, labelled not conformity evidence |
+| `VALID_GOST_256` | Before a qualified engine is deployed: `PENDING` / `VERIFIER_UNAVAILABLE`. After a qualified engine is selected, implemented, and the signature successfully verifies: `VALID` | Test-only key, labelled not conformity evidence |
+| `VALID_GOST_512` | Same two-step expectation as `VALID_GOST_256` | Test-only key, labelled not conformity evidence |
 | `BAD_SIGNATURE` | INVALID | Tampered test signature |
 | `MODIFIED_DOCUMENT` | INVALID / `CONTENT_HASH_MISMATCH` | Stored attachment bytes changed after signing, in a test fixture |
 | `EXPIRED_CERT` | INVALID / `CERT_EXPIRED` at the policy time base | Test certificate |
@@ -685,9 +687,13 @@ Design only. No staging change in I4C-A.
 
 ```text
 TEST_VECTOR_PLAN=DESIGN_ONLY
+VALID_VECTOR_WITHOUT_ENGINE=PENDING
+INFRA_UNAVAILABLE_TO_INVALID=NO
 REAL_PRIVATE_KEYS_IN_REPO=NO
 STAGING_MUTATED=NO
 ```
+
+A valid GOST signature does not become `INVALID` because the verifier is unavailable. With `UnavailableSignatureVerifier`, `VALID_GOST_256` and `VALID_GOST_512` stay `PENDING` / `VERIFIER_UNAVAILABLE`. `VALID` is the result only after a qualified engine is selected, implemented, and the signature successfully verifies. The other rows are the expected results of that later engine. They are not the current runtime.
 
 Test-only keys, if a later phase generates them, are for mechanical tests. They are not evidence that the means has a conformity confirmation. They are not committed as production key material. This phase generates none.
 
