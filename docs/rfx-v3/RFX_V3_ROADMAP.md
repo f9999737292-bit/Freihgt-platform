@@ -137,6 +137,7 @@ These are assigned to the **earliest appropriate wave** — not deferred beyond 
 | **E7 Phase 2 F5 Create-from-XLSX overall** | One live chain: blank download, upload of that file, preview, commit, DRAFT/EXCEL, zero participants, scoped DB proof | **IMPLEMENTED_ACCEPTED** — [RFX_V3_0E7_CREATE_FROM_XLSX_OVERALL_FINAL_ACCEPTANCE.md](./implementation/RFX_V3_0E7_CREATE_FROM_XLSX_OVERALL_FINAL_ACCEPTANCE.md); PR #159, product HEAD `3c3e37ce8b7d28b17799f20ade8c5c7246282986`, CI `35886064236`, verdict `ACCEPT_F5_OVERALL_FINAL_ACCEPTANCE`; isolated overall-chain 1 passed, scoped DB assertions PASS, full CREATE suite 11 passed, skipped 0, retries 0 |
 | **E7 Phase 2 Frontend** | Remaining Frontend Phase 2 after F5 upload-only (W2 template download UX, not an ERP browser client) | **IMPLEMENTATION_IN_PROGRESS** |
 | **E7 Phase 2 Training** | RU/EN/ZH training course for accepted F5 Create-from-XLSX | **DISCOVERY_ACCEPTED** — [RFX_V3_0E7_CREATE_FROM_XLSX_TRAINING_DISCOVERY.md](./implementation/RFX_V3_0E7_CREATE_FROM_XLSX_TRAINING_DISCOVERY.md); PR #160, discovery HEAD `5b716dc01904616f4650e0f310fac6a42ea2c2ba`, CI `35893849771`, verdict `ACCEPT_F5_TRAINING_SCOPE`; `TRAINING_STATUS=NOT_STARTED`; `TRAINING_IMPLEMENTATION_AUTHORIZED=NO` |
+| **RFx tender status badge** | Buyer tender card renders `event.status` through the registered `Badge` component | **IMPLEMENTED_AWAITING_CONTROLLER_REVIEW** — [RFX_V3_0E7_TENDER_STATUS_BADGE_REMEDIATION.md](./implementation/RFX_V3_0E7_TENDER_STATUS_BADGE_REMEDIATION.md); blocks visible `DRAFT` on the T1 RU screenshot card in PR #161 |
 | **E7 Browser Acceptance** | Final real browser acceptance gate (one event / one response through Award; no ERP browser client; no Award→TO) | **IMPLEMENTED_ACCEPTED** — PR #152 (product head `fd5b615f`, product CI `35644222482`, 13/13 passed 0 skipped retries 0, verdict `ACCEPT_E7_BROWSER_ACCEPTANCE`) |
 
 Notes:
@@ -421,6 +422,8 @@ TRAINING_DISCOVERY_HEAD=5b716dc01904616f4650e0f310fac6a42ea2c2ba
 TRAINING_DISCOVERY_CI_RUN=35893849771
 TRAINING_DISCOVERY_PR=160
 BROWSER_ACCEPTANCE_STATUS=IMPLEMENTED_ACCEPTED
+RFX_TENDER_STATUS_BADGE_REMEDIATION_STATUS=IMPLEMENTED_AWAITING_CONTROLLER_REVIEW
+RFX_TENDER_STATUS_BADGE_REMEDIATION_NEXT_ACTION=INDEPENDENT_CONTROLLER_REVIEW_RFX_TENDER_STATUS_BADGE_REMEDIATION
 NEXT_ACTION=AUTHORIZE_F5_TRAINING_T1_RU
 NEXT_STAGE_SEQUENCE=F5_TRAINING_T1_RU_AUTHORIZATION
 ```

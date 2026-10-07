@@ -151,6 +151,10 @@ test.describe('buyer XLSX create overall chain', () => {
     const eventId = commitBody.event_id as string
 
     await expect(page).toHaveURL(new RegExp(`/tenders/${eventId}$`))
+    await expect(page.getByTestId('tender-status').locator('.ui-badge')).toHaveText('DRAFT')
+    await expect(page.getByTestId('tender-status').locator('badge')).toHaveCount(0)
+    await expect(page.getByTestId('tender-rfx-number')).toHaveText(rfxNumber)
+    await expect(page.getByTestId('tender-creation-channel')).toHaveText('Created from Excel')
     const landed = new URL(page.url())
     expect(landed.pathname).toBe(`/tenders/${eventId}`)
     expect(landed.search).toBe('')
