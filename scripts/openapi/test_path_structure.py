@@ -683,6 +683,15 @@ def assert_driver_disposition_contract(spec: dict) -> None:
     if response.get("properties", {}).get("caseId", {}).get("nullable") is not True:
         print("disposition caseId must be nullable", file=sys.stderr)
         raise SystemExit(1)
+    fact = schemas.get("DriverStopActionFact", {})
+    required = set(fact.get("required") or [])
+    if required != {"actionId", "actionType", "shipmentId", "cargoId", "ordinal"}:
+        print("DriverStopActionFact required fields changed", file=sys.stderr)
+        raise SystemExit(1)
+    shipment = fact.get("properties", {}).get("shipmentId", {})
+    if shipment.get("type") != "string" or shipment.get("format") != "uuid" or shipment.get("nullable") is True:
+        print("action shipmentId must be a required uuid", file=sys.stderr)
+        raise SystemExit(1)
 
 
 def main() -> int:
