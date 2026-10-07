@@ -173,6 +173,8 @@ describe('TENANT_NOT_CLIENT_CONTROLLED_TEST', () => {
     const firstCall = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined]
     const headers = (firstCall[1]?.headers ?? {}) as Record<string, string>
     expect(headers['X-Tenant-ID']).toBeUndefined()
+    expect(headers['X-User-ID']).toBeUndefined()
+    expect(headers['X-Driver-ID']).toBeUndefined()
     expect(headers.Authorization).toBe('Bearer token')
   })
 })
