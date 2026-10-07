@@ -83,7 +83,7 @@ Each promoted KPI definition carries:
 | `CURRENT_STATE` | The current row | No | No | No | No | No |
 | `CANONICAL_EVENT` | Append-only source event with its own identity and business event time | Only if the stream is complete for that question | Yes | Yes, from the stream | Yes, by a later event | Yes, idempotent on event identity |
 | `STATUS_HISTORY` | Status transitions with `occurred_at` and `recorded_at` | Only for status, and only when the chain is complete | Status duration only | Status only | A missing transition stays a gap | Idempotent insert |
-| `SNAPSHOT` | Immutable analytics publication of one definition version | The publication instant only | No, unless a series of snapshots is stored | The publication only | A new snapshot version | Rebuild only from source events that still exist |
+| `SNAPSHOT` | Immutable analytics publication of one definition version and one publication revision | The publication instant only | No, unless a series of snapshots is stored | The publication only | A new `PUBLICATION_REVISION` of the same `DEFINITION_VERSION`. Revision 1 is kept. | Rebuild only from source events that still exist |
 | `DERIVED_ANALYTICS_FACT` | Analytics-owned row computed from source facts | After it is stored with event time, tenant, and definition version | After storage | After storage | New version, old row kept | Rebuild from named inputs |
 
 A current mutable row is never described as history. `HISTORICAL_ANALYTICS_READY=NO` remains true.
@@ -181,7 +181,7 @@ CONTROL_TOWER_IS_ANALYTICS_WAREHOUSE=NO
 CONTROL_TOWER_OPERATIONAL_READ_MODEL_REUSE_ALLOWED=YES
 ```
 
-Reuse is allowed only when the read-model field has the same meaning as the KPI definition. Server-derived does not mean historical. Control Tower `generatedAt` and `dataFreshness.partial` are the pattern for response metadata. They are not a business watermark and not a restatement record.
+Reuse is allowed only when the read-model field has the same meaning as the KPI definition. Server-derived does not mean historical. Control Tower `generatedAt` and `dataFreshness.partial` belong to that operational payload. They are not the analytics freshness contract in the data-freshness section, and they are not a restatement record.
 
 ## L. Frontend KPI policy
 
@@ -317,7 +317,7 @@ A future source contract, owned by the RFx domain, needs one baseline kind per K
 
 `FROZEN`. `ANALYTICS_0_2_SCOPE=OPERATIONS_ANALYTICS_FOUNDATION`. `ANALYTICS_0_2_KPI_COUNT=5`. `ANALYTICS_0_2_LOCAL_DAY_BUCKETING=NO`.
 
-The first implementation wave is a current-state operations foundation. It does not include OTIF. It does not bucket by local day. Responses carry `generatedAt`, `definitionVersion`, `dataFreshness`, and `completeness`. Currency and timezone are omitted because these five KPIs are not money totals and not local-day groups.
+The first implementation wave is a current-state operations foundation. It does not include OTIF. It does not bucket by local day. It does not store a snapshot, so `PUBLICATION_REVISION` is absent. Responses carry `generatedAt`, `definitionVersion`, `dataFreshness`, and `completeness` as defined below. Currency and timezone are omitted because these five KPIs are not money totals and not local-day groups. The five KPI ids are unchanged.
 
 On-time delivery version 1:
 
@@ -447,6 +447,44 @@ On-time delivery version 1:
 | EXEC_DEADHEAD_PCT | NO | BLOCKED_BY_SOURCE_GAP | GAP-C-006 |
 | EXEC_CAPACITY_UTILIZATION | NO | PARTIAL, and outside the operations foundation wave. | later wave |
 
+## Analytics-0.2 runtime topology
+
+`FROZEN`. One path. The gateway does not compute these KPIs.
+
+```
+ANALYTICS_0_2_COMPUTE_OWNER=analytics-service
+ANALYTICS_0_2_PUBLIC_API_OWNER=api-gateway
+ANALYTICS_0_2_GATEWAY_ROLE=PUBLIC_ROUTING_AND_AUTH_ONLY
+ANALYTICS_0_2_SOURCE_ACCESS_MODE=SOURCE_OWNED_INTERNAL_READ_CONTRACT
+ANALYTICS_DIRECT_SOURCE_DB_READ=NO
+ANALYTICS_SOURCE_WRITES=NO
+ANALYTICS_0_2_SOURCE_CONTRACT_REQUIRED=YES
+```
+
+`analytics-service` owns KPI computation and semantic enforcement. It does not exist yet. This freeze does not create it. `api-gateway` authenticates the caller, derives the tenant from the JWT, and routes `/api/v1/analytics/...` to that service. A caller-supplied tenant does not override the JWT tenant.
+
+Analytics reads shipment and disposition facts only through a shipment-service internal read contract. It does not query `transport.*` itself. It does not write shipment, execution, or disposition tables. Source schema ownership stays with shipment-service.
+
+No current internal route covers the complete tenant population for all five KPIs:
+
+- `GET /internal/v1/shipments/status-summary` is tenant-scoped and excludes `deleted_at IS NOT NULL`, grouped by status. It does not return delivery timestamps or disposition counts. Its `CalculatedAt` is computation time, not a source watermark.
+- `GET /v1/shipments` is a public list. `parseLimit` defaults to 20. A page is not the tenant population.
+- `GET /internal/v1/transport-executions/{executionId}/delivery-dispositions` lists cases for one execution. It is not a tenant count of `RETURN_TO_ORIGIN` or `REDIRECT`.
+
+Agent C owns the missing contract. Minimum shape, not implemented here:
+
+- Caller is the analytics service, on an internal route.
+- Tenant is the verified tenant, not a public page parameter.
+- One response returns complete-population counts, not a public list page.
+- `shipment_total`: shipments for that tenant with `deleted_at IS NULL`. Input to `OPS_SHIPMENTS_TOTAL`.
+- `on_time_delivery_denominator`: that same population with both `planned_delivery_at` and `actual_delivery_at` present.
+- `on_time_delivery_numerator`: that denominator where `actual_delivery_at` is at or before `planned_delivery_at`. Analytics keeps grace at 0 and does not treat this as Control Tower `ON_TIME`.
+- `return_case_count`: disposition cases for the operating tenant with `disposition_type=RETURN_TO_ORIGIN`.
+- `redirect_case_count`: disposition cases for the operating tenant with `disposition_type=REDIRECT`.
+- `sourceObservedAt`: included only when shipment-service can name a reliable watermark for the rows just counted. Omitted when it cannot.
+
+The five KPIs stay in the 0.2 scope. Implementation waits on this contract. That wait does not remove them and does not promote their 0.1A readiness.
+
 ## API conventions
 
 `FROZEN` as a contract. No endpoint is implemented.
@@ -456,21 +494,43 @@ GET /api/v1/analytics/kpis/{kpiId}
 GET /api/v1/analytics/kpis/{kpiId}/details
 ```
 
-The tenant comes from the verified auth context. Filters, when the definition allows them: time range, company, carrier, shipper, lane, location, and currency. Detail sets are paginated. An aggregate body includes `generatedAt`, `definitionVersion`, `dataFreshness`, and `completeness`, plus `currency` and `timezone` when those apply.
+The public route is owned by `api-gateway`. Computation is owned by `analytics-service`. The tenant comes from the verified auth context. Filters, when the definition allows them: time range, company, carrier, shipper, lane, location, and currency. Detail sets are paginated. An aggregate body includes `generatedAt`, `definitionVersion`, `dataFreshness`, and `completeness`, plus `currency` and `timezone` when those apply. Analytics-0.2 aggregate responses do not include `publicationRevision`.
 
-The future owner of these routes is an analytics service that does not exist. Analytics-0.2 may be attached at the API gateway later. This document does not create that service or those routes.
+## Data freshness
+
+`FROZEN`.
+
+```
+GENERATED_AT_IS_SOURCE_WATERMARK=NO
+FRESHNESS_FAIL_OPEN=NO
+MISSING_SOURCE_WATERMARK_STATUS=UNKNOWN
+FRESHNESS_MAX_AGE=DEFERRED
+```
+
+`generatedAt` is when analytics-service finished the response. It is not the time of the source facts.
+
+`dataFreshness` is separate from `completeness`. `PARTIAL` is a completeness state. It is not a freshness state.
+
+| Field | Rule |
+| --- | --- |
+| `dataFreshness.status` | `FRESH`, `STALE`, or `UNKNOWN` |
+| `dataFreshness.sourceObservedAt` | Present only when the source contract supplied a watermark |
+| `dataFreshness.ageSeconds` | Present only when both `sourceObservedAt` and `generatedAt` exist. Age is `generatedAt` minus `sourceObservedAt`. |
+
+`UNKNOWN` is required when no reliable source watermark was supplied. A query that just completed is not `FRESH`. `FRESH` and `STALE` require both a watermark and a frozen maximum age on that KPI definition. No maximum age is approved, so Analytics-0.2 returns `UNKNOWN` for these five KPIs until both exist. It does not choose `FRESH` to fill the gap.
 
 ## Data quality
 
 `FROZEN`. `DATA_QUALITY_FAIL_OPEN=NO`.
 
-| State | Meaning |
+| Completeness | Meaning |
 | --- | --- |
 | `COMPLETE` | The definition's source coverage is sufficient for the returned grain |
 | `PARTIAL` | A defined input is missing for some rows, and those rows are excluded or marked |
-| `STALE` | The source watermark is older than the freshness rule on the definition |
 | `UNKNOWN` | Coverage cannot be judged |
 | `BLOCKED` | The KPI must not be published as a number |
+
+`STALE` is only `dataFreshness.status`. It is not a completeness value. Completeness `UNKNOWN` and freshness `UNKNOWN` are different fields.
 
 A missing canonical input does not fall back to another field. The client may render the KPI as unavailable. It may not replace it with a local formula.
 
@@ -492,7 +552,7 @@ ANALYTICS_SERVICE_IMPLEMENTED=NO
 DWH_IMPLEMENTED=NO
 ```
 
-Option D means Analytics-0.2 reads canonical operational current-state facts for the five KPIs above. Analytics-owned PostgreSQL projections are allowed only in a later wave, and only for a KPI whose history class needs stored events, snapshots, or derived facts that the source does not already keep. A warehouse remains a future option. It is not required now: 17 of 114 KPIs are READY, 15 source gaps are open, historical analytics are not ready, and no analytics service exists.
+Option D means Analytics-0.2 computes from current-state facts returned by the shipment-service internal read contract. Analytics does not read those tables directly. Analytics-owned PostgreSQL projections are allowed only in a later wave, and only for a KPI whose history class needs stored events, snapshots, or derived facts that the source does not already keep. A warehouse remains a future option. It is not required now: 17 of 114 KPIs are READY, 15 source gaps are open, historical analytics are not ready, and no analytics service exists.
 
 ## Freeze flags
 
@@ -516,4 +576,18 @@ NETWORK_EXECUTED_DISTANCE_READY=NO
 ANALYTICS_SERVICE_IMPLEMENTED=NO
 DWH_IMPLEMENTED=NO
 ANALYTICS_0_2_SCOPE_FROZEN=YES
+ANALYTICS_0_2_COMPUTE_OWNER=analytics-service
+ANALYTICS_0_2_PUBLIC_API_OWNER=api-gateway
+ANALYTICS_0_2_GATEWAY_ROLE=PUBLIC_ROUTING_AND_AUTH_ONLY
+ANALYTICS_0_2_SOURCE_ACCESS_MODE=SOURCE_OWNED_INTERNAL_READ_CONTRACT
+ANALYTICS_DIRECT_SOURCE_DB_READ=NO
+ANALYTICS_SOURCE_WRITES=NO
+ANALYTICS_0_2_SOURCE_CONTRACT_REQUIRED=YES
+LATE_EVENT_CHANGES_DEFINITION_VERSION=NO
+RESTATEMENT_PRESERVES_DEFINITION_VERSION=YES
+PUBLISHED_SNAPSHOT_REVISIONING=YES
+ANALYTICS_0_2_PUBLICATION_REVISION=NOT_APPLICABLE
+GENERATED_AT_IS_SOURCE_WATERMARK=NO
+FRESHNESS_FAIL_OPEN=NO
+MISSING_SOURCE_WATERMARK_STATUS=UNKNOWN
 ```
