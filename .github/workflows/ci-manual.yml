@@ -61,6 +61,7 @@ jobs:
       matrix:
         module:
           - packages/shared-go
+          - services/analytics-service
           - services/api-gateway
           - services/billing-register-service
           - services/company-service

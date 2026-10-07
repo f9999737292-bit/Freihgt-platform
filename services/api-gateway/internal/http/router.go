@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
+	"github.com/freight-platform/api-gateway/internal/analytics"
 	"github.com/freight-platform/api-gateway/internal/billingrbac"
 	"github.com/freight-platform/api-gateway/internal/bnorbac"
 	"github.com/freight-platform/api-gateway/internal/companyrbac"
@@ -537,6 +538,9 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/network/compatibility/rule-sets/{id}/retire", networkGuard.WithPolicy(bnorbac.PolicyManageCompatibilityRules))
 	r.Post("/api/v1/network/compatibility/cargo-equipment/evaluate", networkGuard.WithPolicy(bnorbac.PolicyReadCompatibility))
 	r.Post("/api/v1/network/compatibility/groupage/evaluate", networkGuard.WithPolicy(bnorbac.PolicyReadCompatibility))
+
+	analyticsHandler := analytics.NewHandler(log, cfg)
+	r.Get("/api/v1/analytics/kpis/{kpiId}", analyticsHandler.Get)
 
 	r.Handle("/api/*", proxy)
 	r.Handle("/api", proxy)

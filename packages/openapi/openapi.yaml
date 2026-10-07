@@ -34,6 +34,7 @@ tags:
   - name: Rate Simulation
   - name: Freight Costs
   - name: Network Optimizer
+  - name: Analytics
 paths:
   /health:
     get:
@@ -20294,6 +20295,81 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/analytics/kpis/{kpiId}:
+    get:
+      tags: [Analytics]
+      summary: Read one tenant operations KPI
+      operationId: get_read_one_tenant_operations_kpi
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: kpiId
+          in: path
+          required: true
+          description: Frozen Analytics-0.2 KPI identifier. Query filters are not supported and are rejected.
+          schema:
+            type: string
+            enum:
+              - OPS_SHIPMENTS_TOTAL
+              - OPS_ON_TIME_DELIVERY
+              - OPS_ON_TIME_DELIVERY_RATE
+              - OPS_RETURN_CASES
+              - OPS_REDIRECT_CASES
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Tenant operations KPI. COUNT is an integer >= 0. RATIO is a decimal fraction from 0.0 to 1.0, not a percent. An empty rate population returns numerator 0, denominator 0, and value null. dataFreshness.status is UNKNOWN until the source supplies a watermark. generatedAt is the analytics response time.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsKPIResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Operations analytics source is unavailable. No KPI number is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 
 components:
   securitySchemes:
@@ -23002,3 +23078,53 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/PaymentObligationRecord'
+
+    AnalyticsKPIResponse:
+      type: object
+      additionalProperties: false
+      required: [kpiId, definitionVersion, measure, generatedAt, dataFreshness, completeness]
+      properties:
+        kpiId:
+          type: string
+          enum: [OPS_SHIPMENTS_TOTAL, OPS_ON_TIME_DELIVERY, OPS_ON_TIME_DELIVERY_RATE, OPS_RETURN_CASES, OPS_REDIRECT_CASES]
+        definitionVersion:
+          type: integer
+          enum: [1]
+        measure:
+          $ref: '#/components/schemas/AnalyticsKPIMeasure'
+        generatedAt:
+          type: string
+          format: date-time
+          description: Analytics response time in UTC. This is not a source watermark.
+        dataFreshness:
+          $ref: '#/components/schemas/AnalyticsDataFreshness'
+        completeness:
+          type: string
+          enum: [COMPLETE, PARTIAL]
+    AnalyticsKPIMeasure:
+      type: object
+      additionalProperties: false
+      required: [type, value]
+      properties:
+        type:
+          type: string
+          enum: [COUNT, RATIO]
+        value:
+          type: number
+          nullable: true
+          description: COUNT is an integer >= 0. RATIO is a decimal fraction in the range 0.0 to 1.0, not a percent. When the rate denominator is 0, value is null.
+        numerator:
+          type: integer
+          minimum: 0
+        denominator:
+          type: integer
+          minimum: 0
+    AnalyticsDataFreshness:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [UNKNOWN]
+          description: UNKNOWN because the operations source contract has no watermark.

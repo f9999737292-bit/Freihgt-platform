@@ -4,6 +4,7 @@ use (
 	./packages/shared-go
 	./packages/statussnapshot
 	./scripts/openapi
+	./services/analytics-service
 	./services/api-gateway
 	./services/billing-register-service
 	./services/company-service
