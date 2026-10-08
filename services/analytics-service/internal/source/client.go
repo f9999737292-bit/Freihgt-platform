@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"strings"
@@ -60,7 +61,7 @@ func (c *Client) Fetch(ctx context.Context, tenantID string) (kpi.Snapshot, erro
 	if c == nil || c.baseURL == "" {
 		return kpi.Snapshot{}, &Error{Reason: "unreachable"}
 	}
-	endpoint := c.baseURL + "/internal/v1/analytics/operations-foundation"
+	endpoint := c.baseURL + "/internal/v1/analytics/operations-foundation-v2"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return kpi.Snapshot{}, &Error{Reason: "unreachable", Err: err}
@@ -93,12 +94,23 @@ func (c *Client) Fetch(ctx context.Context, tenantID string) (kpi.Snapshot, erro
 }
 
 type sourceDocument struct {
-	TenantID                  *string `json:"tenantId"`
-	ShipmentTotal             *int64  `json:"shipmentTotal"`
+	TenantID                  *string          `json:"tenantId"`
+	ShipmentTotal             *int64           `json:"shipmentTotal"`
+	OnTimePickupDenominator   *int64           `json:"onTimePickupDenominator"`
+	OnTimePickupNumerator     *int64           `json:"onTimePickupNumerator"`
+	OnTimeDeliveryDenominator *int64           `json:"onTimeDeliveryDenominator"`
+	OnTimeDeliveryNumerator   *int64           `json:"onTimeDeliveryNumerator"`
+	ReturnCaseCount           *int64           `json:"returnCaseCount"`
+	RedirectCaseCount         *int64           `json:"redirectCaseCount"`
+	Carriers                  *[]sourceCarrier `json:"carriers"`
+}
+
+type sourceCarrier struct {
+	CarrierCompanyID          *string `json:"carrierCompanyId"`
+	OnTimePickupDenominator   *int64  `json:"onTimePickupDenominator"`
+	OnTimePickupNumerator     *int64  `json:"onTimePickupNumerator"`
 	OnTimeDeliveryDenominator *int64  `json:"onTimeDeliveryDenominator"`
 	OnTimeDeliveryNumerator   *int64  `json:"onTimeDeliveryNumerator"`
-	ReturnCaseCount           *int64  `json:"returnCaseCount"`
-	RedirectCaseCount         *int64  `json:"redirectCaseCount"`
 }
 
 func decodeSnapshot(body []byte, tenantID string) (kpi.Snapshot, error) {
@@ -112,7 +124,7 @@ func decodeSnapshot(body []byte, tenantID string) (kpi.Snapshot, error) {
 	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
 		return kpi.Snapshot{}, &Error{Reason: "malformed", Err: err}
 	}
-	if payload.TenantID == nil || payload.ShipmentTotal == nil || payload.OnTimeDeliveryDenominator == nil || payload.OnTimeDeliveryNumerator == nil || payload.ReturnCaseCount == nil || payload.RedirectCaseCount == nil {
+	if payload.TenantID == nil || payload.ShipmentTotal == nil || payload.OnTimePickupDenominator == nil || payload.OnTimePickupNumerator == nil || payload.OnTimeDeliveryDenominator == nil || payload.OnTimeDeliveryNumerator == nil || payload.ReturnCaseCount == nil || payload.RedirectCaseCount == nil || payload.Carriers == nil {
 		return kpi.Snapshot{}, &Error{Reason: "malformed"}
 	}
 	if *payload.TenantID != tenantID {
@@ -121,16 +133,23 @@ func decodeSnapshot(body []byte, tenantID string) (kpi.Snapshot, error) {
 	if _, err := uuid.Parse(*payload.TenantID); err != nil {
 		return kpi.Snapshot{}, &Error{Reason: "malformed", Err: err}
 	}
-	if !consistent(*payload.ShipmentTotal, *payload.OnTimeDeliveryDenominator, *payload.OnTimeDeliveryNumerator, *payload.ReturnCaseCount, *payload.RedirectCaseCount) {
+	carriers, err := carriersFrom(*payload.Carriers, *payload.OnTimePickupDenominator, *payload.OnTimePickupNumerator, *payload.OnTimeDeliveryDenominator, *payload.OnTimeDeliveryNumerator)
+	if err != nil {
+		return kpi.Snapshot{}, err
+	}
+	if !consistent(*payload.ShipmentTotal, *payload.OnTimePickupDenominator, *payload.OnTimePickupNumerator, *payload.OnTimeDeliveryDenominator, *payload.OnTimeDeliveryNumerator, *payload.ReturnCaseCount, *payload.RedirectCaseCount) {
 		return kpi.Snapshot{}, &Error{Reason: "inconsistent"}
 	}
 	return kpi.Snapshot{
 		TenantID:                  *payload.TenantID,
 		ShipmentTotal:             *payload.ShipmentTotal,
+		OnTimePickupDenominator:   *payload.OnTimePickupDenominator,
+		OnTimePickupNumerator:     *payload.OnTimePickupNumerator,
 		OnTimeDeliveryDenominator: *payload.OnTimeDeliveryDenominator,
 		OnTimeDeliveryNumerator:   *payload.OnTimeDeliveryNumerator,
 		ReturnCaseCount:           *payload.ReturnCaseCount,
 		RedirectCaseCount:         *payload.RedirectCaseCount,
+		Carriers:                  carriers,
 	}, nil
 }
 
@@ -154,11 +173,74 @@ func (c *Client) Ready(ctx context.Context) error {
 	return nil
 }
 
-func consistent(shipmentTotal, denominator, numerator, returns, redirects int64) bool {
-	if shipmentTotal < 0 || denominator < 0 || numerator < 0 || returns < 0 || redirects < 0 {
+func carriersFrom(rows []sourceCarrier, pickupDenominator, pickupNumerator, deliveryDenominator, deliveryNumerator int64) ([]kpi.CarrierSnapshot, error) {
+	carriers := make([]kpi.CarrierSnapshot, 0, len(rows))
+	seen := make(map[string]struct{}, len(rows))
+	var pickupDenominatorSum, pickupNumeratorSum, deliveryDenominatorSum, deliveryNumeratorSum int64
+	for _, row := range rows {
+		if row.CarrierCompanyID == nil || row.OnTimePickupDenominator == nil || row.OnTimePickupNumerator == nil || row.OnTimeDeliveryDenominator == nil || row.OnTimeDeliveryNumerator == nil {
+			return nil, &Error{Reason: "malformed"}
+		}
+		id, err := uuid.Parse(*row.CarrierCompanyID)
+		if err != nil {
+			return nil, &Error{Reason: "malformed", Err: err}
+		}
+		if id == uuid.Nil {
+			return nil, &Error{Reason: "inconsistent"}
+		}
+		canonical := id.String()
+		if _, ok := seen[canonical]; ok {
+			return nil, &Error{Reason: "inconsistent"}
+		}
+		seen[canonical] = struct{}{}
+		if *row.OnTimePickupDenominator < 0 || *row.OnTimePickupNumerator < 0 || *row.OnTimeDeliveryDenominator < 0 || *row.OnTimeDeliveryNumerator < 0 || *row.OnTimePickupNumerator > *row.OnTimePickupDenominator || *row.OnTimeDeliveryNumerator > *row.OnTimeDeliveryDenominator {
+			return nil, &Error{Reason: "inconsistent"}
+		}
+		pickupDenominatorSum, err = addCount(pickupDenominatorSum, *row.OnTimePickupDenominator)
+		if err != nil {
+			return nil, &Error{Reason: "inconsistent", Err: err}
+		}
+		pickupNumeratorSum, err = addCount(pickupNumeratorSum, *row.OnTimePickupNumerator)
+		if err != nil {
+			return nil, &Error{Reason: "inconsistent", Err: err}
+		}
+		deliveryDenominatorSum, err = addCount(deliveryDenominatorSum, *row.OnTimeDeliveryDenominator)
+		if err != nil {
+			return nil, &Error{Reason: "inconsistent", Err: err}
+		}
+		deliveryNumeratorSum, err = addCount(deliveryNumeratorSum, *row.OnTimeDeliveryNumerator)
+		if err != nil {
+			return nil, &Error{Reason: "inconsistent", Err: err}
+		}
+		carriers = append(carriers, kpi.CarrierSnapshot{
+			CarrierCompanyID:          canonical,
+			OnTimePickupDenominator:   *row.OnTimePickupDenominator,
+			OnTimePickupNumerator:     *row.OnTimePickupNumerator,
+			OnTimeDeliveryDenominator: *row.OnTimeDeliveryDenominator,
+			OnTimeDeliveryNumerator:   *row.OnTimeDeliveryNumerator,
+		})
+	}
+	if pickupDenominatorSum > pickupDenominator || pickupNumeratorSum > pickupNumerator || deliveryDenominatorSum > deliveryDenominator || deliveryNumeratorSum > deliveryNumerator {
+		return nil, &Error{Reason: "inconsistent"}
+	}
+	return carriers, nil
+}
+
+func addCount(sum, next int64) (int64, error) {
+	if next < 0 || sum > math.MaxInt64-next {
+		return 0, errors.New("count overflow")
+	}
+	return sum + next, nil
+}
+
+func consistent(shipmentTotal, pickupDenominator, pickupNumerator, deliveryDenominator, deliveryNumerator, returns, redirects int64) bool {
+	if shipmentTotal < 0 || pickupDenominator < 0 || pickupNumerator < 0 || deliveryDenominator < 0 || deliveryNumerator < 0 || returns < 0 || redirects < 0 {
 		return false
 	}
-	return numerator <= denominator && denominator <= shipmentTotal
+	if pickupNumerator > pickupDenominator || deliveryNumerator > deliveryDenominator {
+		return false
+	}
+	return pickupDenominator <= shipmentTotal && deliveryDenominator <= shipmentTotal
 }
 
 func isTimeout(err error) bool {

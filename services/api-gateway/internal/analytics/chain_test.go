@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,17 +34,23 @@ func TestOperationsFoundationChain(t *testing.T) {
 		switch r.URL.Path {
 		case "/ready":
 			w.WriteHeader(http.StatusOK)
-		case "/internal/v1/analytics/operations-foundation":
+		case "/internal/v1/analytics/operations-foundation-v2":
 			sourceTenant = r.Header.Get("X-Tenant-ID")
 			sourceCaller = r.Header.Get("X-Internal-Service-Name")
 			sourceToken = r.Header.Get("X-Internal-Service-Token")
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"tenantId":                  tenantA,
 				"shipmentTotal":             10,
+				"onTimePickupDenominator":   4,
+				"onTimePickupNumerator":     2,
 				"onTimeDeliveryDenominator": 10,
 				"onTimeDeliveryNumerator":   8,
 				"returnCaseCount":           2,
 				"redirectCaseCount":         1,
+				"carriers": []any{
+					map[string]any{"carrierCompanyId": "33333333-3333-3333-3333-333333333333", "onTimePickupDenominator": 1, "onTimePickupNumerator": 1, "onTimeDeliveryDenominator": 2, "onTimeDeliveryNumerator": 1},
+					map[string]any{"carrierCompanyId": "22222222-2222-2222-2222-222222222222", "onTimePickupDenominator": 1, "onTimePickupNumerator": 0, "onTimeDeliveryDenominator": 2, "onTimeDeliveryNumerator": 2},
+				},
 			})
 		default:
 			http.NotFound(w, r)
@@ -114,6 +121,40 @@ func TestOperationsFoundationChain(t *testing.T) {
 	}
 	if sourceTenant != tenantA || sourceCaller != "analytics-service" || sourceToken != sharedToken {
 		t.Fatalf("source tenant=%s caller=%s tokenSet=%t", sourceTenant, sourceCaller, sourceToken == sharedToken)
+	}
+
+	carrierReq := httptest.NewRequest(http.MethodGet, "/api/v1/analytics/kpis/CAR_ON_TIME_PICKUP_RATE", nil)
+	carrierReq.Header.Set("Authorization", "Bearer "+signChainToken(t, secret, tenantA))
+	carrierReq.Header.Set("X-Tenant-ID", tenantB)
+	carrierRec := httptest.NewRecorder()
+	gateway.ServeHTTP(carrierRec, carrierReq)
+	if carrierRec.Code != http.StatusOK {
+		t.Fatalf("carrier status=%d body=%s", carrierRec.Code, carrierRec.Body.String())
+	}
+	var carrier struct {
+		KPIID     string `json:"kpiId"`
+		Dimension string `json:"dimension"`
+		Items     []struct {
+			CarrierCompanyID string `json:"carrierCompanyId"`
+			Measure          struct {
+				Value       *float64 `json:"value"`
+				Numerator   *int64   `json:"numerator"`
+				Denominator *int64   `json:"denominator"`
+			} `json:"measure"`
+		} `json:"items"`
+		Completeness string `json:"completeness"`
+	}
+	if err := json.Unmarshal(carrierRec.Body.Bytes(), &carrier); err != nil {
+		t.Fatal(err)
+	}
+	if carrier.KPIID != "CAR_ON_TIME_PICKUP_RATE" || carrier.Dimension != "CARRIER" || carrier.Completeness != "PARTIAL" || len(carrier.Items) != 2 {
+		t.Fatalf("%+v", carrier)
+	}
+	if carrier.Items[0].CarrierCompanyID != "22222222-2222-2222-2222-222222222222" || carrier.Items[0].Measure.Value == nil || *carrier.Items[0].Measure.Value != 0 || carrier.Items[1].CarrierCompanyID != "33333333-3333-3333-3333-333333333333" || carrier.Items[1].Measure.Value == nil || *carrier.Items[1].Measure.Value != 1 {
+		t.Fatalf("%+v", carrier.Items)
+	}
+	if strings.Contains(carrierRec.Body.String(), `"shipmentTotal"`) {
+		t.Fatalf("tenant aggregate leaked: %s", carrierRec.Body.String())
 	}
 }
 
