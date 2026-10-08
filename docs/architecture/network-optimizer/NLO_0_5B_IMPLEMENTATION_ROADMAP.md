@@ -7,8 +7,13 @@ NLO_0_5B0=POLICY_ACCEPTED_FOR_BOUNDED_SEARCH
 NLO_0_5B1=MERGED
 NLO_0_5B2=ROUTING_BUDGET_IMPLEMENTED
 NLO_0_5B3=IMPLEMENTED
-NLO_0_5B4=DISCOVERY_ONLY
+NLO_0_5B4=IMPLEMENTED
+FINAL_EVALUATION_CAP_INVARIANT_PROVEN=YES
 FINAL_EVALUATION_CAP_RUNTIME_ENFORCED=NO
+FINAL_EVALUATION_BOUND_SOURCE=ROUTING_SLICE_PLUS_UNKNOWN_ROAD_HARD_REJECT
+SEPARATE_FINAL_CAP_CODE_REQUIRED=NO
+SCORE_PERSISTENCE_DECISION=EXISTING_PERSISTENCE_SUFFICIENT
+MIGRATION_REQUIRED_FOR_B4=NO
 BACKHAUL_RUNTIME_IMPLEMENTED=NO
 ROUNDTRIP_RUNTIME_IMPLEMENTED=NO
 EXTERNAL_PROVIDER_BENCHMARK=BLOCKED
@@ -20,7 +25,7 @@ PROVIDER_SLA_PROVEN=NO
 | NLO-0.5B1 | Stop marketplace discovery at 1,000 visible loads in `created_at DESC, id`. | Enforced. Cap remains 1000. |
 | NLO-0.5B2 | After the cheap prefilter, route at most 25 loads. Stop at 4 matrix calls, 2 route calls, and 6 provider calls. Honor the 5 second call timeout and the 30 second search watchdog. No retry. | Enforced. |
 | NLO-0.5B3 | One-load corridor and four-leg ellipse feasibility on the existing search. Radius is not a backhaul mode. A missing road leg stays unknown. | This change. |
-| NLO-0.5B4 | Runtime enforcement of the final-evaluation cap, if it is still distinct from the routing cap, plus any further score persistence. | Discovery only. The routing slice plus the unknown-road reject already keep scoring at 25. No separate runtime guard and no migration. `FINAL_EVALUATION_CAP_RUNTIME_ENFORCED=NO`. See [NLO_0_5B4_FINAL_EVALUATION_DISCOVERY.md](NLO_0_5B4_FINAL_EVALUATION_DISCOVERY.md). |
+| NLO-0.5B4 | Invariant test for the final-evaluation cap. No separate runtime prune and no further score persistence. | Implemented. `TestNLO05B4FinalEvaluationCapInvariant` proves scoring stays at 25 because the routing slice plus `ROAD_DISTANCE_UNKNOWN` already rejects the tail. `FINAL_EVALUATION_CAP_RUNTIME_ENFORCED=NO`. `FINAL_EVALUATION_BOUND_SOURCE=ROUTING_SLICE_PLUS_UNKNOWN_ROAD_HARD_REJECT`. See [NLO_0_5B4_FINAL_EVALUATION_DISCOVERY.md](NLO_0_5B4_FINAL_EVALUATION_DISCOVERY.md). |
 | NLO-0.5B5 | Public exposure beyond the current next-load response, including Control Tower. | Not started. |
 
 B2 does not add a search mode, a migration, a marketplace endpoint, or a freight-cost ledger. An accepted plan still uses the NLO-0.4 activation handshake.
