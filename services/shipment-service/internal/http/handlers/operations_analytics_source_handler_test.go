@@ -36,6 +36,7 @@ func analyticsSourceRouter(stub *analyticsSourceStub, token string) http.Handler
 	auth := internalauth.Config{Token: token}
 	r := chi.NewRouter()
 	r.With(auth.Middleware, RequireAnalyticsCaller).Get(analyticsSourcePath, handler.Get)
+	r.With(auth.Middleware, RequireAnalyticsCaller).Get(OperationsFoundationV2Path, handler.GetExtended)
 	return r
 }
 
@@ -96,7 +97,7 @@ func TestOperationsAnalyticsSourceAuth(t *testing.T) {
 		if stub.tenant != tenant {
 			t.Fatalf("reader tenant %s", stub.tenant)
 		}
-		for _, key := range []string{"sourceObservedAt", "OPS_SHIPMENTS_TOTAL", "OPS_ON_TIME_DELIVERY", "definitionVersion", "kpiId"} {
+		for _, key := range []string{"sourceObservedAt", "OPS_SHIPMENTS_TOTAL", "OPS_ON_TIME_DELIVERY", "definitionVersion", "kpiId", "onTimePickupDenominator", "onTimePickupNumerator", "carriers", "latePickupCount", "lateDeliveryCount"} {
 			if _, ok := body[key]; ok {
 				t.Fatalf("unexpected %s", key)
 			}
@@ -145,6 +146,93 @@ func TestRequireAnalyticsCallerDoesNotReplaceTokenFailure(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), string(apperrors.CodeUnauthorized)) && !strings.Contains(rec.Body.String(), "UNAUTHORIZED") {
 		t.Fatalf("%s", rec.Body.String())
+	}
+}
+
+func TestOperationsAnalyticsSourceV1StaysCompatible(t *testing.T) {
+	tenant := uuid.New()
+	carrier := uuid.New()
+	stub := &analyticsSourceStub{snap: domain.OperationsAnalyticsSourceSnapshot{
+		ShipmentTotal: 3, OnTimePickupDenominator: 2, OnTimePickupNumerator: 1,
+		OnTimeDeliveryDenominator: 2, OnTimeDeliveryNumerator: 1, ReturnCaseCount: 1, RedirectCaseCount: 0,
+		Carriers: []domain.OperationsAnalyticsCarrierSource{{
+			CarrierCompanyID: carrier, OnTimePickupDenominator: 2, OnTimePickupNumerator: 1,
+			OnTimeDeliveryDenominator: 2, OnTimeDeliveryNumerator: 1,
+		}},
+	}}
+	router := analyticsSourceRouter(stub, "analytics-token")
+	rec := analyticsSourceCall(router, "analytics-token", AuthorizedAnalyticsCaller, tenant.String(), uuid.NewString())
+	decoder := json.NewDecoder(strings.NewReader(rec.Body.String()))
+	decoder.DisallowUnknownFields()
+	var payload struct {
+		TenantID                  string `json:"tenantId"`
+		ShipmentTotal             int64  `json:"shipmentTotal"`
+		OnTimeDeliveryDenominator int64  `json:"onTimeDeliveryDenominator"`
+		OnTimeDeliveryNumerator   int64  `json:"onTimeDeliveryNumerator"`
+		ReturnCaseCount           int64  `json:"returnCaseCount"`
+		RedirectCaseCount         int64  `json:"redirectCaseCount"`
+	}
+	if err := decoder.Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.TenantID != tenant.String() || payload.ShipmentTotal != 3 || payload.OnTimeDeliveryDenominator != 2 || payload.OnTimeDeliveryNumerator != 1 || payload.ReturnCaseCount != 1 {
+		t.Fatalf("%+v", payload)
+	}
+}
+
+func TestOperationsAnalyticsSourceV2AuthAndFacts(t *testing.T) {
+	tenant := uuid.New()
+	foreign := uuid.New()
+	carrier := uuid.New()
+	stub := &analyticsSourceStub{snap: domain.OperationsAnalyticsSourceSnapshot{
+		ShipmentTotal: 2, OnTimePickupDenominator: 2, OnTimePickupNumerator: 1,
+		OnTimeDeliveryDenominator: 1, OnTimeDeliveryNumerator: 1,
+		Carriers: []domain.OperationsAnalyticsCarrierSource{{
+			CarrierCompanyID: carrier, OnTimePickupDenominator: 2, OnTimePickupNumerator: 1,
+			OnTimeDeliveryDenominator: 1, OnTimeDeliveryNumerator: 1,
+		}},
+	}}
+	router := analyticsSourceRouter(stub, "analytics-token")
+	call := func(token, caller, headerTenant, queryTenant string) *httptest.ResponseRecorder {
+		path := OperationsFoundationV2Path
+		if queryTenant != "" {
+			path += "?tenant_id=" + queryTenant
+		}
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		if token != "" {
+			req.Header.Set("X-Internal-Service-Token", token)
+		}
+		if caller != "" {
+			req.Header.Set("X-Internal-Service-Name", caller)
+		}
+		if headerTenant != "" {
+			req.Header.Set("X-Tenant-ID", headerTenant)
+		}
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := call("", AuthorizedAnalyticsCaller, tenant.String(), ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("missing token %d", rec.Code)
+	}
+	if rec := call("analytics-token", "network-optimizer-service", tenant.String(), ""); rec.Code != http.StatusForbidden {
+		t.Fatalf("wrong caller %d", rec.Code)
+	}
+	rec := call("analytics-token", AuthorizedAnalyticsCaller, tenant.String(), foreign.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d %s", rec.Code, rec.Body.String())
+	}
+	var snap domain.OperationsAnalyticsSourceSnapshot
+	if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
+		t.Fatal(err)
+	}
+	if snap.TenantID != tenant || stub.tenant != tenant || snap.OnTimePickupDenominator != 2 || snap.OnTimePickupNumerator != 1 || len(snap.Carriers) != 1 || snap.Carriers[0].CarrierCompanyID != carrier {
+		t.Fatalf("%+v reader %s", snap, stub.tenant)
+	}
+	for _, key := range []string{"latePickupCount", "lateDeliveryCount", "sourceObservedAt"} {
+		if strings.Contains(rec.Body.String(), key) {
+			t.Fatalf("body %s", rec.Body.String())
+		}
 	}
 }
 
