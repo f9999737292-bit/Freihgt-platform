@@ -25,6 +25,7 @@ This directory holds the Analytics-0.1A inventory and the Analytics-0.1B archite
 | [ANALYTICS_0_1A_KPI_CATALOG.md](ANALYTICS_0_1A_KPI_CATALOG.md) | Canonical KPI catalog and readiness totals |
 | [ANALYTICS_0_1A_SOURCE_CONTRACT_GAPS.md](ANALYTICS_0_1A_SOURCE_CONTRACT_GAPS.md) | Missing facts and which agent owns them |
 | [ANALYTICS_0_1B_ARCHITECTURE.md](ANALYTICS_0_1B_ARCHITECTURE.md) | Canonical KPI and analytics architecture freeze |
+| [ANALYTICS_0_3C_CARRIER_SCORE_POLICY.md](ANALYTICS_0_3C_CARRIER_SCORE_POLICY.md) | Carrier performance score policy decision |
 | [adr/ADR-AN-001-canonical-kpi-ownership.md](adr/ADR-AN-001-canonical-kpi-ownership.md) | Who owns KPI meaning |
 | [adr/ADR-AN-002-analytics-storage-boundary.md](adr/ADR-AN-002-analytics-storage-boundary.md) | First storage boundary |
 | [adr/ADR-AN-003-time-late-event-restatement.md](adr/ADR-AN-003-time-late-event-restatement.md) | Time, late events, restatement |
@@ -78,3 +79,11 @@ Discovery only. `ANALYTICS_0_3A_OPERATIONS_CARRIER_SCOPE.md` freezes which opera
 Analytics-service reads `GET /internal/v1/analytics/operations-foundation-v2`. The original five KPIs stay at `definitionVersion=1`. The six added KPIs are `OPS_ON_TIME_PICKUP`, `OPS_ON_TIME_PICKUP_RATE`, `OPS_LATE_PICKUP`, `OPS_LATE_DELIVERY`, `CAR_ON_TIME_PICKUP_RATE`, and `CAR_ON_TIME_DELIVERY_RATE`. Late counts are `denominator - numerator` inside analytics. Carrier rates are one ratio per `carrierCompanyId`, ordered by that id, with `dimension=CARRIER`. The service remains stateless. `DWH_IMPLEMENTED=NO`. `MIGRATION_CREATED=NO`. GAP-C-001, GAP-C-002, GAP-C-005, and GAP-E-001 stay open.
 
 Shipment-service still owns the source facts. `GET /internal/v1/analytics/operations-foundation` returns only the five Analytics-0.2 fields. The v2 read adds `onTimePickupDenominator`, `onTimePickupNumerator`, and `carriers`.
+
+## Analytics-0.3C
+
+Policy only. `ANALYTICS_0_3C_CARRIER_SCORE_POLICY.md` records `CARRIER_SCORE_POLICY_DECISION=DEFER`.
+
+`CAR_PERFORMANCE_SCORE` and `EXEC_CARRIER_PERFORMANCE` are not defined. The two implemented carrier rates stay punctuality facts. No weights are assigned. `CARRIER_SCORE_READY=NO`. `CARRIER_SCORE_WEIGHT_VERSIONING=YES`. GAP-E-001 stays open, as do GAP-C-001, GAP-C-002, and GAP-C-005. 0.1A readiness totals are unchanged. No product code, API, migration, or warehouse is part of 0.3C.
+
+`NEXT_STAGE=WAIT_FOR_CARRIER_SCORE_BUSINESS_POLICY`
