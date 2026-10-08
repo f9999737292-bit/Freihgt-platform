@@ -8,6 +8,7 @@ Accepted for the bounded next-load search. Backhaul chain runtime and roundtrip 
 ADR_NET_024=ACCEPTED_FOR_BOUNDED_SEARCH
 NLO_0_5B1_DISCOVERY_CAP_ENFORCED=YES
 NLO_0_5B2_ROUTING_BUDGET_ENFORCED=YES
+NLO_0_5B3_ONE_LOAD_FEASIBILITY=IMPLEMENTED
 FINAL_EVALUATION_CAP_RUNTIME_ENFORCED=NO
 BACKHAUL_RUNTIME_IMPLEMENTED=NO
 ROUNDTRIP_RUNTIME_IMPLEMENTED=NO
@@ -53,4 +54,4 @@ Logs and metrics may count candidates, pruned rows, matrix calls, route calls, b
 
 ## Consequences
 
-NLO-0.5B3 and later waves may add one-load feasibility, scoring persistence, or public exposure. They may not treat this policy as a completed backhaul product. Control Tower exposure, a new marketplace endpoint, a new score model, and a freight-cost ledger stay out of B2.
+NLO-0.5B3 evaluates one load on the existing corridor and four-leg ellipse. It does not add a chain, a roundtrip runtime, scoring persistence, or public exposure. Control Tower exposure, a new marketplace endpoint, a new score model, and a freight-cost ledger stay out of this policy.
