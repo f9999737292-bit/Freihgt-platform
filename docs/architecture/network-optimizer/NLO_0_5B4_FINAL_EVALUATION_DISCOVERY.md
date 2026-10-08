@@ -1,10 +1,12 @@
-# NLO-0.5B4-A final evaluation cap and score persistence discovery
+# NLO-0.5B4 final evaluation cap
 
-Discovery only. This note does not change runtime, schema, or the public search response.
+The discovery conclusions stand. The invariant test locks them. Search still does not consult `CandidateFinalEvaluationCap`. There is no second runtime prune.
 
 ```text
-NLO_0_5B4=DISCOVERY_ONLY
+NLO_0_5B4=IMPLEMENTED
+FINAL_EVALUATION_CAP_INVARIANT_PROVEN=YES
 FINAL_EVALUATION_CAP_RUNTIME_ENFORCED=NO
+FINAL_EVALUATION_BOUND_SOURCE=ROUTING_SLICE_PLUS_UNKNOWN_ROAD_HARD_REJECT
 FINAL_EVALUATION_DEFINITION=empty hard-reject list passed to ScorePool, producing RANKED or UNRANKED
 FINAL_CAP_DECISION=ROUTING_BOUND_ALREADY_PROVES_FINAL_BOUND
 SEPARATE_FINAL_CAP_CODE_REQUIRED=NO
@@ -12,7 +14,6 @@ FINAL_CAP_INVARIANT_TEST_REQUIRED=YES
 SCORE_PERSISTENCE_DECISION=EXISTING_PERSISTENCE_SUFFICIENT
 MIGRATION_REQUIRED_FOR_B4=NO
 B4_IMPLEMENTATION_TYPE=INVARIANT_ONLY
-READY_FOR_B4_IMPLEMENTATION=NO
 ```
 
 Base of this reading: `67e72d37cdf8f658de04415b0ac2fc94e0dd408d`.
@@ -205,17 +206,16 @@ SECURITY_MODEL_CHANGE_REQUIRED=NO
 PRIVACY_MODEL_CHANGE_REQUIRED=NO
 ```
 
-## Next implementation, not this stage
+## Invariant test
+
+`TestNLO05B4FinalEvaluationCapInvariant` locks the bound for `RADIUS`, `DIRECTIONAL_CORRIDOR`, and `ROUTE_ELLIPSE`. Each subtest discovers 1,000 marketplace loads, leaves more than 25 cheap-prefilter survivors, and gives road facts only to the loads the provider is asked for.
+
+The test proves the downstream consequence: eligible, ranked, unranked, and returned candidates stay at 25; the unrouted tail stays `ROAD_DISTANCE_UNKNOWN`, `REJECTED`, and `NOT_APPLICABLE`; a caller `candidate_limit` of 1000 does not add candidates; repeating the search returns the same load-id prefix. Persisted rows stay at 1,000 because rejected audit rows are still stored.
 
 ```text
-B4_IMPLEMENTATION_TYPE=INVARIANT_ONLY
+FINAL_EVALUATION_BOUND_SOURCE=ROUTING_SLICE_PLUS_UNKNOWN_ROAD_HARD_REJECT
+FINAL_EVALUATION_CAP_RUNTIME_ENFORCED=NO
+SCORE_POOL_BOUND_PROOF=STRUCTURAL
 ```
 
-The later wave, when authorized, should:
-
-- add a test that 1000 discovered loads, with more than 25 cheap-prefilter survivors, produce at most 25 routed, scored, ranked, and eligible response candidates in each search mode;
-- record that the bound is the routing slice plus the forced unknown-road reason, and that `CandidateFinalEvaluationCap` remains unused until a future change needs a direct check;
-- leave `FINAL_EVALUATION_CAP_RUNTIME_ENFORCED=NO` until that test is on main and the marker is explicitly updated;
-- add no migration, no public field, and no second prune.
-
-This stage does not implement that test and does not mark NLO-0.5B4 implemented.
+`domain.ScorePool` has no production counter. The test counts persisted `RANKED` and `UNRANKED` rows, which are the only rows `scoreEligible` can produce, and checks that every unrouted tail row has a hard reject. `CandidateFinalEvaluationCap` remains unused by search. No migration and no public field were added.
