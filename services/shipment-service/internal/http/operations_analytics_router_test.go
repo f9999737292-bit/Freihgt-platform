@@ -25,6 +25,9 @@ func TestOperationsAnalyticsRouteFollowsDatabase(t *testing.T) {
 	if code := analyticsRouteStatus(wired); code == http.StatusNotFound {
 		t.Fatal("query database did not register the internal route")
 	}
+	if code := analyticsRouteStatusPath(wired, "/internal/v1/analytics/operations-foundation-v2"); code == http.StatusNotFound {
+		t.Fatal("query database did not register the extended internal route")
+	}
 	public := httptest.NewRecorder()
 	wired.ServeHTTP(public, httptest.NewRequest(http.MethodGet, "/v1/analytics/operations-foundation", nil))
 	if public.Code != http.StatusNotFound {
@@ -33,7 +36,11 @@ func TestOperationsAnalyticsRouteFollowsDatabase(t *testing.T) {
 }
 
 func analyticsRouteStatus(router http.Handler) int {
-	req := httptest.NewRequest(http.MethodGet, "/internal/v1/analytics/operations-foundation", nil)
+	return analyticsRouteStatusPath(router, "/internal/v1/analytics/operations-foundation")
+}
+
+func analyticsRouteStatusPath(router http.Handler, path string) int {
+	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req.Header.Set("X-Internal-Service-Token", "analytics-token")
 	req.Header.Set("X-Internal-Service-Name", "analytics-service")
 	req.Header.Set("X-Tenant-ID", uuid.NewString())

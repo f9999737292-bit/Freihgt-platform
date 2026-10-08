@@ -189,6 +189,10 @@ func NewRouter(
 			"/internal/v1/analytics/operations-foundation",
 			sourceHandler.Get,
 		)
+		r.With(internalAuth.Middleware, handlers.RequireAnalyticsCaller).Get(
+			handlers.OperationsFoundationV2Path,
+			sourceHandler.GetExtended,
+		)
 	}
 
 	r.Route("/internal/v1/driver", func(r chi.Router) {
