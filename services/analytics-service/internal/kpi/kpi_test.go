@@ -100,6 +100,110 @@ func TestUnknownKPI(t *testing.T) {
 	}
 }
 
+func TestAN03BOperationsAndCarrierKPIs(t *testing.T) {
+	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	snap := Snapshot{
+		ShipmentTotal:             10,
+		OnTimePickupDenominator:   5,
+		OnTimePickupNumerator:     3,
+		OnTimeDeliveryDenominator: 10,
+		OnTimeDeliveryNumerator:   8,
+		ReturnCaseCount:           2,
+		RedirectCaseCount:         1,
+		Carriers: []CarrierSnapshot{
+			{CarrierCompanyID: "33333333-3333-3333-3333-333333333333", OnTimePickupDenominator: 2, OnTimePickupNumerator: 1, OnTimeDeliveryDenominator: 4, OnTimeDeliveryNumerator: 2},
+			{CarrierCompanyID: "22222222-2222-2222-2222-222222222222", OnTimePickupDenominator: 0, OnTimePickupNumerator: 0, OnTimeDeliveryDenominator: 1, OnTimeDeliveryNumerator: 1},
+		},
+	}
+	t.Run("AN03B_01", func(t *testing.T) {
+		got, err := Build(OnTimePickup, snap, now)
+		if err != nil || got.Measure.Type != "COUNT" || got.Measure.Value == nil || got.Measure.Value.String() != "3" || got.Completeness != "PARTIAL" || got.DefinitionVersion != 1 {
+			t.Fatalf("%+v %v", got, err)
+		}
+	})
+	t.Run("AN03B_02", func(t *testing.T) {
+		got, err := Build(OnTimePickupRate, snap, now)
+		if err != nil || got.KPIID != OnTimePickupRate || got.Measure.Type != "RATIO" || got.Measure.Value == nil || got.Measure.Value.String() != "0.6" || *got.Measure.Numerator != 3 || *got.Measure.Denominator != 5 {
+			t.Fatalf("%+v %v", got, err)
+		}
+	})
+	t.Run("AN03B_03", func(t *testing.T) {
+		got, err := Build(OnTimePickupRate, Snapshot{}, now)
+		if err != nil || got.Measure.Value != nil || *got.Measure.Numerator != 0 || *got.Measure.Denominator != 0 {
+			t.Fatalf("%+v %v", got, err)
+		}
+	})
+	t.Run("AN03B_04", func(t *testing.T) {
+		got, err := Build(LatePickup, snap, now)
+		if err != nil || got.Measure.Value == nil || got.Measure.Value.String() != "2" {
+			t.Fatalf("%+v %v", got, err)
+		}
+	})
+	t.Run("AN03B_05", func(t *testing.T) {
+		got, err := Build(LateDelivery, snap, now)
+		if err != nil || got.Measure.Value == nil || got.Measure.Value.String() != "2" {
+			t.Fatalf("%+v %v", got, err)
+		}
+	})
+	t.Run("AN03B_06", func(t *testing.T) {
+		if _, err := Build(LatePickup, Snapshot{OnTimePickupDenominator: 1, OnTimePickupNumerator: 2}, now); err == nil {
+			t.Fatal("negative late pickup was accepted")
+		}
+		if _, err := Build(LateDelivery, Snapshot{OnTimeDeliveryDenominator: 1, OnTimeDeliveryNumerator: 2}, now); err == nil {
+			t.Fatal("negative late delivery was accepted")
+		}
+	})
+	t.Run("AN03B_07", func(t *testing.T) {
+		got, err := BuildCarrier(CarrierPickupRate, snap, now)
+		if err != nil || got.Dimension != "CARRIER" || len(got.Items) != 2 {
+			t.Fatalf("%+v %v", got, err)
+		}
+		if got.Items[1].CarrierCompanyID != "33333333-3333-3333-3333-333333333333" || got.Items[1].Measure.Value == nil || got.Items[1].Measure.Value.String() != "0.5" {
+			t.Fatalf("%+v", got.Items)
+		}
+	})
+	t.Run("AN03B_08", func(t *testing.T) {
+		got, err := BuildCarrier(CarrierDeliveryRate, snap, now)
+		if err != nil || got.Items[1].Measure.Value == nil || got.Items[1].Measure.Value.String() != "0.5" || *got.Items[1].Measure.Numerator != 2 || *got.Items[1].Measure.Denominator != 4 {
+			t.Fatalf("%+v %v", got, err)
+		}
+	})
+	t.Run("AN03B_09", func(t *testing.T) {
+		got, err := BuildCarrier(CarrierPickupRate, snap, now)
+		if err != nil || got.Items[0].Measure.Value != nil || *got.Items[0].Measure.Numerator != 0 || *got.Items[0].Measure.Denominator != 0 {
+			t.Fatalf("%+v %v", got, err)
+		}
+	})
+	t.Run("AN03B_10", func(t *testing.T) {
+		got, err := BuildCarrier(CarrierDeliveryRate, snap, now)
+		if err != nil || got.Items[0].CarrierCompanyID != "22222222-2222-2222-2222-222222222222" || got.Items[1].CarrierCompanyID != "33333333-3333-3333-3333-333333333333" {
+			t.Fatalf("%+v %v", got.Items, err)
+		}
+	})
+	t.Run("AN03B_11", func(t *testing.T) {
+		got, err := BuildCarrier(CarrierPickupRate, Snapshot{}, now)
+		if err != nil || got.Items == nil || len(got.Items) != 0 {
+			t.Fatalf("%+v %v", got, err)
+		}
+		raw, err := json.Marshal(got)
+		if err != nil || !strings.Contains(string(raw), `"items":[]`) || strings.Contains(string(raw), `"value":`) {
+			t.Fatalf("%s %v", raw, err)
+		}
+	})
+	t.Run("AN03B_19", func(t *testing.T) {
+		delivery, err := Build(OnTimeDeliveryRate, snap, now)
+		if err != nil || delivery.KPIID != OnTimeDeliveryRate || delivery.Measure.Value == nil || delivery.Measure.Value.String() != "0.8" {
+			t.Fatalf("%+v %v", delivery, err)
+		}
+		for _, id := range []string{ShipmentsTotal, OnTimeDelivery, ReturnCases, RedirectCases} {
+			got, err := Build(id, snap, now)
+			if err != nil || got.KPIID != id || got.DefinitionVersion != 1 {
+				t.Fatalf("%s %+v %v", id, got, err)
+			}
+		}
+	})
+}
+
 func assertFinite(t *testing.T, text string) {
 	t.Helper()
 	value, err := json.Number(text).Float64()

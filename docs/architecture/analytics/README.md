@@ -69,10 +69,12 @@ The public route is `GET /api/v1/analytics/kpis/{kpiId}` on api-gateway. The gat
 
 Discovery only. `ANALYTICS_0_3A_OPERATIONS_CARRIER_SCOPE.md` freezes which operations and carrier KPIs can enter a later implementation wave. It does not change the five Analytics-0.2B KPIs, their meaning, or `definitionVersion=1`. No product code, API, migration, or warehouse is part of 0.3A.
 
-## Analytics-0.3B source facts
+## Analytics-0.3B
 
-`ANALYTICS_0_3B_IMPLEMENTED=NO`
+`ANALYTICS_0_3B_IMPLEMENTED=YES`
 
-Shipment-service owns two internal reads. `GET /internal/v1/analytics/operations-foundation` still returns only the five Analytics-0.2 fields. The Analytics-0.2 client rejects unknown JSON fields, so pickup counts and carrier rows are not added there.
+`TOTAL_IMPLEMENTED_KPI_COUNT=11`
 
-`GET /internal/v1/analytics/operations-foundation-v2` returns those five fields plus `onTimePickupDenominator`, `onTimePickupNumerator`, and `carriers`. Carrier rows group the current non-null `carrier_company_id` with the same pickup and delivery timestamp predicates. Null carriers stay in the tenant totals and are omitted from `carriers`. Late counts are not source fields. Agent E still owns the KPI implementation.
+Analytics-service reads `GET /internal/v1/analytics/operations-foundation-v2`. The original five KPIs stay at `definitionVersion=1`. The six added KPIs are `OPS_ON_TIME_PICKUP`, `OPS_ON_TIME_PICKUP_RATE`, `OPS_LATE_PICKUP`, `OPS_LATE_DELIVERY`, `CAR_ON_TIME_PICKUP_RATE`, and `CAR_ON_TIME_DELIVERY_RATE`. Late counts are `denominator - numerator` inside analytics. Carrier rates are one ratio per `carrierCompanyId`, ordered by that id, with `dimension=CARRIER`. The service remains stateless. `DWH_IMPLEMENTED=NO`. `MIGRATION_CREATED=NO`. GAP-C-001, GAP-C-002, GAP-C-005, and GAP-E-001 stay open.
+
+Shipment-service still owns the source facts. `GET /internal/v1/analytics/operations-foundation` returns only the five Analytics-0.2 fields. The v2 read adds `onTimePickupDenominator`, `onTimePickupNumerator`, and `carriers`.

@@ -71,6 +71,17 @@ func (h *Handler) GetKPI(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, apperrors.Unavailable("operations analytics source is unavailable"))
 		return
 	}
+	if kpi.CarrierKPI(kpiID) {
+		body, err := kpi.BuildCarrier(kpiID, snap, h.now())
+		if err != nil {
+			result = "unavailable"
+			h.stats.SourceError("inconsistent")
+			respond.Error(w, apperrors.Unavailable("operations analytics source is unavailable"))
+			return
+		}
+		respond.JSON(w, http.StatusOK, body)
+		return
+	}
 	body, err := kpi.Build(kpiID, snap, h.now())
 	if err != nil {
 		result = "unavailable"
