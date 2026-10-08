@@ -12,19 +12,19 @@
 | Runtime images | Digest-pinned `@sha256:` preferred; OCI `org.opencontainers.image.revision` must match `DEPLOYED_GIT_SHA` |
 | VM checkout | Record `DEPLOY_TOOLING_SHA` (scripts checkout) separately from `RELEASE_SHA` (`DEPLOYED_GIT_SHA`) |
 
-**Application services (13):** identity, company, transport-order, rfx, shipment, document, billing-register, low-code, **payment**, **contract-rate**, **freight-cost**, control-tower-read-model, api-gateway.
+**Application services (14):** identity, company, transport-order, rfx, shipment, document, billing-register, low-code, **payment**, **contract-rate**, **freight-cost**, control-tower-read-model, **tracking**, api-gateway.
 
 Control Tower mode: **shadow** — **PRIMARY MUST REMAIN DISABLED**
 
 ### Operator release sequence
 
 1. Checkout exact release SHA on operator workstation/VM
-2. Build all 13 application images: `make bintrans-staging-release-build`  
+2. Build all 14 application images: `make bintrans-staging-release-build`
    (uses `docker-compose.yml` + `docker-compose.bintrans-ct-staging.yml`; passes `BINTRANS_GIT_SHA` + `BINTRANS_IMAGE_VERSION=git-<short SHA>`)
-3. Validate OCI revision on all 13: `bintrans_ct_staging_image_provenance_check.sh`
+3. Validate OCI revision on all 14: `bintrans_ct_staging_image_provenance_check.sh`
 4. Publish to `cr.selcloud.ru/bintrans-staging` (`bintrans_ct_staging_registry_publish.sh` prepare-only)
 5. Operator manually tags and pushes release images; capture registry digests
-6. Populate all 13 digest-pinned `BINTRANS_*_IMAGE` vars in protected env
+6. Populate all 14 digest-pinned `BINTRANS_*_IMAGE` vars in protected env
 5. `bintrans_ct_staging_backup.sh` → operator sets `BACKUP_VERIFIED=YES`
 6. `bintrans_ct_staging_migrate_gate.sh` (gate-only) → review target → `CONFIRM_MIGRATION_TARGET=true` only when approved
 7. `bintrans_ct_staging_runtime_preflight.sh` PASS
@@ -165,7 +165,7 @@ Read-only / minimally mutating sequence for operator after Phase R:
 
 | Category | Check | Tool / method |
 |----------|-------|---------------|
-| **A. Infrastructure** | Foundation + 10 runtime services; migrate forbidden; observability optional | `bintrans_ct_staging_runtime_health.sh` |
+| **A. Infrastructure** | Foundation + 14 runtime services; migrate forbidden; observability optional | `bintrans_ct_staging_runtime_health.sh` |
 | **B. Authentication** | identity-service + gateway up; JWT issuance requires valid credentials | Manual login once cohort exists; not required for container health |
 | **C. Service connectivity** | Gateway `/health`; internal routing | `curl` localhost gateway |
 | **D. Database** | postgres `pg_isready` | `bintrans_ct_staging_runtime_health.sh` |
@@ -176,11 +176,13 @@ Read-only / minimally mutating sequence for operator after Phase R:
 
 **Empty cohort rejected:** `cohort manifest is empty` / `cohort manifest has no approved tenants` (`cohort.go`).
 
-### Full-stack health gate contract (14 approved services)
+### Full-stack health gate contract (18 approved services)
 
 Approved running compose project services:
 
-`postgres`, `redpanda`, 10 runtime services, `prometheus`, `grafana`.
+`postgres`, `redpanda`, 14 runtime services, `prometheus`, `grafana`.
+
+Application service count is 14. Full-stack service count is 18: 2 foundation services, 14 application services, and 2 observability services.
 
 Forbidden: `migrate`. Any other service name → FAIL.
 
@@ -193,6 +195,18 @@ Forbidden: `migrate`. Any other service name → FAIL.
 | E — unknown project service | any | FAIL | FAIL |
 
 Health scripts validate explicit required subsets plus approved project-wide enumeration. Observability presence does **not** fail runtime health.
+
+### Network optimizer runtime drift
+
+NLO_RUNTIME_CONFIG_TRACKED=NO
+
+NLO_COMPOSE_DRIFT=YES
+
+The tracked canonical runtime pack has 14 application services and does not include `network-optimizer-service`. Live Selectel has a separately observed NLO runtime. NLO_TRACKING_URL_WIRED=NOT_PROVEN until that live runtime configuration is captured and reconciled.
+
+If `network-optimizer-service` is running under the same compose project, the tracked project-service health gate may classify it as an unknown service. Do not weaken the health gate to hide that drift.
+
+NLO_DRIFT_MUST_BE_RECONCILED_BEFORE_RELEASE_GATE=YES
 
 ### Operator-supplied live evidence (2026-08-11; not re-verified by repository tooling in this section)
 
@@ -448,7 +462,11 @@ Service → registry path (tag baseline):
 | document-service | `cr.selcloud.ru/bintrans-staging/document-service:git-b75eb3d` |
 | billing-register-service | `cr.selcloud.ru/bintrans-staging/billing-register-service:git-b75eb3d` |
 | low-code-service | `cr.selcloud.ru/bintrans-staging/low-code-service:git-b75eb3d` |
+| payment-service | `cr.selcloud.ru/bintrans-staging/payment-service:git-b75eb3d` |
+| contract-rate-service | `cr.selcloud.ru/bintrans-staging/contract-rate-service:git-b75eb3d` |
+| freight-cost-service | `cr.selcloud.ru/bintrans-staging/freight-cost-service:git-b75eb3d` |
 | control-tower-read-model-service | `cr.selcloud.ru/bintrans-staging/control-tower-read-model-service:git-b75eb3d` |
+| tracking-service | `cr.selcloud.ru/bintrans-staging/tracking-service:git-b75eb3d` |
 | api-gateway | `cr.selcloud.ru/bintrans-staging/api-gateway:git-b75eb3d` |
 
 `localization-service` is **not** in the runtime set.
@@ -478,7 +496,7 @@ Health after start:
 Prerequisites beyond foundation/migration:
 
 1. `JWT_SECRET` set in protected env (non-placeholder; externalized via `docker-compose.bintrans-ct-staging.yml`)
-2. Digest-pinned `BINTRANS_*_IMAGE` for all 10 runtime services
+2. Digest-pinned `BINTRANS_*_IMAGE` for all 14 runtime services
 3. `./scripts/ops/bintrans_ct_staging/bintrans_ct_staging_runtime_preflight.sh` PASS
 
 After migration version 19 + digest-pinned images:
@@ -495,10 +513,11 @@ docker compose \
   up -d \
   identity-service company-service transport-order-service rfx-service \
   shipment-service document-service billing-register-service low-code-service \
-  control-tower-read-model-service api-gateway
+  payment-service contract-rate-service freight-cost-service \
+  control-tower-read-model-service tracking-service api-gateway
 ```
 
-Restart order recommendation: identity → company → transport-order → rfx → shipment → document → billing → low-code → read-model → gateway.
+Restart order recommendation: identity → company → transport-order → rfx → shipment → document → billing-register → low-code → payment → contract-rate → freight-cost → control-tower-read-model → tracking → api-gateway.
 
 ### Shadow safety semantics (source proof)
 
@@ -554,7 +573,7 @@ See also (on `a1c246d`):
 |--------|---------|
 | `bintrans_ct_staging_preflight.sh` | Static validation (foundation + compose; no JWT required) |
 | `bintrans_ct_staging_runtime_preflight.sh` | Runtime deploy gate (JWT + digest images + shadow mode) |
-| `bintrans_ct_staging_runtime_up.sh` | Start 10 runtime services (`--no-build`, excludes migrate/observability) |
+| `bintrans_ct_staging_runtime_up.sh` | Start 14 runtime services (`--no-build`, excludes migrate/observability) |
 | `bintrans_ct_staging_runtime_up_selfcheck.sh` | Runtime wrapper static contract |
 | `bintrans_ct_staging_runtime_health.sh` | Post-start health (read-only) |
 | `bintrans_ct_staging_runtime_health_selfcheck.sh` | Runtime health service-set contract (offline) |
@@ -563,7 +582,7 @@ See also (on `a1c246d`):
 | `bintrans_ct_staging_migrate_version_parser_selfcheck.sh` | Parser regression (no DB) |
 | `bintrans_ct_staging_migration_parser_selfcheck.sh` | Alias for parser selfcheck |
 | `bintrans_ct_staging_runtime_preflight_selfcheck.sh` | Runtime preflight regression (no DB) |
-| `bintrans_ct_staging_runtime_images_validate.sh` | Canonical digest validator (10 services + repo name match) |
+| `bintrans_ct_staging_runtime_images_validate.sh` | Canonical digest validator (14 services + repo name match) |
 | `bintrans_ct_staging_runtime_images_validate_selfcheck.sh` | Digest validator regression |
 | `bintrans_ct_staging_registry_digest_validate.sh` | Alias for runtime_images_validate |
 | `bintrans_ct_staging_registry_publish.sh` | Registry publish prepare (no login/push) |

@@ -16,13 +16,13 @@ git checkout <DEPLOYED_GIT_SHA>
 make bintrans-staging-release-build
 ```
 
-This builds all 13 canonical staging application services using the staging compose stack and passes `BINTRANS_GIT_SHA` + `BINTRANS_IMAGE_VERSION` to every build.
+This builds all 14 canonical staging application services using the staging compose stack and passes `BINTRANS_GIT_SHA` + `BINTRANS_IMAGE_VERSION` to every build.
 
 ## Validation
 
 `bintrans_ct_staging_image_provenance_check.sh` verifies:
 
-- All 13 runtime images present locally (or digest refs from protected env)
+- All 14 runtime images present locally (or digest refs from protected env)
 - `org.opencontainers.image.revision` **exactly equals** `DEPLOYED_GIT_SHA`
 
 **Target:** `FUTURE_RELEASE_REVISION_EVIDENCE=EXACT` — no LIKELY classification for newly built releases.

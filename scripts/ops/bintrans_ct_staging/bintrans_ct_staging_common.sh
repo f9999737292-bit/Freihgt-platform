@@ -211,6 +211,7 @@ bintrans_runtime_service_names=(
   contract-rate-service
   freight-cost-service
   control-tower-read-model-service
+  tracking-service
   api-gateway
 )
 
@@ -227,6 +228,7 @@ bintrans_runtime_image_vars=(
   BINTRANS_CONTRACT_RATE_IMAGE
   BINTRANS_FREIGHT_COST_IMAGE
   BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE
+  BINTRANS_TRACKING_IMAGE
   BINTRANS_API_GATEWAY_IMAGE
 )
 
@@ -680,6 +682,25 @@ bintrans_require_runtime_env_contract() {
   [[ -n "${internal_token}" ]] || bintrans_fail "INTERNAL_SERVICE_TOKEN must be set in protected env for S2S services"
   if bintrans_jwt_secret_placeholder "${internal_token}"; then
     bintrans_fail "INTERNAL_SERVICE_TOKEN must not use an obvious placeholder value"
+  fi
+  bintrans_require_tracking_provider_secrets
+}
+
+bintrans_require_tracking_provider_secrets() {
+  local count val secret_part
+  count="$(grep -cE '^[[:space:]]*TRACKING_PROVIDER_SECRETS=' "${BINTRANS_STAGING_ENV}" || true)"
+  [[ "${count}" -eq 1 ]] || bintrans_fail "TRACKING_PROVIDER_SECRETS must appear exactly once in protected env"
+  val="$(bintrans_env_value TRACKING_PROVIDER_SECRETS)"
+  [[ -n "${val}" ]] || bintrans_fail "TRACKING_PROVIDER_SECRETS must be non-empty in protected env"
+  secret_part="${val}"
+  if [[ "${val}" == *:* ]]; then
+    secret_part="${val#*:}"
+  fi
+  if [[ "${val}" == "dev_generic_tracking_secret" || "${secret_part}" == "dev_generic_tracking_secret" ]]; then
+    bintrans_fail "TRACKING_PROVIDER_SECRETS must not use the development generic provider secret"
+  fi
+  if bintrans_jwt_secret_placeholder "${val}" || bintrans_jwt_secret_placeholder "${secret_part}"; then
+    bintrans_fail "TRACKING_PROVIDER_SECRETS must not use an obvious placeholder value"
   fi
 }
 
