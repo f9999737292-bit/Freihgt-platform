@@ -37,8 +37,8 @@ assert_pass() {
 [[ -x "${RELEASE_BUILD}" ]] || chmod +x "${RELEASE_BUILD}"
 
 mapfile -t CANONICAL < <(bintrans_release_build_services)
-[[ "${#CANONICAL[@]}" -eq 13 ]] || fail "A: canonical runtime services must be 13"
-echo "OK: A_CANONICAL_RUNTIME_SERVICES=13"
+[[ "${#CANONICAL[@]}" -eq 14 ]] || fail "A: canonical runtime services must be 14"
+echo "OK: A_CANONICAL_RUNTIME_SERVICES=14"
 
 dry_out="$(BINTRANS_RELEASE_GIT_SHA="${FIXTURE_SHA}" BINTRANS_IMAGE_VERSION="${FIXTURE_TAG}" \
   "${RELEASE_BUILD}" --dry-run 2>&1)" || fail "release build dry-run failed"
@@ -49,8 +49,8 @@ mapfile -t BUILD_SERVICES < <(
     | sed 's/.*--progress=plain //' \
     | awk '{print $1}'
 )
-[[ "${#BUILD_SERVICES[@]}" -eq 13 ]] || fail "B: release build must render 13 services (found ${#BUILD_SERVICES[@]})"
-echo "OK: B_RELEASE_BUILD_SERVICES=13"
+[[ "${#BUILD_SERVICES[@]}" -eq 14 ]] || fail "B: release build must render 14 services (found ${#BUILD_SERVICES[@]})"
+echo "OK: B_RELEASE_BUILD_SERVICES=14"
 
 canonical_sorted="$(printf '%s\n' "${CANONICAL[@]}" | sort)"
 build_sorted="$(printf '%s\n' "${BUILD_SERVICES[@]}" | sort)"
@@ -85,13 +85,13 @@ grep -q 'bintrans_ct_staging_release_build.sh' "${MAKEFILE}" \
 echo "OK: Makefile canonical release-build target present"
 
 # D. remove one service => FAIL (simulate by checking count enforcement in script)
-if ! grep -q 'RELEASE_BUILD_SERVICE_COUNT=13' "${RELEASE_BUILD}" \
-  && ! grep -q 'must be 13' "${RELEASE_BUILD}"; then
-  fail "D: release build must enforce 13-service count"
+if ! grep -q 'RELEASE_BUILD_SERVICE_COUNT=14' "${RELEASE_BUILD}" \
+  && ! grep -q 'must be 14' "${RELEASE_BUILD}"; then
+  fail "D: release build must enforce 14-service count"
 fi
 echo "OK: D_service_count_guard_present"
 
-# E/F. OCI source and label coverage on 13 Dockerfiles
+# E/F. OCI source and label coverage on 14 Dockerfiles
 dockerfiles=(
   services/api-gateway/Dockerfile
   services/identity-service/Dockerfile
@@ -106,8 +106,9 @@ dockerfiles=(
   services/contract-rate-service/Dockerfile
   services/freight-cost-service/Dockerfile
   services/control-tower-read-model-service/Dockerfile
+  services/tracking-service/Dockerfile
 )
-[[ "${#dockerfiles[@]}" -eq 13 ]] || fail "OCI dockerfile list must contain 13 entries"
+[[ "${#dockerfiles[@]}" -eq 14 ]] || fail "OCI dockerfile list must contain 14 entries"
 
 revision_count=0
 version_count=0
@@ -125,10 +126,10 @@ for df in "${dockerfiles[@]}"; do
   version_count=$((version_count + 1))
   source_count=$((source_count + 1))
 done
-echo "OCI_DOCKERFILES_TOTAL=13"
-echo "OCI_REVISION_LABEL_COVERAGE=${revision_count}/13"
-echo "OCI_VERSION_LABEL_COVERAGE=${version_count}/13"
-echo "OCI_SOURCE_LABEL_COVERAGE=${source_count}/13"
+echo "OCI_DOCKERFILES_TOTAL=14"
+echo "OCI_REVISION_LABEL_COVERAGE=${revision_count}/14"
+echo "OCI_VERSION_LABEL_COVERAGE=${version_count}/14"
+echo "OCI_SOURCE_LABEL_COVERAGE=${source_count}/14"
 echo "OCI_SOURCE_CORRECT=YES"
 
 grep -q 'github.com/freight-platform/freight-platform' "${OCI_LABELS}" \

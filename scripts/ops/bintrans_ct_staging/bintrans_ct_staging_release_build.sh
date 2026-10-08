@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BINTRANS staging — canonical 13-service release image build (build-only; no push/start).
+# BINTRANS staging — canonical 14-service release image build (build-only; no push/start).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -28,8 +28,8 @@ RELEASE_IMAGE_VERSION="${BINTRANS_IMAGE_VERSION:-$(bintrans_expected_image_tag_f
 bintrans_validate_release_build_args "${RELEASE_SHA}" "${RELEASE_IMAGE_VERSION}"
 
 mapfile -t RELEASE_SERVICES < <(bintrans_release_build_services)
-[[ "${#RELEASE_SERVICES[@]}" -eq 13 ]] \
-  || bintrans_fail "internal: release build service count must be 13 (found ${#RELEASE_SERVICES[@]})"
+[[ "${#RELEASE_SERVICES[@]}" -eq 14 ]] \
+  || bintrans_fail "internal: release build service count must be 14 (found ${#RELEASE_SERVICES[@]})"
 
 echo "=== BINTRANS staging release build ==="
 echo "RELEASE_SHA=${RELEASE_SHA}"

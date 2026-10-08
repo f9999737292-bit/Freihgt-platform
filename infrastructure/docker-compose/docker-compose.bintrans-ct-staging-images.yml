@@ -55,6 +55,10 @@ services:
     image: ${BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE:-${BINTRANS_REGISTRY}/control-tower-read-model-service:${BINTRANS_IMAGE_TAG}}
     pull_policy: always
 
+  tracking-service:
+    image: ${BINTRANS_TRACKING_IMAGE:-${BINTRANS_REGISTRY}/tracking-service:${BINTRANS_IMAGE_TAG}}
+    pull_policy: always
+
   api-gateway:
     image: ${BINTRANS_API_GATEWAY_IMAGE:-${BINTRANS_REGISTRY}/api-gateway:${BINTRANS_IMAGE_TAG}}
     pull_policy: always

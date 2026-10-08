@@ -27,6 +27,7 @@ POSTGRES_PASSWORD=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd
 BINTRANS_REGISTRY=cr.selcloud.ru/bintrans-staging
 BINTRANS_IMAGE_TAG=${FIXTURE_TAG}
 INTERNAL_SERVICE_TOKEN=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+TRACKING_PROVIDER_SECRETS=generic:0123456789abcdef0123456789abcdef0123456789abcdef
 API_GATEWAY_HOST_PORT=18080
 CONTROL_TOWER_READ_MODEL_HOST_PORT=8089
 PROMETHEUS_PORT=9090
@@ -63,6 +64,7 @@ BINTRANS_PAYMENT_IMAGE=cr.selcloud.ru/bintrans-staging/payment-service@sha256:${
 BINTRANS_CONTRACT_RATE_IMAGE=cr.selcloud.ru/bintrans-staging/contract-rate-service@sha256:${d}
 BINTRANS_FREIGHT_COST_IMAGE=cr.selcloud.ru/bintrans-staging/freight-cost-service@sha256:${d}
 BINTRANS_CONTROL_TOWER_READ_MODEL_IMAGE=cr.selcloud.ru/bintrans-staging/control-tower-read-model-service@sha256:${d}
+BINTRANS_TRACKING_IMAGE=cr.selcloud.ru/bintrans-staging/tracking-service@sha256:${d}
 BINTRANS_API_GATEWAY_IMAGE=cr.selcloud.ru/bintrans-staging/api-gateway@sha256:${d}
 EOF
 }

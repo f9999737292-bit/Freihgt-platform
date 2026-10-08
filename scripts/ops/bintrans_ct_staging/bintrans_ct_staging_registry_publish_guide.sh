@@ -21,12 +21,12 @@ Canonical release build command:
 Registry: ${REGISTRY}
 Mutable publish tag: ${TAG} (must match DEPLOYED_GIT_SHA)
 
-For EACH of the 13 canonical runtime services:
+For EACH of the 14 canonical runtime services:
 
 $(printf '  %s\n' "${bintrans_runtime_service_names[@]}")
 
 1. Checkout exact release SHA
-2. Build all 13 via: make bintrans-staging-release-build
+2. Build all 14 via: make bintrans-staging-release-build
 3. Validate OCI revision labels match DEPLOYED_GIT_SHA
 4. Tag for registry:
      docker tag <local-image> ${REGISTRY}/<service>:${TAG}

@@ -66,7 +66,7 @@ if grep -q 'unexpected service running: prometheus' "${target}" \
   fail "runtime health must not treat prometheus/grafana as forbidden when present"
 fi
 
-[[ "${#bintrans_full_stack_service_names[@]}" -eq 17 ]] \
-  || fail "full stack must contain 17 approved services"
+[[ "${#bintrans_full_stack_service_names[@]}" -eq 18 ]] \
+  || fail "full stack must contain 18 approved services"
 
 echo "bintrans-ct-staging-runtime-health-selfcheck: PASS"
