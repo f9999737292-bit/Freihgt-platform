@@ -132,7 +132,7 @@ FINAL_CAP_INVARIANT_TEST_REQUIRED=YES
 
 The invariant is: a discovered load outside the routed slice always has a hard reason before `scoreEligible`, so `ScorePool` input, ranked rows, and eligible response rows cannot exceed 25 on `RADIUS`, `DIRECTIONAL_CORRIDOR`, or `ROUTE_ELLIPSE`.
 
-The constant `CandidateFinalEvaluationCap` is still unused by search. A later edit that stopped appending `ROAD_DISTANCE_UNKNOWN` for a nil deadhead would let unscored routing survivors into `ScorePool`. The next implementation wave should lock the current bound with a test. It should not add a second prune.
+The constant `CandidateFinalEvaluationCap` is still unused by search. A later edit that stopped appending `ROAD_DISTANCE_UNKNOWN` for a nil deadhead would let unscored routing survivors into `ScorePool`. The invariant test in NLO-0.5B4 locks the current bound. No second runtime prune is required.
 
 ```text
 FINAL_CAP_APPLIED_BEFORE=not introduced
