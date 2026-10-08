@@ -12,7 +12,21 @@ import (
 	"github.com/freight-platform/shipment-service/internal/platform/respond"
 )
 
-const AuthorizedAnalyticsCaller = "analytics-service"
+const (
+	AuthorizedAnalyticsCaller = "analytics-service"
+	// OperationsFoundationV2Path is the extended source read. The original route stays
+	// key-compatible because the Analytics-0.2 client rejects unknown JSON fields.
+	OperationsFoundationV2Path = "/internal/v1/analytics/operations-foundation-v2"
+)
+
+type operationsFoundationV1Response struct {
+	TenantID                  uuid.UUID `json:"tenantId"`
+	ShipmentTotal             int64     `json:"shipmentTotal"`
+	OnTimeDeliveryDenominator int64     `json:"onTimeDeliveryDenominator"`
+	OnTimeDeliveryNumerator   int64     `json:"onTimeDeliveryNumerator"`
+	ReturnCaseCount           int64     `json:"returnCaseCount"`
+	RedirectCaseCount         int64     `json:"redirectCaseCount"`
+}
 
 // RequireAnalyticsCaller rejects any internal caller other than analytics-service.
 // The shared internal token middleware must already have accepted the request.
@@ -39,19 +53,40 @@ func NewOperationsAnalyticsSourceHandler(reader OperationsAnalyticsSourceReader)
 }
 
 func (h *OperationsAnalyticsSourceHandler) Get(w http.ResponseWriter, r *http.Request) {
-	if h == nil || h.reader == nil {
-		respond.Error(w, apperrors.Internal("analytics source is not configured", nil))
+	snap, err := h.read(r)
+	if err != nil {
+		respond.Error(w, err)
 		return
+	}
+	respond.JSON(w, http.StatusOK, operationsFoundationV1Response{
+		TenantID:                  snap.TenantID,
+		ShipmentTotal:             snap.ShipmentTotal,
+		OnTimeDeliveryDenominator: snap.OnTimeDeliveryDenominator,
+		OnTimeDeliveryNumerator:   snap.OnTimeDeliveryNumerator,
+		ReturnCaseCount:           snap.ReturnCaseCount,
+		RedirectCaseCount:         snap.RedirectCaseCount,
+	})
+}
+
+func (h *OperationsAnalyticsSourceHandler) GetExtended(w http.ResponseWriter, r *http.Request) {
+	snap, err := h.read(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if snap.Carriers == nil {
+		snap.Carriers = []domain.OperationsAnalyticsCarrierSource{}
+	}
+	respond.JSON(w, http.StatusOK, snap)
+}
+
+func (h *OperationsAnalyticsSourceHandler) read(r *http.Request) (domain.OperationsAnalyticsSourceSnapshot, error) {
+	if h == nil || h.reader == nil {
+		return domain.OperationsAnalyticsSourceSnapshot{}, apperrors.Internal("analytics source is not configured", nil)
 	}
 	tenantID, err := resolveVerifiedTenant(r)
 	if err != nil {
-		respond.Error(w, err)
-		return
+		return domain.OperationsAnalyticsSourceSnapshot{}, err
 	}
-	snap, err := h.reader.OperationsFoundation(r.Context(), tenantID)
-	if err != nil {
-		respond.Error(w, err)
-		return
-	}
-	respond.JSON(w, http.StatusOK, snap)
+	return h.reader.OperationsFoundation(r.Context(), tenantID)
 }

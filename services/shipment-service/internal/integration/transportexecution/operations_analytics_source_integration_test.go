@@ -59,23 +59,25 @@ func TestOperationsAnalyticsSourceContract(t *testing.T) {
 	wantA := domain.OperationsAnalyticsSourceSnapshot{
 		TenantID: tenantA, ShipmentTotal: 6, OnTimeDeliveryDenominator: 3, OnTimeDeliveryNumerator: 2, ReturnCaseCount: 2, RedirectCaseCount: 1,
 	}
-	if before != wantA {
-		t.Fatalf("tenant A %+v", before)
-	}
-	if again := readAnalyticsSource(t, router, tenantA); again != wantA {
-		t.Fatalf("tenant A changed %+v", again)
-	}
+	assertAnalyticsV1(t, before, wantA)
+	assertAnalyticsV1(t, readAnalyticsSource(t, router, tenantA), wantA)
 	wantB := domain.OperationsAnalyticsSourceSnapshot{
 		TenantID: tenantB, ShipmentTotal: 2, OnTimeDeliveryDenominator: 1, OnTimeDeliveryNumerator: 1, ReturnCaseCount: 1, RedirectCaseCount: 1,
 	}
-	if got := readAnalyticsSource(t, router, tenantB); got != wantB {
-		t.Fatalf("tenant B %+v", got)
-	}
+	assertAnalyticsV1(t, readAnalyticsSource(t, router, tenantB), wantB)
 	emptyID := uuid.New()
-	if got := readAnalyticsSource(t, router, emptyID); got != (domain.OperationsAnalyticsSourceSnapshot{TenantID: emptyID}) {
-		t.Fatalf("empty %+v", got)
-	}
+	assertAnalyticsV1(t, readAnalyticsSource(t, router, emptyID), domain.OperationsAnalyticsSourceSnapshot{TenantID: emptyID})
 	assertAnalyticsIndexPlan(t, env, tenantA)
+}
+
+func assertAnalyticsV1(t *testing.T, got, want domain.OperationsAnalyticsSourceSnapshot) {
+	t.Helper()
+	if got.TenantID != want.TenantID || got.ShipmentTotal != want.ShipmentTotal || got.OnTimeDeliveryDenominator != want.OnTimeDeliveryDenominator || got.OnTimeDeliveryNumerator != want.OnTimeDeliveryNumerator || got.ReturnCaseCount != want.ReturnCaseCount || got.RedirectCaseCount != want.RedirectCaseCount {
+		t.Fatalf("%+v", got)
+	}
+	if got.OnTimePickupDenominator != 0 || got.OnTimePickupNumerator != 0 || got.Carriers != nil {
+		t.Fatalf("v1 leaked extended fields %+v", got)
+	}
 }
 
 func readAnalyticsSource(t *testing.T, router http.Handler, tenantID uuid.UUID) domain.OperationsAnalyticsSourceSnapshot {
@@ -228,6 +230,134 @@ func insertAnalyticsCase(t *testing.T, env *execEnv, tenantID uuid.UUID, exec an
 			'DRIVER',$11,$11,1
 		)
 	`, uuid.New(), tenantID, exec.execution, exec.revision, exec.stop, exec.action, exec.shipment.shipmentID, exec.shipment.tenantID, exec.shipment.cargoID, kind, now); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOperationsAnalyticsSourcePickupAndCarriers(t *testing.T) {
+	env := startPostgres(t)
+	if err := execSQLFile(env.ctx, env.pool, filepath.Join(env.migrations, "000093_tms_delivery_disposition_v0_1.up.sql")); err != nil {
+		t.Fatal(err)
+	}
+	equalAt := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	earlyAt := equalAt.Add(-2 * time.Hour)
+	lateAt := equalAt.Add(3 * time.Hour)
+
+	tenantA := seedTenant(t, env, "pickup-a")
+	graphA := seedAnalyticsGraph(t, env, tenantA)
+	carrierB := seedCompany(t, env, tenantA, "CARRIER", "Analytics carrier B")
+	insertAnalyticsOperationalShipment(t, env, tenantA, graphA, &graphA.carrier, &equalAt, &equalAt, &equalAt, &equalAt, false)
+	insertAnalyticsOperationalShipment(t, env, tenantA, graphA, &graphA.carrier, &equalAt, &earlyAt, &equalAt, &lateAt, false)
+	insertAnalyticsOperationalShipment(t, env, tenantA, graphA, &carrierB, &equalAt, &lateAt, &equalAt, nil, false)
+	insertAnalyticsOperationalShipment(t, env, tenantA, graphA, &carrierB, nil, &equalAt, &equalAt, &equalAt, false)
+	insertAnalyticsOperationalShipment(t, env, tenantA, graphA, &graphA.carrier, &equalAt, nil, nil, nil, false)
+	insertAnalyticsOperationalShipment(t, env, tenantA, graphA, &graphA.carrier, &equalAt, &equalAt, &equalAt, &equalAt, true)
+	insertAnalyticsOperationalShipment(t, env, tenantA, graphA, nil, &equalAt, &equalAt, &equalAt, &equalAt, false)
+
+	tenantB := seedTenant(t, env, "pickup-b")
+	graphB := seedAnalyticsGraph(t, env, tenantB)
+	insertAnalyticsOperationalShipment(t, env, tenantB, graphB, &graphB.carrier, &equalAt, &equalAt, &equalAt, &equalAt, false)
+
+	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "analytics-token", nil)
+	got := readAnalyticsSourceV2(t, router, tenantA, tenantB)
+	if got.TenantID != tenantA || got.ShipmentTotal != 6 || got.OnTimePickupDenominator != 4 || got.OnTimePickupNumerator != 3 || got.OnTimeDeliveryDenominator != 4 || got.OnTimeDeliveryNumerator != 3 || got.ReturnCaseCount != 0 || got.RedirectCaseCount != 0 {
+		t.Fatalf("SRC03B tenant %+v", got)
+	}
+	if len(got.Carriers) != 2 {
+		t.Fatalf("SRC03B_09 %+v", got.Carriers)
+	}
+	byCarrier := map[uuid.UUID]domain.OperationsAnalyticsCarrierSource{}
+	for _, row := range got.Carriers {
+		if _, ok := byCarrier[row.CarrierCompanyID]; ok {
+			t.Fatalf("duplicate %s", row.CarrierCompanyID)
+		}
+		byCarrier[row.CarrierCompanyID] = row
+	}
+	if _, ok := byCarrier[uuid.Nil]; ok {
+		t.Fatal("SRC03B_08 nil carrier row")
+	}
+	if _, ok := byCarrier[graphB.carrier]; ok {
+		t.Fatal("SRC03B_12 foreign carrier")
+	}
+	rowA := byCarrier[graphA.carrier]
+	rowB := byCarrier[carrierB]
+	if rowA.OnTimePickupDenominator != 2 || rowA.OnTimePickupNumerator != 2 || rowA.OnTimeDeliveryDenominator != 2 || rowA.OnTimeDeliveryNumerator != 1 {
+		t.Fatalf("SRC03B carrier A %+v", rowA)
+	}
+	if rowB.OnTimePickupDenominator != 1 || rowB.OnTimePickupNumerator != 0 || rowB.OnTimeDeliveryDenominator != 1 || rowB.OnTimeDeliveryNumerator != 1 {
+		t.Fatalf("SRC03B carrier B %+v", rowB)
+	}
+	if rowA.OnTimePickupDenominator+rowB.OnTimePickupDenominator+1 != got.OnTimePickupDenominator || rowA.OnTimePickupNumerator+rowB.OnTimePickupNumerator+1 != got.OnTimePickupNumerator {
+		t.Fatal("SRC03B_10")
+	}
+	if rowA.OnTimeDeliveryDenominator+rowB.OnTimeDeliveryDenominator+1 != got.OnTimeDeliveryDenominator || rowA.OnTimeDeliveryNumerator+rowB.OnTimeDeliveryNumerator+1 != got.OnTimeDeliveryNumerator {
+		t.Fatal("SRC03B_11")
+	}
+	foreign := readAnalyticsSourceV2(t, router, tenantB, tenantA)
+	if foreign.TenantID != tenantB || foreign.ShipmentTotal != 1 || len(foreign.Carriers) != 1 || foreign.Carriers[0].CarrierCompanyID != graphB.carrier {
+		t.Fatalf("SRC03B_12 %+v", foreign)
+	}
+	emptyID := uuid.New()
+	empty := readAnalyticsSourceV2(t, router, emptyID, tenantA)
+	if empty.TenantID != emptyID || empty.ShipmentTotal != 0 || empty.OnTimePickupDenominator != 0 || empty.OnTimePickupNumerator != 0 || empty.OnTimeDeliveryDenominator != 0 || empty.OnTimeDeliveryNumerator != 0 || len(empty.Carriers) != 0 {
+		t.Fatalf("SRC03B_15 %+v", empty)
+	}
+	legacy := readAnalyticsSource(t, router, tenantA)
+	if legacy.ShipmentTotal != 6 || legacy.OnTimeDeliveryDenominator != 4 || legacy.OnTimeDeliveryNumerator != 3 || legacy.OnTimePickupDenominator != 0 || legacy.OnTimePickupNumerator != 0 || legacy.Carriers != nil {
+		t.Fatalf("SRC03B_14 %+v", legacy)
+	}
+}
+
+func readAnalyticsSourceV2(t *testing.T, router http.Handler, tenantID, spoofed uuid.UUID) domain.OperationsAnalyticsSourceSnapshot {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/internal/v1/analytics/operations-foundation-v2?tenant_id="+spoofed.String(), nil)
+	req.Header.Set("X-Internal-Service-Token", "analytics-token")
+	req.Header.Set("X-Internal-Service-Name", "analytics-service")
+	req.Header.Set("X-Tenant-ID", tenantID.String())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+	}
+	for _, forbidden := range []string{"latePickupCount", "lateDeliveryCount", "sourceObservedAt", "OPS_"} {
+		if strings.Contains(rec.Body.String(), forbidden) {
+			t.Fatalf("body %s", rec.Body.String())
+		}
+	}
+	var snap domain.OperationsAnalyticsSourceSnapshot
+	if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
+		t.Fatal(err)
+	}
+	if snap.TenantID != tenantID {
+		t.Fatalf("spoofed tenant applied: %s", snap.TenantID)
+	}
+	return snap
+}
+
+func insertAnalyticsOperationalShipment(t *testing.T, env *execEnv, tenantID uuid.UUID, graph analyticsGraph, carrier *uuid.UUID, plannedPickup, actualPickup, plannedDelivery, actualDelivery *time.Time, deleted bool) {
+	t.Helper()
+	orderID := uuid.New()
+	if _, err := env.pool.Exec(env.ctx, `
+		INSERT INTO transport.transport_orders (
+			id, tenant_id, order_number, status, shipper_company_id, consignee_company_id,
+			origin_location_id, destination_location_id, transport_mode
+		) VALUES ($1,$2,$3,'ASSIGNED',$4,$5,$6,$7,'ROAD')
+	`, orderID, tenantID, "TO-"+orderID.String()[:8], graph.shipper, graph.consignee, graph.origin, graph.dest); err != nil {
+		t.Fatal(err)
+	}
+	shipmentID := uuid.New()
+	var deletedAt *time.Time
+	if deleted {
+		at := time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC)
+		deletedAt = &at
+	}
+	if _, err := env.pool.Exec(env.ctx, `
+		INSERT INTO transport.shipments (
+			id, tenant_id, shipment_number, transport_order_id, shipper_company_id, consignee_company_id,
+			carrier_company_id, origin_location_id, destination_location_id, cargo_id, transport_mode, status,
+			planned_pickup_at, actual_pickup_at, planned_delivery_at, actual_delivery_at, deleted_at, version
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ROAD','DELIVERED',$11,$12,$13,$14,$15,1)
+	`, shipmentID, tenantID, "SHP-"+shipmentID.String()[:8], orderID, graph.shipper, graph.consignee, carrier, graph.origin, graph.dest, graph.cargo, plannedPickup, actualPickup, plannedDelivery, actualDelivery, deletedAt); err != nil {
 		t.Fatal(err)
 	}
 }
