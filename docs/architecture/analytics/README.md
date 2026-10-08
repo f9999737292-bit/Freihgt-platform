@@ -68,3 +68,11 @@ The public route is `GET /api/v1/analytics/kpis/{kpiId}` on api-gateway. The gat
 ## Analytics-0.3A
 
 Discovery only. `ANALYTICS_0_3A_OPERATIONS_CARRIER_SCOPE.md` freezes which operations and carrier KPIs can enter a later implementation wave. It does not change the five Analytics-0.2B KPIs, their meaning, or `definitionVersion=1`. No product code, API, migration, or warehouse is part of 0.3A.
+
+## Analytics-0.3B source facts
+
+`ANALYTICS_0_3B_IMPLEMENTED=NO`
+
+Shipment-service owns two internal reads. `GET /internal/v1/analytics/operations-foundation` still returns only the five Analytics-0.2 fields. The Analytics-0.2 client rejects unknown JSON fields, so pickup counts and carrier rows are not added there.
+
+`GET /internal/v1/analytics/operations-foundation-v2` returns those five fields plus `onTimePickupDenominator`, `onTimePickupNumerator`, and `carriers`. Carrier rows group the current non-null `carrier_company_id` with the same pickup and delivery timestamp predicates. Null carriers stay in the tenant totals and are omitted from `carriers`. Late counts are not source fields. Agent E still owns the KPI implementation.

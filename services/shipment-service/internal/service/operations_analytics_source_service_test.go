@@ -53,6 +53,59 @@ func TestOperationsAnalyticsSourceServiceRejectsInconsistentSnapshot(t *testing.
 	}
 }
 
+func TestOperationsAnalyticsSourceServiceRejectsPickupNumeratorAboveDenominator(t *testing.T) {
+	stub := &analyticsSourceStub{snap: domain.OperationsAnalyticsSourceSnapshot{
+		ShipmentTotal: 2, OnTimePickupDenominator: 1, OnTimePickupNumerator: 2,
+	}}
+	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New())
+	app, ok := err.(*apperrors.AppError)
+	if !ok || app.Code != apperrors.CodeInternal {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestOperationsAnalyticsSourceServiceRejectsCarrierNumeratorAboveDenominator(t *testing.T) {
+	stub := &analyticsSourceStub{snap: domain.OperationsAnalyticsSourceSnapshot{
+		ShipmentTotal: 1,
+		Carriers: []domain.OperationsAnalyticsCarrierSource{{
+			CarrierCompanyID: uuid.New(), OnTimeDeliveryDenominator: 1, OnTimeDeliveryNumerator: 2,
+		}},
+	}}
+	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New())
+	app, ok := err.(*apperrors.AppError)
+	if !ok || app.Code != apperrors.CodeInternal {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestOperationsAnalyticsSourceServiceRejectsNilCarrier(t *testing.T) {
+	stub := &analyticsSourceStub{snap: domain.OperationsAnalyticsSourceSnapshot{
+		ShipmentTotal: 1,
+		Carriers:      []domain.OperationsAnalyticsCarrierSource{{CarrierCompanyID: uuid.Nil}},
+	}}
+	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New())
+	app, ok := err.(*apperrors.AppError)
+	if !ok || app.Code != apperrors.CodeInternal {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestOperationsAnalyticsSourceServiceRejectsDuplicateCarrier(t *testing.T) {
+	carrier := uuid.New()
+	stub := &analyticsSourceStub{snap: domain.OperationsAnalyticsSourceSnapshot{
+		ShipmentTotal: 2,
+		Carriers: []domain.OperationsAnalyticsCarrierSource{
+			{CarrierCompanyID: carrier},
+			{CarrierCompanyID: carrier},
+		},
+	}}
+	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New())
+	app, ok := err.(*apperrors.AppError)
+	if !ok || app.Code != apperrors.CodeInternal {
+		t.Fatalf("%v", err)
+	}
+}
+
 func TestOperationsAnalyticsSourceServiceRequiresTenant(t *testing.T) {
 	_, err := NewOperationsAnalyticsSourceService(&analyticsSourceStub{}).OperationsFoundation(context.Background(), uuid.Nil)
 	app, ok := err.(*apperrors.AppError)
