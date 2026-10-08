@@ -70,6 +70,7 @@ Not a second freight exchange, not a second RFx engine, not a second freight-cos
 | [NLO_0_5_IMPLEMENTATION_ROADMAP.md](NLO_0_5_IMPLEMENTATION_ROADMAP.md) | NLO-0.5 waves after this freeze |
 | [NLO_0_5A_TEST_STRATEGY.md](NLO_0_5A_TEST_STRATEGY.md) | NLO05-01 through NLO05-25 |
 | [NLO_0_5B_IMPLEMENTATION_ROADMAP.md](NLO_0_5B_IMPLEMENTATION_ROADMAP.md) | Discovery cap, routing budget, and one-load feasibility |
+| [NLO_0_5B4_FINAL_EVALUATION_DISCOVERY.md](NLO_0_5B4_FINAL_EVALUATION_DISCOVERY.md) | Discovery: scoring is already bounded by the routing slice; persistence audit stays at the discovery cap |
 | [NLO_0_5B_TEST_STRATEGY.md](NLO_0_5B_TEST_STRATEGY.md) | B2 routing-budget gates and B3 one-load feasibility |
 | [NLO_0_5B0_BENCHMARK.md](NLO_0_5B0_BENCHMARK.md) | Local prefilter sample and uncapped call accounting |
 | [NLO_0_4D_ARCHITECTURE_FREEZE.md](NLO_0_4D_ARCHITECTURE_FREEZE.md) | NLO-0.4D-R1 docs-only freeze for service duration and TMS acknowledgement |
