@@ -105,20 +105,26 @@ func TestOmittedSourceFieldReturnsNoKPI(t *testing.T) {
 	fields := []string{
 		"tenantId",
 		"shipmentTotal",
+		"onTimePickupDenominator",
+		"onTimePickupNumerator",
 		"onTimeDeliveryDenominator",
 		"onTimeDeliveryNumerator",
 		"returnCaseCount",
 		"redirectCaseCount",
+		"carriers",
 	}
 	for _, field := range fields {
 		t.Run(field, func(t *testing.T) {
 			payload := map[string]any{
 				"tenantId":                  testTenant,
 				"shipmentTotal":             0,
+				"onTimePickupDenominator":   0,
+				"onTimePickupNumerator":     0,
 				"onTimeDeliveryDenominator": 0,
 				"onTimeDeliveryNumerator":   0,
 				"returnCaseCount":           0,
 				"redirectCaseCount":         0,
+				"carriers":                  []any{},
 			}
 			delete(payload, field)
 			raw, err := json.Marshal(payload)
@@ -154,8 +160,8 @@ func TestHandlerMapsLiveSourceFailures(t *testing.T) {
 	}{
 		{name: "source 500", status: http.StatusInternalServerError, body: `{"error":"boom"}`},
 		{name: "malformed", status: http.StatusOK, body: `{`},
-		{name: "wrong tenant", status: http.StatusOK, body: `{"tenantId":"22222222-2222-2222-2222-222222222222","shipmentTotal":1,"onTimeDeliveryDenominator":0,"onTimeDeliveryNumerator":0,"returnCaseCount":0,"redirectCaseCount":0}`},
-		{name: "inconsistent", status: http.StatusOK, body: `{"tenantId":"` + testTenant + `","shipmentTotal":1,"onTimeDeliveryDenominator":2,"onTimeDeliveryNumerator":1,"returnCaseCount":0,"redirectCaseCount":0}`},
+		{name: "wrong tenant", status: http.StatusOK, body: `{"tenantId":"22222222-2222-2222-2222-222222222222","shipmentTotal":1,"onTimePickupDenominator":0,"onTimePickupNumerator":0,"onTimeDeliveryDenominator":0,"onTimeDeliveryNumerator":0,"returnCaseCount":0,"redirectCaseCount":0,"carriers":[]}`},
+		{name: "inconsistent", status: http.StatusOK, body: `{"tenantId":"` + testTenant + `","shipmentTotal":1,"onTimePickupDenominator":0,"onTimePickupNumerator":0,"onTimeDeliveryDenominator":2,"onTimeDeliveryNumerator":1,"returnCaseCount":0,"redirectCaseCount":0,"carriers":[]}`},
 		{name: "timeout", status: http.StatusOK, body: `{"tenantId":"` + testTenant + `"}`, delay: time.Second},
 	}
 	for _, tt := range cases {

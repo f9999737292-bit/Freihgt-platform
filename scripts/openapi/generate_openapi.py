@@ -1412,7 +1412,7 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
                 "        - name: kpiId",
                 "          in: path",
                 "          required: true",
-                "          description: Frozen Analytics-0.2 KPI identifier. Query filters are not supported and are rejected.",
+                "          description: Frozen Analytics KPI identifier. Query filters are not supported and are rejected.",
                 "          schema:",
                 "            type: string",
                 "            enum:",
@@ -1421,6 +1421,12 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
                 "              - OPS_ON_TIME_DELIVERY_RATE",
                 "              - OPS_RETURN_CASES",
                 "              - OPS_REDIRECT_CASES",
+                "              - OPS_ON_TIME_PICKUP",
+                "              - OPS_ON_TIME_PICKUP_RATE",
+                "              - OPS_LATE_PICKUP",
+                "              - OPS_LATE_DELIVERY",
+                "              - CAR_ON_TIME_PICKUP_RATE",
+                "              - CAR_ON_TIME_DELIVERY_RATE",
             ])
             continue
         lines.extend([
@@ -2343,7 +2349,7 @@ def render_operation(
     elif profile == "edo_attachment_signature_get":
         success_desc = "Effective verification status. Legacy metadata-only signatures stay UNVERIFIED. A detached signature with unavailable verifier evidence is PENDING with verification_reason_code VERIFIER_UNAVAILABLE. The storage object key is not included."
     elif profile == "analytics_kpi":
-        success_desc = "Tenant operations KPI. COUNT is an integer >= 0. RATIO is a decimal fraction from 0.0 to 1.0, not a percent. An empty rate population returns numerator 0, denominator 0, and value null. dataFreshness.status is UNKNOWN until the source supplies a watermark. generatedAt is the analytics response time."
+        success_desc = "Operations or carrier KPI. Tenant KPIs use one measure. Carrier KPIs use dimension CARRIER and one ratio per carrierCompanyId, ordered by that id. COUNT is an integer >= 0. RATIO is a decimal fraction from 0.0 to 1.0, not a percent. An empty rate population returns numerator 0, denominator 0, and value null. An empty carrier population returns items []. dataFreshness.status is UNKNOWN until the source supplies a watermark. generatedAt is the analytics response time."
 
     response_schema = READ_RESPONSE_SCHEMAS.get(profile or "")
     if profile == "bno_compatibility" and path.endswith("/evaluate"):
@@ -2372,7 +2378,14 @@ def render_operation(
         response_schema = "NetworkCapacity"
     elif method == "get" and path == "/api/v1/network/load-opportunities/{id}":
         response_schema = "NetworkLoadOpportunity"
-    if response_schema:
+    if profile == "analytics_kpi":
+        schema_lines = [
+            "              schema:",
+            "                oneOf:",
+            "                  - $ref: '#/components/schemas/AnalyticsKPIResponse'",
+            "                  - $ref: '#/components/schemas/AnalyticsCarrierKPIResponse'",
+        ]
+    elif response_schema:
         schema_lines = [
             "              schema:",
             f"                $ref: '#/components/schemas/{response_schema}'",
@@ -5337,7 +5350,7 @@ def analytics_components_block() -> str:
       properties:
         kpiId:
           type: string
-          enum: [OPS_SHIPMENTS_TOTAL, OPS_ON_TIME_DELIVERY, OPS_ON_TIME_DELIVERY_RATE, OPS_RETURN_CASES, OPS_REDIRECT_CASES]
+          enum: [OPS_SHIPMENTS_TOTAL, OPS_ON_TIME_DELIVERY, OPS_ON_TIME_DELIVERY_RATE, OPS_RETURN_CASES, OPS_REDIRECT_CASES, OPS_ON_TIME_PICKUP, OPS_ON_TIME_PICKUP_RATE, OPS_LATE_PICKUP, OPS_LATE_DELIVERY]
         definitionVersion:
           type: integer
           enum: [1]
@@ -5379,6 +5392,63 @@ def analytics_components_block() -> str:
           type: string
           enum: [UNKNOWN]
           description: UNKNOWN because the operations source contract has no watermark.
+    AnalyticsCarrierKPIResponse:
+      type: object
+      additionalProperties: false
+      required: [kpiId, definitionVersion, dimension, items, generatedAt, dataFreshness, completeness]
+      properties:
+        kpiId:
+          type: string
+          enum: [CAR_ON_TIME_PICKUP_RATE, CAR_ON_TIME_DELIVERY_RATE]
+        definitionVersion:
+          type: integer
+          enum: [1]
+        dimension:
+          type: string
+          enum: [CARRIER]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsCarrierKPIItem'
+        generatedAt:
+          type: string
+          format: date-time
+          description: Analytics response time in UTC. This is not a source watermark.
+        dataFreshness:
+          $ref: '#/components/schemas/AnalyticsDataFreshness'
+        completeness:
+          type: string
+          enum: [PARTIAL]
+    AnalyticsCarrierKPIItem:
+      type: object
+      additionalProperties: false
+      required: [carrierCompanyId, measure]
+      properties:
+        carrierCompanyId:
+          type: string
+          format: uuid
+        measure:
+          $ref: '#/components/schemas/AnalyticsCarrierRatioMeasure'
+    AnalyticsCarrierRatioMeasure:
+      type: object
+      additionalProperties: false
+      required: [type, value, numerator, denominator]
+      properties:
+        type:
+          type: string
+          enum: [RATIO]
+        value:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 1
+          description: Decimal fraction from 0.0 to 1.0, not a percent. When the denominator is 0, value is null.
+        numerator:
+          type: integer
+          minimum: 0
+        denominator:
+          type: integer
+          minimum: 0
 """
 
 
