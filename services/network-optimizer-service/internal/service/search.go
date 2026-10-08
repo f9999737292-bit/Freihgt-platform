@@ -377,22 +377,19 @@ func (s *Service) evaluateLoads(ctx context.Context, tenant uuid.UUID, capacity 
 				item.reasons = append(item.reasons, domain.ReasonDeadheadTimeExceeded)
 			}
 		}
-		if policy.SearchMode == domain.SearchDirectionalCorridor {
-			if facts.pickupToTarget == nil || facts.deliveryToTarget == nil {
-				item.reasons = appendReason(item.reasons, domain.ReasonRoadDistanceUnknown)
-			} else if *facts.deliveryToTarget >= *facts.pickupToTarget {
-				item.reasons = append(item.reasons, domain.ReasonDeliveryNotTowardTarget)
-			}
-		}
-		if policy.SearchMode == domain.SearchRouteEllipse {
-			if facts.deadheadKm == nil || facts.pickupToDelivery == nil || facts.deliveryToTarget == nil || facts.baseline == nil {
-				item.reasons = appendReason(item.reasons, domain.ReasonRoadDistanceUnknown)
-			} else if policy.MaxRouteIncreaseKm != nil {
-				increase := domain.NextLoadInsertionIncreaseKm(*facts.baseline, *facts.deadheadKm, *facts.pickupToDelivery, *facts.deliveryToTarget)
-				item.increase = &increase
-				if err := domain.CheckRouteIncrease(increase, *policy.MaxRouteIncreaseKm); err != nil {
-					item.reasons = append(item.reasons, err.Error())
-				}
+		feasibility := domain.EvaluateOneLoadBackhaul(domain.OneLoadBackhaulInput{
+			Mode:               policy.SearchMode,
+			PickupToTargetKm:   facts.pickupToTarget,
+			DeliveryToTargetKm: facts.deliveryToTarget,
+			ReleaseToPickupKm:  facts.deadheadKm,
+			PickupToDeliveryKm: facts.pickupToDelivery,
+			ReleaseToTargetKm:  facts.baseline,
+			MaxRouteIncreaseKm: policy.MaxRouteIncreaseKm,
+		})
+		if feasibility.Applicable {
+			item.increase = feasibility.RouteIncreaseKm
+			for _, reason := range feasibility.Reasons {
+				item.reasons = appendReason(item.reasons, reason)
 			}
 		}
 		if facts.deadheadMinutes != nil {
