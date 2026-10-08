@@ -64,3 +64,7 @@ The public route is `GET /api/v1/analytics/kpis/{kpiId}` on api-gateway. The gat
 `MIGRATION_CREATED=NO`
 
 0.1A readiness totals are unchanged.
+
+## Analytics-0.3A
+
+Discovery only. `ANALYTICS_0_3A_OPERATIONS_CARRIER_SCOPE.md` freezes which operations and carrier KPIs can enter a later implementation wave. It does not change the five Analytics-0.2B KPIs, their meaning, or `definitionVersion=1`. No product code, API, migration, or warehouse is part of 0.3A.
