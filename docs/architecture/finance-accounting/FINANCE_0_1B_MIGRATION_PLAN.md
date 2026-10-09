@@ -52,7 +52,7 @@ Type migration copies stored `NUMERIC` text into exact decimal. It does not reco
 
 ## 0.1A gap disposition
 
-`FINANCE_0_1A_GAPS.md` contains 19 gap headings. Its header still says `TOTAL_GAPS=18`. This plan does not edit that inventory.
+`FINANCE_0_1A_GAPS.md` contains 19 gap headings. Its header records `TOTAL_GAPS=19` and `BLOCKING_GAPS=12`. This plan classifies those 19 headings. Individual 0.1A findings are unchanged.
 
 `ARCHITECTURE_RESOLVED` means the target rule is frozen here. `PRODUCT_DEFECT_CLOSED=NO` on every row. The current runtime is unchanged.
 
@@ -64,8 +64,8 @@ Type migration copies stored `NUMERIC` text into exact decimal. It does not reco
 | FIN-BIL-001 | ARCHITECTURE_RESOLVED | NO. Deny client line totals in FINANCE-0.2A. |
 | FIN-BIL-002 | ARCHITECTURE_RESOLVED | NO. Remove register VAT fallback in FINANCE-0.2B. |
 | FIN-BIL-003 | ARCHITECTURE_RESOLVED | NO. Stop hard-deleting billed lines in the immutability slice of FINANCE-0.2A. |
-| FIN-DOC-001 | DEFERRED_TO_LATER_STAGE | NO. FINANCE-0.2C with Agent B. |
-| FIN-DOC-002 | DEFERRED_TO_LATER_STAGE | NO. Depends on FINANCE-0.2C. |
+| FIN-DOC-001 | DEFERRED_TO_LATER_STAGE | NO. FINANCE-0.3B with Agent B. |
+| FIN-DOC-002 | DEFERRED_TO_LATER_STAGE | NO. Depends on FINANCE-0.3B. |
 | FIN-DOC-003 | DEFERRED_TO_LATER_STAGE | NO. Agent B. |
 | FIN-DOC-004 | DEFERRED_TO_0_1C | NO. Field set needs legal research. |
 | FIN-DOC-005 | DEFERRED_TO_LATER_STAGE | NO. Agent A gateway routes. |
@@ -80,12 +80,14 @@ Type migration copies stored `NUMERIC` text into exact decimal. It does not reco
 
 ```text
 GAPS_ARCHITECTURE_RESOLVED=7
-GAPS_REMAIN_FOR_IMPLEMENTATION=0
+GAPS_UNDISPOSITIONED=0
 GAPS_DEFERRED_TO_0_1C=2
 GAPS_DEFERRED_LATER=10
+ARCHITECTURE_RESOLVED_RUNTIME_FIXES_PENDING=7
+PRODUCT_DEFECTS_CLOSED_IN_0_1B=0
 ```
 
-`GAPS_REMAIN_FOR_IMPLEMENTATION=0` means no gap was left without a disposition. It does not mean the runtime defects are gone. The seven architecture rows still require the implementation slices below.
+`ARCHITECTURE_RESOLVED` means the target policy or design is frozen. It does not mean the current product or runtime behavior is remediated. `GAPS_UNDISPOSITIONED=0` means every heading has a disposition. `ARCHITECTURE_RESOLVED_RUNTIME_FIXES_PENDING=7` and `PRODUCT_DEFECTS_CLOSED_IN_0_1B=0` record that those seven rows still need an implementation slice. The counts add as 7 + 0 + 2 + 10 = 19.
 
 ## Implementation sequence
 
@@ -95,12 +97,12 @@ Dependencies force this order. Nothing in the list is authorized by this stage.
 2. FINANCE-0.2A. Exact-decimal settlement and billing handling, denial of client-authored totals, and an end to hard-deleting billed lines. This wave must not recalculate historical amounts. It can be specified beside 0.1C because it does not choose tax law.
 3. FINANCE-0.2B. Server-owned TaxDecision and the unknown-tax gate. It consumes 0.1C treatment codes. It must not default unknown tax to zero or to a register rate.
 4. FINANCE-0.3A. Commercial relationship and forwarder dual-chain persistence, including legacy `DIRECT` versus `UNKNOWN` mapping. New rows use the decimal and tax gates from 0.2A and 0.2B.
-5. FINANCE-0.2C. Billing `document_id` contract with Agent B, one EDO chain per relationship. After 0.3A so the two forwarder chains are not bound to one package.
+5. FINANCE-0.3B. Billing `document_id` contract with Agent B, one EDO chain per relationship. This follows FINANCE-0.3A so the two forwarder chains are not bound to one package. The stage id is 0.3B so the sequence stays monotonic.
 
 Later, and not sequenced in detail here: receivable and payable aggregates, overdue, audited manual-adjustment implementation, bank statement import, and 1C finance exchange. Margin recognition stays undefined.
 
 ```text
-RECOMMENDED_IMPLEMENTATION_SEQUENCE=FINANCE-0.1C,FINANCE-0.2A,FINANCE-0.2B,FINANCE-0.3A,FINANCE-0.2C
+RECOMMENDED_IMPLEMENTATION_SEQUENCE=FINANCE-0.1C,FINANCE-0.2A,FINANCE-0.2B,FINANCE-0.3A,FINANCE-0.3B
 ```
 
 ## Cross-agent work
@@ -108,7 +110,7 @@ RECOMMENDED_IMPLEMENTATION_SEQUENCE=FINANCE-0.1C,FINANCE-0.2A,FINANCE-0.2B,FINAN
 | Agent | Later work | Not this stage |
 | --- | --- | --- |
 | A | Keep public client tenant headers non-authoritative. Keep finance service ports off the public edge. Add closing-document gateway routes only after G publishes the contract. | FIN-SEC-001 and FIN-DOC-005 |
-| B | Legal artifact, signature, and operator state. Accept a billing `document_id` per relationship. Do not calculate money or VAT. | FIN-DOC-003 and FINANCE-0.2C |
+| B | Legal artifact, signature, and operator state. Accept a billing `document_id` per relationship. Do not calculate money or VAT. | FIN-DOC-003 and FINANCE-0.3B |
 | C | Keep shipment, transport order, and POD as execution facts. If an execution is not one shipment, publish that execution id before FINANCE-0.3A stores it. Do not own settlement identity. | Execution-id confirmation |
 | F | Present server facts after the contracts exist. Do not sum register totals into margin or revenue truth. | Portal work |
 | E | Read published financial facts. Do not define them. | Analytics semantics |

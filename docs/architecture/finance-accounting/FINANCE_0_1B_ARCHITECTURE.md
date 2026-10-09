@@ -87,5 +87,5 @@ Client-authored base amounts, extra totals, penalty totals, VAT rates, and regis
 No schema, migration, Go change, frontend change, bank integration, 1C integration, accounts receivable or payable implementation, EDO provider, qualified signature, Russian tax-rate decision, margin recognition formula, or staging deploy.
 
 ```text
-RECOMMENDED_IMPLEMENTATION_SEQUENCE=FINANCE-0.1C,FINANCE-0.2A,FINANCE-0.2B,FINANCE-0.3A,FINANCE-0.2C
+RECOMMENDED_IMPLEMENTATION_SEQUENCE=FINANCE-0.1C,FINANCE-0.2A,FINANCE-0.2B,FINANCE-0.3A,FINANCE-0.3B
 ```
