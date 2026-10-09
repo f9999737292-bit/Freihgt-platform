@@ -3,6 +3,10 @@ package repository
 import (
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/freight-platform/shipment-service/internal/domain"
 )
 
 func TestGetShipmentByIDAndTenantQueryContainsTenantCondition(t *testing.T) {
@@ -85,6 +89,31 @@ func TestCancelShipmentQueryContainsTenantPredicate(t *testing.T) {
 	query := strings.ToLower(cancelShipmentQuery)
 	if !strings.Contains(query, "where id = $2 and tenant_id = $3 and deleted_at is null and version = $4") {
 		t.Fatalf("cancel query must include tenant and version predicates: %q", cancelShipmentQuery)
+	}
+}
+
+func TestShipperShipmentQueriesRequireCompanyScope(t *testing.T) {
+	t.Parallel()
+	detail := strings.ToLower(getShipmentByIDTenantAndShipperQuery)
+	if !strings.Contains(detail, "where id = $1 and tenant_id = $2 and shipper_company_id = $3 and deleted_at is null") {
+		t.Fatalf("detail query: %s", getShipmentByIDTenantAndShipperQuery)
+	}
+	if strings.Contains(detail, "forwarder_company_id =") || strings.Contains(detail, "consignee_company_id =") {
+		t.Fatalf("detail query aliases another party: %s", getShipmentByIDTenantAndShipperQuery)
+	}
+	status := "DELIVERED"
+	where, args := shipperShipmentListWhere(domain.ShipperShipmentListFilter{
+		TenantID: uuid.New(), ShipperCompanyID: uuid.New(), Status: &status,
+	})
+	lower := strings.ToLower(where)
+	if !strings.Contains(lower, "tenant_id = $1 and shipper_company_id = $2 and deleted_at is null") || !strings.Contains(lower, "status = $3") {
+		t.Fatalf("list where: %s", where)
+	}
+	if strings.Contains(lower, "forwarder_company_id") || strings.Contains(lower, "consignee_company_id") || strings.Contains(lower, "carrier_company_id") {
+		t.Fatalf("list where aliases another party: %s", where)
+	}
+	if len(args) != 3 {
+		t.Fatalf("args %d", len(args))
 	}
 }
 

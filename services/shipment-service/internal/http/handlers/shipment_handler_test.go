@@ -19,8 +19,10 @@ import (
 )
 
 type tenantScopedShipmentService struct {
-	getFn  func(ctx context.Context, tenantID, id uuid.UUID) (*domain.Shipment, error)
-	listFn func(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error)
+	getFn           func(ctx context.Context, tenantID, id uuid.UUID) (*domain.Shipment, error)
+	listFn          func(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error)
+	getByShipperFn  func(ctx context.Context, id, tenantID, shipperCompanyID uuid.UUID) (*domain.Shipment, error)
+	listByShipperFn func(ctx context.Context, filter domain.ShipperShipmentListFilter) ([]domain.Shipment, int, error)
 }
 
 func (s *tenantScopedShipmentService) CompanyExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
@@ -41,9 +43,21 @@ func (s *tenantScopedShipmentService) GetByIDAndTenant(ctx context.Context, id, 
 	}
 	return nil, nil
 }
+func (s *tenantScopedShipmentService) GetByIDAndShipper(ctx context.Context, id, tenantID, shipperCompanyID uuid.UUID) (*domain.Shipment, error) {
+	if s.getByShipperFn != nil {
+		return s.getByShipperFn(ctx, id, tenantID, shipperCompanyID)
+	}
+	return nil, apperrors.NotFound("shipment not found")
+}
 func (s *tenantScopedShipmentService) List(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
 	if s.listFn != nil {
 		return s.listFn(ctx, filter)
+	}
+	return nil, 0, nil
+}
+func (s *tenantScopedShipmentService) ListByShipper(ctx context.Context, filter domain.ShipperShipmentListFilter) ([]domain.Shipment, int, error) {
+	if s.listByShipperFn != nil {
+		return s.listByShipperFn(ctx, filter)
 	}
 	return nil, 0, nil
 }
@@ -311,7 +325,7 @@ func TestShipmentListIgnoresForeignTenantQuery(t *testing.T) {
 				t.Fatalf("expected header tenant, got %s", filter.TenantID)
 			}
 			return []domain.Shipment{{
-				ID: uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+				ID:       uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
 				TenantID: filter.TenantID, ShipmentNumber: "SHP-1", Status: domain.ShipmentStatusInTransit,
 				CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
 			}}, 1, nil

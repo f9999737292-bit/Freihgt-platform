@@ -62,7 +62,13 @@ func (s *mutationActorShipmentStore) GetByIDAndTenant(ctx context.Context, id, t
 	}
 	return &domain.Shipment{ID: id, TenantID: tenantID, Status: domain.ShipmentStatusCarrierAssigned, Version: 1}, nil
 }
+func (s *mutationActorShipmentStore) GetByIDAndShipper(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domain.Shipment, error) {
+	return nil, nil
+}
 func (s *mutationActorShipmentStore) List(context.Context, domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+	return nil, 0, nil
+}
+func (s *mutationActorShipmentStore) ListByShipper(context.Context, domain.ShipperShipmentListFilter) ([]domain.Shipment, int, error) {
 	return nil, 0, nil
 }
 func (s *mutationActorShipmentStore) AssignDriver(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, int, domain.StatusTransitionContext) (*domain.Shipment, error) {

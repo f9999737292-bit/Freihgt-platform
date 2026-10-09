@@ -159,6 +159,16 @@ type ListShipmentsFilter struct {
 	Offset             int
 }
 
+// ShipperShipmentListFilter is the customer source read. Shipper company is
+// required. Consignee, carrier, and forwarder are not scope aliases.
+type ShipperShipmentListFilter struct {
+	TenantID         uuid.UUID
+	ShipperCompanyID uuid.UUID
+	Status           *string
+	Limit            int
+	Offset           int
+}
+
 func ValidateAssignDriverParams(tenantID, shipmentID, driverID uuid.UUID) error {
 	if tenantID == uuid.Nil {
 		return apperrors.Unauthorized("tenant context is required")
@@ -235,6 +245,29 @@ func ValidateListShipmentsFilter(f ListShipmentsFilter) error {
 		return apperrors.Validation("limit must be greater than 0", map[string]any{"field": "limit"})
 	}
 	return ValidateListPagination(f.Limit, f.Offset)
+}
+
+func ValidateShipperShipmentListFilter(f ShipperShipmentListFilter) error {
+	if err := ValidateVerifiedTenant(f.TenantID); err != nil {
+		return err
+	}
+	if f.ShipperCompanyID == uuid.Nil {
+		return apperrors.Validation("shipper_company_id is required", map[string]any{"field": "shipper_company_id"})
+	}
+	return ValidateListPagination(f.Limit, f.Offset)
+}
+
+func ValidateShipperShipmentDetail(tenantID, shipmentID, shipperCompanyID uuid.UUID) error {
+	if err := ValidateVerifiedTenant(tenantID); err != nil {
+		return err
+	}
+	if shipmentID == uuid.Nil {
+		return apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if shipperCompanyID == uuid.Nil {
+		return apperrors.Validation("shipper_company_id is required", map[string]any{"field": "shipper_company_id"})
+	}
+	return nil
 }
 
 func ValidateAcceptShipmentInput() error {

@@ -182,6 +182,87 @@ func (r *ShipmentRepository) GetByIDAndTenant(ctx context.Context, id, tenantID 
 	return result, err
 }
 
+const getShipmentByIDTenantAndShipperQuery = `
+		SELECT id, tenant_id, shipment_number, transport_order_id,
+			shipper_company_id, consignee_company_id, carrier_company_id, forwarder_company_id,
+			driver_id, vehicle_id, origin_location_id, destination_location_id, cargo_id,
+			transport_mode, status, planned_pickup_at, planned_delivery_at,
+			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
+		FROM transport.shipments
+		WHERE id = $1 AND tenant_id = $2 AND shipper_company_id = $3 AND deleted_at IS NULL
+	`
+
+const shipperShipmentListScope = "tenant_id = $1 AND shipper_company_id = $2 AND deleted_at IS NULL"
+
+func shipperShipmentListWhere(filter domain.ShipperShipmentListFilter) (string, []any) {
+	args := []any{filter.TenantID, filter.ShipperCompanyID}
+	where := []string{shipperShipmentListScope}
+	if filter.Status != nil {
+		args = append(args, *filter.Status)
+		where = append(where, fmt.Sprintf("status = $%d", len(args)))
+	}
+	return strings.Join(where, " AND "), args
+}
+
+func (r *ShipmentRepository) GetByIDAndShipper(ctx context.Context, id, tenantID, shipperCompanyID uuid.UUID) (*domain.Shipment, error) {
+	var result *domain.Shipment
+	err := measureDB("shipment_repository", "get_shipment_by_shipper", func() error {
+		shipment, err := scanShipment(r.pool.QueryRow(ctx, getShipmentByIDTenantAndShipperQuery, id, tenantID, shipperCompanyID))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return apperrors.NotFound("shipment not found")
+		}
+		if err != nil {
+			return err
+		}
+		result = shipment
+		return nil
+	})
+	return result, err
+}
+
+func (r *ShipmentRepository) ListByShipper(ctx context.Context, filter domain.ShipperShipmentListFilter) ([]domain.Shipment, int, error) {
+	var shipments []domain.Shipment
+	var total int
+	err := measureDB("shipment_repository", "list_shipments_by_shipper", func() error {
+		whereClause, args := shipperShipmentListWhere(filter)
+		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM transport.shipments WHERE %s", whereClause)
+		if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+			return mapDBError(err)
+		}
+		args = append(args, filter.Limit, filter.Offset)
+		listQuery := fmt.Sprintf(`
+		SELECT id, tenant_id, shipment_number, transport_order_id,
+			shipper_company_id, consignee_company_id, carrier_company_id, forwarder_company_id,
+			driver_id, vehicle_id, origin_location_id, destination_location_id, cargo_id,
+			transport_mode, status, planned_pickup_at, planned_delivery_at,
+			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
+		FROM transport.shipments
+		WHERE %s
+		ORDER BY created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, len(args)-1, len(args))
+		rows, err := r.pool.Query(ctx, listQuery, args...)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer rows.Close()
+		items := make([]domain.Shipment, 0)
+		for rows.Next() {
+			shipment, err := scanShipmentRows(rows)
+			if err != nil {
+				return err
+			}
+			items = append(items, *shipment)
+		}
+		if err := rows.Err(); err != nil {
+			return mapDBError(err)
+		}
+		shipments = items
+		return nil
+	})
+	return shipments, total, err
+}
+
 func (r *ShipmentRepository) GetByIDAndDriver(ctx context.Context, id, tenantID, driverID uuid.UUID) (*domain.Shipment, error) {
 	shipment, err := r.GetByIDAndTenant(ctx, id, tenantID)
 	if err != nil {
