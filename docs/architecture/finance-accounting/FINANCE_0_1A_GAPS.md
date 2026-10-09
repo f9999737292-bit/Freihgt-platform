@@ -35,8 +35,8 @@ Blocking means the gap stops a later finance stage from treating the current cha
 ### FIN-SET-003
 
 - AREA: Snapshot tax
-- DESCRIPTION: Rate snapshot has no VAT columns. Settlement stores VAT amount 0.
-- CURRENT_STATE: `total_amount` is copied. Gross versus net is unspecified. Register inclusion may apply a different VAT rate later.
+- DESCRIPTION: Rate snapshot has no VAT columns. Settlement stores VAT amount 0. Freight base is not repriced later.
+- CURRENT_STATE: Snapshot or award `total_amount` is copied once. `FREIGHT_BASE_HISTORICAL_REPRICING_ALLOWED=NO`. Gross versus net is unspecified. `HISTORICAL_TAX_BASIS_STABILITY=UNSAFE_NEEDS_HARDENING` because a later billing step can recalculate VAT. This gap does not choose a VAT policy.
 - SEVERITY: HIGH
 - BLOCKING: YES
 - OWNER_AGENT: G
@@ -57,8 +57,8 @@ Blocking means the gap stops a later finance stage from treating the current cha
 ### FIN-BIL-002
 
 - AREA: Billing VAT fallback
-- DESCRIPTION: A nil settlement VAT rate is replaced by the register VAT rate, which is client-supplied at register create.
-- CURRENT_STATE: `IncludeSettlement` calls `CalculateItemAmounts` with that fallback and `float64` rounding.
+- DESCRIPTION: When settlement VAT is missing, billing recalculates tax from the register VAT rate.
+- CURRENT_STATE: `BILLING_VAT_RECALCULATION_FROM_REGISTER_RATE_WHEN_SETTLEMENT_RATE_MISSING=YES`. `IncludeSettlement` calls `CalculateItemAmounts` with that fallback and `float64` rounding. The register rate is client-supplied at register create. This gap does not choose a VAT policy.
 - SEVERITY: HIGH
 - BLOCKING: YES
 - OWNER_AGENT: G
@@ -211,8 +211,8 @@ Blocking means the gap stops a later finance stage from treating the current cha
 ### FIN-SEC-001
 
 - AREA: Header trust
-- DESCRIPTION: Finance services treat `X-Tenant-ID` and `X-User-ID` as verified without a token check in the service.
-- CURRENT_STATE: Company header must match membership. Platform admin cannot skip membership. Port exposure was not tested.
+- DESCRIPTION: Public client `X-Tenant-ID` is not authority. The finance service does not validate JWT and trusts the tenant header supplied by the upstream gateway.
+- CURRENT_STATE: `PUBLIC_CLIENT_TENANT_HEADER_AUTHORITY=NO`. Gateway auth strips untrusted identity headers and writes tenant and user from token claims. `DOWNSTREAM_FINANCE_SERVICE_TRUSTS_GATEWAY_TENANT_HEADER=YES`. Company header must match membership. Platform admin cannot skip membership. `DIRECT_FINANCE_SERVICE_EXPOSURE_VERIFIED=NO`. No public exploit is claimed.
 - SEVERITY: HIGH
 - BLOCKING: YES
 - OWNER_AGENT: A

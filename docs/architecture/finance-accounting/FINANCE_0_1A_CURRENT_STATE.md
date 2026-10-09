@@ -123,7 +123,9 @@ FLOAT64_FINANCIAL_DEBT_PRESENT=YES
 MONEY_SCALE=2
 ROUNDING_POLICY=MIXED
 CURRENCY_VALIDATION=PARTIAL
-HISTORICAL_REPRICING_ALLOWED=YES
+FREIGHT_BASE_HISTORICAL_REPRICING_ALLOWED=NO
+BILLING_VAT_RECALCULATION_FROM_REGISTER_RATE_WHEN_SETTLEMENT_RATE_MISSING=YES
+HISTORICAL_TAX_BASIS_STABILITY=UNSAFE_NEEDS_HARDENING
 ```
 
 PostgreSQL amount columns in these domains are `NUMERIC(18,2)`. Rates are `NUMERIC(5,2)`.
@@ -156,7 +158,9 @@ Authoritative `float64` paths:
 
 Payment `ValidateCurrencyCode` requires a 3-character code. Register inclusion rejects a currency mismatch. Snapshot and settlement copy the source currency. A register can still be created with a client currency and a client VAT rate.
 
-Settlement base amount is copied once and is not refreshed from a later contract rate. Inclusion can still apply the register VAT rate when the settlement rate is nil, so the billed tax can differ from the stored settlement totals. `HISTORICAL_REPRICING_ALLOWED=YES` for that VAT path.
+Settlement base freight is copied from the historical snapshot or award source. A later contract-rate change does not reprice that freight basis. `FREIGHT_BASE_HISTORICAL_REPRICING_ALLOWED=NO`.
+
+When the settlement VAT rate is nil, register inclusion recalculates tax from the register VAT rate. That rate is supplied when the register is created. The billed tax can then differ from the VAT amount stored on the settlement. `BILLING_VAT_RECALCULATION_FROM_REGISTER_RATE_WHEN_SETTLEMENT_RATE_MISSING=YES`. This discovery does not choose the correct VAT policy. `HISTORICAL_TAX_BASIS_STABILITY=UNSAFE_NEEDS_HARDENING`.
 
 ## VAT behavior in code
 
@@ -192,14 +196,18 @@ ADR-EDO-005 keeps `PaymentObligation` as payment-execution intent. Freight settl
 ```text
 FINANCE_TENANT_ISOLATION=PARTIAL
 FINANCE_COMPANY_ISOLATION=PARTIAL
-CLIENT_TENANT_HEADER_TRUSTED=YES
+PUBLIC_CLIENT_TENANT_HEADER_AUTHORITY=NO
+DOWNSTREAM_FINANCE_SERVICE_TRUSTS_GATEWAY_TENANT_HEADER=YES
+DIRECT_FINANCE_SERVICE_EXPOSURE_VERIFIED=NO
 CLIENT_COMPANY_HEADER_IS_AUTHORITY=NO
 FINANCE_IDENTITY_SPOOF_RISK=PARTIAL
 ```
 
-`billing-register-service` has no JWT middleware. `resolveVerifiedTenant` and `resolveVerifiedUser` read `X-Tenant-ID` and `X-User-ID`. `X-Company-ID` and `X-Actor-Kind` must match a membership, and actor kind is derived from company type and roles. A body `tenant_id` or `approved_by` that differs from those headers is rejected. Platform admin without a matching membership is rejected (`settlement_actor_context.go`). Queries cannot override the resolved company or actor.
+A browser or other public client value of `X-Tenant-ID` is not canonical tenant authority. When API Gateway auth is enabled, `Auth` deletes untrusted identity headers, including `X-Tenant-ID`, `X-User-ID`, `X-Company-ID`, and `X-Actor-Kind`, and writes `X-Tenant-ID` and `X-User-ID` from the verified token claims (`services/api-gateway/internal/http/middleware/auth.go`). Billing guards then use that gateway context (`billingrbac.Guard` through `routeauth.BuildRequestContext`).
 
-`CLIENT_COMPANY_HEADER_IS_AUTHORITY=NO` because membership must agree. `CLIENT_TENANT_HEADER_TRUSTED=YES` because the finance service treats the tenant and user headers as already verified. Gateway RBAC guards exist for the public finance routes that are registered. Direct service-port exposure was `NOT_RUN`.
+`billing-register-service` has no JWT middleware. `resolveVerifiedTenant` and `resolveVerifiedUser` read `X-Tenant-ID` and `X-User-ID` and treat them as the upstream tenant and user. `DOWNSTREAM_FINANCE_SERVICE_TRUSTS_GATEWAY_TENANT_HEADER=YES`. `X-Company-ID` and `X-Actor-Kind` must still match a membership, and actor kind is derived from company type and roles. A body `tenant_id` or `approved_by` that differs from those headers is rejected. Platform admin without a matching membership is rejected (`settlement_actor_context.go`). Queries cannot override the resolved company or actor. `CLIENT_COMPANY_HEADER_IS_AUTHORITY=NO` because membership must agree.
+
+Direct exposure of the finance service port, bypassing the gateway, was `NOT_RUN`. `DIRECT_FINANCE_SERVICE_EXPOSURE_VERIFIED=NO`. This inventory does not claim a demonstrated public exploit. FIN-SEC-001 stays open because the finance service itself does not validate a token and depends on that upstream boundary.
 
 Closing-document seller and buyer on the actor path are overwritten from the register: contractor is seller, customer is buyer.
 
@@ -244,7 +252,7 @@ Score steps are 0, 25, 50, 75, and 100.
 | BANK_INTEGRATION | 0 | No provider, import, or webhook |
 | ONE_C_INTEGRATION | 0 | No finance adapter |
 | FORWARDER_AR_AP | 25 | One buyer-to-carrier chain can run. Two chains on one execution cannot |
-| SECURITY | 50 | Membership and platform-admin checks exist. Tenant and user headers are trusted inside the service |
+| SECURITY | 50 | Membership and platform-admin checks exist. Public client tenant header is not authority. The finance service trusts the gateway header and does not validate JWT. Direct port exposure was not verified |
 | TESTING | 50 | Integration suites exist under the finance services. This stage did not run them |
 | DEPLOYMENT | 25 | Compose files wire billing-register-service and payment-service. This stage did not deploy, and deployment is not scored as production-ready |
 
