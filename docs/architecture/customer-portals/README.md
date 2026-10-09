@@ -92,3 +92,22 @@ NEW_FORWARDER_GAPS=5
 | [CUSTOMER_PORTALS_0_1B_NAVIGATION.md](CUSTOMER_PORTALS_0_1B_NAVIGATION.md) | Information architecture per business model |
 | [CUSTOMER_PORTALS_0_1B_FORWARDER_MODEL.md](CUSTOMER_PORTALS_0_1B_FORWARDER_MODEL.md) | Two-sided forwarder and the document/finance split |
 | [CUSTOMER_PORTALS_0_1B_GAPS.md](CUSTOMER_PORTALS_0_1B_GAPS.md) | 0.1A gaps carried forward, plus five forwarder gaps |
+
+## 0.2A carrier office
+
+[CUSTOMER_PORTALS_0_2A_CARRIER_MVP.md](CUSTOMER_PORTALS_0_2A_CARRIER_MVP.md) records the carrier office slice that was implemented. The 0.1A and 0.1B blocks above stay as historical records.
+
+```text
+CUSTOMER_TRACKING_SAFE=NO
+CUSTOMER_DOCUMENTS_SAFE=NO
+CONSIGNEE_PORTAL_IMPLEMENTATION_BLOCKED=YES
+FORWARDER_DUAL_SIDE_BACKEND_READY=NO
+CARRIER_FLEET_CUSTOMER_SAFE=YES
+CARRIER_TRANSPORT_ORDERS_CUSTOMER_SAFE=YES
+CARRIER_RFX_SAFE=YES
+CP-CARRIER-API-001=RESOLVED_BY_PR_236
+CP-CARRIER-API-002=RESOLVED_BY_PR_236
+NEW_BLOCKING_BACKEND_GAPS=0
+```
+
+0.2A-R1 recorded CP-CARRIER-API-001 and CP-CARRIER-API-002. 0.2A-R2 marks both resolved by PR #236 after the office sends the verified company query. Those counts are not folded into the 0.1B gap block above.
