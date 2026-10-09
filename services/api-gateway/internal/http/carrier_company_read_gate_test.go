@@ -31,11 +31,12 @@ type carrierMembership struct {
 }
 
 type carrierReadHarness struct {
-	handler    http.Handler
-	mu         sync.Mutex
-	called     bool
-	gotQuery   map[string]string
-	gotHeaders map[string]string
+	handler     http.Handler
+	mu          sync.Mutex
+	called      bool
+	tenantRoles []string
+	gotQuery    map[string]string
+	gotHeaders  map[string]string
 }
 
 func newCarrierReadHarness(t *testing.T, globalRoles []string, memberships []carrierMembership) *carrierReadHarness {
@@ -76,6 +77,21 @@ func newCarrierReadHarness(t *testing.T, globalRoles []string, memberships []car
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/v1/auth/me"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"roles": globalRoles})
+		case strings.Contains(r.URL.Path, "/roles"):
+			items := make([]map[string]any, 0, len(h.tenantRoles)+len(memberships))
+			for _, code := range h.tenantRoles {
+				items = append(items, map[string]any{"code": code})
+			}
+			for _, membership := range memberships {
+				companyID := membership.companyID
+				for _, code := range membership.roles {
+					items = append(items, map[string]any{
+						"code":       code,
+						"company_id": companyID,
+					})
+				}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
 		case strings.Contains(r.URL.Path, "/companies"):
 			if r.URL.Query().Get("status") != "ACTIVE" {
 				t.Errorf("membership lookup status=%q", r.URL.Query().Get("status"))
@@ -174,7 +190,7 @@ func TestCarrierCompanyReadIsolation(t *testing.T) {
 			"/api/v1/drivers?carrier_company_id=" + carrierCompanyA,
 			"/api/v1/vehicles?carrier_company_id=" + carrierCompanyA,
 		} {
-			h := newCarrierReadHarness(t, []string{"CARRIER_DISPATCHER"}, carrierAMembership())
+			h := newCarrierReadHarness(t, []string{"DRIVER"}, carrierAMembership())
 			rec := h.do(t, path, nil)
 			body := readBody(t, rec)
 			if rec.Code != http.StatusOK {
@@ -197,7 +213,7 @@ func TestCarrierCompanyReadIsolation(t *testing.T) {
 	})
 
 	t.Run("carrier A transport orders stay on carrier A", func(t *testing.T) {
-		h := newCarrierReadHarness(t, []string{"CARRIER_DISPATCHER"}, carrierAMembership())
+		h := newCarrierReadHarness(t, []string{"DRIVER"}, carrierAMembership())
 		rec := h.do(t, "/api/v1/carrier/transport-orders?carrier_company_id="+carrierCompanyA, nil)
 		body := readBody(t, rec)
 		if rec.Code != http.StatusOK {
@@ -209,7 +225,7 @@ func TestCarrierCompanyReadIsolation(t *testing.T) {
 	})
 
 	t.Run("carrier A execution detail stays on carrier A", func(t *testing.T) {
-		h := newCarrierReadHarness(t, []string{"CARRIER_ADMIN"}, carrierAMembership())
+		h := newCarrierReadHarness(t, []string{"DRIVER"}, carrierAMembership())
 		rec := h.do(t, "/api/v1/order-execution/transport-orders/"+carrierReadOrderID+"?company_id="+carrierCompanyA+"&actor=CARRIER", nil)
 		body := readBody(t, rec)
 		if rec.Code != http.StatusOK {
@@ -292,7 +308,7 @@ func TestCarrierCompanyReadIsolation(t *testing.T) {
 			companyType: "SHIPPER",
 			roles:       []string{"SHIPPER_ADMIN"},
 		}}
-		h := newCarrierReadHarness(t, []string{"SHIPPER_ADMIN"}, memberships)
+		h := newCarrierReadHarness(t, []string{"DRIVER"}, memberships)
 		rec := h.do(t, "/api/v1/order-execution/transport-orders/"+carrierReadOrderID+"?company_id="+shipperCompanyID+"&actor=BUYER", nil)
 		body := readBody(t, rec)
 		if rec.Code != http.StatusOK {
@@ -338,7 +354,7 @@ func TestCarrierCompanyReadIsolation(t *testing.T) {
 	})
 
 	t.Run("spoofed company and actor headers are ignored", func(t *testing.T) {
-		h := newCarrierReadHarness(t, []string{"CARRIER_DISPATCHER"}, carrierAMembership())
+		h := newCarrierReadHarness(t, []string{"DRIVER"}, carrierAMembership())
 		rec := h.do(t, "/api/v1/drivers?carrier_company_id="+carrierCompanyA, map[string]string{
 			"X-Company-ID": carrierCompanyB,
 			"X-Actor-Kind": "BUYER",
@@ -386,4 +402,165 @@ func TestCarrierFleetListRequiresCompanyConstraint(t *testing.T) {
 	if strings.Contains(body, carrierCompanyB) {
 		t.Fatal("unscoped fleet response included carrier B")
 	}
+}
+
+func TestPerCompanyRoleBinding(t *testing.T) {
+	t.Run("accountant at A is not authorized by dispatcher at B", func(t *testing.T) {
+		memberships := []carrierMembership{
+			{companyID: carrierCompanyA, companyType: "CARRIER", roles: []string{"CARRIER_ACCOUNTANT"}},
+			{companyID: carrierCompanyB, companyType: "CARRIER", roles: []string{"CARRIER_DISPATCHER"}},
+		}
+		paths := []string{
+			"/api/v1/drivers?carrier_company_id=" + carrierCompanyA,
+			"/api/v1/vehicles?carrier_company_id=" + carrierCompanyA,
+			"/api/v1/carrier/transport-orders?carrier_company_id=" + carrierCompanyA,
+			"/api/v1/order-execution/carrier/transport-orders?carrier_company_id=" + carrierCompanyA,
+		}
+		for _, path := range paths {
+			h := newCarrierReadHarness(t, []string{"CARRIER_ACCOUNTANT", "CARRIER_DISPATCHER"}, memberships)
+			rec := h.do(t, path, nil)
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("%s status=%d body=%s", path, rec.Code, readBody(t, rec))
+			}
+			h.mu.Lock()
+			called := h.called
+			h.mu.Unlock()
+			if called {
+				t.Fatalf("%s reached downstream", path)
+			}
+		}
+	})
+
+	t.Run("carrier admin at A is authorized despite shipper admin at B", func(t *testing.T) {
+		memberships := []carrierMembership{
+			{companyID: carrierCompanyA, companyType: "CARRIER", roles: []string{"CARRIER_ADMIN"}},
+			{companyID: carrierCompanyB, companyType: "SHIPPER", roles: []string{"SHIPPER_ADMIN"}},
+		}
+		h := newCarrierReadHarness(t, []string{"SHIPPER_ADMIN"}, memberships)
+		rec := h.do(t, "/api/v1/drivers?carrier_company_id="+carrierCompanyA, nil)
+		body := readBody(t, rec)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", rec.Code, body)
+		}
+		if strings.Contains(body, carrierCompanyB) || !strings.Contains(body, carrierCompanyA) {
+			t.Fatalf("fleet isolation failed: %s", body)
+		}
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		if h.gotQuery["carrier_company_id"] != carrierCompanyA || h.gotHeaders["X-Company-ID"] != carrierCompanyA {
+			t.Fatalf("downstream company query=%s header=%s", h.gotQuery["carrier_company_id"], h.gotHeaders["X-Company-ID"])
+		}
+		if h.gotHeaders["X-Actor-Kind"] != "CARRIER" {
+			t.Fatalf("downstream actor=%s", h.gotHeaders["X-Actor-Kind"])
+		}
+	})
+
+	t.Run("shipper admin at A stays buyer and cannot become carrier", func(t *testing.T) {
+		memberships := []carrierMembership{
+			{companyID: carrierCompanyA, companyType: "SHIPPER", roles: []string{"SHIPPER_ADMIN"}},
+			{companyID: carrierCompanyB, companyType: "CARRIER", roles: []string{"CARRIER_DISPATCHER"}},
+		}
+		h := newCarrierReadHarness(t, []string{"CARRIER_DISPATCHER"}, memberships)
+		rec := h.do(t, "/api/v1/order-execution/transport-orders/"+carrierReadOrderID+"?company_id="+carrierCompanyA+"&actor=BUYER", nil)
+		body := readBody(t, rec)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("buyer status=%d body=%s", rec.Code, body)
+		}
+		if strings.Contains(body, carrierCompanyB) {
+			t.Fatalf("buyer detail exposed carrier B: %s", body)
+		}
+		h.mu.Lock()
+		if h.gotQuery["company_id"] != carrierCompanyA || h.gotQuery["actor"] != "BUYER" || h.gotHeaders["X-Actor-Kind"] != "BUYER" {
+			t.Fatalf("downstream query=%v headers=%v", h.gotQuery, h.gotHeaders)
+		}
+		h.mu.Unlock()
+
+		denied := newCarrierReadHarness(t, []string{"CARRIER_DISPATCHER"}, memberships)
+		rec = denied.do(t, "/api/v1/order-execution/transport-orders/"+carrierReadOrderID+"?company_id="+carrierCompanyA+"&actor=CARRIER", nil)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("carrier actor status=%d body=%s", rec.Code, readBody(t, rec))
+		}
+		denied.mu.Lock()
+		called := denied.called
+		denied.mu.Unlock()
+		if called {
+			t.Fatal("downstream called for carrier actor on shipper membership")
+		}
+	})
+
+	t.Run("unlisted role at A is not authorized by another company", func(t *testing.T) {
+		memberships := []carrierMembership{
+			{companyID: carrierCompanyA, companyType: "SHIPPER", roles: []string{"SHIPPER"}},
+			{companyID: carrierCompanyB, companyType: "SHIPPER", roles: []string{"SHIPPER_ADMIN"}},
+		}
+		h := newCarrierReadHarness(t, []string{"SHIPPER_ADMIN", "CARRIER_DISPATCHER"}, memberships)
+		rec := h.do(t, "/api/v1/order-execution/transport-orders/"+carrierReadOrderID+"?company_id="+carrierCompanyA+"&actor=BUYER", nil)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("status=%d body=%s", rec.Code, readBody(t, rec))
+		}
+		h.mu.Lock()
+		called := h.called
+		h.mu.Unlock()
+		if called {
+			t.Fatal("downstream called for unlisted company A role")
+		}
+	})
+
+	t.Run("carrier membership only in A cannot read B", func(t *testing.T) {
+		h := newCarrierReadHarness(t, []string{"CARRIER_ADMIN", "CARRIER_DISPATCHER"}, carrierAMembership())
+		for _, path := range []string{
+			"/api/v1/drivers?carrier_company_id=" + carrierCompanyB,
+			"/api/v1/carrier/transport-orders?carrier_company_id=" + carrierCompanyB,
+			"/api/v1/order-execution/transport-orders/" + carrierReadOrderID + "?company_id=" + carrierCompanyB + "&actor=CARRIER",
+		} {
+			rec := h.do(t, path, nil)
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("%s status=%d body=%s", path, rec.Code, readBody(t, rec))
+			}
+		}
+		h.mu.Lock()
+		called := h.called
+		h.mu.Unlock()
+		if called {
+			t.Fatal("downstream called for company B")
+		}
+	})
+
+	t.Run("spoofed headers cannot change verified company or actor", func(t *testing.T) {
+		h := newCarrierReadHarness(t, []string{"SHIPPER_ADMIN"}, carrierAMembership())
+		rec := h.do(t, "/api/v1/drivers?carrier_company_id="+carrierCompanyA, map[string]string{
+			"X-Company-ID": carrierCompanyB,
+			"X-Actor-Kind": "BUYER",
+		})
+		body := readBody(t, rec)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", rec.Code, body)
+		}
+		if strings.Contains(body, carrierCompanyB) {
+			t.Fatalf("spoofed company changed the fleet result: %s", body)
+		}
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		if h.gotHeaders["X-Company-ID"] != carrierCompanyA || h.gotHeaders["X-Actor-Kind"] != "CARRIER" {
+			t.Fatalf("downstream headers=%v", h.gotHeaders)
+		}
+	})
+
+	t.Run("tenant platform admin keeps buyer execution without another company role", func(t *testing.T) {
+		memberships := []carrierMembership{
+			{companyID: shipperCompanyID, companyType: "SHIPPER", roles: []string{"SHIPPER"}},
+		}
+		h := newCarrierReadHarness(t, []string{"DRIVER"}, memberships)
+		h.tenantRoles = []string{"PLATFORM_ADMIN"}
+		rec := h.do(t, "/api/v1/order-execution/transport-orders/"+carrierReadOrderID+"?company_id="+shipperCompanyID+"&actor=BUYER", nil)
+		body := readBody(t, rec)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", rec.Code, body)
+		}
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		if h.gotQuery["actor"] != "BUYER" || h.gotHeaders["X-Company-ID"] != shipperCompanyID {
+			t.Fatalf("downstream query=%v headers=%v", h.gotQuery, h.gotHeaders)
+		}
+	})
 }

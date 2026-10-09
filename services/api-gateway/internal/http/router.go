@@ -221,10 +221,10 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 
 	fleetGuard := fleetrbac.NewGuard(cfg, proxy)
 	carrierCompany := companycontext.NewEnforcer(cfg)
-	r.Get("/api/v1/drivers", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, fleetGuard.WithPolicy(fleetrbac.PolicyView)))
+	r.Get("/api/v1/drivers", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, proxy))
 	r.Get("/api/v1/drivers/{id}", fleetGuard.WithPolicy(fleetrbac.PolicyView))
 	r.Post("/api/v1/drivers", fleetGuard.WithPolicy(fleetrbac.PolicyCreate))
-	r.Get("/api/v1/vehicles", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, fleetGuard.WithPolicy(fleetrbac.PolicyView)))
+	r.Get("/api/v1/vehicles", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, proxy))
 	r.Get("/api/v1/vehicles/{id}", fleetGuard.WithPolicy(fleetrbac.PolicyView))
 	r.Post("/api/v1/vehicles", fleetGuard.WithPolicy(fleetrbac.PolicyCreate))
 	r.Post("/api/v1/shipments/{id}/assign-driver", fleetGuard.WithPolicy(fleetrbac.PolicyAssign))
@@ -239,11 +239,11 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 
 	executionGuard := executionrbac.NewGuard(cfg, proxy)
 	r.Post("/api/v1/order-execution/transport-orders/{id}/execute", executionGuard.WithPolicy(executionrbac.PolicyExecute))
-	r.Get("/api/v1/order-execution/transport-orders/{id}", carrierCompany.RequireCarrierRead(companycontext.SelectExecutionCompany, executionGuard.WithPolicy(executionrbac.PolicyRead)))
+	r.Get("/api/v1/order-execution/transport-orders/{id}", carrierCompany.RequireCarrierRead(companycontext.SelectExecutionCompany, proxy))
 	r.Post("/api/v1/order-execution/transport-orders/{id}/start", executionGuard.WithPolicy(executionrbac.PolicyStart))
 	r.Get("/api/v1/order-execution/buyer/transport-orders", executionGuard.WithPolicy(executionrbac.PolicyRead))
-	r.Get("/api/v1/order-execution/carrier/transport-orders", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, executionGuard.WithPolicy(executionrbac.PolicyRead)))
-	r.Get("/api/v1/carrier/transport-orders", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, executionGuard.WithPolicy(executionrbac.PolicyRead)))
+	r.Get("/api/v1/order-execution/carrier/transport-orders", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, proxy))
+	r.Get("/api/v1/carrier/transport-orders", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, proxy))
 
 	rfxGuard := rfxrbac.NewGuard(cfg, proxy)
 	r.Post("/api/v1/rfx-events", rfxGuard.WithPolicy(rfxrbac.PolicyBuyerManage))

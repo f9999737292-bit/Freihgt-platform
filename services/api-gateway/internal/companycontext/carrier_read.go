@@ -26,9 +26,10 @@ const (
 	SelectExecutionCompany
 )
 
-// RequireCarrierRead authorizes a customer carrier read by verified ACTIVE
-// membership, then rewrites the downstream query to that company. Client
-// X-Company-ID and X-Actor-Kind headers are stripped and replaced.
+// RequireCarrierRead authorizes a company-scoped customer read from the
+// selected membership only, then proxies. next must be the downstream proxy.
+// A later tenant-wide /auth/me role check would let a role on another company
+// authorize this one. Client X-Company-ID and X-Actor-Kind are replaced.
 func (e *Enforcer) RequireCarrierRead(selection CarrierReadSelection, next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		StripUntrustedCompanyHeaders(r.Header)
@@ -84,7 +85,7 @@ func (e *Enforcer) RequireCarrierRead(selection CarrierReadSelection, next http.
 			respond.Error(w, apperrors.Forbidden("company does not match authenticated membership"))
 			return
 		}
-		actorKind, err := carrierReadActor(selection, matched)
+		actorKind, err := e.actorForSelection(r, reqCtx, selection, matched)
 		if err != nil {
 			respond.Error(w, err)
 			return
@@ -145,21 +146,35 @@ func rejectForeignCompanyQuery(query url.Values, canonical string) error {
 	return nil
 }
 
-func carrierReadActor(selection CarrierReadSelection, matched *UserCompany) (string, error) {
-	if MembershipAllowsCarrierRead(matched.CompanyType, matched.RoleCodes) {
+func (e *Enforcer) actorForSelection(r *http.Request, reqCtx routeauth.RequestContext, selection CarrierReadSelection, matched *UserCompany) (string, error) {
+	switch selection {
+	case SelectCarrierCompany:
+		if !MembershipAllowsCarrierRead(matched.CompanyType, matched.RoleCodes) {
+			return "", apperrors.Forbidden("company is not authorized for carrier access")
+		}
 		return ActorCarrier, nil
-	}
-	if selection == SelectCarrierCompany {
-		return "", apperrors.Forbidden("company is not authorized for carrier access")
-	}
-	derived, err := DeriveActorKind(matched.CompanyType, matched.RoleCodes)
-	if err != nil {
+	case SelectExecutionCompany:
+		actor, err := ExecutionActorFromMembership(matched.CompanyType, matched.RoleCodes)
+		if err == nil {
+			return actor, nil
+		}
+		// Tenant-global PLATFORM_ADMIN is not a role attached to another company.
+		// It keeps execution read for a membership that already derives BUYER.
+		derived, deriveErr := DeriveActorKind(matched.CompanyType, matched.RoleCodes)
+		if deriveErr != nil || derived != ActorBuyer {
+			return "", err
+		}
+		tenantRoles, tenantErr := e.client.ListUserTenantRoles(r.Context(), reqCtx, reqCtx.UserID)
+		if tenantErr != nil {
+			return "", membershipLookupError(tenantErr)
+		}
+		if hasTenantPlatformAdmin(tenantRoles) {
+			return ActorBuyer, nil
+		}
 		return "", err
-	}
-	if derived != ActorBuyer {
+	default:
 		return "", apperrors.Forbidden("company is not authorized for carrier access")
 	}
-	return ActorBuyer, nil
 }
 
 func rejectForeignActorQuery(query url.Values, derived string) error {
