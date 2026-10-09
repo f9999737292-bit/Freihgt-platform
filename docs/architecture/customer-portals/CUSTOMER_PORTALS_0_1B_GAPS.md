@@ -106,3 +106,16 @@ NEW_FORWARDER_GAPS=5
 TOTAL_GAPS=28
 BLOCKING_GAPS=17
 ```
+
+## CP-SHIPPER-API-001
+
+Recorded after the 0.1B count above. It does not change those counts. `CP-API-001` stays the historical unscoped shipment-list hole. `CP-SHIPPER-001` stays the portal-screen gap.
+
+| Field | Value |
+| --- | --- |
+| BUSINESS_MODEL | Shipper |
+| DESCRIPTION | Public shipper shipment list and detail require the selected SHIPPER membership and `SHIPPER_ADMIN` or `SHIPPER_LOGIST` on that membership. Legacy tenant-wide shipment GETs are operator-only. |
+| BLOCKING | NO |
+| OWNER_AGENT | A |
+| EVIDENCE | `SHIPPER_COMPANY_CONTEXT_GATEWAY_0_1.md` |
+| REQUIRED_BEFORE_STAGE | Closed for the gateway contract. Portal screens remain `CP-SHIPPER-001`. |

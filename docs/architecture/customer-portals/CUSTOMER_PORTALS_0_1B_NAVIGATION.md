@@ -30,7 +30,7 @@ Shared shell regions, same for every customer app: product name, company switche
 | --- | --- | --- |
 | Dashboard | TARGET | After the carrier MVP. |
 | Transport orders | TARGET | `SHIPPER_ADMIN` create. `SHIPPER_LOGIST` read. |
-| Shipments | BLOCKED | `SHIPPER_SHIPMENT_INBOX_SAFE=NO` |
+| Shipments | API_READY | `SHIPPER_SHIPMENT_INBOX_SAFE=YES`. Gateway company-scoped reads only. Screens are not part of the gateway stage. |
 | Tenders | TARGET | Admin manage, logist read. |
 | Tracking | BLOCKED | `CUSTOMER_TRACKING_SAFE=NO` |
 | Documents | BLOCKED | `CUSTOMER_DOCUMENTS_SAFE=NO` |

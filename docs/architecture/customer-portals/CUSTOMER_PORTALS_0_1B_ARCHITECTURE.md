@@ -32,7 +32,7 @@ PORTAL_MAY_DEFINE_ANALYTICS_KPI=NO
 CURRENT_MVP_SESSION_POLICY=TAB_SESSION_STORAGE_ACCESS_TOKEN
 TARGET_SESSION_POLICY=HTTPONLY_COOKIE
 MIGRATION_REQUIRED_LATER=YES
-SHIPPER_SHIPMENT_INBOX_SAFE=NO
+SHIPPER_SHIPMENT_INBOX_SAFE=YES
 CONSIGNEE_PORTAL_IMPLEMENTATION_BLOCKED=YES
 CUSTOMER_TRACKING_SAFE=NO
 CUSTOMER_DOCUMENTS_SAFE=NO
@@ -222,6 +222,8 @@ A tenant may contain many companies. The portal must not set tenant equal to com
 
 ## Safety gates carried from 0.1A
 
+The block below is the 0.1A snapshot and is not rewritten. The current shipper inbox gate is `SHIPPER_SHIPMENT_INBOX_SAFE=YES` in the freeze above and in `SHIPPER_COMPANY_CONTEXT_GATEWAY_0_1.md`.
+
 ```text
 SHIPPER_SHIPMENT_INBOX_SAFE=NO
 CONSIGNEE_PORTAL_IMPLEMENTATION_BLOCKED=YES
@@ -229,7 +231,7 @@ CUSTOMER_TRACKING_SAFE=NO
 CUSTOMER_DOCUMENTS_SAFE=NO
 ```
 
-Shipment list and detail are tenant-scoped, not company-scoped or consignee-scoped (`CP-API-001`, `CP-CONSIGNEE-002`). A customer portal must not render a tenant-wide shipment list.
+Shipment list and detail were tenant-scoped, not company-scoped or consignee-scoped (`CP-API-001`, `CP-CONSIGNEE-002`). A customer portal must not render a tenant-wide shipment list. The shipper customer contract is now the company-scoped gateway route in `SHIPPER_COMPANY_CONTEXT_GATEWAY_0_1.md` (`CP-SHIPPER-API-001`). Legacy `GET /api/v1/shipments` remains an operator path.
 
 Consignee implementation stays blocked until a consignee authorization principal, a consignee-scoped inbound list, a safe detail read, and safe tracking or ETA participation checks exist. `consignee_company_id` does not open that gate.
 

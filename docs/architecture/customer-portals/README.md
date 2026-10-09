@@ -107,6 +107,9 @@ CARRIER_TRANSPORT_ORDERS_CUSTOMER_SAFE=YES
 CARRIER_RFX_SAFE=YES
 CP-CARRIER-API-001=RESOLVED_BY_PR_236
 CP-CARRIER-API-002=RESOLVED_BY_PR_236
+CP-SHIPPER-API-001=CLOSED
+SHIPPER_SHIPMENT_CUSTOMER_SAFE=YES
+SHIPPER_SHIPMENT_INBOX_SAFE=YES
 NEW_BLOCKING_BACKEND_GAPS=0
 ```
 
@@ -114,4 +117,4 @@ NEW_BLOCKING_BACKEND_GAPS=0
 
 ## Shipper shipment source reads
 
-[SHIPPER_SHIPMENT_SAFE_READS_0_1A.md](SHIPPER_SHIPMENT_SAFE_READS_0_1A.md) records the shipment-service source contract for a later Shipper Portal. `SHIPPER_SHIPMENT_CUSTOMER_SAFE=NO_PENDING_GATEWAY`. The legacy tenant-wide shipment routes stay in place and are not a customer contract.
+[SHIPPER_SHIPMENT_SAFE_READS_0_1A.md](SHIPPER_SHIPMENT_SAFE_READS_0_1A.md) records the shipment-service source contract for a later Shipper Portal. That file keeps `SHIPPER_SHIPMENT_CUSTOMER_SAFE=NO_PENDING_GATEWAY` as the source-stage record. [SHIPPER_COMPANY_CONTEXT_GATEWAY_0_1.md](SHIPPER_COMPANY_CONTEXT_GATEWAY_0_1.md) is the gateway follow-up: `SHIPPER_SHIPMENT_INBOX_SAFE=YES` and `SHIPPER_SHIPMENT_CUSTOMER_SAFE=YES` for the selected shipper membership. The legacy tenant-wide shipment routes are operator-only and are not a customer contract.
