@@ -3,3 +3,12 @@ export type AppHealthResponse = {
   timestamp: string;
   version?: string;
 };
+
+export type {
+  CarrierCompanyMembership,
+  CarrierOfficeRole,
+  CarrierTabSession,
+  ServerUserSnapshot,
+} from "./portal";
+
+export { CARRIER_OFFICE_ROLES } from "./portal";

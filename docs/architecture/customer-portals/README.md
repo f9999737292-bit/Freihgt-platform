@@ -92,3 +92,14 @@ NEW_FORWARDER_GAPS=5
 | [CUSTOMER_PORTALS_0_1B_NAVIGATION.md](CUSTOMER_PORTALS_0_1B_NAVIGATION.md) | Information architecture per business model |
 | [CUSTOMER_PORTALS_0_1B_FORWARDER_MODEL.md](CUSTOMER_PORTALS_0_1B_FORWARDER_MODEL.md) | Two-sided forwarder and the document/finance split |
 | [CUSTOMER_PORTALS_0_1B_GAPS.md](CUSTOMER_PORTALS_0_1B_GAPS.md) | 0.1A gaps carried forward, plus five forwarder gaps |
+
+## 0.2A carrier office
+
+[CUSTOMER_PORTALS_0_2A_CARRIER_MVP.md](CUSTOMER_PORTALS_0_2A_CARRIER_MVP.md) records the carrier office slice that was implemented. The 0.1A and 0.1B blocks above stay as historical records.
+
+```text
+CUSTOMER_TRACKING_SAFE=NO
+CUSTOMER_DOCUMENTS_SAFE=NO
+CONSIGNEE_PORTAL_IMPLEMENTATION_BLOCKED=YES
+FORWARDER_DUAL_SIDE_BACKEND_READY=NO
+```
