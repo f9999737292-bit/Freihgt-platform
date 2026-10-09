@@ -1,4 +1,4 @@
-export { canEnterCarrierPortal, carrierCompanies, isCarrierOfficeRole, mapServerMemberships, selectCarrierCompany } from './access'
+export { applyFreshMemberships, canEnterCarrierPortal, carrierCompanies, isCarrierOfficeRole, mapServerMemberships, reconcileSelectedCompany, selectCarrierCompany } from './access'
 export { PortalClient, userFromLogin } from './client'
 export type { PortalClientOptions, PortalRequest } from './client'
 export { isPortalClientError, PortalClientError } from './errors'

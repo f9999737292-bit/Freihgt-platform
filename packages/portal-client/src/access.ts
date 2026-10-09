@@ -1,6 +1,7 @@
 import {
   CARRIER_OFFICE_ROLES,
   type CarrierCompanyMembership,
+  type CarrierTabSession,
   type ServerUserSnapshot,
 } from '@freight-platform/shared-ts/types'
 
@@ -32,6 +33,29 @@ export function carrierCompanies(
       membership.membershipStatus.trim().toUpperCase() === 'ACTIVE'
       && membership.roleCodes.some((role) => isCarrierOfficeRole(role)),
   )
+}
+
+export function reconcileSelectedCompany(
+  selectedCompanyId: string | null,
+  memberships: readonly CarrierCompanyMembership[],
+): string | null {
+  if (!selectedCompanyId) return null
+  const allowed = carrierCompanies(memberships).map((membership) => membership.companyId)
+  return allowed.includes(selectedCompanyId) ? selectedCompanyId : null
+}
+
+export function applyFreshMemberships(
+  session: CarrierTabSession,
+  freshMemberships: readonly CarrierCompanyMembership[],
+): CarrierTabSession {
+  const memberships = carrierCompanies(freshMemberships)
+  return {
+    accessToken: session.accessToken,
+    user: session.user,
+    tenantId: session.user.tenantId,
+    selectedCompanyId: reconcileSelectedCompany(session.selectedCompanyId, memberships),
+    memberships,
+  }
 }
 
 export function selectCarrierCompany(

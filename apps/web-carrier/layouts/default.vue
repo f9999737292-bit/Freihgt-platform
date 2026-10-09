@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Button, CustomerAppShell, CustomerNavigation, LocaleSwitcher } from '@freight-platform/ui'
+import { Button, CustomerAppShell, CustomerNavigation, LoadingState, LocaleSwitcher } from '@freight-platform/ui'
 import CompanyGate from '../components/CompanyGate.vue'
+import PortalState from '../components/PortalState.vue'
 
 const office = useCarrierOffice()
 const route = useRoute()
@@ -17,6 +18,10 @@ const items = computed(() => [
 function onSelect(companyId: string) {
   office.chooseCompany(companyId)
 }
+
+onMounted(() => {
+  void office.refreshMemberships()
+})
 </script>
 
 <template>
@@ -34,8 +39,14 @@ function onSelect(companyId: string) {
           {{ t('carrier.signOut') }}
         </Button>
       </template>
+      <PortalState
+        v-if="office.membershipError.value"
+        kind="unavailable"
+        :title="t('carrier.unavailable')"
+      />
+      <LoadingState v-else-if="!office.membershipReady.value" :label="t('carrier.loading')" />
       <CompanyGate
-        v-if="!office.selectedCompanyId.value"
+        v-else-if="!office.selectedCompanyId.value"
         :companies="office.companies.value"
         @select="onSelect"
       />

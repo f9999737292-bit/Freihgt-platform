@@ -8,6 +8,7 @@ export type {
   CarrierCompanyMembership,
   CarrierOfficeRole,
   CarrierTabSession,
+  PersistedCarrierTabSession,
   ServerUserSnapshot,
 } from "./portal";
 

@@ -19,11 +19,15 @@ export interface CarrierCompanyMembership {
   roleCodes: string[];
 }
 
-/** Tab session. Persisted only in sessionStorage by the portal client. */
-export interface CarrierTabSession {
+/** Fields allowed in sessionStorage. Memberships are not persisted. */
+export interface PersistedCarrierTabSession {
   accessToken: string;
   user: ServerUserSnapshot;
   tenantId: string;
   selectedCompanyId: string | null;
+}
+
+/** In-memory office session. Memberships come from a fresh gateway read. */
+export interface CarrierTabSession extends PersistedCarrierTabSession {
   memberships: CarrierCompanyMembership[];
 }
