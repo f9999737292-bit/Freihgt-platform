@@ -86,6 +86,10 @@ func NewRouter(
 		r.Patch("/{id}/status", shipmentHandler.UpdateStatus)
 		r.Post("/{id}/cancel", shipmentHandler.Cancel)
 	})
+	r.Route("/v1/shipper/shipments", func(r chi.Router) {
+		r.Get("/", shipmentHandler.ListForShipper)
+		r.Get("/{id}", shipmentHandler.GetForShipper)
+	})
 
 	r.Route("/v1/drivers", func(r chi.Router) {
 		r.Post("/", driverHandler.Create)

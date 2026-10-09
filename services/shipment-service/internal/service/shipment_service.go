@@ -18,7 +18,9 @@ type ShipmentStore interface {
 	GetBid(ctx context.Context, id, tenantID uuid.UUID) (*domain.BidSnapshot, error)
 	CreateShipment(ctx context.Context, params repository.CreateShipmentParams, transition domain.StatusTransitionContext) (*domain.Shipment, error)
 	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error)
+	GetByIDAndShipper(ctx context.Context, id, tenantID, shipperCompanyID uuid.UUID) (*domain.Shipment, error)
 	List(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error)
+	ListByShipper(ctx context.Context, filter domain.ShipperShipmentListFilter) ([]domain.Shipment, int, error)
 	AssignDriver(ctx context.Context, id, tenantID, driverID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
 	AssignVehicle(ctx context.Context, id, tenantID, vehicleID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
 	UpdateStatus(ctx context.Context, id, tenantID uuid.UUID, fromStatus, newStatus string, actualPickupAt, actualDeliveryAt *time.Time, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
@@ -191,6 +193,39 @@ func (s *ShipmentService) List(ctx context.Context, filter domain.ListShipmentsF
 		return nil, 0, err
 	}
 	return s.shipments.List(ctx, filter)
+}
+
+func (s *ShipmentService) ListForShipper(ctx context.Context, filter domain.ShipperShipmentListFilter) ([]domain.Shipment, int, error) {
+	if filter.Limit == 0 {
+		filter.Limit = 20
+	}
+	if err := domain.ValidateShipperShipmentListFilter(filter); err != nil {
+		return nil, 0, err
+	}
+	items, total, err := s.shipments.ListByShipper(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, item := range items {
+		if item.TenantID != filter.TenantID || item.ShipperCompanyID != filter.ShipperCompanyID {
+			return nil, 0, apperrors.Internal("shipper shipment list is inconsistent", nil)
+		}
+	}
+	return items, total, nil
+}
+
+func (s *ShipmentService) GetForShipper(ctx context.Context, tenantID, shipmentID, shipperCompanyID uuid.UUID) (*domain.Shipment, error) {
+	if err := domain.ValidateShipperShipmentDetail(tenantID, shipmentID, shipperCompanyID); err != nil {
+		return nil, err
+	}
+	shipment, err := s.shipments.GetByIDAndShipper(ctx, shipmentID, tenantID, shipperCompanyID)
+	if err != nil {
+		return nil, err
+	}
+	if shipment == nil || shipment.ID != shipmentID || shipment.TenantID != tenantID || shipment.ShipperCompanyID != shipperCompanyID {
+		return nil, apperrors.NotFound("shipment not found")
+	}
+	return shipment, nil
 }
 
 func (s *ShipmentService) AssignDriver(ctx context.Context, tenantID, shipmentID, driverID uuid.UUID, transition domain.StatusTransitionContext) (*domain.Shipment, error) {

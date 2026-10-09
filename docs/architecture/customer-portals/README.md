@@ -111,3 +111,7 @@ NEW_BLOCKING_BACKEND_GAPS=0
 ```
 
 0.2A-R1 recorded CP-CARRIER-API-001 and CP-CARRIER-API-002. 0.2A-R2 marks both resolved by PR #236 after the office sends the verified company query. Those counts are not folded into the 0.1B gap block above.
+
+## Shipper shipment source reads
+
+[SHIPPER_SHIPMENT_SAFE_READS_0_1A.md](SHIPPER_SHIPMENT_SAFE_READS_0_1A.md) records the shipment-service source contract for a later Shipper Portal. `SHIPPER_SHIPMENT_CUSTOMER_SAFE=NO_PENDING_GATEWAY`. The legacy tenant-wide shipment routes stay in place and are not a customer contract.

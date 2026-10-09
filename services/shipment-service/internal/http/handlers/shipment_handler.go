@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/freight-platform/shipment-service/internal/domain"
+	apperrors "github.com/freight-platform/shipment-service/internal/platform/errors"
 	"github.com/freight-platform/shipment-service/internal/platform/respond"
 	"github.com/freight-platform/shipment-service/internal/service"
 )
@@ -136,6 +138,77 @@ func (h *ShipmentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond.JSON(w, http.StatusOK, toShipmentResponse(shipment))
+}
+
+func (h *ShipmentHandler) ListForShipper(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipperCompanyID, err := requiredShipperCompanyID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	filter := domain.ShipperShipmentListFilter{
+		TenantID:         tenantID,
+		ShipperCompanyID: shipperCompanyID,
+		Limit:            parseLimit(r),
+		Offset:           parseOffset(r),
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("status")); raw != "" {
+		filter.Status = &raw
+	}
+	shipments, total, err := h.service.ListForShipper(r.Context(), filter)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	items := make([]map[string]any, 0, len(shipments))
+	for i := range shipments {
+		items = append(items, toShipmentResponse(&shipments[i]))
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
+}
+
+func (h *ShipmentHandler) GetForShipper(w http.ResponseWriter, r *http.Request) {
+	id, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipperCompanyID, err := requiredShipperCompanyID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipment, err := h.service.GetForShipper(r.Context(), tenantID, id, shipperCompanyID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, toShipmentResponse(shipment))
+}
+
+func requiredShipperCompanyID(r *http.Request) (uuid.UUID, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get("shipper_company_id"))
+	if raw == "" {
+		return uuid.Nil, apperrors.Validation("shipper_company_id is required", map[string]any{"field": "shipper_company_id"})
+	}
+	id, err := domain.ParseUUID(raw, "shipper_company_id")
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if id == uuid.Nil {
+		return uuid.Nil, apperrors.Validation("shipper_company_id is required", map[string]any{"field": "shipper_company_id"})
+	}
+	return id, nil
 }
 
 func (h *ShipmentHandler) List(w http.ResponseWriter, r *http.Request) {

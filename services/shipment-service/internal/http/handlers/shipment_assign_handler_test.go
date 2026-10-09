@@ -43,7 +43,13 @@ func (s *assignShipmentStore) GetByIDAndTenant(ctx context.Context, id, tenantID
 	}
 	return nil, nil
 }
+func (s *assignShipmentStore) GetByIDAndShipper(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domain.Shipment, error) {
+	return nil, nil
+}
 func (s *assignShipmentStore) List(context.Context, domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+	return nil, 0, nil
+}
+func (s *assignShipmentStore) ListByShipper(context.Context, domain.ShipperShipmentListFilter) ([]domain.Shipment, int, error) {
 	return nil, 0, nil
 }
 func (s *assignShipmentStore) AssignDriver(ctx context.Context, id, tenantID, driverID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error) {

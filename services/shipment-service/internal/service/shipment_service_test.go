@@ -22,6 +22,8 @@ type mockShipmentStore struct {
 	getBidFn            func(ctx context.Context, id, tenantID uuid.UUID) (*domain.BidSnapshot, error)
 	createFn            func(ctx context.Context, params repository.CreateShipmentParams, transition domain.StatusTransitionContext) (*domain.Shipment, error)
 	getByIDAndTenantFn  func(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error)
+	getByShipperFn      func(ctx context.Context, id, tenantID, shipperCompanyID uuid.UUID) (*domain.Shipment, error)
+	listByShipperFn     func(ctx context.Context, filter domain.ShipperShipmentListFilter) ([]domain.Shipment, int, error)
 	assignDriverFn      func(ctx context.Context, id, tenantID, driverID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
 	assignVehicleFn     func(ctx context.Context, id, tenantID, vehicleID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
 	updateStatusFn      func(ctx context.Context, id, tenantID uuid.UUID, fromStatus, newStatus string, actualPickupAt, actualDeliveryAt *time.Time, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
@@ -44,7 +46,19 @@ func (m *mockShipmentStore) CreateShipment(ctx context.Context, params repositor
 func (m *mockShipmentStore) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error) {
 	return m.getByIDAndTenantFn(ctx, id, tenantID)
 }
+func (m *mockShipmentStore) GetByIDAndShipper(ctx context.Context, id, tenantID, shipperCompanyID uuid.UUID) (*domain.Shipment, error) {
+	if m.getByShipperFn != nil {
+		return m.getByShipperFn(ctx, id, tenantID, shipperCompanyID)
+	}
+	return nil, nil
+}
 func (m *mockShipmentStore) List(context.Context, domain.ListShipmentsFilter) ([]domain.Shipment, int, error) {
+	return nil, 0, nil
+}
+func (m *mockShipmentStore) ListByShipper(ctx context.Context, filter domain.ShipperShipmentListFilter) ([]domain.Shipment, int, error) {
+	if m.listByShipperFn != nil {
+		return m.listByShipperFn(ctx, filter)
+	}
 	return nil, 0, nil
 }
 func (m *mockShipmentStore) AssignDriver(ctx context.Context, id, tenantID, driverID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error) {
