@@ -6,20 +6,22 @@ Shared shell regions, same for every customer app: product name, company switche
 
 ## Carrier
 
+`CARRIER-MVP-0.2A` is only: login, authenticated shell, company context, tender inbox, tender detail, bid/response, own award, carrier transport-order list/detail, fleet view, and error/loading/empty states. Company context is the shell company selector. It is not a Company / Users workspace.
+
 | Module | State | Notes |
 | --- | --- | --- |
-| Dashboard | MVP | Landing after company selection. Counts only from APIs in this slice. |
+| Dashboard | MVP_SHELL_ONLY | Minimal authenticated landing inside the shell. No KPI cards and no other business widgets in 0.2A. |
 | Tenders | MVP | Inbox and detail. Gateway carrier RFx routes. |
 | Bids / Responses | MVP | Create, edit, submit. Not buyer evaluation. |
 | Awards | MVP | Own award read. |
 | Transport orders | MVP | Carrier list and detail from the carrier transport-order routes. |
-| Fleet | MVP | View drivers and vehicles. Create only if the signed-in code is `CARRIER_ADMIN`. |
+| Fleet | MVP | View drivers and vehicles. `CARRIER_ADMIN` may perform only the fleet actions the gateway already allows for that code. `CARRIER_DISPATCHER` must not receive admin-only controls. |
 | Backhaul / Marketplace | DEFERRED | Network search exists and is carrier-gated. It is not in 0.2A. |
 | Settlements | DEFERRED | Not in 0.2A. Payment read does not include `CARRIER_DISPATCHER`. |
 | Billing | DEFERRED | Not in 0.2A. |
 | Documents | BLOCKED | `CUSTOMER_DOCUMENTS_SAFE=NO` |
 | Analytics | DEFERRED | Portal must not define KPIs. Not in 0.2A. |
-| Company / Users | MVP | Company profile and members for `CARRIER_ADMIN`. Dispatcher sees company profile only if membership read is allowed. |
+| Company / Users | DEFERRED | Full company profile and member administration are a later carrier slice. 0.2A keeps only the company selector in the shell. |
 | Driver actions | EXCLUDED | `apps/driver-mobile` only. |
 
 ## Shipper
