@@ -18,32 +18,36 @@ Session policy remains `TAB_SESSION_STORAGE_ACCESS_TOKEN`: `sessionStorage` hold
 | Tender detail | IMPLEMENTED | `GET /api/v1/carrier/rfx-events/{id}` |
 | Bid / response | IMPLEMENTED | `POST /api/v1/rfx-events/{id}/responses`, `PATCH /api/v1/rfx-responses/{id}`, `POST /api/v1/rfx-responses/{id}/submit`, `GET /api/v1/rfx-events/{id}/own-response` |
 | Own award | IMPLEMENTED | `GET /api/v1/rfx-events/{id}/own-award` |
-| Transport-order list | IMPLEMENTED_BLOCKED_BY_BACKEND | `GET /api/v1/carrier/transport-orders`. See CP-CARRIER-API-002. |
-| Transport-order detail | IMPLEMENTED_BLOCKED_BY_BACKEND | `GET /api/v1/order-execution/transport-orders/{id}` read only. See CP-CARRIER-API-002. |
-| Fleet view | IMPLEMENTED_BLOCKED_BY_BACKEND | `GET /api/v1/drivers`, `GET /api/v1/vehicles`. Read-only. See CP-CARRIER-API-001. |
+| Transport-order list | IMPLEMENTED | `GET /api/v1/carrier/transport-orders?carrier_company_id=<selected membership>` |
+| Transport-order detail | IMPLEMENTED | `GET /api/v1/order-execution/transport-orders/{id}?company_id=<selected membership>&actor=CARRIER` |
+| Fleet view | IMPLEMENTED | `GET /api/v1/drivers?carrier_company_id=<selected membership>` and `GET /api/v1/vehicles?carrier_company_id=<selected membership>`. Read-only for `CARRIER_ADMIN` and `CARRIER_DISPATCHER`. |
 | Error states | IMPLEMENTED | 401 clears the tab session and returns to login. 403, 404, 5xx, and network failure replace the page. Empty results and a missing carrier company have their own states. |
 
 `X-Company-ID` and `carrier_company_id` are sent only when the id is in the server membership list. Selection does not authorize the call. Tender status, deadline, participant identity, award, and response validity are shown as the server returned them.
 
 The invited-tender list is the existing `/api/v1/carrier` gateway prefix. Detail, response, award, transport-order, and fleet reads use the existing gateway routes. RFx carrier membership is resolved on the server. No backend file was changed.
 
-## Blocking backend gaps
+## Backend gaps closed by PR #236
+
+The historical findings stay recorded. PR #236 merged company-context enforcement, and the carrier office now sends the selected membership on the query the gateway requires. `X-Company-ID` remains selection context and is not the only company scope.
 
 ```text
-NEW_BLOCKING_BACKEND_GAPS=2
-CARRIER_FLEET_CUSTOMER_SAFE=NO
-CARRIER_TRANSPORT_ORDERS_CUSTOMER_SAFE=NO
+CP-CARRIER-API-001=RESOLVED_BY_PR_236
+CP-CARRIER-API-002=RESOLVED_BY_PR_236
+NEW_BLOCKING_BACKEND_GAPS=0
+CARRIER_FLEET_CUSTOMER_SAFE=YES
+CARRIER_TRANSPORT_ORDERS_CUSTOMER_SAFE=YES
 CARRIER_RFX_SAFE=YES
 PERSISTED_MEMBERSHIPS=NO
 ```
 
 ### CP-CARRIER-API-001
 
-Fleet company isolation. `GET /api/v1/drivers` and `GET /api/v1/vehicles` are tenant-wide when `carrier_company_id` is absent. Gateway fleet RBAC checks the role only. `CARRIER_FLEET_CUSTOMER_SAFE=NO`. Owner: Agent A. The carrier office does not add fleet writes.
+`RESOLVED_BY_PR_236`. Fleet list reads send `carrier_company_id` from the fresh server membership. The gateway validates that membership and binds the role on that company. The office stays read-only.
 
 ### CP-CARRIER-API-002
 
-Carrier transport-order company isolation. `carrier_company_id` and `company_id` are client-selected, and the current execution gateway guard is role-only. `CARRIER_TRANSPORT_ORDERS_CUSTOMER_SAFE=NO`. Owner: Agent A. The carrier office does not add execution commands.
+`RESOLVED_BY_PR_236`. The carrier transport-order list sends `carrier_company_id`. Detail sends `company_id` and `actor=CARRIER`. The gateway validates the selected membership. The office does not add execution commands.
 
 ## Not implemented
 

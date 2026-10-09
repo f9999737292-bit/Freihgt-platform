@@ -25,7 +25,7 @@ async function installGateway(page: Page, roles: string[]) {
     expect(headers['x-user-id']).toBeUndefined()
     expect(headers['x-user-email']).toBeUndefined()
     const url = new URL(request.url())
-    calls.push(`${request.method()} ${url.pathname}`)
+    calls.push(`${request.method()} ${url.pathname}${url.search}`)
     if (url.pathname === '/api/v1/auth/login') {
       await route.fulfill({ json: loginPayload(roles) })
       return
@@ -122,6 +122,7 @@ async function installGateway(page: Page, roles: string[]) {
       return
     }
     if (url.pathname === '/api/v1/carrier/transport-orders') {
+      expect(url.searchParams.get('carrier_company_id')).toBe('co-1')
       await route.fulfill({
         json: {
           items: [{
@@ -134,6 +135,8 @@ async function installGateway(page: Page, roles: string[]) {
       return
     }
     if (url.pathname === '/api/v1/order-execution/transport-orders/order-1') {
+      expect(url.searchParams.get('company_id')).toBe('co-1')
+      expect(url.searchParams.get('actor')).toBe('CARRIER')
       await route.fulfill({
         json: {
           transport_order_id: 'order-1',
@@ -145,10 +148,12 @@ async function installGateway(page: Page, roles: string[]) {
       return
     }
     if (url.pathname === '/api/v1/drivers') {
+      expect(url.searchParams.get('carrier_company_id')).toBe('co-1')
       await route.fulfill({ json: { items: [{ id: 'd-1', full_name: 'Driver A', status: 'ACTIVE' }] } })
       return
     }
     if (url.pathname === '/api/v1/vehicles') {
+      expect(url.searchParams.get('carrier_company_id')).toBe('co-1')
       await route.fulfill({ json: { items: [{ id: 'v-1', plate_number: 'A100AA', status: 'ACTIVE' }] } })
       return
     }
@@ -209,6 +214,31 @@ test('carrier admin fleet stays read-only', async ({ page }) => {
   await page.getByRole('link', { name: 'Автопарк' }).click()
   await expect(page.getByTestId('fleet-view')).toBeVisible()
   await expect(page.getByTestId('fleet-create')).toHaveCount(0)
+})
+
+test('tampered selected company is cleared before business calls', async ({ page }) => {
+  const calls = await installGateway(page, ['CARRIER_DISPATCHER'])
+  await signIn(page)
+  await chooseCompany(page)
+  await page.evaluate(() => {
+    const key = 'freight_carrier_tab_session'
+    const raw = JSON.parse(sessionStorage.getItem(key) ?? '{}') as Record<string, unknown>
+    raw.selectedCompanyId = 'co-spoof'
+    raw.memberships = [{
+      membershipId: 'm-spoof',
+      companyId: 'co-spoof',
+      legalName: 'Spoof Co',
+      membershipStatus: 'ACTIVE',
+      roleCodes: ['CARRIER_ADMIN'],
+    }]
+    sessionStorage.setItem(key, JSON.stringify(raw))
+  })
+  const marked = calls.length
+  await page.reload()
+  await expect(page.getByTestId('company-gate')).toBeVisible()
+  const afterReload = calls.slice(marked)
+  expect(afterReload.some((call) => call.includes('co-spoof'))).toBe(false)
+  expect(afterReload.some((call) => call.includes('/api/v1/drivers') || call.includes('/api/v1/vehicles') || call.includes('/api/v1/carrier/'))).toBe(false)
 })
 
 test('driver cannot enter the carrier office', async ({ page }) => {

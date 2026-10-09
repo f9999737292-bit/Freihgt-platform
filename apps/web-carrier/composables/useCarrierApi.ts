@@ -116,9 +116,10 @@ export function useCarrierApi() {
 
   async function listFleet() {
     const companyId = office.requireCompany()
+    const scope = { companyId, query: { carrier_company_id: companyId } }
     const [drivers, vehicles] = await Promise.all([
-      office.client.request<{ items?: Array<{ id: string; full_name?: string; status?: string }> }>('/api/v1/drivers', { companyId }),
-      office.client.request<{ items?: Array<{ id: string; plate_number?: string; status?: string }> }>('/api/v1/vehicles', { companyId }),
+      office.client.request<{ items?: Array<{ id: string; full_name?: string; status?: string }> }>('/api/v1/drivers', scope),
+      office.client.request<{ items?: Array<{ id: string; plate_number?: string; status?: string }> }>('/api/v1/vehicles', scope),
     ])
     return {
       drivers: drivers.items ?? [],
