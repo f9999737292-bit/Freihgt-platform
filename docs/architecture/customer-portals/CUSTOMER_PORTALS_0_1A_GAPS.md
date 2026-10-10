@@ -239,6 +239,16 @@ BLOCKING_GAPS=13
 | SOURCE_EVIDENCE | `services/api-gateway/internal/tracking/handler.go` `buildRequestContext` |
 | RECOMMENDED_STAGE | Before any portal tracking or ETA page |
 
+The public row above stays open. `SHIPPER_TRACKING_SOURCE_SAFETY_0_1A.md` resolves only the tracking-service source layer: participant proof is required before shipper tracking, ETA, and slot reads. The API Gateway still exposes the tenant-only family.
+
+```text
+CP_API_006_SOURCE_LAYER=RESOLVED
+CP_API_006_PUBLIC_GATEWAY=OPEN
+CUSTOMER_TRACKING_SAFE=NO_PENDING_GATEWAY
+SHIPPER_TRACKING_CUSTOMER_SAFE=NO_PENDING_GATEWAY
+CUSTOMER_PORTAL_MAY_USE_LEGACY_TRACKING_ROUTE=NO
+```
+
 ### CP-API-007
 
 | Field | Value |

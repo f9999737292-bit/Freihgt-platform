@@ -5,11 +5,12 @@ import "fmt"
 type Code string
 
 const (
-	CodeValidation     Code = "VALIDATION_ERROR"
-	CodeNotFound       Code = "NOT_FOUND"
-	CodeConflict       Code = "CONFLICT"
-	CodeUnauthorized   Code = "UNAUTHORIZED"
-	CodeInternal       Code = "INTERNAL_ERROR"
+	CodeValidation   Code = "VALIDATION_ERROR"
+	CodeNotFound     Code = "NOT_FOUND"
+	CodeConflict     Code = "CONFLICT"
+	CodeUnauthorized Code = "UNAUTHORIZED"
+	CodeUnavailable  Code = "UNAVAILABLE"
+	CodeInternal     Code = "INTERNAL_ERROR"
 )
 
 type AppError struct {
@@ -42,6 +43,10 @@ func Conflict(message string, details map[string]any) *AppError {
 
 func Unauthorized(message string) *AppError {
 	return &AppError{Code: CodeUnauthorized, Message: message, Details: map[string]any{}}
+}
+
+func Unavailable(message string) *AppError {
+	return &AppError{Code: CodeUnavailable, Message: message, Details: map[string]any{}}
 }
 
 func Internal(message string, err error) *AppError {
