@@ -1,5 +1,97 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
 
+const FACT_KEYS = [
+  'plannedPickupAt',
+  'plannedDeliveryAt',
+  'actualPickupAt',
+  'actualDeliveryAt',
+  'shipmentStatus',
+  'pickupEtaStatus',
+  'deliveryEtaStatus',
+  'pickupEstimatedArrivalAt',
+  'deliveryEstimatedArrivalAt',
+  'pickupEtaFreshness',
+  'deliveryEtaFreshness',
+  'pickupEtaQuality',
+  'deliveryEtaQuality',
+]
+
+const tracking = {
+  shipmentId: 'shp-1',
+  trackingStatus: 'ACTIVE',
+  freshness: { status: 'fresh', ageSeconds: 12 },
+  quality: { status: 'good' },
+  lastKnownPosition: {
+    latitude: 55.75,
+    longitude: 37.62,
+    recordedAt: '2026-12-01T10:00:00Z',
+    ageSeconds: 12,
+  },
+  speedKph: 40,
+  headingDegrees: 90,
+}
+
+const locations = {
+  items: [{
+    latitude: 55.75,
+    longitude: 37.62,
+    recordedAt: '2026-12-01T10:00:00Z',
+    speedKph: 40,
+    headingDegrees: 90,
+    accuracyMeters: 8,
+    quality: { status: 'good' },
+    sourceType: 'telematics',
+  }],
+  total: 1,
+  limit: 50,
+  offset: 0,
+}
+
+const eta = {
+  shipmentId: 'shp-1',
+  pickup: {
+    status: 'AVAILABLE',
+    freshnessStatus: 'fresh',
+    qualityStatus: 'good',
+    estimatedArrivalAt: '2026-12-01T11:00:00Z',
+    sourceType: 'schedule',
+  },
+  delivery: {
+    status: 'AVAILABLE',
+    freshnessStatus: 'fresh',
+    qualityStatus: 'good',
+    estimatedArrivalAt: '2026-12-02T16:00:00Z',
+    sourceType: 'schedule',
+  },
+}
+
+const slots = {
+  shipmentId: 'shp-1',
+  pickup: {
+    windowStatus: 'OPEN',
+    slotStatus: 'CONFIRMED',
+    windowStart: '2026-12-01T08:00:00Z',
+    windowEnd: '2026-12-01T10:00:00Z',
+    timezone: 'Europe/Moscow',
+    qualityStatus: 'good',
+  },
+  delivery: {
+    windowStatus: 'OPEN',
+    slotStatus: 'CONFIRMED',
+    windowStart: '2026-12-02T15:00:00Z',
+    windowEnd: '2026-12-02T18:00:00Z',
+    timezone: 'Europe/Moscow',
+    qualityStatus: 'good',
+  },
+}
+
+function assertSafeRead(url: URL, headers: Record<string, string>) {
+  expect(url.pathname.startsWith('/api/v1/shipper/shipments/')).toBe(true)
+  expect(url.searchParams.get('shipper_company_id')).toBe('co-shipper')
+  expect(headers['x-company-id']).toBe('co-shipper')
+  for (const key of FACT_KEYS) expect(url.searchParams.has(key)).toBe(false)
+}
+
 const shipment = {
   id: 'shp-1',
   shipment_number: 'SHP-1',
@@ -78,9 +170,74 @@ async function installGateway(
       return
     }
     if (url.pathname === '/api/v1/shipper/shipments/shp-1') {
-      expect(url.searchParams.get('shipper_company_id')).toBe('co-shipper')
-      expect(headers['x-company-id']).toBe('co-shipper')
+      assertSafeRead(url, headers)
       await route.fulfill({ json: shipment })
+      return
+    }
+    if (url.pathname === '/api/v1/shipper/shipments/shp-1/tracking') {
+      assertSafeRead(url, headers)
+      await route.fulfill({ json: tracking })
+      return
+    }
+    if (url.pathname === '/api/v1/shipper/shipments/shp-1/tracking/locations') {
+      assertSafeRead(url, headers)
+      expect(url.searchParams.get('limit')).toBe('50')
+      expect(url.searchParams.get('offset')).toBe('0')
+      await route.fulfill({ json: locations })
+      return
+    }
+    if (url.pathname === '/api/v1/shipper/shipments/shp-1/eta') {
+      assertSafeRead(url, headers)
+      await route.fulfill({ json: eta })
+      return
+    }
+    if (url.pathname === '/api/v1/shipper/shipments/shp-1/eta/history') {
+      assertSafeRead(url, headers)
+      expect(['pickup', 'delivery']).toContain(url.searchParams.get('targetType'))
+      expect(url.searchParams.get('limit')).toBe('50')
+      const target = url.searchParams.get('targetType')
+      await route.fulfill({
+        json: {
+          items: [{
+            targetType: target,
+            estimatedArrivalAt: target === 'pickup' ? '2026-12-01T11:00:00Z' : '2026-12-02T16:00:00Z',
+            sourceObservedAt: '2026-12-01T09:00:00Z',
+            receivedAt: '2026-12-01T09:01:00Z',
+            qualityStatus: 'good',
+            sourceType: 'schedule',
+          }],
+          total: 1,
+          limit: 50,
+          offset: 0,
+        },
+      })
+      return
+    }
+    if (url.pathname === '/api/v1/shipper/shipments/shp-1/slots') {
+      assertSafeRead(url, headers)
+      await route.fulfill({ json: slots })
+      return
+    }
+    if (url.pathname === '/api/v1/shipper/shipments/shp-1/slots/history') {
+      assertSafeRead(url, headers)
+      expect(['pickup', 'delivery']).toContain(url.searchParams.get('slotType'))
+      expect(url.searchParams.get('limit')).toBe('50')
+      const slotType = url.searchParams.get('slotType')
+      await route.fulfill({
+        json: {
+          items: [{
+            slotType,
+            windowStart: slotType === 'pickup' ? '2026-12-01T08:00:00Z' : '2026-12-02T15:00:00Z',
+            windowEnd: slotType === 'pickup' ? '2026-12-01T10:00:00Z' : '2026-12-02T18:00:00Z',
+            timezone: 'Europe/Moscow',
+            slotStatus: 'CONFIRMED',
+            qualityStatus: 'good',
+          }],
+          total: 1,
+          limit: 50,
+          offset: 0,
+        },
+      })
       return
     }
     await route.fulfill({ status: 404, json: { message: url.pathname } })
@@ -125,14 +282,69 @@ test('shipper admin reads the company-scoped shipment inbox and detail', async (
   await expect(page.getByTestId('planned-pickup')).toContainText('2026-12-01T08:00:00Z')
   await expect(page.getByTestId('actual-delivery')).toContainText('—')
   expect(calls.some((call) => call.includes('/api/v1/shipper/shipments/shp-1') && call.includes('shipper_company_id=co-shipper'))).toBe(true)
+
+  await page.getByTestId('open-tracking').click()
+  await expect(page.getByTestId('shipment-tracking')).toBeVisible()
+  await expect(page.getByTestId('tracking-status')).toContainText('ACTIVE')
+  await expect(page.getByTestId('tracking-freshness')).toContainText('fresh')
+  await expect(page.getByTestId('position-latitude')).toContainText('55.75')
+  await expect(page.getByTestId('position-longitude')).toContainText('37.62')
+  await expect(page.getByTestId('location-row')).toContainText('55.75')
+  await expect(page.getByTestId('eta-pickup')).toContainText('2026-12-01T11:00:00Z')
+  await expect(page.getByTestId('eta-delivery')).toContainText('2026-12-02T16:00:00Z')
+  await expect(page.getByTestId('slot-pickup')).toContainText('Europe/Moscow')
+  await expect(page.getByTestId('slot-delivery')).toContainText('2026-12-02T18:00:00Z')
+  const body = await page.locator('body').innerText()
+  expect(body).not.toContain('providerDeviceId')
+  expect(body).not.toContain('providerEventId')
+  expect(body).not.toContain('providerSlotId')
+  expect(body).not.toContain('X-Internal-Service-Token')
+  const trackingCalls = calls.filter((call) => call.includes('/api/v1/shipper/shipments/shp-1/'))
+  expect(trackingCalls.some((call) => call.includes('/tracking?') || call.includes('/tracking&'))).toBe(true)
+  expect(trackingCalls.every((call) => call.includes('shipper_company_id=co-shipper'))).toBe(true)
+  expect(calls.some((call) => call.includes('/api/v1/shipments/'))).toBe(false)
 })
 
-test('shipper logist can open the shipment inbox', async ({ page }) => {
-  await installGateway(page, ['SHIPPER_LOGIST'])
+test('shipper logist can open the shipment inbox and tracking', async ({ page }) => {
+  const calls = await installGateway(page, ['SHIPPER_LOGIST'])
   await signIn(page)
   await chooseCompany(page)
   await page.getByRole('link', { name: 'Отправления' }).click()
   await expect(page.getByText('SHP-1')).toBeVisible()
+  await page.getByTestId('open-shipment').click()
+  await page.getByTestId('open-tracking').click()
+  await expect(page.getByTestId('tracking-status')).toContainText('ACTIVE')
+  await expect(page.getByTestId('eta-pickup')).toBeVisible()
+  await expect(page.getByTestId('slot-delivery')).toBeVisible()
+  expect(calls.some((call) => call.includes('/api/v1/shipper/shipments/shp-1/tracking') && call.includes('shipper_company_id=co-shipper'))).toBe(true)
+  expect(calls.some((call) => call.includes('/api/v1/shipments/'))).toBe(false)
+})
+
+test('tampered company is discarded before a direct tracking visit', async ({ page }) => {
+  const calls = await installGateway(page, ['SHIPPER_ADMIN'])
+  await signIn(page)
+  await chooseCompany(page)
+  await page.evaluate(() => {
+    const key = 'freight_shipper_tab_session'
+    const raw = JSON.parse(sessionStorage.getItem(key) ?? '{}') as Record<string, unknown>
+    raw.selectedCompanyId = 'co-spoof'
+    raw.memberships = [{
+      membershipId: 'm-spoof',
+      companyId: 'co-spoof',
+      legalName: 'Spoof Co',
+      companyType: 'SHIPPER',
+      membershipStatus: 'ACTIVE',
+      roleCodes: ['SHIPPER_ADMIN'],
+    }]
+    sessionStorage.setItem(key, JSON.stringify(raw))
+  })
+  const marked = calls.length
+  await page.goto('/shipments/shp-1/tracking')
+  await expect(page.getByTestId('company-gate')).toBeVisible()
+  const after = calls.slice(marked)
+  expect(after.some((call) => call.includes('co-spoof'))).toBe(false)
+  expect(after.some((call) => call.includes('/tracking') || call.includes('/eta') || call.includes('/slots'))).toBe(false)
+  expect(after.some((call) => call.includes('/api/v1/shipments/'))).toBe(false)
 })
 
 test('a shipper role on a non-shipper company cannot be selected', async ({ page }) => {
