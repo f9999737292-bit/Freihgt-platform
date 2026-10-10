@@ -32,7 +32,7 @@ Shared shell regions, same for every customer app: product name, company switche
 | Transport orders | TARGET | `SHIPPER_ADMIN` create. `SHIPPER_LOGIST` read. |
 | Shipments | API_READY | `SHIPPER_SHIPMENT_INBOX_SAFE=YES`. Gateway company-scoped reads only. Screens are not part of the gateway stage. |
 | Tenders | TARGET | Admin manage, logist read. |
-| Tracking | BLOCKED | `CUSTOMER_TRACKING_SAFE=NO` |
+| Tracking | API_READY | `SHIPPER_TRACKING_CUSTOMER_SAFE=YES`. `CUSTOMER_TRACKING_SAFE=NO_GLOBAL_SHIPPER_ONLY`. Screens are not part of the gateway stage. |
 | Documents | BLOCKED | `CUSTOMER_DOCUMENTS_SAFE=NO` |
 | Billing | TARGET | Read of billing registers when the shipper wave starts. Not a forwarder receivable. |
 | Payments | TARGET | Read of obligations for the shipper codes the gateway already allows. |

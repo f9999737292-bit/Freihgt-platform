@@ -123,3 +123,7 @@ SHIPPER_TRACKING_CUSTOMER_SAFE=NO_PENDING_GATEWAY
 ```
 
 Agent F must not render tracking from the legacy public routes.
+
+## Gateway result
+
+The status block at the top of this file is the source-contract record and is unchanged. [SHIPPER_TRACKING_GATEWAY_0_1.md](SHIPPER_TRACKING_GATEWAY_0_1.md) records the later gateway stage. For shipper only, `SHIPPER_TRACKING_CUSTOMER_SAFE`, `SHIPPER_ETA_CUSTOMER_SAFE`, and `SHIPPER_SLOTS_CUSTOMER_SAFE` move from `NO_PENDING_GATEWAY` to `YES`. `CP_API_006_SHIPPER_PUBLIC_GATEWAY=RESOLVED`. Carrier and consignee stay open. Global customer tracking is `NO_GLOBAL_SHIPPER_ONLY`.

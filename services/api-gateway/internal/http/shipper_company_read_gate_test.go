@@ -368,9 +368,9 @@ func TestShipperProxyDoesNotCaptureTracking(t *testing.T) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.shipmentHits != 0 {
-		t.Fatal("tracking request reached shipment-service")
+		t.Fatal("legacy tracking request reached shipment-service")
 	}
-	if h.trackingHits != 1 || rec.Code == http.StatusForbidden {
+	if h.trackingHits != 0 || rec.Code != http.StatusForbidden {
 		t.Fatalf("tracking hits=%d status=%d body=%s", h.trackingHits, rec.Code, readBody(t, rec))
 	}
 }

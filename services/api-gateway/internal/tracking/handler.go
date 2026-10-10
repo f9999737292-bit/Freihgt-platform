@@ -149,6 +149,89 @@ func (h *Handler) ListSlotHistory(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(body)
 }
 
+func (h *Handler) GetShipperTracking(w http.ResponseWriter, r *http.Request) {
+	h.proxyShipperSource(w, r, "/tracking", nil)
+}
+
+func (h *Handler) ListShipperLocations(w http.ResponseWriter, r *http.Request) {
+	h.proxyShipperSource(w, r, "/tracking/locations", nil)
+}
+
+func (h *Handler) GetShipperETA(w http.ResponseWriter, r *http.Request) {
+	h.proxyShipperSource(w, r, "/eta", shipperETAFactKeys)
+}
+
+func (h *Handler) ListShipperETAHistory(w http.ResponseWriter, r *http.Request) {
+	h.proxyShipperSource(w, r, "/eta/history", shipperETAFactKeys)
+}
+
+func (h *Handler) GetShipperSlots(w http.ResponseWriter, r *http.Request) {
+	h.proxyShipperSource(w, r, "/slots", shipperSlotFactKeys)
+}
+
+func (h *Handler) ListShipperSlotHistory(w http.ResponseWriter, r *http.Request) {
+	h.proxyShipperSource(w, r, "/slots/history", shipperSlotFactKeys)
+}
+
+func (h *Handler) proxyShipperSource(w http.ResponseWriter, r *http.Request, suffix string, forbidden []string) {
+	if rejectedShipperFactQuery(w, r, forbidden) {
+		return
+	}
+	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipmentID := strings.TrimSpace(chi.URLParam(r, "id"))
+	if shipmentID == "" {
+		shipmentID = strings.TrimSpace(chi.URLParam(r, "shipmentId"))
+	}
+	if shipmentID == "" {
+		respond.Error(w, apperrors.Validation("shipment id is required", nil))
+		return
+	}
+	path := "/v1/shipper/shipments/" + shipmentID + suffix
+	body, status, err := h.client.ProxyShipperJSON(
+		r.Context(),
+		reqCtx.TenantID,
+		reqCtx.RequestID,
+		r.Header.Get("X-Company-ID"),
+		r.Header.Get("X-Actor-Kind"),
+		http.MethodGet,
+		path,
+		r.URL.RawQuery,
+	)
+	if err != nil {
+		respond.Error(w, apperrors.ServiceUnavailable("tracking service is temporarily unavailable", "tracking-service"))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
+}
+
+var shipperETAFactKeys = []string{
+	"plannedPickupAt", "plannedDeliveryAt", "actualPickupAt", "actualDeliveryAt", "shipmentStatus",
+}
+
+var shipperSlotFactKeys = []string{
+	"shipmentStatus", "actualPickupAt", "actualDeliveryAt",
+	"pickupEtaStatus", "deliveryEtaStatus",
+	"pickupEstimatedArrivalAt", "deliveryEstimatedArrivalAt",
+	"pickupEtaFreshness", "deliveryEtaFreshness",
+	"pickupEtaQuality", "deliveryEtaQuality",
+}
+
+func rejectedShipperFactQuery(w http.ResponseWriter, r *http.Request, keys []string) bool {
+	for _, key := range keys {
+		if _, present := r.URL.Query()[key]; present {
+			respond.Error(w, apperrors.Validation("shipment facts are server owned", map[string]any{"field": key}))
+			return true
+		}
+	}
+	return false
+}
+
 func (h *Handler) ListLocations(w http.ResponseWriter, r *http.Request) {
 	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
 	if err != nil {
