@@ -55,6 +55,25 @@ func MembershipAllowsCarrierRead(companyType string, roleCodes []string) bool {
 	return routeauth.HasAnyRole(normalizedRoleCodes(roleCodes), carrierReadRoleCodes)
 }
 
+// shipperShipmentReadRoleCodes are the customer shipment-read roles that must
+// be present on the selected shipper membership. FORWARDER_MANAGER and
+// PROCUREMENT_MANAGER are not shipper customer roles.
+var shipperShipmentReadRoleCodes = map[string]struct{}{
+	"SHIPPER_ADMIN":  {},
+	"SHIPPER_LOGIST": {},
+}
+
+// MembershipAllowsShipperShipmentRead is true only when the selected
+// membership is a shipper company and that same membership includes
+// SHIPPER_ADMIN or SHIPPER_LOGIST. A role on another company, a forwarder or
+// LSP company, and tenant-global PLATFORM_ADMIN are not sufficient.
+func MembershipAllowsShipperShipmentRead(companyType string, roleCodes []string) bool {
+	if strings.ToUpper(strings.TrimSpace(companyType)) != "SHIPPER" {
+		return false
+	}
+	return routeauth.HasAnyRole(normalizedRoleCodes(roleCodes), shipperShipmentReadRoleCodes)
+}
+
 func normalizedRoleCodes(roleCodes []string) []string {
 	out := make([]string, 0, len(roleCodes))
 	for _, code := range roleCodes {

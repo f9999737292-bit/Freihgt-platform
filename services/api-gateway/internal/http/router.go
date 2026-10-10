@@ -236,6 +236,10 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/shipments/{id}/accept", shipmentGuard.WithPolicy(shipmentrbac.PolicyAccept))
 	r.Patch("/api/v1/shipments/{id}/status", shipmentGuard.WithPolicy(shipmentrbac.PolicyUpdateStatus))
 	r.Post("/api/v1/shipments/{id}/cancel", shipmentGuard.WithPolicy(shipmentrbac.PolicyCancel))
+	r.Get("/api/v1/shipper/shipments", carrierCompany.RequireShipperRead(proxy))
+	r.Get("/api/v1/shipper/shipments/{id}", carrierCompany.RequireShipperRead(proxy))
+	r.Get("/api/v1/shipments", carrierCompany.RequireOperatorShipmentRead(proxy))
+	r.Get("/api/v1/shipments/{id}", carrierCompany.RequireOperatorShipmentRead(proxy))
 
 	executionGuard := executionrbac.NewGuard(cfg, proxy)
 	r.Post("/api/v1/order-execution/transport-orders/{id}/execute", executionGuard.WithPolicy(executionrbac.PolicyExecute))

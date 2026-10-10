@@ -45,3 +45,7 @@ The response is the existing shipment record: identity, parties, locations, carg
 Agent A must bind the authenticated user to a selected company membership and to `SHIPPER_ADMIN` or `SHIPPER_LOGIST`, then pass that canonical company context. The gateway prefix table does not currently match `/api/v1/shipper`, so this source route is not a public portal API.
 
 Agent F must call only this contract from the Shipper Portal. Tracking, documents, finance, and EDO stay blocked.
+
+## Gateway result
+
+The status block at the top of this file is the source-contract record and is unchanged. [SHIPPER_COMPANY_CONTEXT_GATEWAY_0_1.md](SHIPPER_COMPANY_CONTEXT_GATEWAY_0_1.md) records the later gateway stage: `SHIPPER_SHIPMENT_INBOX_SAFE` moves from `NO` to `YES`, and `SHIPPER_SHIPMENT_CUSTOMER_SAFE` moves from `NO_PENDING_GATEWAY` to `YES`, under `CP-SHIPPER-API-001`. Tracking and documents stay unsafe.
