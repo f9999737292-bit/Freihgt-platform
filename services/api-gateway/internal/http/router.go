@@ -183,13 +183,20 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 		r.Get("/api/v1/shipments/{shipmentId}/events", shipmentEvents.Events)
 	}
 
+	carrierCompany := companycontext.NewEnforcer(cfg)
 	if trackingHandler != nil {
-		r.Get("/api/v1/shipments/{shipmentId}/tracking", trackingHandler.GetCurrent)
-		r.Get("/api/v1/shipments/{shipmentId}/tracking/locations", trackingHandler.ListLocations)
-		r.Get("/api/v1/shipments/{shipmentId}/eta", trackingHandler.GetETA)
-		r.Get("/api/v1/shipments/{shipmentId}/eta/history", trackingHandler.ListETAHistory)
-		r.Get("/api/v1/shipments/{shipmentId}/slots", trackingHandler.GetSlots)
-		r.Get("/api/v1/shipments/{shipmentId}/slots/history", trackingHandler.ListSlotHistory)
+		r.Get("/api/v1/shipments/{shipmentId}/tracking", carrierCompany.RequireOperatorShipmentRead(http.HandlerFunc(trackingHandler.GetCurrent)))
+		r.Get("/api/v1/shipments/{shipmentId}/tracking/locations", carrierCompany.RequireOperatorShipmentRead(http.HandlerFunc(trackingHandler.ListLocations)))
+		r.Get("/api/v1/shipments/{shipmentId}/eta", carrierCompany.RequireOperatorShipmentRead(http.HandlerFunc(trackingHandler.GetETA)))
+		r.Get("/api/v1/shipments/{shipmentId}/eta/history", carrierCompany.RequireOperatorShipmentRead(http.HandlerFunc(trackingHandler.ListETAHistory)))
+		r.Get("/api/v1/shipments/{shipmentId}/slots", carrierCompany.RequireOperatorShipmentRead(http.HandlerFunc(trackingHandler.GetSlots)))
+		r.Get("/api/v1/shipments/{shipmentId}/slots/history", carrierCompany.RequireOperatorShipmentRead(http.HandlerFunc(trackingHandler.ListSlotHistory)))
+		r.Get("/api/v1/shipper/shipments/{id}/tracking", carrierCompany.RequireShipperRead(http.HandlerFunc(trackingHandler.GetShipperTracking)))
+		r.Get("/api/v1/shipper/shipments/{id}/tracking/locations", carrierCompany.RequireShipperRead(http.HandlerFunc(trackingHandler.ListShipperLocations)))
+		r.Get("/api/v1/shipper/shipments/{id}/eta", carrierCompany.RequireShipperRead(http.HandlerFunc(trackingHandler.GetShipperETA)))
+		r.Get("/api/v1/shipper/shipments/{id}/eta/history", carrierCompany.RequireShipperRead(http.HandlerFunc(trackingHandler.ListShipperETAHistory)))
+		r.Get("/api/v1/shipper/shipments/{id}/slots", carrierCompany.RequireShipperRead(http.HandlerFunc(trackingHandler.GetShipperSlots)))
+		r.Get("/api/v1/shipper/shipments/{id}/slots/history", carrierCompany.RequireShipperRead(http.HandlerFunc(trackingHandler.ListShipperSlotHistory)))
 	}
 
 	if driverHandler != nil {
@@ -220,7 +227,6 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	}
 
 	fleetGuard := fleetrbac.NewGuard(cfg, proxy)
-	carrierCompany := companycontext.NewEnforcer(cfg)
 	r.Get("/api/v1/drivers", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, proxy))
 	r.Get("/api/v1/drivers/{id}", fleetGuard.WithPolicy(fleetrbac.PolicyView))
 	r.Post("/api/v1/drivers", fleetGuard.WithPolicy(fleetrbac.PolicyCreate))

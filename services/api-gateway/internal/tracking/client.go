@@ -31,17 +31,17 @@ func NewClient(httpClient *http.Client, baseURL, internalToken string) *Client {
 }
 
 type Summary struct {
-	ShipmentID         string              `json:"shipmentId"`
-	TrackingStatus     string              `json:"trackingStatus"`
-	Provider           *string             `json:"provider,omitempty"`
-	LastKnownPosition  *LastKnownPosition  `json:"lastKnownPosition,omitempty"`
-	Freshness          FreshnessSummary    `json:"freshness"`
-	Quality            QualitySummary      `json:"quality"`
-	LastRecordedAt     *time.Time          `json:"lastRecordedAt,omitempty"`
-	LastReceivedAt     *time.Time          `json:"lastReceivedAt,omitempty"`
-	SpeedKph           *float64            `json:"speedKph,omitempty"`
-	HeadingDegrees     *float64            `json:"headingDegrees,omitempty"`
-	DeliveryDelaySeconds *int64            `json:"deliveryDelaySeconds,omitempty"`
+	ShipmentID           string             `json:"shipmentId"`
+	TrackingStatus       string             `json:"trackingStatus"`
+	Provider             *string            `json:"provider,omitempty"`
+	LastKnownPosition    *LastKnownPosition `json:"lastKnownPosition,omitempty"`
+	Freshness            FreshnessSummary   `json:"freshness"`
+	Quality              QualitySummary     `json:"quality"`
+	LastRecordedAt       *time.Time         `json:"lastRecordedAt,omitempty"`
+	LastReceivedAt       *time.Time         `json:"lastReceivedAt,omitempty"`
+	SpeedKph             *float64           `json:"speedKph,omitempty"`
+	HeadingDegrees       *float64           `json:"headingDegrees,omitempty"`
+	DeliveryDelaySeconds *int64             `json:"deliveryDelaySeconds,omitempty"`
 }
 
 type LastKnownPosition struct {
@@ -88,6 +88,37 @@ func (c *Client) GetCurrent(ctx context.Context, tenantID, requestID, shipmentID
 		return nil, err
 	}
 	return payload.toSummary(), nil
+}
+
+func (c *Client) ProxyShipperJSON(ctx context.Context, tenantID, requestID, companyID, actorKind, method, path, query string) (json.RawMessage, int, error) {
+	endpoint := c.baseURL + path
+	if query != "" {
+		endpoint += "?" + query
+	}
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	req.Header.Set("X-Tenant-ID", tenantID)
+	if companyID != "" {
+		req.Header.Set("X-Company-ID", companyID)
+	}
+	if actorKind != "" {
+		req.Header.Set("X-Actor-Kind", actorKind)
+	}
+	if requestID != "" {
+		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, resp.StatusCode, err
+	}
+	return json.RawMessage(body), resp.StatusCode, nil
 }
 
 func (c *Client) ProxyJSON(ctx context.Context, tenantID, requestID, method, path string, query string) (json.RawMessage, int, error) {
@@ -183,29 +214,29 @@ func (c *Client) IngestDriverLocation(ctx context.Context, tenantID, requestID, 
 }
 
 type summaryDTO struct {
-	ShipmentID         string             `json:"shipmentId"`
-	TrackingStatus     string             `json:"trackingStatus"`
-	Provider           *string            `json:"provider"`
-	LastKnownPosition  *LastKnownPosition `json:"lastKnownPosition"`
-	Freshness          FreshnessSummary   `json:"freshness"`
-	Quality            QualitySummary     `json:"quality"`
-	LastRecordedAt     *string            `json:"lastRecordedAt"`
-	LastReceivedAt     *string            `json:"lastReceivedAt"`
-	SpeedKph           *float64           `json:"speedKph"`
-	HeadingDegrees     *float64           `json:"headingDegrees"`
-	DeliveryDelaySeconds *int64           `json:"deliveryDelaySeconds"`
+	ShipmentID           string             `json:"shipmentId"`
+	TrackingStatus       string             `json:"trackingStatus"`
+	Provider             *string            `json:"provider"`
+	LastKnownPosition    *LastKnownPosition `json:"lastKnownPosition"`
+	Freshness            FreshnessSummary   `json:"freshness"`
+	Quality              QualitySummary     `json:"quality"`
+	LastRecordedAt       *string            `json:"lastRecordedAt"`
+	LastReceivedAt       *string            `json:"lastReceivedAt"`
+	SpeedKph             *float64           `json:"speedKph"`
+	HeadingDegrees       *float64           `json:"headingDegrees"`
+	DeliveryDelaySeconds *int64             `json:"deliveryDelaySeconds"`
 }
 
 func (d summaryDTO) toSummary() *Summary {
 	s := &Summary{
-		ShipmentID:     d.ShipmentID,
-		TrackingStatus: d.TrackingStatus,
-		Provider:       d.Provider,
-		LastKnownPosition: d.LastKnownPosition,
-		Freshness:      d.Freshness,
-		Quality:        d.Quality,
-		SpeedKph:       d.SpeedKph,
-		HeadingDegrees: d.HeadingDegrees,
+		ShipmentID:           d.ShipmentID,
+		TrackingStatus:       d.TrackingStatus,
+		Provider:             d.Provider,
+		LastKnownPosition:    d.LastKnownPosition,
+		Freshness:            d.Freshness,
+		Quality:              d.Quality,
+		SpeedKph:             d.SpeedKph,
+		HeadingDegrees:       d.HeadingDegrees,
 		DeliveryDelaySeconds: d.DeliveryDelaySeconds,
 	}
 	if d.LastRecordedAt != nil {
