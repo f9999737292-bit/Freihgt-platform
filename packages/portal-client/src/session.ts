@@ -1,11 +1,14 @@
 import type { CarrierTabSession, PersistedCarrierTabSession } from '@freight-platform/shared-ts/types'
 
-export const TAB_SESSION_STORAGE_KEY = 'freight_carrier_tab_session'
+export const CARRIER_TAB_SESSION_STORAGE_KEY = 'freight_carrier_tab_session'
+export const SHIPPER_TAB_SESSION_STORAGE_KEY = 'freight_shipper_tab_session'
+/** Carrier office key. Existing callers keep this default. */
+export const TAB_SESSION_STORAGE_KEY = CARRIER_TAB_SESSION_STORAGE_KEY
 
 type SessionStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
-export function readTabSession(storage: SessionStore): CarrierTabSession | null {
-  const raw = storage.getItem(TAB_SESSION_STORAGE_KEY)
+export function readTabSession(storage: SessionStore, storageKey = TAB_SESSION_STORAGE_KEY): CarrierTabSession | null {
+  const raw = storage.getItem(storageKey)
   if (!raw) return null
   try {
     const parsed = JSON.parse(raw) as PersistedCarrierTabSession & { memberships?: unknown }
@@ -22,16 +25,20 @@ export function readTabSession(storage: SessionStore): CarrierTabSession | null 
   }
 }
 
-export function writeTabSession(storage: SessionStore, session: CarrierTabSession): void {
+export function writeTabSession(
+  storage: SessionStore,
+  session: CarrierTabSession,
+  storageKey = TAB_SESSION_STORAGE_KEY,
+): void {
   const persisted: PersistedCarrierTabSession = {
     accessToken: session.accessToken,
     user: session.user,
     tenantId: session.user.tenantId,
     selectedCompanyId: session.selectedCompanyId,
   }
-  storage.setItem(TAB_SESSION_STORAGE_KEY, JSON.stringify(persisted))
+  storage.setItem(storageKey, JSON.stringify(persisted))
 }
 
-export function clearTabSession(storage: SessionStore): void {
-  storage.removeItem(TAB_SESSION_STORAGE_KEY)
+export function clearTabSession(storage: SessionStore, storageKey = TAB_SESSION_STORAGE_KEY): void {
+  storage.removeItem(storageKey)
 }

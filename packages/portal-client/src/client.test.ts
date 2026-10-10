@@ -71,6 +71,21 @@ describe('PortalClient', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
+  it('does not call fetch when shipper_company_id is outside the fresh membership list', async () => {
+    const fetchImpl = vi.fn()
+    const client = new PortalClient({
+      baseUrl: 'http://gateway.test',
+      fetchImpl,
+      getAccessToken: () => 'tok',
+      getAllowedCompanyIds: () => ['co-shipper'],
+    })
+    await expect(client.request('/api/v1/shipper/shipments', {
+      companyId: 'co-other',
+      query: { shipper_company_id: 'co-other' },
+    })).rejects.toMatchObject({ code: 'COMPANY_SPOOF' })
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
   it('rejects a cross-tenant override before calling the gateway', async () => {
     const fetchImpl = vi.fn()
     const client = new PortalClient({

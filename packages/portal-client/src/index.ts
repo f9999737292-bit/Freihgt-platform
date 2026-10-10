@@ -1,6 +1,6 @@
-export { applyFreshMemberships, canEnterCarrierPortal, carrierCompanies, isCarrierOfficeRole, mapServerMemberships, reconcileSelectedCompany, selectCarrierCompany } from './access'
+export { applyFreshMemberships, applyFreshShipperMemberships, canEnterCarrierPortal, canEnterShipperPortal, carrierCompanies, isCarrierOfficeRole, isShipperOfficeRole, mapServerMemberships, reconcileSelectedCompany, reconcileSelectedShipperCompany, selectCarrierCompany, selectShipperCompany, shipperCompanies } from './access'
 export { PortalClient, userFromLogin } from './client'
 export type { PortalClientOptions, PortalRequest } from './client'
 export { isPortalClientError, PortalClientError } from './errors'
 export { FORBIDDEN_AUTHORITY_HEADERS, buildPortalHeaders } from './headers'
-export { TAB_SESSION_STORAGE_KEY, clearTabSession, readTabSession, writeTabSession } from './session'
+export { CARRIER_TAB_SESSION_STORAGE_KEY, SHIPPER_TAB_SESSION_STORAGE_KEY, TAB_SESSION_STORAGE_KEY, clearTabSession, readTabSession, writeTabSession } from './session'

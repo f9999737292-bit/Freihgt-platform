@@ -10,7 +10,15 @@ export default defineNuxtConfig({
     strict: true,
   },
   modules: ['@nuxtjs/i18n'],
-  i18n: createFreightI18nOptions(),
+  i18n: createFreightI18nOptions('../../../packages/i18n/src/locales'),
+  runtimeConfig: {
+    public: {
+      apiBaseUrl: 'http://localhost:8080',
+    },
+  },
+  build: {
+    transpile: ['@freight-platform/portal-client'],
+  },
   app: {
     head: {
       title: 'Freight Platform Shipper',

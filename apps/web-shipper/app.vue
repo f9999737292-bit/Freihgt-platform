@@ -1,12 +1,5 @@
-<script setup lang="ts">
-import { AppShell, LocaleSwitcher } from '@freight-platform/ui'
-</script>
-
 <template>
-  <AppShell title="Freight Platform Shipper">
-    <template #actions>
-      <LocaleSwitcher />
-    </template>
+  <NuxtLayout>
     <NuxtPage />
-  </AppShell>
+  </NuxtLayout>
 </template>
