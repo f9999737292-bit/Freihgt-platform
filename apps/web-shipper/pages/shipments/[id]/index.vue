@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Card, CustomerPageHeader } from '@freight-platform/ui'
-import PortalState from '../../components/PortalState.vue'
-import ShipmentFacts from '../../components/ShipmentFacts.vue'
-import type { ShipperShipment } from '../../domain/shipment'
-import { viewKindFromError, type PortalViewKind } from '../../domain/viewState'
+import PortalState from '../../../components/PortalState.vue'
+import ShipmentFacts from '../../../components/ShipmentFacts.vue'
+import type { ShipperShipment } from '../../../domain/shipment'
+import { viewKindFromError, type PortalViewKind } from '../../../domain/viewState'
 
 const route = useRoute()
 const { t } = useI18n()
+const localePath = useLocalePath()
 const api = useShipperApi()
 const shipment = ref<ShipperShipment | null>(null)
 const kind = ref<PortalViewKind>('loading')
@@ -42,9 +43,21 @@ function titleFor(state: PortalViewKind) {
     <PortalState v-if="kind !== 'ready'" :kind="kind" :title="titleFor(kind)" :description="detail" />
     <template v-else-if="shipment">
       <CustomerPageHeader :title="shipment.shipment_number || t('shipper.shipmentDetail')" />
+      <p>
+        <NuxtLink :to="localePath(`/shipments/${shipment.id}/tracking`)" data-testid="open-tracking">
+          {{ t('shipper.openTracking') }}
+        </NuxtLink>
+      </p>
       <Card>
         <ShipmentFacts :shipment="shipment" />
       </Card>
     </template>
   </section>
 </template>
+
+<style scoped>
+a:focus-visible {
+  outline: 2px solid #0f3d4c;
+  outline-offset: 2px;
+}
+</style>
