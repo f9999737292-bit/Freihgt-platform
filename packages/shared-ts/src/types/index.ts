@@ -10,6 +10,7 @@ export type {
   CarrierTabSession,
   PersistedCarrierTabSession,
   ServerUserSnapshot,
+  ShipperOfficeRole,
 } from "./portal";
 
-export { CARRIER_OFFICE_ROLES } from "./portal";
+export { CARRIER_OFFICE_ROLES, SHIPPER_OFFICE_ROLES } from "./portal";

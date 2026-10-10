@@ -2145,6 +2145,50 @@ jobs:
         working-directory: apps/web-carrier
         run: pnpm exec playwright test
 
+  frontend-web-shipper-check:
+    name: frontend-web-shipper-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck portal client
+        run: pnpm --filter @freight-platform/portal-client typecheck
+
+      - name: Test portal client
+        run: pnpm --filter @freight-platform/portal-client test
+
+      - name: Typecheck web-shipper
+        run: pnpm --filter @freight-platform/web-shipper typecheck
+
+      - name: Test web-shipper
+        run: pnpm --filter @freight-platform/web-shipper test
+
+      - name: Build web-shipper
+        run: pnpm --filter @freight-platform/web-shipper build
+
+      - name: Install Playwright Chromium
+        working-directory: apps/web-shipper
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Shipper office Playwright
+        working-directory: apps/web-shipper
+        run: pnpm exec playwright test
+
   system-security-wave1:
     name: system-security-wave1
     runs-on: ubuntu-latest

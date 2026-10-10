@@ -8,6 +8,7 @@ export const FORBIDDEN_AUTHORITY_HEADERS = [
   'x-user-role',
   'x-roles',
   'x-role',
+  'x-actor-kind',
 ] as const
 
 const FORBIDDEN = new Set<string>(FORBIDDEN_AUTHORITY_HEADERS)
@@ -16,6 +17,7 @@ export const COMPANY_SCOPE_FIELDS = [
   'carrier_company_id',
   'company_id',
   'participant_company_id',
+  'shipper_company_id',
 ] as const
 
 export interface PortalHeaderInput {

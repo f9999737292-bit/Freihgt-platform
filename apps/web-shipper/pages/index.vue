@@ -1,13 +1,11 @@
-<template>
-  <div>
-    <p>{{ $t('common.welcome') }}</p>
-    <p class="hint">Shipper portal — skeleton UI, no business logic yet.</p>
-  </div>
-</template>
+<script setup lang="ts">
+import { CustomerPageHeader } from '@freight-platform/ui'
 
-<style scoped>
-.hint {
-  color: #6b7280;
-  font-size: 0.875rem;
-}
-</style>
+const { t } = useI18n()
+</script>
+
+<template>
+  <section data-testid="home-shell">
+    <CustomerPageHeader :title="t('shipper.homeTitle')" :subtitle="t('shipper.homeBody')" />
+  </section>
+</template>

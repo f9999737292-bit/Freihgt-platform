@@ -6,10 +6,13 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "preview": "nuxt preview",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "test": "nuxt prepare && vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@freight-platform/i18n": "workspace:*",
+    "@freight-platform/portal-client": "workspace:*",
     "@freight-platform/shared-ts": "workspace:*",
     "@freight-platform/ui": "workspace:*",
     "@nuxtjs/i18n": "^9.0.0",
@@ -18,6 +21,12 @@
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
-    "typescript": "^5.0.0"
+    "@playwright/test": "^1.49.0",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.8",
+    "vue-tsc": "^2.2.0"
   }
 }

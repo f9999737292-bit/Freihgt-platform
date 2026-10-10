@@ -4,7 +4,14 @@ import { describe, expect, it } from 'vitest'
 import type { CarrierTabSession } from '@freight-platform/shared-ts/types'
 
 import { applyFreshMemberships } from './access'
-import { clearTabSession, readTabSession, TAB_SESSION_STORAGE_KEY, writeTabSession } from './session'
+import {
+  CARRIER_TAB_SESSION_STORAGE_KEY,
+  clearTabSession,
+  readTabSession,
+  SHIPPER_TAB_SESSION_STORAGE_KEY,
+  TAB_SESSION_STORAGE_KEY,
+  writeTabSession,
+} from './session'
 
 function memoryStore(): Storage {
   const data = new Map<string, string>()
@@ -91,6 +98,28 @@ describe('tab session', () => {
     }])
     expect(fresh.memberships.map((item) => item.companyId)).toEqual(['co-1'])
     expect(fresh.selectedCompanyId).toBeNull()
+  })
+
+  it('keeps the shipper tab session on a separate key and still drops memberships', () => {
+    const sessionStorage = memoryStore()
+    writeTabSession(sessionStorage, {
+      ...session,
+      selectedCompanyId: 'co-shipper',
+      memberships: [{
+        membershipId: 'm-spoof',
+        companyId: 'co-spoof',
+        legalName: 'Spoof',
+        membershipStatus: 'ACTIVE',
+        companyType: 'SHIPPER',
+        roleCodes: ['SHIPPER_ADMIN'],
+      }],
+    }, SHIPPER_TAB_SESSION_STORAGE_KEY)
+    expect(sessionStorage.getItem(CARRIER_TAB_SESSION_STORAGE_KEY)).toBeNull()
+    expect(sessionStorage.getItem(TAB_SESSION_STORAGE_KEY)).toBeNull()
+    const stored = JSON.parse(sessionStorage.getItem(SHIPPER_TAB_SESSION_STORAGE_KEY) ?? '{}') as Record<string, unknown>
+    expect(stored.memberships).toBeUndefined()
+    expect(readTabSession(sessionStorage, SHIPPER_TAB_SESSION_STORAGE_KEY)?.memberships).toEqual([])
+    expect(readTabSession(sessionStorage, SHIPPER_TAB_SESSION_STORAGE_KEY)?.selectedCompanyId).toBe('co-shipper')
   })
 
   it('does not reference localStorage', () => {

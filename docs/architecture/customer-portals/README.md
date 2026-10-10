@@ -115,6 +115,19 @@ NEW_BLOCKING_BACKEND_GAPS=0
 
 0.2A-R1 recorded CP-CARRIER-API-001 and CP-CARRIER-API-002. 0.2A-R2 marks both resolved by PR #236 after the office sends the verified company query. Those counts are not folded into the 0.1B gap block above.
 
+## 0.2B shipper shipment office
+
+[CUSTOMER_PORTALS_0_2B_SHIPPER_MVP.md](CUSTOMER_PORTALS_0_2B_SHIPPER_MVP.md) records the shipper office slice. Historical gap ids, including `CP-SHIPPER-001` in the 0.1A list, stay where they were written. This stage closes that screen gap for login, company context, and read-only shipment inbox/detail.
+
+```text
+CP-SHIPPER-001=CLOSED
+SHIPPER_SHIPMENT_INBOX_SAFE=YES
+CUSTOMER_TRACKING_SAFE=NO
+CUSTOMER_DOCUMENTS_SAFE=NO
+CONSIGNEE_PORTAL_IMPLEMENTATION_BLOCKED=YES
+FORWARDER_DUAL_SIDE_BACKEND_READY=NO
+```
+
 ## Shipper shipment source reads
 
 [SHIPPER_SHIPMENT_SAFE_READS_0_1A.md](SHIPPER_SHIPMENT_SAFE_READS_0_1A.md) records the shipment-service source contract for a later Shipper Portal. That file keeps `SHIPPER_SHIPMENT_CUSTOMER_SAFE=NO_PENDING_GATEWAY` as the source-stage record. [SHIPPER_COMPANY_CONTEXT_GATEWAY_0_1.md](SHIPPER_COMPANY_CONTEXT_GATEWAY_0_1.md) is the gateway follow-up: `SHIPPER_SHIPMENT_INBOX_SAFE=YES` and `SHIPPER_SHIPMENT_CUSTOMER_SAFE=YES` for the selected shipper membership. The legacy tenant-wide shipment routes are operator-only and are not a customer contract.
