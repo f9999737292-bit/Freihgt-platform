@@ -131,3 +131,15 @@ FORWARDER_DUAL_SIDE_BACKEND_READY=NO
 ## Shipper shipment source reads
 
 [SHIPPER_SHIPMENT_SAFE_READS_0_1A.md](SHIPPER_SHIPMENT_SAFE_READS_0_1A.md) records the shipment-service source contract for a later Shipper Portal. That file keeps `SHIPPER_SHIPMENT_CUSTOMER_SAFE=NO_PENDING_GATEWAY` as the source-stage record. [SHIPPER_COMPANY_CONTEXT_GATEWAY_0_1.md](SHIPPER_COMPANY_CONTEXT_GATEWAY_0_1.md) is the gateway follow-up: `SHIPPER_SHIPMENT_INBOX_SAFE=YES` and `SHIPPER_SHIPMENT_CUSTOMER_SAFE=YES` for the selected shipper membership. The legacy tenant-wide shipment routes are operator-only and are not a customer contract.
+
+## Shipper tracking source
+
+[SHIPPER_TRACKING_SOURCE_SAFETY_0_1A.md](SHIPPER_TRACKING_SOURCE_SAFETY_0_1A.md) records participant-safe tracking, ETA, and slot source routes. The public gateway gap stays open.
+
+```text
+CP_API_006_SOURCE_LAYER=RESOLVED
+CP_API_006_PUBLIC_GATEWAY=OPEN
+CUSTOMER_TRACKING_SAFE=NO_PENDING_GATEWAY
+SHIPPER_TRACKING_CUSTOMER_SAFE=NO_PENDING_GATEWAY
+CUSTOMER_PORTAL_MAY_USE_LEGACY_TRACKING_ROUTE=NO
+```

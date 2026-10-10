@@ -196,6 +196,39 @@ func (h *ShipmentHandler) GetForShipper(w http.ResponseWriter, r *http.Request) 
 	respond.JSON(w, http.StatusOK, toShipmentResponse(shipment))
 }
 
+func (h *ShipmentHandler) GetShipperTrackingContext(w http.ResponseWriter, r *http.Request) {
+	shipmentID, err := domain.ParseUUID(chi.URLParam(r, "shipmentId"), "shipmentId")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipperCompanyID, err := requiredShipperCompanyID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipment, err := h.service.GetForShipper(r.Context(), tenantID, shipmentID, shipperCompanyID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{
+		"shipmentId":        shipment.ID.String(),
+		"tenantId":          shipment.TenantID.String(),
+		"shipperCompanyId":  shipment.ShipperCompanyID.String(),
+		"status":            shipment.Status,
+		"plannedPickupAt":   formatDateTime(shipment.PlannedPickupAt),
+		"plannedDeliveryAt": formatDateTime(shipment.PlannedDeliveryAt),
+		"actualPickupAt":    formatDateTime(shipment.ActualPickupAt),
+		"actualDeliveryAt":  formatDateTime(shipment.ActualDeliveryAt),
+	})
+}
+
 func requiredShipperCompanyID(r *http.Request) (uuid.UUID, error) {
 	raw := strings.TrimSpace(r.URL.Query().Get("shipper_company_id"))
 	if raw == "" {

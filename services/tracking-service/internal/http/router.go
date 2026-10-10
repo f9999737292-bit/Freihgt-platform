@@ -24,6 +24,7 @@ func NewRouter(
 	slotInternal *handlers.SlotInternalHandler,
 	ingestHandler *handlers.IngestHandler,
 	internalHandler *handlers.InternalHandler,
+	shipperTracking *handlers.ShipperTrackingHandler,
 	metricsCollector *metrics.Collector,
 ) http.Handler {
 	r := chi.NewRouter()
@@ -42,6 +43,15 @@ func NewRouter(
 		r.Get("/eta/history", etaHandler.ListHistory)
 		r.Get("/slots", slotHandler.GetCurrent)
 		r.Get("/slots/history", slotHandler.ListHistory)
+	})
+
+	r.Route("/v1/shipper/shipments/{shipmentId}", func(r chi.Router) {
+		r.Get("/tracking", shipperTracking.GetTracking)
+		r.Get("/tracking/locations", shipperTracking.ListLocations)
+		r.Get("/eta", shipperTracking.GetETA)
+		r.Get("/eta/history", shipperTracking.ListETAHistory)
+		r.Get("/slots", shipperTracking.GetSlots)
+		r.Get("/slots/history", shipperTracking.ListSlotHistory)
 	})
 
 	r.Route("/internal/v1/tracking", func(r chi.Router) {
