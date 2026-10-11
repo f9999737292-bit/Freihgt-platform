@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { Select } from '@freight-platform/ui'
 import DocumentWorkspace from '../../components/documents/DocumentWorkspace.vue'
-import { DOCUMENT_PAGE_SIZE, downloadName, retainShipmentContext, type ShipperAttachment, type ShipperDocument } from '../../domain/document'
+import { DOCUMENT_PAGE_SIZE, documentMatchesShipment, downloadName, retainShipmentContext, type ShipperAttachment, type ShipperDocument } from '../../domain/document'
 import type { ShipperShipment } from '../../domain/shipment'
 import { viewKindFromError, type PortalViewKind } from '../../domain/viewState'
 
@@ -33,6 +34,16 @@ const downloadDetail = ref('')
 
 const shipmentId = computed(() => queryValue('shipment_id'))
 const documentId = computed(() => queryValue('document_id'))
+const companyOptions = computed(() => office.companies.value.map((item) => ({
+  value: item.companyId,
+  label: item.legalName || item.companyId,
+})))
+const companyModel = computed({
+  get: () => office.selectedCompanyId.value ?? '',
+  set: (value: string) => {
+    if (value && value !== office.selectedCompanyId.value) office.chooseCompany(value)
+  },
+})
 
 function queryValue(name: string): string | null {
   const value = route.query[name]
@@ -110,7 +121,7 @@ async function loadDocuments(shipment: string, offset = documentsOffset.value) {
   }
 }
 
-async function loadDocument(id: string) {
+async function loadDocument(id: string, shipment: string) {
   const current = ticket.value
   const company = office.requireCompany()
   documentRecord.value = null
@@ -121,11 +132,17 @@ async function loadDocument(id: string) {
   attachmentsDetail.value = ''
   downloadDetail.value = ''
   try {
-    const [item, files] = await Promise.all([
-      api.getDocument(id),
-      api.listDocumentAttachments(id),
-    ])
-    if (current !== ticket.value || office.selectedCompanyId.value !== company || documentId.value !== id) return
+    const item = await api.getDocument(id)
+    if (current !== ticket.value || office.selectedCompanyId.value !== company || documentId.value !== id || shipmentId.value !== shipment) return
+    if (!documentMatchesShipment(item, shipment)) {
+      documentRecord.value = null
+      attachments.value = []
+      documentKind.value = 'not_found'
+      attachmentsKind.value = 'not_found'
+      return
+    }
+    const files = await api.listDocumentAttachments(id)
+    if (current !== ticket.value || office.selectedCompanyId.value !== company || documentId.value !== id || shipmentId.value !== shipment) return
     documentRecord.value = item
     attachments.value = files.items ?? []
     documentKind.value = 'ready'
@@ -160,8 +177,8 @@ async function refresh() {
     return
   }
   await loadDocuments(retained, documentsOffset.value)
-  if (documentId.value && office.selectedCompanyId.value === company) {
-    await loadDocument(documentId.value)
+  if (documentId.value && shipmentId.value && office.selectedCompanyId.value === company) {
+    await loadDocument(documentId.value, shipmentId.value)
   } else {
     documentRecord.value = null
     attachments.value = []
@@ -170,8 +187,10 @@ async function refresh() {
 
 async function onDownload(attachmentId: string) {
   const currentDocument = documentId.value
+  const currentShipment = shipmentId.value
   const attachment = attachments.value.find((item) => item.id === attachmentId)
-  if (!currentDocument || !attachment) return
+  if (!currentDocument || !currentShipment || !attachment || !documentRecord.value) return
+  if (!documentMatchesShipment(documentRecord.value, currentShipment)) return
   const company = office.requireCompany()
   downloadDetail.value = ''
   try {
@@ -226,6 +245,14 @@ watch(() => [office.selectedCompanyId.value, shipmentId.value, documentId.value]
 </script>
 
 <template>
+  <Select
+    v-if="companyOptions.length > 1"
+    v-model="companyModel"
+    name="company"
+    data-testid="company-switch"
+    :label="t('shipper.companyLabel')"
+    :options="companyOptions"
+  />
   <DocumentWorkspace
     :shipment-id="shipmentId"
     :shipments="shipments"

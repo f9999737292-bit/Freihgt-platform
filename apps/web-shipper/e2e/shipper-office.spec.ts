@@ -216,11 +216,29 @@ async function installGateway(
             document_number: 'DOC-1',
             document_type: 'POD',
             document_status: 'SIGNED',
+            related_entity_type: 'SHIPMENT',
             related_entity_id: 'shp-1',
             legal_language: 'ru',
             created_at: '2026-12-01T10:00:00Z',
             updated_at: '2026-12-01T11:00:00Z',
             version: 2,
+          },
+        })
+        return
+      }
+      if (url.pathname === '/api/v1/shipper/documents/doc-other') {
+        await route.fulfill({
+          json: {
+            id: 'doc-other',
+            document_number: 'DOC-OTHER',
+            document_type: 'POD',
+            document_status: 'SIGNED',
+            related_entity_type: 'SHIPMENT',
+            related_entity_id: 'shp-other',
+            legal_language: 'ru',
+            created_at: '2026-12-01T10:00:00Z',
+            updated_at: '2026-12-01T11:00:00Z',
+            version: 1,
           },
         })
         return
@@ -515,6 +533,40 @@ test('switching company clears the previous shipment documents', async ({ page }
   const after = calls.slice(marked)
   expect(after.some((call) => call.includes('/api/v1/shipper/documents') && call.includes('shipper_company_id=co-shipper'))).toBe(false)
   expect(after.some((call) => call.includes('shipper_company_id=co-shipper-b') && call.includes('/api/v1/shipper/shipments'))).toBe(true)
+})
+
+test('shipment and tracking routes do not offer the documents company switch', async ({ page }) => {
+  await installGateway(page, ['SHIPPER_ADMIN'], [
+    membership('co-shipper', 'SHIPPER', ['SHIPPER_ADMIN']),
+    membership('co-shipper-b', 'SHIPPER', ['SHIPPER_ADMIN']),
+  ])
+  await signIn(page)
+  await chooseCompany(page)
+  await page.getByRole('link', { name: 'Отправления' }).click()
+  await expect(page.getByTestId('shipment-inbox')).toBeVisible()
+  await expect(page.getByText('SHP-1')).toBeVisible()
+  await expect(page.getByTestId('company-switch')).toHaveCount(0)
+  await page.getByTestId('open-shipment').click()
+  await expect(page.getByTestId('shipment-detail')).toBeVisible()
+  await expect(page.getByTestId('company-switch')).toHaveCount(0)
+  await page.getByTestId('open-tracking').click()
+  await expect(page.getByTestId('tracking-status')).toContainText('ACTIVE')
+  await expect(page.getByTestId('company-switch')).toHaveCount(0)
+  await page.getByRole('link', { name: 'Документы' }).click()
+  await expect(page.getByTestId('company-switch')).toBeVisible()
+})
+
+test('a document from another shipment is not shown and does not load attachments', async ({ page }) => {
+  const calls = await installGateway(page, ['SHIPPER_ADMIN'])
+  await signIn(page)
+  await chooseCompany(page)
+  await page.goto('/documents?shipment_id=shp-1&document_id=doc-other')
+  await expect(page.getByTestId('document-detail')).toContainText('Отправление не найдено')
+  await expect(page.getByText('DOC-OTHER')).toHaveCount(0)
+  await expect(page.getByTestId('attachment-row')).toHaveCount(0)
+  await expect(page.getByTestId('download-attachment')).toHaveCount(0)
+  expect(calls.some((call) => call.includes('/api/v1/shipper/documents/doc-other') && !call.includes('/attachments'))).toBe(true)
+  expect(calls.some((call) => call.includes('/api/v1/shipper/documents/doc-other/attachments'))).toBe(false)
 })
 
 test.describe('non-shipper roles stay out of the office', () => {

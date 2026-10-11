@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import DocumentWorkspace from '../components/documents/DocumentWorkspace.vue'
 import {
   documentListSpec,
+  documentMatchesShipment,
   documentReadSpec,
   downloadName,
   retainShipmentContext,
@@ -139,6 +140,20 @@ describe('shipper document request contract', () => {
     await client.request(file.path, { companyId: 'co-shipper', query: file.query })
     expect(calls.some((call) => call.includes('shipment_id=shp-1') && call.includes('document_type=POD'))).toBe(true)
     expect(calls.some((call) => call.includes('/api/v1/shipper/documents/doc-1/attachments'))).toBe(true)
+  })
+
+  it('rejects a document that belongs to another shipment before attachments', () => {
+    expect(documentMatchesShipment({ related_entity_type: 'SHIPMENT', related_entity_id: 'shp-1' }, 'shp-1')).toBe(true)
+    expect(documentMatchesShipment({ related_entity_type: 'SHIPMENT', related_entity_id: 'shp-other' }, 'shp-1')).toBe(false)
+    expect(documentMatchesShipment({ related_entity_type: 'ORDER', related_entity_id: 'shp-1' }, 'shp-1')).toBe(false)
+    expect(documentMatchesShipment({ related_entity_id: 'shp-1' }, 'shp-1')).toBe(false)
+    const page = readFileSync(join(process.cwd(), 'pages/documents/index.vue'), 'utf8')
+    const layout = readFileSync(join(process.cwd(), 'layouts/default.vue'), 'utf8')
+    expect(page.indexOf('api.getDocument')).toBeLessThan(page.indexOf('api.listDocumentAttachments'))
+    expect(page).not.toContain('Promise.all')
+    expect(page).toContain('documentMatchesShipment')
+    expect(layout).not.toContain('company-switch')
+    expect(page).toContain('company-switch')
   })
 
   it('drops shipment context when the company changes and never sends authority overrides', () => {

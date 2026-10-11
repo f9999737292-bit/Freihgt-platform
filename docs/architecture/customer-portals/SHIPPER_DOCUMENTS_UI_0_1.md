@@ -16,7 +16,11 @@ GET /api/v1/shipper/documents/{documentId}/attachments/{attachmentId}/content?sh
 
 The browser does not call `/api/v1/documents`, `/api/v1/signing-sessions`, or document-service paths. It does not send `tenant_id` or `related_entity_type`. Attachment bytes are downloaded through `PortalClient.download`, which keeps the gateway, membership, and 401 behavior of the JSON client. The file name comes from `Content-Disposition` when that header is a safe file name, otherwise from the attachment `file_name`. The object URL is revoked after the browser starts the download. `PortalClient.download` returns `Content-Type`, `Content-Disposition`, `Content-Length`, and `X-Content-SHA256` when the response exposes them. The gateway already sets `X-Content-SHA256`. Its CORS expose list currently names `Content-Disposition` and does not name `X-Content-SHA256`, so a cross-origin browser may not reveal that checksum header to script. The download itself does not depend on reading it.
 
-Changing the selected company clears the document, attachment, and shipment context before another read. The previous company's rows are not left on screen, and the next request uses the new company.
+The company switch is shown only on the documents workspace. Shipment inbox, shipment detail, and tracking do not gain a company switch in this stage, so those screens cannot keep another company's rows after a documents-only switch.
+
+Changing the selected company on the documents page clears the document, attachment, and shipment context before another read. The previous company's rows are not left on screen, and the next request uses the new company.
+
+A document is rendered only when `related_entity_type` is `SHIPMENT` and `related_entity_id` is the selected shipment. Attachments are requested after that check. A mismatched document is a not-found state: it is not rendered, its attachments are not requested, and download is not offered.
 
 The screen has no create, edit, delete, archive, upload, finalize, sign, QES, or operator-exchange control.
 

@@ -83,6 +83,16 @@ export function documentReadSpec(
   return { path, query: { shipper_company_id: company } }
 }
 
+export function documentMatchesShipment(
+  document: Pick<ShipperDocument, 'related_entity_type' | 'related_entity_id'>,
+  shipmentId: string,
+): boolean {
+  const type = (document.related_entity_type ?? '').trim().toUpperCase()
+  const related = (document.related_entity_id ?? '').trim()
+  const selected = shipmentId.trim()
+  return type === 'SHIPMENT' && related !== '' && related === selected
+}
+
 export function retainShipmentContext(
   previousCompanyId: string | null,
   companyId: string,
