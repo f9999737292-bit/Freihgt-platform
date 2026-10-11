@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -73,11 +75,16 @@ type cancelDocumentRequest struct {
 
 func (h *DocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createDocumentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(r, &req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-	input, err := parseCreateDocumentRequest(req)
+	tenantID, err := trustedTenantID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	input, err := parseCreateDocumentRequest(req, tenantID)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -110,8 +117,12 @@ func (h *DocumentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DocumentHandler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
+	tenantID, err := trustedTenantID(r)
 	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := reconcileTenant(tenantID, r.URL.Query().Get("tenant_id")); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -157,12 +168,16 @@ func (h *DocumentHandler) CreateVersion(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var req createVersionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(r, &req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
+	tenantID, err := trustedTenantID(r)
 	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := reconcileTenant(tenantID, req.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -184,12 +199,16 @@ func (h *DocumentHandler) AddFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req createFileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(r, &req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
+	tenantID, err := trustedTenantID(r)
 	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := reconcileTenant(tenantID, req.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -218,12 +237,16 @@ func (h *DocumentHandler) ReadyForSigning(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var req tenantRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(r, &req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
+	tenantID, err := trustedTenantID(r)
 	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := reconcileTenant(tenantID, req.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -242,12 +265,16 @@ func (h *DocumentHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req cancelDocumentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(r, &req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
+	tenantID, err := trustedTenantID(r)
 	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := reconcileTenant(tenantID, req.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -266,12 +293,16 @@ func (h *DocumentHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req tenantRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(r, &req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
+	tenantID, err := trustedTenantID(r)
 	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := reconcileTenant(tenantID, req.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -281,6 +312,14 @@ func (h *DocumentHandler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond.JSON(w, http.StatusOK, toDocumentResponse(doc))
+}
+
+func decodeJSONBody(r *http.Request, dest any) error {
+	err := json.NewDecoder(r.Body).Decode(dest)
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	return err
 }
 
 func trustedTenantID(r *http.Request) (uuid.UUID, error) {
@@ -295,9 +334,8 @@ func trustedTenantID(r *http.Request) (uuid.UUID, error) {
 	return id, nil
 }
 
-func parseCreateDocumentRequest(req createDocumentRequest) (domain.CreateDocumentInput, error) {
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
+func parseCreateDocumentRequest(req createDocumentRequest, tenantID uuid.UUID) (domain.CreateDocumentInput, error) {
+	if err := reconcileTenant(tenantID, req.TenantID); err != nil {
 		return domain.CreateDocumentInput{}, err
 	}
 	ownerCompanyID, err := domain.ParseUUID(req.OwnerCompanyID, "owner_company_id")

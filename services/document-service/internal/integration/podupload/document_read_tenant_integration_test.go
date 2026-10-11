@@ -82,9 +82,17 @@ func TestDocumentReadTenantIsolation(t *testing.T) {
 		t.Fatal("get changed stored row counts")
 	}
 
-	list := doGet(router, "/v1/documents?tenant_id="+fix.TenantA.String(), "")
+	list := doGet(router, "/v1/documents?tenant_id="+fix.TenantA.String(), fix.TenantA.String())
 	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), docA.ID.String()) || strings.Contains(list.Body.String(), docB.ID.String()) {
 		t.Fatal("list tenant filter regression")
+	}
+	conflict := doGet(router, "/v1/documents?tenant_id="+fix.TenantB.String(), fix.TenantA.String())
+	if conflict.Code != http.StatusUnauthorized || strings.Contains(conflict.Body.String(), docB.ID.String()) {
+		t.Fatal("caller tenant query selected another tenant")
+	}
+	untrustedList := doGet(router, "/v1/documents?tenant_id="+fix.TenantA.String(), "")
+	if untrustedList.Code != http.StatusUnauthorized || strings.Contains(untrustedList.Body.String(), docA.ID.String()) {
+		t.Fatal("list without trusted tenant used the query tenant")
 	}
 	if _, err := docs.CreateVersion(ctx, docA.ID, domain.CreateDocumentVersionInput{TenantID: fix.TenantB}); err == nil {
 		t.Fatal("cross-tenant version create succeeded")

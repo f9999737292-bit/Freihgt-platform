@@ -77,6 +77,9 @@ func newPool(t *testing.T) *pgxpool.Pool {
 	if err := execMigration(ctx, pool, "000095_edo_0_3_i2_signed_file_attachment.up.sql"); err != nil {
 		t.Fatalf("i2 migration: %v", err)
 	}
+	if err := execMigration(ctx, pool, "000096_edo_0_3_i4b_signature_verification_foundation.up.sql"); err != nil {
+		t.Fatalf("i4b migration: %v", err)
+	}
 	return pool
 }
 

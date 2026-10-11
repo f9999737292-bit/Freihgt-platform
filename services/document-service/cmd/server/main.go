@@ -55,10 +55,12 @@ func main() {
 		log.Error("failed to init object storage", slog.String("error", "object storage configuration is invalid"))
 		os.Exit(1)
 	}
-	attachmentSvc := service.NewAttachmentService(docRepo, store, repository.NewAttachmentRepository(db.Pool))
+	attachmentRepo := repository.NewAttachmentRepository(db.Pool)
+	attachmentSvc := service.NewAttachmentService(docRepo, store, attachmentRepo)
+	shipperSvc := service.NewShipperDocumentService(docRepo, attachmentSvc)
 	podSvc := service.NewPODUploadService(db.Pool, docSvc, store, 10<<20)
 
-	router := httpserver.NewRouter(log, db.Pool, docSvc, signingSvc, podSvc, attachmentSvc)
+	router := httpserver.NewRouter(log, db.Pool, docSvc, signingSvc, podSvc, attachmentSvc, shipperSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
