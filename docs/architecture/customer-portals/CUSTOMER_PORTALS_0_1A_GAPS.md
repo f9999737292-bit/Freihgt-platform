@@ -228,6 +228,16 @@ BLOCKING_GAPS=13
 | SOURCE_EVIDENCE | `services/document-service/internal/http/handlers/document_handler.go` `List`, `trustedTenantID`, `parseCreateDocumentRequest` |
 | RECOMMENDED_STAGE | EDO/document read path before a portal document screen |
 
+The table above is the original gap and is not rewritten. The shipper public read follow-up is `SHIPPER_DOCUMENTS_GATEWAY_0_1.md`.
+
+```text
+CP_API_005_TENANT_AUTHORITY=RESOLVED
+CP_API_005_SHIPPER_SOURCE_READ=RESOLVED
+CP_API_005_SHIPPER_PUBLIC_GATEWAY=RESOLVED
+CP_API_005_SHIPPER_WRITES=OPEN
+CUSTOMER_DOCUMENTS_SAFE=NO_GLOBAL_SHIPPER_READ_ONLY
+```
+
 ### CP-API-006
 
 | Field | Value |

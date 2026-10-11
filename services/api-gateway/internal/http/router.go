@@ -16,6 +16,7 @@ import (
 	"github.com/freight-platform/api-gateway/internal/config"
 	"github.com/freight-platform/api-gateway/internal/contractrates"
 	"github.com/freight-platform/api-gateway/internal/controltower"
+	"github.com/freight-platform/api-gateway/internal/document"
 	"github.com/freight-platform/api-gateway/internal/driver"
 	"github.com/freight-platform/api-gateway/internal/executionrbac"
 	"github.com/freight-platform/api-gateway/internal/fleetrbac"
@@ -244,6 +245,16 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Post("/api/v1/shipments/{id}/cancel", shipmentGuard.WithPolicy(shipmentrbac.PolicyCancel))
 	r.Get("/api/v1/shipper/shipments", carrierCompany.RequireShipperRead(proxy))
 	r.Get("/api/v1/shipper/shipments/{id}", carrierCompany.RequireShipperRead(proxy))
+	shipperDocuments := document.NewShipperHandler(cfg)
+	r.Get("/api/v1/shipper/documents", carrierCompany.RequireShipperRead(http.HandlerFunc(shipperDocuments.List)))
+	r.Get("/api/v1/shipper/documents/{documentId}", carrierCompany.RequireShipperRead(http.HandlerFunc(shipperDocuments.Get)))
+	r.Get("/api/v1/shipper/documents/{documentId}/attachments", carrierCompany.RequireShipperRead(http.HandlerFunc(shipperDocuments.ListAttachments)))
+	r.Get("/api/v1/shipper/documents/{documentId}/attachments/{attachmentId}", carrierCompany.RequireShipperRead(http.HandlerFunc(shipperDocuments.GetAttachment)))
+	r.Get("/api/v1/shipper/documents/{documentId}/attachments/{attachmentId}/content", carrierCompany.RequireShipperRead(http.HandlerFunc(shipperDocuments.GetAttachmentContent)))
+	r.Handle("/api/v1/documents", carrierCompany.RequireOperatorShipmentRead(proxy))
+	r.Handle("/api/v1/documents/*", carrierCompany.RequireOperatorShipmentRead(proxy))
+	r.Handle("/api/v1/signing-sessions", carrierCompany.RequireOperatorShipmentRead(proxy))
+	r.Handle("/api/v1/signing-sessions/*", carrierCompany.RequireOperatorShipmentRead(proxy))
 	r.Get("/api/v1/shipments", carrierCompany.RequireOperatorShipmentRead(proxy))
 	r.Get("/api/v1/shipments/{id}", carrierCompany.RequireOperatorShipmentRead(proxy))
 
