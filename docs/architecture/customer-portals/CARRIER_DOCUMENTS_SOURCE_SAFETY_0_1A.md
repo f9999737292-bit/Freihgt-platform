@@ -131,3 +131,7 @@ GATEWAY_CODE_CHANGED=NO
 FRONTEND_CODE_CHANGED=NO
 STAGING_CHANGED=NO
 ```
+
+## Gateway result
+
+The status block at the top of this file is the source-contract record and is unchanged. [CARRIER_DOCUMENTS_GATEWAY_0_1.md](CARRIER_DOCUMENTS_GATEWAY_0_1.md) records the later gateway stage. For carrier reads, `CARRIER_DOCUMENTS_CUSTOMER_SAFE` moves from `NO_PENDING_GATEWAY` to `YES_READ_ONLY` and `CP_API_005_CARRIER_PUBLIC_GATEWAY=RESOLVED`. Writes, signing, and consignee documents stay closed. Global customer documents stay `NO_GLOBAL_SHIPPER_AND_CARRIER_READ_ONLY`.

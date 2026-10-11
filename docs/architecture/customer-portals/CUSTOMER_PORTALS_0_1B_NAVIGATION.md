@@ -25,6 +25,8 @@ Shared shell regions, same for every customer app: product name, company switche
 | Company / Users | DEFERRED | Full company profile and member administration are a later carrier slice. 0.2A keeps only the company selector in the shell. |
 | Driver actions | EXCLUDED | `apps/driver-mobile` only. |
 
+The carrier table above stays the 0.1B record. The later read-only gateway is [CARRIER_DOCUMENTS_GATEWAY_0_1.md](CARRIER_DOCUMENTS_GATEWAY_0_1.md): `CARRIER_DOCUMENTS_CUSTOMER_SAFE=YES_READ_ONLY` and `CUSTOMER_DOCUMENTS_SAFE=NO_GLOBAL_SHIPPER_AND_CARRIER_READ_ONLY`. No carrier documents screen is added in that stage.
+
 ## Shipper
 
 | Module | State | Notes |
