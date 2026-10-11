@@ -238,6 +238,14 @@ CP_API_005_SHIPPER_WRITES=OPEN
 CUSTOMER_DOCUMENTS_SAFE=NO_GLOBAL_SHIPPER_READ_ONLY
 ```
 
+The block above is the shipper gateway record and is not rewritten. The carrier source follow-up is `CARRIER_DOCUMENTS_SOURCE_SAFETY_0_1A.md`. It does not open a public carrier document route.
+
+```text
+CP_API_005_CARRIER_SOURCE_READ=RESOLVED
+CP_API_005_CARRIER_PUBLIC_GATEWAY=OPEN
+CUSTOMER_DOCUMENTS_SAFE=NO_GLOBAL_SHIPPER_READ_ONLY_CARRIER_SOURCE_PENDING_GATEWAY
+```
+
 ### CP-API-006
 
 | Field | Value |
