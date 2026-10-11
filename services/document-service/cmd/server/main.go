@@ -58,9 +58,10 @@ func main() {
 	attachmentRepo := repository.NewAttachmentRepository(db.Pool)
 	attachmentSvc := service.NewAttachmentService(docRepo, store, attachmentRepo)
 	shipperSvc := service.NewShipperDocumentService(docRepo, attachmentSvc)
+	carrierSvc := service.NewCarrierDocumentService(docRepo, attachmentSvc)
 	podSvc := service.NewPODUploadService(db.Pool, docSvc, store, 10<<20)
 
-	router := httpserver.NewRouter(log, db.Pool, docSvc, signingSvc, podSvc, attachmentSvc, shipperSvc)
+	router := httpserver.NewRouter(log, db.Pool, docSvc, signingSvc, podSvc, attachmentSvc, shipperSvc, carrierSvc)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

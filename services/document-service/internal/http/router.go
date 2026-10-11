@@ -22,12 +22,14 @@ func NewRouter(
 	podSvc *service.PODUploadService,
 	attachmentSvc *service.AttachmentService,
 	shipperSvc *service.ShipperDocumentService,
+	carrierSvc *service.CarrierDocumentService,
 ) http.Handler {
 	documentHandler := handlers.NewDocumentHandler(documentSvc)
 	signingHandler := handlers.NewSigningHandler(signingSvc)
 	podHandler := handlers.NewPODUploadHandler(podSvc)
 	attachmentHandler := handlers.NewAttachmentHandler(attachmentSvc)
 	shipperHandler := handlers.NewShipperDocumentHandler(shipperSvc)
+	carrierHandler := handlers.NewCarrierDocumentHandler(carrierSvc)
 
 	r := chi.NewRouter()
 	observability.Mount(r, observability.MountOptions{
@@ -61,6 +63,14 @@ func NewRouter(
 		r.Get("/{documentId}/attachments", shipperHandler.ListAttachments)
 		r.Get("/{documentId}/attachments/{attachmentId}", shipperHandler.GetAttachment)
 		r.Get("/{documentId}/attachments/{attachmentId}/content", shipperHandler.Content)
+	})
+
+	r.Route("/v1/carrier/documents", func(r chi.Router) {
+		r.Get("/", carrierHandler.List)
+		r.Get("/{documentId}", carrierHandler.Get)
+		r.Get("/{documentId}/attachments", carrierHandler.ListAttachments)
+		r.Get("/{documentId}/attachments/{attachmentId}", carrierHandler.GetAttachment)
+		r.Get("/{documentId}/attachments/{attachmentId}/content", carrierHandler.Content)
 	})
 
 	r.Route("/v1/signing-sessions", func(r chi.Router) {
