@@ -90,6 +90,10 @@ func (c *Client) GetCurrent(ctx context.Context, tenantID, requestID, shipmentID
 	return payload.toSummary(), nil
 }
 
+func (c *Client) ProxyCarrierJSON(ctx context.Context, tenantID, requestID, companyID, actorKind, method, path, query string) (json.RawMessage, int, error) {
+	return c.ProxyShipperJSON(ctx, tenantID, requestID, companyID, actorKind, method, path, query)
+}
+
 func (c *Client) ProxyShipperJSON(ctx context.Context, tenantID, requestID, companyID, actorKind, method, path, query string) (json.RawMessage, int, error) {
 	endpoint := c.baseURL + path
 	if query != "" {

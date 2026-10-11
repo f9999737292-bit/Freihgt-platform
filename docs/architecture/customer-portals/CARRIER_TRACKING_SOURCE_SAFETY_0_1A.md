@@ -79,3 +79,7 @@ Customer responses omit `providerDeviceId`, `providerEventId`, `providerCode`, `
 ## Still open
 
 Agent A must gate a public carrier tracking route after this source contract. Until that lands, carrier tracking is not customer-safe. The Carrier Portal is unchanged in this stage.
+
+## Gateway result
+
+The status block at the top of this file is the source-contract record and is unchanged. [CARRIER_TRACKING_GATEWAY_0_1.md](CARRIER_TRACKING_GATEWAY_0_1.md) records the later gateway stage. For carrier reads, `CARRIER_TRACKING_CUSTOMER_SAFE`, `CARRIER_ETA_CUSTOMER_SAFE`, and `CARRIER_SLOTS_CUSTOMER_SAFE` move from `NO_PENDING_GATEWAY` to `YES`, and `CP_API_006_CARRIER_PUBLIC_GATEWAY=RESOLVED`. Consignee stays open. Global customer tracking stays `NO_GLOBAL_SHIPPER_AND_CARRIER_ONLY`.
