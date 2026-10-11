@@ -22,6 +22,7 @@ type tenantScopedShipmentService struct {
 	getFn           func(ctx context.Context, tenantID, id uuid.UUID) (*domain.Shipment, error)
 	listFn          func(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error)
 	getByShipperFn  func(ctx context.Context, id, tenantID, shipperCompanyID uuid.UUID) (*domain.Shipment, error)
+	getByCarrierFn  func(ctx context.Context, id, tenantID, carrierCompanyID uuid.UUID) (*domain.Shipment, error)
 	listByShipperFn func(ctx context.Context, filter domain.ShipperShipmentListFilter) ([]domain.Shipment, int, error)
 }
 
@@ -42,6 +43,12 @@ func (s *tenantScopedShipmentService) GetByIDAndTenant(ctx context.Context, id, 
 		return s.getFn(ctx, tenantID, id)
 	}
 	return nil, nil
+}
+func (s *tenantScopedShipmentService) GetByIDAndCarrier(ctx context.Context, id, tenantID, carrierCompanyID uuid.UUID) (*domain.Shipment, error) {
+	if s.getByCarrierFn != nil {
+		return s.getByCarrierFn(ctx, id, tenantID, carrierCompanyID)
+	}
+	return nil, apperrors.NotFound("shipment not found")
 }
 func (s *tenantScopedShipmentService) GetByIDAndShipper(ctx context.Context, id, tenantID, shipperCompanyID uuid.UUID) (*domain.Shipment, error) {
 	if s.getByShipperFn != nil {

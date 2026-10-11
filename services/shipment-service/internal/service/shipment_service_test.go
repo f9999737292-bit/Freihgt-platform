@@ -46,6 +46,9 @@ func (m *mockShipmentStore) CreateShipment(ctx context.Context, params repositor
 func (m *mockShipmentStore) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error) {
 	return m.getByIDAndTenantFn(ctx, id, tenantID)
 }
+func (m *mockShipmentStore) GetByIDAndCarrier(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domain.Shipment, error) {
+	return nil, nil
+}
 func (m *mockShipmentStore) GetByIDAndShipper(ctx context.Context, id, tenantID, shipperCompanyID uuid.UUID) (*domain.Shipment, error) {
 	if m.getByShipperFn != nil {
 		return m.getByShipperFn(ctx, id, tenantID, shipperCompanyID)

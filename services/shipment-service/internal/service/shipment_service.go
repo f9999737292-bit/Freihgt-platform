@@ -19,6 +19,7 @@ type ShipmentStore interface {
 	CreateShipment(ctx context.Context, params repository.CreateShipmentParams, transition domain.StatusTransitionContext) (*domain.Shipment, error)
 	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.Shipment, error)
 	GetByIDAndShipper(ctx context.Context, id, tenantID, shipperCompanyID uuid.UUID) (*domain.Shipment, error)
+	GetByIDAndCarrier(ctx context.Context, id, tenantID, carrierCompanyID uuid.UUID) (*domain.Shipment, error)
 	List(ctx context.Context, filter domain.ListShipmentsFilter) ([]domain.Shipment, int, error)
 	ListByShipper(ctx context.Context, filter domain.ShipperShipmentListFilter) ([]domain.Shipment, int, error)
 	AssignDriver(ctx context.Context, id, tenantID, driverID uuid.UUID, fromStatus, newStatus string, expectedVersion int, transition domain.StatusTransitionContext) (*domain.Shipment, error)
@@ -212,6 +213,20 @@ func (s *ShipmentService) ListForShipper(ctx context.Context, filter domain.Ship
 		}
 	}
 	return items, total, nil
+}
+
+func (s *ShipmentService) GetForCarrier(ctx context.Context, tenantID, shipmentID, carrierCompanyID uuid.UUID) (*domain.Shipment, error) {
+	if err := domain.ValidateCarrierShipmentDetail(tenantID, shipmentID, carrierCompanyID); err != nil {
+		return nil, err
+	}
+	shipment, err := s.shipments.GetByIDAndCarrier(ctx, shipmentID, tenantID, carrierCompanyID)
+	if err != nil {
+		return nil, err
+	}
+	if shipment == nil || shipment.ID != shipmentID || shipment.TenantID != tenantID || shipment.CarrierCompanyID == nil || *shipment.CarrierCompanyID != carrierCompanyID {
+		return nil, apperrors.NotFound("shipment not found")
+	}
+	return shipment, nil
 }
 
 func (s *ShipmentService) GetForShipper(ctx context.Context, tenantID, shipmentID, shipperCompanyID uuid.UUID) (*domain.Shipment, error) {

@@ -43,6 +43,9 @@ func (s *assignShipmentStore) GetByIDAndTenant(ctx context.Context, id, tenantID
 	}
 	return nil, nil
 }
+func (s *assignShipmentStore) GetByIDAndCarrier(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domain.Shipment, error) {
+	return nil, nil
+}
 func (s *assignShipmentStore) GetByIDAndShipper(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domain.Shipment, error) {
 	return nil, nil
 }

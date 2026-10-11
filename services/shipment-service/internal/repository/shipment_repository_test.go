@@ -117,6 +117,17 @@ func TestShipperShipmentQueriesRequireCompanyScope(t *testing.T) {
 	}
 }
 
+func TestCarrierShipmentQueryRequiresCompanyScope(t *testing.T) {
+	t.Parallel()
+	detail := strings.ToLower(getShipmentByIDTenantAndCarrierQuery)
+	if !strings.Contains(detail, "where id = $1 and tenant_id = $2 and carrier_company_id = $3 and deleted_at is null") {
+		t.Fatalf("detail query: %s", getShipmentByIDTenantAndCarrierQuery)
+	}
+	if strings.Contains(detail, "shipper_company_id =") || strings.Contains(detail, "forwarder_company_id =") || strings.Contains(detail, "consignee_company_id =") || strings.Contains(detail, "driver_id =") || strings.Contains(detail, "vehicle_id =") {
+		t.Fatalf("detail query aliases another party: %s", getShipmentByIDTenantAndCarrierQuery)
+	}
+}
+
 func TestListShipmentsQueryContainsTenantCondition(t *testing.T) {
 	t.Parallel()
 	listWherePrefix := strings.ToLower("tenant_id = $1")
