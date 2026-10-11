@@ -93,3 +93,7 @@ Common:
 | Analytics | DEFERRED. No portal-defined KPIs. |
 
 `apps/web-forwarder` is the target package and is not created in 0.1B.
+
+## Carrier tracking UI 0.1
+
+The carrier table above stays the 0.1B map. The carrier tracking screen is now a read-only page opened from a transport order when that order already carries a server shipment reference. It is not a top-level navigation item. Driver actions stay in `apps/driver-mobile`.

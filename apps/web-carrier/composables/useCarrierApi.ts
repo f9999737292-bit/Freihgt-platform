@@ -1,3 +1,15 @@
+import {
+  carrierReadSpec,
+  type CarrierTrackingSuffix,
+  type ETAHistoryItem,
+  type ETASummary,
+  type HistoryPage,
+  type HistoryQuery,
+  type LocationFact,
+  type SlotHistoryItem,
+  type SlotSummary,
+  type TrackingSummary,
+} from '../domain/tracking'
 import type { PortalViewKind } from '../domain/viewState'
 
 export interface TenderSummary {
@@ -31,10 +43,19 @@ export interface OwnAward {
   rfx_response_id?: string
 }
 
+export interface CarrierShipmentRef {
+  id?: string
+  shipment_number?: string
+  status?: string
+}
+
 export interface TransportOrderSummary {
   transport_order_id: string
   transport_order_number?: string
   transport_order_status?: string
+  shipment_id?: string
+  shipment_status?: string
+  shipment?: CarrierShipmentRef
   amount?: number
   currency_code?: string
   provenance?: { amount?: number; currency_code?: string }
@@ -114,6 +135,36 @@ export function useCarrierApi() {
     )
   }
 
+  function readTracking<T>(shipmentId: string, suffix: CarrierTrackingSuffix, history?: HistoryQuery) {
+    const companyId = office.requireCompany()
+    const spec = carrierReadSpec(shipmentId, suffix, companyId, history)
+    return office.client.request<T>(spec.path, { companyId, query: spec.query })
+  }
+
+  function getTracking(shipmentId: string) {
+    return readTracking<TrackingSummary>(shipmentId, '/tracking')
+  }
+
+  function listTrackingLocations(shipmentId: string, query: HistoryQuery = {}) {
+    return readTracking<HistoryPage<LocationFact>>(shipmentId, '/tracking/locations', query)
+  }
+
+  function getETA(shipmentId: string) {
+    return readTracking<ETASummary>(shipmentId, '/eta')
+  }
+
+  function listETAHistory(shipmentId: string, query: HistoryQuery & { targetType: 'pickup' | 'delivery' }) {
+    return readTracking<HistoryPage<ETAHistoryItem>>(shipmentId, '/eta/history', query)
+  }
+
+  function getSlots(shipmentId: string) {
+    return readTracking<SlotSummary>(shipmentId, '/slots')
+  }
+
+  function listSlotHistory(shipmentId: string, query: HistoryQuery & { slotType: 'pickup' | 'delivery' }) {
+    return readTracking<HistoryPage<SlotHistoryItem>>(shipmentId, '/slots/history', query)
+  }
+
   async function listFleet() {
     const companyId = office.requireCompany()
     const scope = { companyId, query: { carrier_company_id: companyId } }
@@ -137,6 +188,12 @@ export function useCarrierApi() {
     getOwnAward,
     listTransportOrders,
     getTransportOrder,
+    getTracking,
+    listTrackingLocations,
+    getETA,
+    listETAHistory,
+    getSlots,
+    listSlotHistory,
     listFleet,
   }
 }
