@@ -186,6 +186,10 @@ No migration was required. The existing shipment, document, and attachment colum
 
 ## Dependencies
 
-- Agent A: public gateway membership authorization and closure of the legacy document bypass for shipper users.
+- Agent A: public gateway membership authorization and closure of the legacy document bypass for shipper users. The later result is [SHIPPER_DOCUMENTS_GATEWAY_0_1.md](SHIPPER_DOCUMENTS_GATEWAY_0_1.md).
 - Agent F: read-only shipment document UI against the source contract after the gateway exists.
 - Later party-context work: financial and supply-side documents. This stage does not collapse the forwarder dual chain.
+
+## Gateway result
+
+The status block at the top of this file is the source-contract record and is unchanged. [SHIPPER_DOCUMENTS_GATEWAY_0_1.md](SHIPPER_DOCUMENTS_GATEWAY_0_1.md) records the later gateway stage. For shipper reads only, `SHIPPER_DOCUMENTS_CUSTOMER_SAFE` moves from `NO_PENDING_GATEWAY` to `YES_READ_ONLY` and `CP_API_005_SHIPPER_PUBLIC_GATEWAY=RESOLVED`. Writes stay open as a gap. Global customer documents stay `NO_GLOBAL_SHIPPER_READ_ONLY`.

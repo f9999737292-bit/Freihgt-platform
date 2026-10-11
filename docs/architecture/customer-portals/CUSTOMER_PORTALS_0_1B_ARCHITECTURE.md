@@ -237,7 +237,7 @@ Consignee implementation stays blocked until a consignee authorization principal
 
 Tracking, ETA, and slot reads required a JWT and did not prove the caller participates in the shipment (`CP-API-006`). That historical hole stays open for carrier and consignee. The shipper customer contract is the membership-gated gateway route in `SHIPPER_TRACKING_GATEWAY_0_1.md`. `CUSTOMER_TRACKING_SAFE=NO_GLOBAL_SHIPPER_ONLY`.
 
-Document get-by-id uses the trusted tenant header. Document list requires query `tenant_id`, and several writes take `tenant_id` from the body (`CP-API-005`). No customer document screen until list and write ignore caller-supplied tenant.
+Document get-by-id uses the trusted tenant header. Document list required query `tenant_id`, and several writes take `tenant_id` from the body (`CP-API-005`). That historical hole stays open for carrier, consignee, and customer writes. The shipper customer read contract is the membership-gated gateway route in `SHIPPER_DOCUMENTS_GATEWAY_0_1.md`. `CUSTOMER_DOCUMENTS_SAFE=NO_GLOBAL_SHIPPER_READ_ONLY`.
 
 ## Design language
 
