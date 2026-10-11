@@ -6,6 +6,7 @@ import type { TransportOrderSummary } from '../../composables/useCarrierApi'
 
 const route = useRoute()
 const { t } = useI18n()
+const localePath = useLocalePath()
 const api = useCarrierApi()
 const order = ref<TransportOrderSummary | null>(null)
 const kind = ref<PortalViewKind>('loading')
@@ -41,7 +42,15 @@ function titleFor(state: PortalViewKind) {
       <CustomerPageHeader :title="order.transport_order_number || t('carrier.orderDetail')" />
       <Card>
         <p data-testid="order-status">{{ order.transport_order_status }}</p>
+        <p v-if="order.shipment?.status" data-testid="shipment-status">{{ order.shipment.status }}</p>
         <p v-if="order.provenance" data-testid="order-amount">{{ order.provenance.amount }} {{ order.provenance.currency_code }}</p>
+        <NuxtLink
+          v-if="order.shipment?.id"
+          :to="localePath(`/shipments/${order.shipment.id}/tracking`)"
+          data-testid="open-tracking"
+        >
+          {{ t('carrier.openTracking') }}
+        </NuxtLink>
       </Card>
     </template>
   </section>

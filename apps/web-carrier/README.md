@@ -18,7 +18,9 @@ pnpm install
 pnpm dev
 ```
 
-The app runs at http://localhost:3002
+The app runs at http://localhost:3002.
+
+Tracking, ETA, and slots are read-only and open from a transport order that already returns a shipment reference. The screen does not accept a typed shipment id, and it does not expose driver actions.
 
 ## Scripts
 

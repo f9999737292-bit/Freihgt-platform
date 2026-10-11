@@ -41,13 +41,21 @@ function titleFor(state: PortalViewKind) {
     <CustomerPageHeader :title="t('carrier.ordersTitle')" />
     <PortalState v-if="kind !== 'ready'" :kind="kind" :title="titleFor(kind)" :description="detail" />
     <Card v-else>
-      <Table :columns="[t('carrier.ordersTitle'), t('carrier.status'), '']">
+      <Table :columns="[t('carrier.ordersTitle'), t('carrier.status'), t('carrier.shipmentStatus'), '']">
         <tr v-for="item in items" :key="item.transport_order_id">
           <td>{{ item.transport_order_number }}</td>
           <td>{{ item.transport_order_status }}</td>
+          <td data-testid="shipment-status">{{ item.shipment_status }}</td>
           <td>
             <NuxtLink :to="localePath(`/transport-orders/${item.transport_order_id}`)" data-testid="open-order">
               {{ t('carrier.open') }}
+            </NuxtLink>
+            <NuxtLink
+              v-if="item.shipment_id"
+              :to="localePath(`/shipments/${item.shipment_id}/tracking`)"
+              data-testid="open-tracking"
+            >
+              {{ t('carrier.openTracking') }}
             </NuxtLink>
           </td>
         </tr>
