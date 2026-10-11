@@ -27,7 +27,7 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 				w.Header().Set("Vary", "Origin")
 				w.Header().Set("Access-Control-Allow-Methods", allowedMethods)
 				w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
-				w.Header().Set("Access-Control-Expose-Headers", RequestIDHeader+", Content-Disposition")
+				w.Header().Set("Access-Control-Expose-Headers", RequestIDHeader+", Content-Disposition, X-Content-SHA256")
 			}
 
 			if r.Method == http.MethodOptions {

@@ -45,3 +45,5 @@ MIGRATION_CREATED=NO
 BACKEND_CODE_CHANGED=NO
 STAGING_CHANGED=NO
 ```
+
+The checksum exposure note above is the UI-stage record. The later gate is [SHIPPER_DOCUMENTS_CORS_0_1.md](SHIPPER_DOCUMENTS_CORS_0_1.md).
