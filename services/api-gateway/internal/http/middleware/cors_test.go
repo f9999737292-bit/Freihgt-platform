@@ -27,6 +27,12 @@ func TestCORS_AllowsBintransPilotWebAdminOrigin(t *testing.T) {
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:13000" {
 		t.Fatalf("Access-Control-Allow-Origin=%q want http://localhost:13000", got)
 	}
+	exposed := exposedHeaderNames(rec.Header())
+	for _, name := range []string{"x-request-id", "content-disposition", "x-content-sha256"} {
+		if _, ok := exposed[name]; !ok {
+			t.Fatalf("Access-Control-Expose-Headers=%q missing %s", rec.Header().Get("Access-Control-Expose-Headers"), name)
+		}
+	}
 }
 
 func TestCORS_OptionsPreflightForPilotWebAdminOrigin(t *testing.T) {
@@ -74,4 +80,19 @@ func TestCORS_RejectsUnknownOrigin(t *testing.T) {
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
 		t.Fatalf("Access-Control-Allow-Origin=%q want empty", got)
 	}
+	if got := rec.Header().Get("Access-Control-Expose-Headers"); got != "" {
+		t.Fatalf("Access-Control-Expose-Headers=%q want empty", got)
+	}
+}
+
+func exposedHeaderNames(header http.Header) map[string]struct{} {
+	names := map[string]struct{}{}
+	for _, part := range strings.Split(header.Get("Access-Control-Expose-Headers"), ",") {
+		name := strings.ToLower(strings.TrimSpace(part))
+		if name == "" {
+			continue
+		}
+		names[name] = struct{}{}
+	}
+	return names
 }

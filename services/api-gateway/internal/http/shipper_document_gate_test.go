@@ -317,6 +317,9 @@ func TestShipperAttachmentContentProxy(t *testing.T) {
 	if !strings.Contains(rec.Header().Get("Content-Disposition"), "pod.pdf") {
 		t.Fatalf("disposition=%s", rec.Header().Get("Content-Disposition"))
 	}
+	if rec.Header().Get("Content-Length") == "" {
+		t.Fatal("Content-Length not preserved")
+	}
 	if rec.Header().Get("X-Storage-Bucket") != "" || rec.Header().Get("X-Object-Key") != "" {
 		t.Fatal("storage metadata leaked")
 	}
