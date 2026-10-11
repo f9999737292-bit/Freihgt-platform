@@ -47,6 +47,12 @@ function titleFor(state: PortalViewKind) {
         <NuxtLink :to="localePath(`/shipments/${shipment.id}/tracking`)" data-testid="open-tracking">
           {{ t('shipper.openTracking') }}
         </NuxtLink>
+        <NuxtLink
+          :to="localePath({ path: '/documents', query: { shipment_id: shipment.id } })"
+          data-testid="open-documents"
+        >
+          {{ t('shipper.openDocuments') }}
+        </NuxtLink>
       </p>
       <Card>
         <ShipmentFacts :shipment="shipment" />

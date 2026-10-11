@@ -12,6 +12,14 @@ export interface PortalRequest {
   anonymous?: boolean
 }
 
+export interface PortalBinaryResponse {
+  blob: Blob
+  contentType: string | null
+  contentDisposition: string | null
+  contentSha256: string | null
+  contentLength: number | null
+}
+
 export interface PortalClientOptions {
   baseUrl: string
   fetchImpl?: typeof fetch
@@ -38,6 +46,25 @@ export class PortalClient {
   constructor(private readonly options: PortalClientOptions) {}
 
   async request<T>(path: string, init: PortalRequest = {}): Promise<T> {
+    const response = await this.execute(path, init)
+    return (await readBody(response)) as T
+  }
+
+  async download(path: string, init: PortalRequest = {}): Promise<PortalBinaryResponse> {
+    const response = await this.execute(path, init)
+    const blob = await response.blob()
+    const rawLength = response.headers.get('Content-Length')
+    const parsedLength = rawLength === null ? Number.NaN : Number(rawLength)
+    return {
+      blob,
+      contentType: response.headers.get('Content-Type'),
+      contentDisposition: response.headers.get('Content-Disposition'),
+      contentSha256: response.headers.get('X-Content-SHA256'),
+      contentLength: Number.isFinite(parsedLength) ? parsedLength : null,
+    }
+  }
+
+  private async execute(path: string, init: PortalRequest): Promise<Response> {
     const url = resolveGatewayUrl(this.options.baseUrl, path)
     const allowed = this.options.getAllowedCompanyIds()
     if (init.companyId) {
@@ -83,12 +110,12 @@ export class PortalClient {
       )
     }
 
-    const payload = await readBody(response)
-    if (response.status === 401) {
-      this.options.onUnauthorized?.()
-      throw new PortalClientError(messageFrom(payload, 'unauthorized'), 401, 'UNAUTHORIZED', payload)
-    }
     if (!response.ok) {
+      const payload = await readBody(response)
+      if (response.status === 401) {
+        this.options.onUnauthorized?.()
+        throw new PortalClientError(messageFrom(payload, 'unauthorized'), 401, 'UNAUTHORIZED', payload)
+      }
       throw new PortalClientError(
         messageFrom(payload, response.statusText || 'request failed'),
         response.status,
@@ -96,7 +123,7 @@ export class PortalClient {
         payload,
       )
     }
-    return payload as T
+    return response
   }
 
   login(input: { tenantId: string; email: string; password: string }): Promise<LoginResponse> {

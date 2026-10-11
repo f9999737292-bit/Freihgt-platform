@@ -11,6 +11,7 @@ const localePath = useLocalePath()
 const items = computed(() => [
   { href: localePath('/'), label: t('common.home'), active: route.path === localePath('/') },
   { href: localePath('/shipments'), label: t('shipper.navShipments'), active: route.path.startsWith(localePath('/shipments')) },
+  { href: localePath('/documents'), label: t('shipper.navDocuments'), active: route.path.startsWith(localePath('/documents')) },
 ])
 
 function onSelect(companyId: string) {
