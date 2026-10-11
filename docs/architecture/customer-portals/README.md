@@ -179,3 +179,18 @@ SHIPPER_DOCUMENT_WRITE_SAFE=NO
 SHIPPER_EDO_SIGNING_SAFE=NO
 SHIPPER_QES_SAFE=NO
 ```
+
+## Shipper documents UI 0.1
+
+[SHIPPER_DOCUMENTS_UI_0_1.md](SHIPPER_DOCUMENTS_UI_0_1.md) records the read-only documents screen in the existing Shipper Portal. The list stays scoped to one selected shipment. The browser uses the gateway routes only. Writes, signing, and QES stay closed. The gateway status block above is unchanged.
+
+```text
+SHIPPER_DOCUMENTS_UI=YES_READ_ONLY
+SHIPMENT_SCOPED_DOCUMENT_LIST=YES
+SHIPPER_DOCUMENTS_CUSTOMER_SAFE=YES_READ_ONLY
+SHIPPER_ATTACHMENT_DOWNLOAD_CUSTOMER_SAFE=YES
+CUSTOMER_DOCUMENTS_SAFE=NO_GLOBAL_SHIPPER_READ_ONLY
+SHIPPER_DOCUMENT_WRITE_SAFE=NO
+SHIPPER_EDO_SIGNING_SAFE=NO
+SHIPPER_QES_SAFE=NO
+```

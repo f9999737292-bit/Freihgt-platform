@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button, CustomerAppShell, CustomerNavigation, LoadingState, LocaleSwitcher } from '@freight-platform/ui'
+import { Button, CustomerAppShell, CustomerNavigation, LoadingState, LocaleSwitcher, Select } from '@freight-platform/ui'
 import CompanyGate from '../components/CompanyGate.vue'
 import PortalState from '../components/PortalState.vue'
 
@@ -11,7 +11,20 @@ const localePath = useLocalePath()
 const items = computed(() => [
   { href: localePath('/'), label: t('common.home'), active: route.path === localePath('/') },
   { href: localePath('/shipments'), label: t('shipper.navShipments'), active: route.path.startsWith(localePath('/shipments')) },
+  { href: localePath('/documents'), label: t('shipper.navDocuments'), active: route.path.startsWith(localePath('/documents')) },
 ])
+
+const companyOptions = computed(() => office.companies.value.map((item) => ({
+  value: item.companyId,
+  label: item.legalName || item.companyId,
+})))
+
+const companyModel = computed({
+  get: () => office.selectedCompanyId.value ?? '',
+  set: (value: string) => {
+    if (value && value !== office.selectedCompanyId.value) office.chooseCompany(value)
+  },
+})
 
 function onSelect(companyId: string) {
   office.chooseCompany(companyId)
@@ -30,6 +43,14 @@ onMounted(() => {
       </template>
       <template #context>
         <span v-if="office.session.value">{{ office.session.value.user.email }}</span>
+        <Select
+          v-if="companyOptions.length > 1 && office.selectedCompanyId.value"
+          v-model="companyModel"
+          name="company"
+          data-testid="company-switch"
+          :label="t('shipper.companyLabel')"
+          :options="companyOptions"
+        />
       </template>
       <template #actions>
         <LocaleSwitcher />

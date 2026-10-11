@@ -192,6 +192,98 @@ describe('PortalClient', () => {
   })
 })
 
+describe('PortalClient download', () => {
+  it('preserves bytes and content headers for an allowed company', async () => {
+    const bytes = new Uint8Array([1, 2, 3, 255])
+    const fetchImpl = vi.fn(async () => new Response(bytes, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename="pod.pdf"',
+        'X-Content-SHA256': 'abc123',
+        'Content-Length': '4',
+      },
+    }))
+    const client = new PortalClient({
+      baseUrl: 'http://gateway.test',
+      fetchImpl,
+      getAccessToken: () => 'tok',
+      getAllowedCompanyIds: () => ['co-shipper'],
+      getLocale: () => 'ru-RU',
+    })
+    const result = await client.download('/api/v1/shipper/documents/doc-1/attachments/att-1/content', {
+      companyId: 'co-shipper',
+      query: { shipper_company_id: 'co-shipper' },
+    })
+    expect(new Uint8Array(await result.blob.arrayBuffer())).toEqual(bytes)
+    expect(result.contentType).toBe('application/pdf')
+    expect(result.contentDisposition).toContain('pod.pdf')
+    expect(result.contentSha256).toBe('abc123')
+    expect(result.contentLength).toBe(4)
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toContain('/api/v1/shipper/documents/doc-1/attachments/att-1/content')
+    expect(url).toContain('shipper_company_id=co-shipper')
+    const headers = init.headers as Record<string, string>
+    expect(headers.Authorization).toBe('Bearer tok')
+    expect(headers['X-Company-ID']).toBe('co-shipper')
+    expect(headers['X-Tenant-ID']).toBeUndefined()
+    expect(headers['X-User-ID']).toBeUndefined()
+  })
+
+  it('rejects an unknown company before fetch', async () => {
+    const fetchImpl = vi.fn()
+    const client = new PortalClient({
+      baseUrl: 'http://gateway.test',
+      fetchImpl,
+      getAccessToken: () => 'tok',
+      getAllowedCompanyIds: () => ['co-shipper'],
+    })
+    await expect(client.download('/api/v1/shipper/documents/doc-1/attachments/att-1/content', {
+      companyId: 'co-other',
+      query: { shipper_company_id: 'co-other' },
+    })).rejects.toMatchObject({ code: 'COMPANY_SPOOF' })
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('rejects absolute and non-gateway document paths', async () => {
+    const client = new PortalClient({
+      baseUrl: 'http://gateway.test',
+      getAccessToken: () => 'tok',
+      getAllowedCompanyIds: () => ['co-shipper'],
+    })
+    await expect(client.download('http://document-service:8080/v1/shipper/documents/doc-1')).rejects.toMatchObject({
+      code: 'GATEWAY_ONLY',
+    })
+    await expect(client.download('/v1/shipper/documents/doc-1')).rejects.toMatchObject({
+      code: 'GATEWAY_ONLY',
+    })
+  })
+
+  it('maps unauthorized, forbidden, missing, and unavailable downloads', async () => {
+    const onUnauthorized = vi.fn()
+    const clientFor = (status: number) => new PortalClient({
+      baseUrl: 'http://gateway.test',
+      fetchImpl: async () => jsonResponse({ message: 'no' }, status),
+      getAccessToken: () => 'tok',
+      getAllowedCompanyIds: () => ['co-shipper'],
+      onUnauthorized,
+    })
+    await expect(clientFor(401).download('/api/v1/shipper/documents/doc-1/attachments/att-1/content', {
+      companyId: 'co-shipper',
+    })).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED' })
+    expect(onUnauthorized).toHaveBeenCalledOnce()
+    await expect(clientFor(403).download('/api/v1/shipper/documents/doc-1/attachments/att-1/content', {
+      companyId: 'co-shipper',
+    })).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' })
+    await expect(clientFor(404).download('/api/v1/shipper/documents/doc-1/attachments/att-1/content', {
+      companyId: 'co-shipper',
+    })).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' })
+    await expect(clientFor(503).download('/api/v1/shipper/documents/doc-1/attachments/att-1/content', {
+      companyId: 'co-shipper',
+    })).rejects.toMatchObject({ status: 503, code: 'UNAVAILABLE' })
+  })
+})
+
 describe('client source', () => {
   it('does not mention localStorage', () => {
     const source = readFileSync(new URL('./client.ts', import.meta.url), 'utf8')

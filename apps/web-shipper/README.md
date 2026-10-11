@@ -1,6 +1,6 @@
 # Freight Platform Shipper
 
-Nuxt 3 shipper office. Login, tab session, company context, read-only shipment inbox/detail, and read-only tracking, arrival forecast, and load windows for one shipment. The browser calls the API Gateway only. No map provider is included.
+Nuxt 3 shipper office. Login, tab session, company context, read-only shipment inbox/detail, tracking, and shipment-scoped documents. The browser calls the API Gateway only. Document writes, signing, and map providers are not included.
 
 ## Development
 

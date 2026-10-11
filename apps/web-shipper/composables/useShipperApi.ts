@@ -1,3 +1,11 @@
+import {
+  documentListSpec,
+  documentReadSpec,
+  type DocumentListFilters,
+  type DocumentPage,
+  type ShipperAttachment,
+  type ShipperDocument,
+} from '../domain/document'
 import type { ShipperShipment } from '../domain/shipment'
 import {
   shipperReadSpec,
@@ -65,6 +73,36 @@ export function useShipperApi() {
     return read<HistoryPage<SlotHistoryItem>>(shipmentId, '/slots/history', query)
   }
 
+  function listDocuments(shipmentId: string, filters: DocumentListFilters = {}) {
+    const companyId = office.requireCompany()
+    const spec = documentListSpec(shipmentId, companyId, filters)
+    return office.client.request<DocumentPage>(spec.path, { companyId, query: spec.query })
+  }
+
+  function getDocument(documentId: string) {
+    const companyId = office.requireCompany()
+    const spec = documentReadSpec(companyId, documentId)
+    return office.client.request<ShipperDocument>(spec.path, { companyId, query: spec.query })
+  }
+
+  function listDocumentAttachments(documentId: string) {
+    const companyId = office.requireCompany()
+    const spec = documentReadSpec(companyId, documentId, '/attachments')
+    return office.client.request<{ items?: ShipperAttachment[] }>(spec.path, { companyId, query: spec.query })
+  }
+
+  function getDocumentAttachment(documentId: string, attachmentId: string) {
+    const companyId = office.requireCompany()
+    const spec = documentReadSpec(companyId, documentId, `/attachments/${encodeURIComponent(attachmentId)}`)
+    return office.client.request<ShipperAttachment>(spec.path, { companyId, query: spec.query })
+  }
+
+  function downloadDocumentAttachment(documentId: string, attachmentId: string) {
+    const companyId = office.requireCompany()
+    const spec = documentReadSpec(companyId, documentId, `/attachments/${encodeURIComponent(attachmentId)}/content`)
+    return office.client.download(spec.path, { companyId, query: spec.query })
+  }
+
   return {
     listShipments,
     getShipment,
@@ -74,5 +112,10 @@ export function useShipperApi() {
     listETAHistory,
     getSlots,
     listSlotHistory,
+    listDocuments,
+    getDocument,
+    listDocumentAttachments,
+    getDocumentAttachment,
+    downloadDocumentAttachment,
   }
 }

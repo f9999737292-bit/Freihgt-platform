@@ -154,6 +154,8 @@ async function installGateway(
     const url = new URL(request.url())
     calls.push(`${request.method()} ${url.pathname}${url.search}`)
     expect(url.pathname === '/api/v1/shipments' || url.pathname.startsWith('/api/v1/shipments/')).toBe(false)
+    expect(url.pathname === '/api/v1/documents' || url.pathname.startsWith('/api/v1/documents/')).toBe(false)
+    expect(url.pathname.startsWith('/api/v1/signing-sessions')).toBe(false)
     if (url.pathname === '/api/v1/auth/login') {
       await route.fulfill({ json: loginPayload(roles) })
       return
@@ -164,9 +166,95 @@ async function installGateway(
       return
     }
     if (url.pathname === '/api/v1/shipper/shipments') {
-      expect(url.searchParams.get('shipper_company_id')).toBe('co-shipper')
-      expect(headers['x-company-id']).toBe('co-shipper')
+      const company = url.searchParams.get('shipper_company_id')
+      expect(headers['x-company-id']).toBe(company)
+      if (company === 'co-shipper-b') {
+        await route.fulfill({ json: { items: [], total: 0 } })
+        return
+      }
+      expect(company).toBe('co-shipper')
       await route.fulfill({ json: { items: [shipment], total: 1 } })
+      return
+    }
+    if (url.pathname === '/api/v1/shipper/documents' || url.pathname.startsWith('/api/v1/shipper/documents/')) {
+      const company = url.searchParams.get('shipper_company_id')
+      expect(headers['x-company-id']).toBe(company)
+      expect(url.searchParams.has('tenant_id')).toBe(false)
+      expect(url.searchParams.has('related_entity_type')).toBe(false)
+      if (company !== 'co-shipper') {
+        await route.fulfill({ status: 404, json: { message: 'not found' } })
+        return
+      }
+      if (url.pathname === '/api/v1/shipper/documents') {
+        expect(url.searchParams.get('shipment_id')).toBe('shp-1')
+        expect(url.searchParams.get('limit')).toBe('20')
+        await route.fulfill({
+          json: {
+            items: [{
+              id: 'doc-1',
+              document_number: 'DOC-1',
+              document_type: 'POD',
+              document_status: 'SIGNED',
+              related_entity_type: 'SHIPMENT',
+              related_entity_id: 'shp-1',
+              legal_language: 'ru',
+              created_at: '2026-12-01T10:00:00Z',
+              updated_at: '2026-12-01T11:00:00Z',
+              version: 2,
+            }],
+            total: 1,
+            limit: 20,
+            offset: 0,
+          },
+        })
+        return
+      }
+      if (url.pathname === '/api/v1/shipper/documents/doc-1') {
+        await route.fulfill({
+          json: {
+            id: 'doc-1',
+            document_number: 'DOC-1',
+            document_type: 'POD',
+            document_status: 'SIGNED',
+            related_entity_id: 'shp-1',
+            legal_language: 'ru',
+            created_at: '2026-12-01T10:00:00Z',
+            updated_at: '2026-12-01T11:00:00Z',
+            version: 2,
+          },
+        })
+        return
+      }
+      if (url.pathname === '/api/v1/shipper/documents/doc-1/attachments') {
+        await route.fulfill({
+          json: {
+            items: [{
+              id: 'att-1',
+              document_id: 'doc-1',
+              file_name: 'pod.pdf',
+              media_type: 'application/pdf',
+              size_bytes: 4,
+              status: 'FINALIZED',
+              created_at: '2026-12-01T10:00:00Z',
+              finalized_at: '2026-12-01T10:05:00Z',
+            }],
+          },
+        })
+        return
+      }
+      if (url.pathname === '/api/v1/shipper/documents/doc-1/attachments/att-1/content') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/pdf',
+          headers: {
+            'content-disposition': 'attachment; filename="pod.pdf"',
+            'x-content-sha256': 'abc123',
+          },
+          body: Buffer.from([1, 2, 3, 4]),
+        })
+        return
+      }
+      await route.fulfill({ status: 404, json: { message: url.pathname } })
       return
     }
     if (url.pathname === '/api/v1/shipper/shipments/shp-1') {
@@ -385,6 +473,48 @@ test('tampered selected company is cleared before shipment calls', async ({ page
   expect(afterReload.some((call) => call.includes('co-spoof'))).toBe(false)
   expect(afterReload.some((call) => call.includes('/api/v1/shipper/shipments'))).toBe(false)
   expect(await page.evaluate(() => sessionStorage.getItem('freight_carrier_tab_session'))).toBeNull()
+})
+
+test('shipper admin reads documents for the selected shipment', async ({ page }) => {
+  const calls = await installGateway(page, ['SHIPPER_ADMIN'])
+  await signIn(page)
+  await chooseCompany(page)
+  await page.getByRole('link', { name: 'Отправления' }).click()
+  await page.getByTestId('open-shipment').click()
+  await page.getByTestId('open-documents').click()
+  await expect(page.getByTestId('document-row')).toContainText('DOC-1')
+  expect(calls.some((call) => call.includes('/api/v1/shipper/documents?') && call.includes('shipment_id=shp-1') && call.includes('shipper_company_id=co-shipper'))).toBe(true)
+  await page.getByTestId('open-document').click()
+  await expect(page.getByTestId('document-number')).toContainText('DOC-1')
+  await expect(page.getByTestId('attachment-row')).toContainText('pod.pdf')
+  await page.getByTestId('download-attachment').click()
+  await expect.poll(() => calls.some((call) => call.includes('/attachments/att-1/content') && call.includes('shipper_company_id=co-shipper'))).toBe(true)
+  const body = await page.getByTestId('documents-workspace').innerText()
+  expect(body).not.toContain('Подписать')
+  expect(body).not.toContain('Загрузить')
+  expect(body).not.toContain('КЭП')
+  expect(calls.some((call) => call.includes('/api/v1/documents'))).toBe(false)
+  expect(calls.some((call) => call.includes('/documents') && call.includes('tenant_id='))).toBe(false)
+  expect(calls.some((call) => call.includes('/v1/shipper/documents') && !call.includes('/api/v1/shipper/documents'))).toBe(false)
+})
+
+test('switching company clears the previous shipment documents', async ({ page }) => {
+  const calls = await installGateway(page, ['SHIPPER_ADMIN'], [
+    membership('co-shipper', 'SHIPPER', ['SHIPPER_ADMIN']),
+    membership('co-shipper-b', 'SHIPPER', ['SHIPPER_ADMIN']),
+  ])
+  await signIn(page)
+  await chooseCompany(page)
+  await page.getByRole('link', { name: 'Документы' }).click()
+  await page.getByTestId('open-shipment-documents').click()
+  await expect(page.getByTestId('document-row')).toContainText('DOC-1')
+  const marked = calls.length
+  await page.getByTestId('company-switch').selectOption('co-shipper-b')
+  await expect(page.getByTestId('shipment-picker')).toBeVisible()
+  await expect(page.getByText('DOC-1')).toHaveCount(0)
+  const after = calls.slice(marked)
+  expect(after.some((call) => call.includes('/api/v1/shipper/documents') && call.includes('shipper_company_id=co-shipper'))).toBe(false)
+  expect(after.some((call) => call.includes('shipper_company_id=co-shipper-b') && call.includes('/api/v1/shipper/shipments'))).toBe(true)
 })
 
 test.describe('non-shipper roles stay out of the office', () => {
