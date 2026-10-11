@@ -19,6 +19,7 @@ import (
 type recordingStore struct {
 	existsCalls int
 	putCalls    int
+	getCalls    int
 	putErr      error
 }
 
@@ -31,6 +32,7 @@ func (s *recordingStore) Put(context.Context, string, io.Reader, int64) (int64, 
 }
 
 func (s *recordingStore) Get(context.Context, string) (io.ReadCloser, error) {
+	s.getCalls++
 	return io.NopCloser(bytes.NewReader(nil)), nil
 }
 
@@ -99,6 +101,12 @@ func (r *stubRepo) Get(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domai
 func (r *stubRepo) Finalize(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) (*domain.Attachment, error) {
 	return nil, nil
 }
+func (r *stubRepo) ListFinalized(context.Context, uuid.UUID, uuid.UUID) ([]domain.Attachment, error) {
+	return nil, nil
+}
+func (r *stubRepo) GetFinalized(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domain.Attachment, error) {
+	return nil, apperrors.NotFound("attachment not found")
+}
 func (r *stubRepo) FindSignatureByIdempotency(context.Context, uuid.UUID, uuid.UUID, string) (*domain.AttachmentSignature, error) {
 	return nil, nil
 }
@@ -162,5 +170,14 @@ func TestCreateMapsPutCollision(t *testing.T) {
 	}
 	if store.existsCalls != 0 || repo.inserts != 0 {
 		t.Fatalf("exists=%d inserts=%d", store.existsCalls, repo.inserts)
+	}
+}
+
+func TestOpenFinalizedDraftDoesNotReadStorage(t *testing.T) {
+	store := &recordingStore{}
+	svc := &AttachmentService{docs: stubDocs{}, store: store, repo: &stubRepo{}, maxByte: domain.MaxAttachmentBytes}
+	_, _, err := svc.OpenFinalized(context.Background(), uuid.New(), uuid.New(), uuid.New())
+	if err == nil || store.getCalls != 0 {
+		t.Fatalf("err=%v gets=%d", err, store.getCalls)
 	}
 }

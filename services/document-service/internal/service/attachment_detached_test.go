@@ -90,6 +90,12 @@ func (r *detachedRepo) InsertAudit(_ context.Context, _ uuid.UUID, _ uuid.UUID, 
 	r.audits = append(r.audits, eventType)
 	return nil
 }
+func (r *detachedRepo) ListFinalized(context.Context, uuid.UUID, uuid.UUID) ([]domain.Attachment, error) {
+	return nil, nil
+}
+func (r *detachedRepo) GetFinalized(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domain.Attachment, error) {
+	return nil, apperrors.NotFound("attachment not found")
+}
 func (r *detachedRepo) SignatureBlobDigest(context.Context, uuid.UUID, uuid.UUID) (string, error) {
 	if r.blobSum == "" {
 		return "", apperrors.NotFound("signature blob not found")

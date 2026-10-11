@@ -21,6 +21,8 @@ type attachmentPersistence interface {
 	FindByIdempotency(ctx context.Context, tenantID uuid.UUID, key string) (*domain.Attachment, error)
 	Insert(ctx context.Context, item domain.Attachment) error
 	Get(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) (*domain.Attachment, error)
+	ListFinalized(ctx context.Context, tenantID, documentID uuid.UUID) ([]domain.Attachment, error)
+	GetFinalized(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) (*domain.Attachment, error)
 	Finalize(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID, at time.Time) (*domain.Attachment, error)
 	FindSignatureByIdempotency(ctx context.Context, tenantID, attachmentID uuid.UUID, key string) (*domain.AttachmentSignature, error)
 	InsertSignature(ctx context.Context, item domain.AttachmentSignature) error
@@ -154,6 +156,32 @@ func (s *AttachmentService) Get(ctx context.Context, tenantID, documentID, attac
 
 func (s *AttachmentService) Open(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) (*domain.Attachment, io.ReadCloser, error) {
 	item, err := s.Get(ctx, tenantID, documentID, attachmentID)
+	if err != nil {
+		return nil, nil, err
+	}
+	content, err := s.readVerified(ctx, item)
+	if err != nil {
+		return nil, nil, err
+	}
+	return item, io.NopCloser(bytes.NewReader(content)), nil
+}
+
+func (s *AttachmentService) ListFinalized(ctx context.Context, tenantID, documentID uuid.UUID) ([]domain.Attachment, error) {
+	if _, err := s.docs.GetByIDAndTenant(ctx, documentID, tenantID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListFinalized(ctx, tenantID, documentID)
+}
+
+func (s *AttachmentService) GetFinalized(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) (*domain.Attachment, error) {
+	if _, err := s.docs.GetByIDAndTenant(ctx, documentID, tenantID); err != nil {
+		return nil, err
+	}
+	return s.repo.GetFinalized(ctx, tenantID, documentID, attachmentID)
+}
+
+func (s *AttachmentService) OpenFinalized(ctx context.Context, tenantID, documentID, attachmentID uuid.UUID) (*domain.Attachment, io.ReadCloser, error) {
+	item, err := s.GetFinalized(ctx, tenantID, documentID, attachmentID)
 	if err != nil {
 		return nil, nil, err
 	}
