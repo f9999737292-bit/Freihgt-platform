@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -43,12 +42,16 @@ func (h *SigningHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req createSigningSessionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(r, &req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
+	tenantID, err := trustedTenantID(r)
 	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := reconcileTenant(tenantID, req.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -93,12 +96,16 @@ func (h *SigningHandler) AddSignature(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req addSignatureRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(r, &req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
+	tenantID, err := trustedTenantID(r)
 	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := reconcileTenant(tenantID, req.TenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}

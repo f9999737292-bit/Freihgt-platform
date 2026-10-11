@@ -31,18 +31,24 @@ CP_API_005_SHIPPER_WRITES=OPEN
 
 ## Trusted tenant
 
-`X-Tenant-ID` is the tenant authority for generic document list and for Create, CreateVersion, AddFile, ReadyForSigning, Cancel, and Archive.
+`X-Tenant-ID` is the tenant authority for generic document list and for Create, CreateVersion, AddFile, ReadyForSigning, Cancel, Archive, CreateSession, and AddSignature.
 
 `GET /v1/documents` no longer selects `?tenant_id=`. An empty query uses the trusted tenant. A query equal to the trusted tenant stays compatible. A conflicting query is rejected and does not list the other tenant.
 
-On those writes, a body `tenant_id` may be omitted or may repeat the trusted tenant. A mismatch is rejected before a repository mutation.
+On those writes, including `POST /v1/documents/{id}/signing-sessions` and `POST /v1/signing-sessions/{id}/signatures`, a body `tenant_id` may be omitted or may repeat the trusted tenant. A mismatch is rejected before a repository mutation. Attachment signature upload already takes its tenant from `X-Tenant-ID` and rejects a conflicting body tenant.
 
 ```text
 DOCUMENT_LIST_TENANT_SERVER_OWNED=YES
 DOCUMENT_LIST_CALLER_TENANT_AUTHORITY=NO
 DOCUMENT_WRITE_TENANT_SERVER_OWNED=YES
+SIGNING_WRITE_TENANT_SERVER_OWNED=YES
+CREATE_SIGNING_SESSION_TENANT_SERVER_OWNED=YES
+ADD_SIGNATURE_TENANT_SERVER_OWNED=YES
+ATTACHMENT_SIGNATURE_TENANT_SERVER_OWNED=YES
 BODY_TENANT_OVERRIDE=DENIED
 CROSS_TENANT_WRITE_BY_BODY=DENIED
+CROSS_TENANT_SIGNATURE_BY_BODY=DENIED
+CP_API_005_TENANT_AUTHORITY=RESOLVED
 ```
 
 This hardens existing operator APIs. It does not add a portal write capability.
@@ -151,7 +157,7 @@ A foreign shipper, a draft attachment, or an attachment id from another document
 
 ## Signing
 
-Customer signing is not enabled. No route creates a signature or a signing session. `UNVERIFIED` is not presented as a valid qualified signature. Signature metadata is left off this read source.
+Customer signing is not enabled. The shipper source contract does not create a signature or a signing session. Operator signing routes remain, and their tenant now comes from `X-Tenant-ID`. `UNVERIFIED` is not presented as a valid qualified signature. Signature metadata is left off this read source.
 
 ```text
 CUSTOMER_SIGNATURE_CREATE_ENABLED=NO
