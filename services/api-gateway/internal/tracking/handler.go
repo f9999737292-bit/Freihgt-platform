@@ -3,8 +3,11 @@ package tracking
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/go-chi/chi/v5"
 
@@ -173,8 +176,112 @@ func (h *Handler) ListShipperSlotHistory(w http.ResponseWriter, r *http.Request)
 	h.proxyShipperSource(w, r, "/slots/history", shipperSlotFactKeys)
 }
 
+func (h *Handler) GetCarrierTracking(w http.ResponseWriter, r *http.Request) {
+	h.proxyCarrierSource(w, r, "/tracking", nil, nil)
+}
+
+func (h *Handler) ListCarrierLocations(w http.ResponseWriter, r *http.Request) {
+	h.proxyCarrierSource(w, r, "/tracking/locations", nil, carrierHistoryFilters)
+}
+
+func (h *Handler) GetCarrierETA(w http.ResponseWriter, r *http.Request) {
+	h.proxyCarrierSource(w, r, "/eta", carrierETAFactKeys, nil)
+}
+
+func (h *Handler) ListCarrierETAHistory(w http.ResponseWriter, r *http.Request) {
+	h.proxyCarrierSource(w, r, "/eta/history", carrierETAFactKeys, carrierETAHistoryFilters)
+}
+
+func (h *Handler) GetCarrierSlots(w http.ResponseWriter, r *http.Request) {
+	h.proxyCarrierSource(w, r, "/slots", carrierSlotFactKeys, nil)
+}
+
+func (h *Handler) ListCarrierSlotHistory(w http.ResponseWriter, r *http.Request) {
+	h.proxyCarrierSource(w, r, "/slots/history", carrierSlotFactKeys, carrierSlotHistoryFilters)
+}
+
+func (h *Handler) proxyCarrierSource(w http.ResponseWriter, r *http.Request, suffix string, forbidden, allowed []string) {
+	if rejectedServerOwnedFactQuery(w, r, forbidden) {
+		return
+	}
+	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipmentID := strings.TrimSpace(chi.URLParam(r, "shipmentId"))
+	if shipmentID == "" {
+		respond.Error(w, apperrors.Validation("shipment id is required", nil))
+		return
+	}
+	query, err := carrierSourceQuery(r, allowed)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	path := "/v1/carrier/shipments/" + shipmentID + suffix
+	body, status, err := h.client.ProxyCarrierJSON(
+		r.Context(),
+		reqCtx.TenantID,
+		reqCtx.RequestID,
+		r.Header.Get("X-Company-ID"),
+		r.Header.Get("X-Actor-Kind"),
+		http.MethodGet,
+		path,
+		query,
+	)
+	if err != nil {
+		respond.JSON(w, http.StatusServiceUnavailable, map[string]any{
+			"error": map[string]any{
+				"code":    "SERVICE_UNAVAILABLE",
+				"message": "tracking service is temporarily unavailable",
+				"details": map[string]any{"service": "tracking-service"},
+			},
+		})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
+}
+
+func carrierSourceQuery(r *http.Request, allowed []string) (string, error) {
+	company := strings.TrimSpace(r.Header.Get("X-Company-ID"))
+	parsed, err := uuid.Parse(company)
+	if err != nil {
+		return "", apperrors.Unauthorized("verified company context is required")
+	}
+	incoming := r.URL.Query()
+	out := url.Values{}
+	out.Set("carrier_company_id", parsed.String())
+	for _, key := range allowed {
+		for _, value := range incoming[key] {
+			out.Add(key, value)
+		}
+	}
+	return out.Encode(), nil
+}
+
+var carrierHistoryFilters = []string{"from", "to", "limit", "offset"}
+
+var carrierETAHistoryFilters = []string{"targetType", "from", "to", "limit", "offset"}
+
+var carrierSlotHistoryFilters = []string{"slotType", "from", "to", "limit", "offset"}
+
+var carrierETAFactKeys = []string{
+	"plannedPickupAt", "plannedDeliveryAt", "actualPickupAt", "actualDeliveryAt", "shipmentStatus",
+}
+
+var carrierSlotFactKeys = []string{
+	"shipmentStatus", "actualPickupAt", "actualDeliveryAt",
+	"pickupEtaStatus", "deliveryEtaStatus",
+	"pickupEstimatedArrivalAt", "deliveryEstimatedArrivalAt",
+	"pickupEtaFreshness", "deliveryEtaFreshness",
+	"pickupEtaQuality", "deliveryEtaQuality",
+}
+
 func (h *Handler) proxyShipperSource(w http.ResponseWriter, r *http.Request, suffix string, forbidden []string) {
-	if rejectedShipperFactQuery(w, r, forbidden) {
+	if rejectedServerOwnedFactQuery(w, r, forbidden) {
 		return
 	}
 	reqCtx, err := buildRequestContext(r, h.authEnabled, h.devTenantID)
@@ -222,7 +329,7 @@ var shipperSlotFactKeys = []string{
 	"pickupEtaQuality", "deliveryEtaQuality",
 }
 
-func rejectedShipperFactQuery(w http.ResponseWriter, r *http.Request, keys []string) bool {
+func rejectedServerOwnedFactQuery(w http.ResponseWriter, r *http.Request, keys []string) bool {
 	for _, key := range keys {
 		if _, present := r.URL.Query()[key]; present {
 			respond.Error(w, apperrors.Validation("shipment facts are server owned", map[string]any{"field": key}))

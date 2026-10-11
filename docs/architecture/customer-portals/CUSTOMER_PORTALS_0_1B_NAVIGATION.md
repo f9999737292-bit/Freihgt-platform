@@ -16,6 +16,7 @@ Shared shell regions, same for every customer app: product name, company switche
 | Awards | MVP | Own award read. |
 | Transport orders | MVP | Carrier list and detail from the carrier transport-order routes. |
 | Fleet | MVP | View drivers and vehicles. `CARRIER_ADMIN` may perform only the fleet actions the gateway already allows for that code. `CARRIER_DISPATCHER` must not receive admin-only controls. |
+| Tracking | API_READY | `CARRIER_TRACKING_CUSTOMER_SAFE=YES`. `CUSTOMER_TRACKING_SAFE=NO_GLOBAL_SHIPPER_AND_CARRIER_ONLY`. Screens are not part of the gateway stage. |
 | Backhaul / Marketplace | DEFERRED | Network search exists and is carrier-gated. It is not in 0.2A. |
 | Settlements | DEFERRED | Not in 0.2A. Payment read does not include `CARRIER_DISPATCHER`. |
 | Billing | DEFERRED | Not in 0.2A. |

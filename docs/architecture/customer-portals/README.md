@@ -160,6 +160,20 @@ CUSTOMER_TRACKING_SAFE=NO_GLOBAL_SHIPPER_ONLY_CARRIER_SOURCE_PENDING_GATEWAY
 CUSTOMER_PORTAL_MAY_USE_LEGACY_TRACKING_ROUTE=NO
 ```
 
+## Carrier tracking reads
+
+[CARRIER_TRACKING_GATEWAY_0_1.md](CARRIER_TRACKING_GATEWAY_0_1.md) is the public gateway follow-up. The source block above stays the source-stage record. Consignee tracking stays open. No Carrier Portal tracking screen is added here.
+
+```text
+CP_API_006_CARRIER_SOURCE=RESOLVED
+CP_API_006_CARRIER_PUBLIC_GATEWAY=RESOLVED
+CP_API_006_CONSIGNEE=OPEN
+CARRIER_TRACKING_CUSTOMER_SAFE=YES
+CARRIER_ETA_CUSTOMER_SAFE=YES
+CARRIER_SLOTS_CUSTOMER_SAFE=YES
+CUSTOMER_TRACKING_SAFE=NO_GLOBAL_SHIPPER_AND_CARRIER_ONLY
+```
+
 ## 0.2C shipper tracking, ETA, and slots
 
 [CUSTOMER_PORTALS_0_2C_SHIPPER_TRACKING_UI.md](CUSTOMER_PORTALS_0_2C_SHIPPER_TRACKING_UI.md) records the shipper office screen for current tracking, last known position, location history, pickup and delivery forecasts, and pickup and delivery windows. The screen reads only the accepted shipper gateway routes. Carrier and consignee tracking stay out of this slice. No external map provider was added. The 0.2B status block above is unchanged.
