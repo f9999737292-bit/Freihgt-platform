@@ -79,6 +79,12 @@ func main() {
 		etaQuerySvc,
 		slotQuerySvc,
 	))
+	carrierTracking := handlers.NewCarrierTrackingHandler(service.NewCarrierTrackingSource(
+		service.NewCarrierTrackingContextClient(cfg.ShipmentInternalURL, cfg.InternalServiceToken),
+		querySvc,
+		etaQuerySvc,
+		slotQuerySvc,
+	))
 	metricsCollector := metrics.New(cfg.ServiceName)
 	outboxPublisher := outbox.NewPublisher(db.Pool)
 	lossDetector := service.NewTrackingLossDetector(
@@ -90,7 +96,7 @@ func main() {
 		log,
 	)
 
-	router := httpserver.NewRouter(log, db.Pool, trackingHandler, etaHandler, etaInternal, slotHandler, slotInternal, ingestHandler, internalHandler, shipperTracking, metricsCollector)
+	router := httpserver.NewRouter(log, db.Pool, trackingHandler, etaHandler, etaInternal, slotHandler, slotInternal, ingestHandler, internalHandler, shipperTracking, carrierTracking, metricsCollector)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

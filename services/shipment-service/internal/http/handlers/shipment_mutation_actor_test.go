@@ -62,6 +62,9 @@ func (s *mutationActorShipmentStore) GetByIDAndTenant(ctx context.Context, id, t
 	}
 	return &domain.Shipment{ID: id, TenantID: tenantID, Status: domain.ShipmentStatusCarrierAssigned, Version: 1}, nil
 }
+func (s *mutationActorShipmentStore) GetByIDAndCarrier(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domain.Shipment, error) {
+	return nil, nil
+}
 func (s *mutationActorShipmentStore) GetByIDAndShipper(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (*domain.Shipment, error) {
 	return nil, nil
 }

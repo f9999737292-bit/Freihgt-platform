@@ -204,6 +204,32 @@ func shipperShipmentListWhere(filter domain.ShipperShipmentListFilter) (string, 
 	return strings.Join(where, " AND "), args
 }
 
+const getShipmentByIDTenantAndCarrierQuery = `
+		SELECT id, tenant_id, shipment_number, transport_order_id,
+			shipper_company_id, consignee_company_id, carrier_company_id, forwarder_company_id,
+			driver_id, vehicle_id, origin_location_id, destination_location_id, cargo_id,
+			transport_mode, status, planned_pickup_at, planned_delivery_at,
+			actual_pickup_at, actual_delivery_at, created_at, updated_at, version
+		FROM transport.shipments
+		WHERE id = $1 AND tenant_id = $2 AND carrier_company_id = $3 AND deleted_at IS NULL
+	`
+
+func (r *ShipmentRepository) GetByIDAndCarrier(ctx context.Context, id, tenantID, carrierCompanyID uuid.UUID) (*domain.Shipment, error) {
+	var result *domain.Shipment
+	err := measureDB("shipment_repository", "get_shipment_by_carrier", func() error {
+		shipment, err := scanShipment(r.pool.QueryRow(ctx, getShipmentByIDTenantAndCarrierQuery, id, tenantID, carrierCompanyID))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return apperrors.NotFound("shipment not found")
+		}
+		if err != nil {
+			return err
+		}
+		result = shipment
+		return nil
+	})
+	return result, err
+}
+
 func (r *ShipmentRepository) GetByIDAndShipper(ctx context.Context, id, tenantID, shipperCompanyID uuid.UUID) (*domain.Shipment, error) {
 	var result *domain.Shipment
 	err := measureDB("shipment_repository", "get_shipment_by_shipper", func() error {

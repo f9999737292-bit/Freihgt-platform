@@ -135,6 +135,7 @@ func NewRouter(
 		r.With(internalAuth.Middleware).Get("/{shipmentId}/execution-context", evidenceHandler.GetExecutionContext)
 		r.With(internalAuth.Middleware).Get("/{shipmentId}/onboard-cargo", evidenceHandler.GetOnboardCargo)
 		r.With(internalAuth.Middleware).Get("/{shipmentId}/shipper-tracking-context", shipmentHandler.GetShipperTrackingContext)
+		r.With(internalAuth.Middleware).Get("/{shipmentId}/carrier-tracking-context", shipmentHandler.GetCarrierTrackingContext)
 	})
 
 	r.Route("/internal/v1/vehicles", func(r chi.Router) {

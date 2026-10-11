@@ -257,6 +257,19 @@ func ValidateShipperShipmentListFilter(f ShipperShipmentListFilter) error {
 	return ValidateListPagination(f.Limit, f.Offset)
 }
 
+func ValidateCarrierShipmentDetail(tenantID, shipmentID, carrierCompanyID uuid.UUID) error {
+	if err := ValidateVerifiedTenant(tenantID); err != nil {
+		return err
+	}
+	if shipmentID == uuid.Nil {
+		return apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if carrierCompanyID == uuid.Nil {
+		return apperrors.Validation("carrier_company_id is required", map[string]any{"field": "carrier_company_id"})
+	}
+	return nil
+}
+
 func ValidateShipperShipmentDetail(tenantID, shipmentID, shipperCompanyID uuid.UUID) error {
 	if err := ValidateVerifiedTenant(tenantID); err != nil {
 		return err

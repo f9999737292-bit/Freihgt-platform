@@ -229,6 +229,54 @@ func (h *ShipmentHandler) GetShipperTrackingContext(w http.ResponseWriter, r *ht
 	})
 }
 
+func (h *ShipmentHandler) GetCarrierTrackingContext(w http.ResponseWriter, r *http.Request) {
+	shipmentID, err := domain.ParseUUID(chi.URLParam(r, "shipmentId"), "shipmentId")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	tenantID, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	carrierCompanyID, err := requiredCarrierCompanyID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	shipment, err := h.service.GetForCarrier(r.Context(), tenantID, shipmentID, carrierCompanyID)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{
+		"shipmentId":        shipment.ID.String(),
+		"tenantId":          shipment.TenantID.String(),
+		"carrierCompanyId":  shipment.CarrierCompanyID.String(),
+		"status":            shipment.Status,
+		"plannedPickupAt":   formatDateTime(shipment.PlannedPickupAt),
+		"plannedDeliveryAt": formatDateTime(shipment.PlannedDeliveryAt),
+		"actualPickupAt":    formatDateTime(shipment.ActualPickupAt),
+		"actualDeliveryAt":  formatDateTime(shipment.ActualDeliveryAt),
+	})
+}
+
+func requiredCarrierCompanyID(r *http.Request) (uuid.UUID, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get("carrier_company_id"))
+	if raw == "" {
+		return uuid.Nil, apperrors.Validation("carrier_company_id is required", map[string]any{"field": "carrier_company_id"})
+	}
+	id, err := domain.ParseUUID(raw, "carrier_company_id")
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if id == uuid.Nil {
+		return uuid.Nil, apperrors.Validation("carrier_company_id is required", map[string]any{"field": "carrier_company_id"})
+	}
+	return id, nil
+}
+
 func requiredShipperCompanyID(r *http.Request) (uuid.UUID, error) {
 	raw := strings.TrimSpace(r.URL.Query().Get("shipper_company_id"))
 	if raw == "" {
