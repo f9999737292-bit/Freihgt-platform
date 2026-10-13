@@ -13,6 +13,7 @@ Active registry for BINTRANS EDO / TEDO / MM / FF architecture decisions.
 | `ADR-PLAT-*` | Platform / identity / cross-cutting | Membership, RBAC |
 | `ADR-MM-*` | Multimodal logistics | Reserved for MM-specific decisions |
 | `ADR-FF-*` | Freight finance / factoring | Reserved for FF-specific decisions |
+| `ADR-TRACK-*` | Tracking provider boundary | External provider ingest contract |
 
 EDO-0.2 introduces `ADR-EDO-001` … `ADR-EDO-009`. Membership ownership is recorded as `ADR-PLAT-001` because it predates EDO implementation and affects PLAT workstream.
 
@@ -30,6 +31,12 @@ EDO-0.2 introduces `ADR-EDO-001` … `ADR-EDO-009`. Membership ownership is reco
 | [ADR-EDO-008](ADR-EDO-008-external-operator-first-own-operator-ready.md) | External operator first / own operator ready | Accepted (freeze) |
 | [ADR-EDO-009](ADR-EDO-009-cross-workstream-mutation-policy.md) | Cross-workstream mutation policy | Accepted (freeze) |
 | [ADR-PLAT-001](ADR-PLAT-001-membership-user-roles-canonical-writer.md) | Membership and user_roles canonical writer (F-002) | Accepted (freeze) |
+
+## Tracking provider contract
+
+| ID | Title | Status |
+|----|-------|--------|
+| [ADR-TRACK-001](ADR-TRACK-001-external-provider-ingest-contract.md) | External provider ingest contract | Accepted — provider-neutral contract freeze |
 
 ## Related documents
 
