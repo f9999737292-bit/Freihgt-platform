@@ -30,7 +30,7 @@ SECOND_LOADS_PER_FIRST_CAP=2
 CHAIN_PAIR_CAP=4
 ROUTEPLAN_EVALUATION_CAP=2
 CHAIN_GLOBAL_PROVIDER_CALL_CAP=24
-CHAIN_GLOBAL_WALLCLOCK_BUDGET=120s
+CHAIN_GLOBAL_WALLCLOCK_BUDGET=20s
 CHAIN_OBJECTIVE_POLICY=LEXICOGRAPHIC_EMPTY_ROAD_THEN_DURATION
 CHAIN_SEARCH_IDENTITY=SERVER_UUID_TENANT_SCOPED
 CHAIN_CANDIDATE_IDENTITY=SERVER_UUID_BEFORE_EVALUATION
@@ -59,3 +59,4 @@ A budget-exhausted search is `CHAIN_BUDGET_EXHAUSTED` with `search_complete=fals
 - No OpenAPI change is included.
 - Stacking-unknown overlap is a reject. That closes the policy gap and does not claim a layout engine.
 - Predicted capacity remains out of the first runtime.
+- NLO-0.9B-R1 sets the chain wall clock to 20s. `PUBLIC_SYNC_CHAIN_REQUEST_MUST_COMPLETE_BEFORE_GATEWAY_30S_TIMEOUT=YES`. The gateway write timeout is 30s, so a 120s chain budget is not a public request. Changing only `PROXY_TIMEOUT_SECONDS` does not remove that write timeout.

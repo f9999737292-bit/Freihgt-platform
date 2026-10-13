@@ -62,13 +62,39 @@ CHAIN_ORDERS_PER_PAIR=2
 CHAIN_SEQUENCES_PER_ORDER_CAP=16
 CHAIN_LEGS_PER_ORDER_CAP=6
 CHAIN_GLOBAL_PROVIDER_CALL_CAP=24
-CHAIN_GLOBAL_WALLCLOCK_BUDGET=120s
+CHAIN_GLOBAL_WALLCLOCK_BUDGET=20s
+CHAIN_PUBLIC_REQUEST_BUDGET_MARGIN=10s
 CHAIN_PARALLELISM=1
 CHAIN_PROVIDER_CALL_TIMEOUT=5s
 CHAIN_PROVIDER_RETRY_COUNT=0
+PROVIDER_CALL_INHERITS_CHAIN_DEADLINE=YES
+ROUTEPLAN_INNER_TIME_BUDGET=5s
+ROUTEPLAN_INHERITS_CHAIN_DEADLINE=YES
 ```
 
-The 5s call timeout and the zero retry are the existing provider limits, applied per call. They are not the global chain budget.
+NLO-0.9B-R1 replaces the earlier `CHAIN_GLOBAL_WALLCLOCK_BUDGET=120s`. The other caps in this block stay as frozen. The 120s figure treated 24 calls times the 5s provider timeout as the chain clock. That product does not fit the public gateway.
+
+Current gateway facts:
+
+```text
+PROXY_TIMEOUT_SECONDS_DEFAULT=30
+API_GATEWAY_WRITE_TIMEOUT=30s
+NETWORK_OPTIMIZER_PUBLIC_PREFIX=/api/v1/network
+CHAIN_PUBLIC_HTTP_HARD_BOUNDARY_LT_30S=YES
+```
+
+`services/api-gateway/internal/config/config.go` sets `proxyTimeout` to 30 unless `PROXY_TIMEOUT_SECONDS` is set, and stores that value as `ProxyTimeoutSeconds`. `services/api-gateway/cmd/server/main.go` sets `http.Server.WriteTimeout` to 30s. `services/api-gateway/internal/http/proxy.go` publishes `/api/v1/network` to network-optimizer-service and applies `context.WithTimeout` of `ProxyTimeoutSeconds` to the proxied request. Raising only `PROXY_TIMEOUT_SECONDS` does not permit a 120s public chain request, because the server write timeout remains 30s.
+
+```text
+CHAIN_API_EXECUTION_MODEL=SYNCHRONOUS_BOUNDED
+CHAIN_SEARCH_MAX_RUNTIME=20s
+```
+
+The first runtime POST stays a synchronous bounded search. This correction does not add an async worker, a job queue, a Kafka chain job, polling-only execution, a distributed worker, or a background retry. `GET /api/v1/network/chain-searches/{chain_search_id}` may still read a persisted search. The external path stays `/api/v1/network/...`. The internal NLO path stays `/v1/network/...`.
+
+The 20s search budget leaves a 10s margin inside the 30s gateway write timeout for gateway processing, authentication and RBAC, serialization, persistence, network scheduling, request and response propagation, and ordinary variance. The optimizer does not consume the whole 30s allowance.
+
+The 5s call timeout and the zero retry are the existing provider limits. They are not the global chain budget. A provider call uses `min(5s, remaining_chain_wallclock)`. A new provider call does not start after the chain deadline. A chain-owned route-plan invocation uses `min(5s, remaining_chain_wallclock)` and does not start after that deadline. Caller-supplied route-plan evaluate keeps its own 5s budget.
 
 Worst-case expansion, with parallelism 1:
 
@@ -79,11 +105,12 @@ plans_evaluated = min(pairs_retained, ROUTEPLAN_EVALUATION_CAP) = 2
 planner_invocations = plans_evaluated × CHAIN_ORDERS_PER_PAIR = 2 × 2 = 4
 provider_calls <= planner_invocations × CHAIN_LEGS_PER_ORDER_CAP = 4 × 6 = 24
 provider_calls <= CHAIN_GLOBAL_PROVIDER_CALL_CAP = 24
-wall_clock <= provider_calls × CHAIN_PROVIDER_CALL_TIMEOUT = 24 × 5s = 120s
-wall_clock <= CHAIN_GLOBAL_WALLCLOCK_BUDGET = 120s
+wall_clock <= CHAIN_GLOBAL_WALLCLOCK_BUDGET = 20s
 ```
 
-The products are equal, so neither cap is decorative. An inner route-plan invocation still stops at its own 64 sequences, 300 calls, and 5s if those trip first. For a chain-owned invocation, the chain wrapper stops that invocation at 16 sequences and 6 legs, and stops the whole search at 24 calls or 120s. The inner 5s budget is not the chain completion budget. Caller-supplied route-plan evaluate keeps its own 5s budget.
+The call cap and the wall-clock cap are independent. Fast provider calls can reach 24 calls before 20s. Slow provider calls can reach 20s before 24 calls. Whichever ceiling is reached first stops expansion. The structural leg product of 24 is the call ceiling. It is not a claim that 24 calls fit inside 20s.
+
+An inner route-plan invocation still stops at its own 64 sequences, 300 calls, and 5s if those trip first. For a chain-owned invocation, the wrapper also stops that invocation at 16 sequences and 6 legs, and at the remaining chain deadline. The inner 5s budget is not permission to run past the 20s chain clock.
 
 Shortlist construction is a prune, not the chain score. First loads are visible loads that pass horizon and hard feasibility, ordered by measured road deadhead ascending and then load id ascending, cut at 8. Unknown road distance is not zero and does not enter the shortlist. For each retained first load, at most 2 later loads are kept by measured road distance from L1 delivery to L2 pickup, then load id. The pair cap then keeps 4 pairs. At most 2 of those pairs are sent to the planner.
 
@@ -93,7 +120,16 @@ CHAIN_BUDGET_EXHAUSTED_SEARCH_COMPLETE=false
 CHAIN_BUDGET_EXHAUSTED_GLOBAL_OPTIMUM=false
 ```
 
-Exhaustion returns only pairs whose selected order finished before the stop. Those pairs are ranked among themselves and labeled partial. An empty finished set is still `CHAIN_BUDGET_EXHAUSTED`, not a completed finding that no chain exists. The result is not a successful complete search and not a global optimum.
+Provider-call exhaustion and 20s wall-clock exhaustion use the same status. Exhaustion returns only candidates whose selected order finished before the stop. An unfinished candidate is not reported as feasible. Finished candidates are ranked among themselves and labeled partial. An empty finished set is still `CHAIN_BUDGET_EXHAUSTED`, not a completed finding that no chain exists. The result is not a successful complete search and not a global optimum.
+
+```text
+CLIENT_REQUEST_CONTEXT_PROPAGATED=YES
+CHAIN_SEARCH_CONTEXT_CANCELLED=YES
+CHAIN_REQUEST_CANCEL_STATUS=CANCELLED
+CHAIN_REQUEST_CANCEL_RETRY=NO
+```
+
+The public request context is the parent of the gateway proxy timeout. If the client disconnects or the gateway cancels that context, the synchronous chain search cancels with it. Provider calls and route-plan evaluation receive the cancelled context and do not continue. When a search row was already persisted, its status becomes `CANCELLED`. That status is a chain-search outcome. It is not route-plan `CANCELLED`, and it is not `CHAIN_BUDGET_EXHAUSTED`. `search_complete` stays false. No retry is started.
 
 ## C. Objective
 

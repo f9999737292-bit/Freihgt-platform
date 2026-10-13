@@ -22,7 +22,8 @@ Evidence for the cases: [NLO_0_9A_CHAIN_OPTIMIZER_DISCOVERY.md](NLO_0_9A_CHAIN_O
 | --- | --- | --- |
 | CHAIN-01 | The same seed, visible loads, and policy version produce the same selected order. A new request without the same idempotency key receives a new `chain_search_id`. | FUTURE_REQUIRED |
 | CHAIN-02 | Expansion stops at 8 first loads, 2 second loads per first load, 4 pairs, and 2 route-plan evaluations. | FUTURE_REQUIRED |
-| CHAIN-03 | The 25th provider call or the 120s wall clock returns `CHAIN_BUDGET_EXHAUSTED`, `search_complete=false`, and no global-optimum flag. | FUTURE_REQUIRED |
+| CHAIN-03 | The search stops before the 25th provider call, or when the 20s global wall clock is exhausted, whichever happens first. The result is `CHAIN_BUDGET_EXHAUSTED`, `search_complete=false`, and `global_optimum=false`. An unfinished candidate is not feasible. | FUTURE_REQUIRED |
+| CHAIN-HTTP-01 | A worst-case synchronous chain request returns its application response before the gateway 30s write timeout. The chain compute budget remains 20s. | FUTURE_REQUIRED |
 | CHAIN-04 | A load whose pickup starts at or after seed availability plus 48h is excluded. A load inside that fixed UTC window can remain eligible. Caller N-day overrides are rejected. | FUTURE_REQUIRED |
 | CHAIN-05 | A tenant cannot read another tenant’s unpublished load or another tenant’s chain search. | FUTURE_REQUIRED |
 | CHAIN-06 | A foreign load without `cross_shipper_consolidation_allowed` is not placed in a returned pair. | FUTURE_REQUIRED |
