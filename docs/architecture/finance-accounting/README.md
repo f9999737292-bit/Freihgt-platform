@@ -13,6 +13,7 @@ FINANCE-0.1A is a docs-only inventory of the BINTRANS financial chain on `origin
 | [FINANCE_0_1B_COMMERCIAL_RELATIONSHIP.md](FINANCE_0_1B_COMMERCIAL_RELATIONSHIP.md) | Commercial relationship, settlement identity, forwarder chains |
 | [FINANCE_0_1B_TAX_BASIS.md](FINANCE_0_1B_TAX_BASIS.md) | Server-owned tax basis and unknown-tax gate |
 | [FINANCE_0_1B_MIGRATION_PLAN.md](FINANCE_0_1B_MIGRATION_PLAN.md) | Additive legacy mapping and later implementation slices |
+| [FINANCE_0_1C_RUSSIAN_ACCOUNTING_DOCUMENT_RESEARCH.md](FINANCE_0_1C_RUSSIAN_ACCOUNTING_DOCUMENT_RESEARCH.md) | Primary-source research for Russian accounting and tax documents |
 
 ```text
 LEGAL_COMPLIANCE_RESEARCH_REQUIRED=YES
@@ -20,4 +21,4 @@ FINANCE_CORE_ARCHITECTURE_FROZEN=YES
 PRODUCT_CODE_CHANGED=NO
 ```
 
-FINANCE-0.1A evidence files stay the inventory of what the code does. FINANCE-0.1B freezes the target rules. This folder does not define VAT rates, statutory XML, correction procedure, or a margin recognition policy.
+FINANCE-0.1A evidence files stay the inventory of what the code does. FINANCE-0.1B freezes the target financial kernel. FINANCE-0.1C records primary-source document research and the questions that remain open. This folder still does not choose VAT rates or exemptions, does not define statutory XML, and does not define a margin recognition policy. Implementation is not authorized.
