@@ -31,6 +31,14 @@ EDO-0.2 introduces `ADR-EDO-001` … `ADR-EDO-009`. Membership ownership is reco
 | [ADR-EDO-009](ADR-EDO-009-cross-workstream-mutation-policy.md) | Cross-workstream mutation policy | Accepted (freeze) |
 | [ADR-PLAT-001](ADR-PLAT-001-membership-user-roles-canonical-writer.md) | Membership and user_roles canonical writer (F-002) | Accepted (freeze) |
 
+## Later EDO records
+
+The EDO-0.2 table above is unchanged. This row is the durable blob runtime contract. It does not replace ADR-EDO-007.
+
+| ID | Title | Status |
+|----|-------|--------|
+| [ADR-EDO-012](ADR-EDO-012-durable-object-storage-runtime-contract.md) | Durable object storage runtime contract | Accepted (runtime freeze, no provisioning) |
+
 ## Related documents
 
 - Discovery baseline: BINTRANS ECOSYSTEM + EDO ARCHITECTURE DISCOVERY v0.1 (`DISCOVERY_PASS_WITH_FINDINGS`)
