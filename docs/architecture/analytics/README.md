@@ -26,6 +26,7 @@ This directory holds the Analytics-0.1A inventory and the Analytics-0.1B archite
 | [ANALYTICS_0_1A_SOURCE_CONTRACT_GAPS.md](ANALYTICS_0_1A_SOURCE_CONTRACT_GAPS.md) | Missing facts and which agent owns them |
 | [ANALYTICS_0_1B_ARCHITECTURE.md](ANALYTICS_0_1B_ARCHITECTURE.md) | Canonical KPI and analytics architecture freeze |
 | [ANALYTICS_0_3C_CARRIER_SCORE_POLICY.md](ANALYTICS_0_3C_CARRIER_SCORE_POLICY.md) | Carrier performance score policy decision |
+| [ANALYTICS_0_4A_KPI_SOURCE_CONTRACTS.md](ANALYTICS_0_4A_KPI_SOURCE_CONTRACTS.md) | Source-contract requests for four blocked KPI facts |
 | [adr/ADR-AN-001-canonical-kpi-ownership.md](adr/ADR-AN-001-canonical-kpi-ownership.md) | Who owns KPI meaning |
 | [adr/ADR-AN-002-analytics-storage-boundary.md](adr/ADR-AN-002-analytics-storage-boundary.md) | First storage boundary |
 | [adr/ADR-AN-003-time-late-event-restatement.md](adr/ADR-AN-003-time-late-event-restatement.md) | Time, late events, restatement |
@@ -87,3 +88,9 @@ Policy only. `ANALYTICS_0_3C_CARRIER_SCORE_POLICY.md` records `CARRIER_SCORE_POL
 `CAR_PERFORMANCE_SCORE` and `EXEC_CARRIER_PERFORMANCE` are not defined. The two implemented carrier rates stay punctuality facts. No weights are assigned. `CARRIER_SCORE_READY=NO`. `CARRIER_SCORE_WEIGHT_VERSIONING=YES`. GAP-E-001 stays open, as do GAP-C-001, GAP-C-002, and GAP-C-005. 0.1A readiness totals are unchanged. No product code, API, migration, or warehouse is part of 0.3C.
 
 `NEXT_STAGE=WAIT_FOR_CARRIER_SCORE_BUSINESS_POLICY`
+
+## Analytics-0.4A
+
+Docs only. `ANALYTICS_0_4A_KPI_SOURCE_CONTRACTS.md` requests source facts for GAP-C-001, GAP-C-002, GAP-C-005, and GAP-B-001.
+
+`CURRENT_KPI_COUNT=11`. No new KPI is defined and no current formula changes. The four source gaps stay unimplemented. `CONTRACT_REQUESTED` is not closed. GAP-E-001 stays open and `CARRIER_SCORE_READY=NO`. `DWH_IMPLEMENTED=NO`. No UI and no staging deploy are part of 0.4A. Agent B and Agent C implementation is not authorized.
