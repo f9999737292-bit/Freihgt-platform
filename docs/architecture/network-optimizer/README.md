@@ -71,6 +71,10 @@ Not a second freight exchange, not a second RFx engine, not a second freight-cos
 | [NLO_0_5A_TEST_STRATEGY.md](NLO_0_5A_TEST_STRATEGY.md) | NLO05-01 through NLO05-25 |
 | [NLO_0_5B_IMPLEMENTATION_ROADMAP.md](NLO_0_5B_IMPLEMENTATION_ROADMAP.md) | Discovery cap, routing budget, and one-load feasibility |
 | [NLO_0_5B4_FINAL_EVALUATION_DISCOVERY.md](NLO_0_5B4_FINAL_EVALUATION_DISCOVERY.md) | Discovery: scoring is already bounded by the routing slice; persistence audit stays at the discovery cap |
+| [NLO_0_9A_CHAIN_OPTIMIZER_DISCOVERY.md](NLO_0_9A_CHAIN_OPTIMIZER_DISCOVERY.md) | NLO-0.9A discovery inventory: one-load search, missing chain discovery, caller-supplied route-plan evaluation |
+| [NLO_0_9A_CHAIN_SEARCH_MODEL.md](NLO_0_9A_CHAIN_SEARCH_MODEL.md) | Conceptual chain objects, future pipeline, and unset caps |
+| [NLO_0_9A_CHAIN_SECURITY_PERSISTENCE_API.md](NLO_0_9A_CHAIN_SECURITY_PERSISTENCE_API.md) | Privacy gap, persistence decision, and separate chain-search resource |
+| [NLO_0_9A_CHAIN_TEST_AND_IMPLEMENTATION_ROADMAP.md](NLO_0_9A_CHAIN_TEST_AND_IMPLEMENTATION_ROADMAP.md) | Future chain tests and the unauthorized later stages |
 | [NLO_0_5B_TEST_STRATEGY.md](NLO_0_5B_TEST_STRATEGY.md) | B2 routing-budget gates and B3 one-load feasibility |
 | [NLO_0_5B0_BENCHMARK.md](NLO_0_5B0_BENCHMARK.md) | Local prefilter sample and uncapped call accounting |
 | [NLO_0_4D_ARCHITECTURE_FREEZE.md](NLO_0_4D_ARCHITECTURE_FREEZE.md) | NLO-0.4D-R1 docs-only freeze for service duration and TMS acknowledgement |
@@ -79,6 +83,16 @@ Not a second freight exchange, not a second RFx engine, not a second freight-cos
 | [ACTIVATION_STATE_MACHINE.md](ACTIVATION_STATE_MACHINE.md) | Activation statuses and link gates |
 
 ADR numbering follows the repository convention of a domain prefix (`ADR-EDO-*`, `ADR-RFX-*`, `ADR-PLAT-*`). ADR-NET-001 through ADR-NET-012 remain Proposed. ADR-NET-013 through ADR-NET-021 are Accepted. ADR-NET-022 records the NLO-0.4D service-duration and execution-acknowledgement freeze. ADR-NET-023 is the NLO-0.5A backhaul and roundtrip architecture, merged in PR #201 at `4c8b22e8`. ADR-NET-024 accepts the bounded search policy: discovery 1000 is enforced by NLO-0.5B1, the routing budget is enforced by NLO-0.5B2, and one-load feasibility is evaluated by NLO-0.5B3. `BACKHAUL_RUNTIME_IMPLEMENTED=NO`. `ROUNDTRIP_RUNTIME_IMPLEMENTED=NO`. `EXTERNAL_PROVIDER_BENCHMARK=BLOCKED`. `PROVIDER_SLA_PROVEN=NO`. NLO-0.3 is complete. NLO-0.4A architecture is frozen. NLO-0.4B is IMPLEMENTED_CLOSED on main `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c` (PR #184, migration `000085_nlo_route_plan_bounded_planner_v0_4b`). `NLO_0_4_IMPLEMENTATION_STARTED=YES`. `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`. `NLO_0_4C_ACCEPTED=YES`. `NLO_0_4D_ACCEPTED=YES`. `NLO_0_4D_CLOSED=YES`. `NLO_0_4D_MERGE_SHA=00b53de9db50cdc1e875df95b8ba7ef2daa0fe8a`. `TMS_PROJECTION_HANDSHAKE_IMPLEMENTED=YES`. NLO-0.5A is merged at `4c8b22e8`. NLO-0.5B1 is merged at `349eedc89e0c47a71e3b23a107cc97fad5aebc91`.
+
+## NLO-0.9A chain optimizer discovery
+
+NLO-0.6 remains regional routing, open and closed. NLO-0.9A documents the boundary between one-load discovery and caller-supplied multi-load route-plan evaluation. It does not implement a chain. The four NLO-0.9A documents are linked in the read order above.
+
+```text
+NLO_0_9A_STATUS=DISCOVERY_ONLY
+CHAIN_RUNTIME_IMPLEMENTED=NO
+IMPLEMENTATION_AUTHORIZED=NO
+```
 
 ## Status labels used in discovery
 
