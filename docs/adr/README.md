@@ -33,10 +33,12 @@ EDO-0.2 introduces `ADR-EDO-001` … `ADR-EDO-009`. Membership ownership is reco
 
 ## Later EDO records
 
-The EDO-0.2 table above is unchanged. This row is the durable blob runtime contract. It does not replace ADR-EDO-007.
+The EDO-0.2 table above is unchanged. ADR-EDO-010 and ADR-EDO-011 stay proposed. ADR-EDO-012 is the durable blob runtime contract and does not replace ADR-EDO-007.
 
 | ID | Title | Status |
 |----|-------|--------|
+| [ADR-EDO-010](ADR-EDO-010-attachment-signature-verification.md) | Attachment signature verification | Proposed — architecture only |
+| [ADR-EDO-011](ADR-EDO-011-production-gost-verifier.md) | Production GOST verifier | Proposed — discovery only |
 | [ADR-EDO-012](ADR-EDO-012-durable-object-storage-runtime-contract.md) | Durable object storage runtime contract | Accepted (runtime freeze, no provisioning) |
 
 ## Related documents
