@@ -15,6 +15,13 @@ GLOBAL_CHAIN_OPTIMUM_CLAIM_ALLOWED=NO
 
 Inventory and the blocker register: [NLO_0_9A_CHAIN_OPTIMIZER_DISCOVERY.md](NLO_0_9A_CHAIN_OPTIMIZER_DISCOVERY.md).
 
+NLO-0.9B supersedes the `TBD` caps, horizon, seed policy, and objective in this model. The conceptual objects and the current-source gaps remain. See [NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md](NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md).
+
+```text
+NLO_0_9A_POLICY_VALUES_SUPERSEDED_BY=NLO-0.9B
+RUNTIME_IMPLEMENTATION_AUTHORIZED=NO
+```
+
 ## Conceptual objects
 
 These names are architecture concepts. No table, column, or API field with these names is claimed to exist.

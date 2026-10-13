@@ -15,6 +15,13 @@ NLO_0_9A_INCLUDES_AT_RISK_REOPTIMIZATION=NO
 
 Base of this reading: `7dc1e9afd1b1012f6f0fdcfdae12ca771de3384c`, tree `0ca50c9ea4bf0dd09306a05db83cd0e446b58781`.
 
+NLO-0.9B supersedes the unfrozen policy values in this discovery. Source facts in this document remain the inventory. See [NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md](NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md).
+
+```text
+NLO_0_9A_POLICY_VALUES_SUPERSEDED_BY=NLO-0.9B
+RUNTIME_IMPLEMENTATION_AUTHORIZED=NO
+```
+
 Related discovery:
 
 - [NLO_0_9A_CHAIN_SEARCH_MODEL.md](NLO_0_9A_CHAIN_SEARCH_MODEL.md)
