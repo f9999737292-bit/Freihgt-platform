@@ -33,6 +33,17 @@ async function bootstrapNetworkListeners() {
   } catch {
     // Capacitor unavailable in pure web dev — browser events above are enough.
   }
+
+  try {
+    const { App } = await import('@capacitor/app')
+    await App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) {
+        network.refreshFromPlatform().catch(() => undefined)
+      }
+    })
+  } catch {
+    // Native lifecycle hooks require Capacitor runtime.
+  }
 }
 
 const app = createApp(App)
