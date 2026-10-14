@@ -19,6 +19,8 @@ type GatewayOptions = {
   orders?: Array<Record<string, unknown>>
   orderDetail?: Record<string, unknown>
   tracking?: 'ready' | 'not_found' | 'tracking_unavailable' | 'tracking_forbidden'
+  documents?: 'ready' | 'empty' | 'forbidden' | 'not_found' | 'unavailable' | 'stale'
+  secondCompany?: boolean
 }
 
 function trackingBody(suffix: string, url: URL) {
@@ -91,7 +93,7 @@ function trackingBody(suffix: string, url: URL) {
 
 async function installGateway(page: Page, roles: string[], options: GatewayOptions = {}) {
   let responseReady = false
-  const calls: string[] = []
+  const calls: string[] & { held: Route[] } = Object.assign([], { held: [] as Route[] })
   await page.route('**/api/v1/**', async (route: Route) => {
     const request = route.request()
     const headers = request.headers()
@@ -110,13 +112,24 @@ async function installGateway(page: Page, roles: string[], options: GatewayOptio
       await route.fulfill({
         json: {
           items: officeRole
-            ? [{
-                membership_id: 'm-1',
-                company_id: 'co-1',
-                legal_name: 'Carrier Co',
-                membership_status: 'ACTIVE',
-                roles: [{ code: officeRole }],
-              }]
+            ? [
+                {
+                  membership_id: 'm-1',
+                  company_id: 'co-1',
+                  legal_name: 'Carrier Co',
+                  membership_status: 'ACTIVE',
+                  roles: [{ code: officeRole }],
+                },
+                ...(options.secondCompany
+                  ? [{
+                      membership_id: 'm-2',
+                      company_id: 'co-2',
+                      legal_name: 'Carrier Two',
+                      membership_status: 'ACTIVE',
+                      roles: [{ code: officeRole }],
+                    }]
+                  : []),
+              ]
             : [{
                 membership_id: 'm-driver',
                 company_id: 'co-driver',
@@ -128,7 +141,7 @@ async function installGateway(page: Page, roles: string[], options: GatewayOptio
       })
       return
     }
-    if (headers['x-company-id'] && headers['x-company-id'] !== 'co-1') {
+    if (headers['x-company-id'] && headers['x-company-id'] !== 'co-1' && !(options.secondCompany && headers['x-company-id'] === 'co-2')) {
       await route.fulfill({ status: 403, json: { message: 'forbidden' } })
       return
     }
@@ -196,7 +209,12 @@ async function installGateway(page: Page, roles: string[], options: GatewayOptio
       return
     }
     if (url.pathname === '/api/v1/carrier/transport-orders') {
-      expect(url.searchParams.get('carrier_company_id')).toBe('co-1')
+      const company = url.searchParams.get('carrier_company_id')
+      expect(company === 'co-1' || (options.secondCompany && company === 'co-2')).toBe(true)
+      if (company === 'co-2') {
+        await route.fulfill({ json: { items: [] } })
+        return
+      }
       await route.fulfill({
         json: {
           items: options.orders ?? [{
@@ -252,6 +270,88 @@ async function installGateway(page: Page, roles: string[], options: GatewayOptio
         expect(Number(url.searchParams.get('limit'))).toBeLessThanOrEqual(50)
       }
       await route.fulfill({ json: trackingBody(suffix, url) })
+      return
+    }
+    if (url.pathname === '/api/v1/documents' || url.pathname.startsWith('/api/v1/documents/')) {
+      await route.fulfill({ status: 500, json: { message: 'legacy document route' } })
+      return
+    }
+    if (url.pathname === '/api/v1/carrier/documents' || url.pathname.startsWith('/api/v1/carrier/documents/')) {
+      for (const key of ['tenant_id', 'owner_company_id', 'shipper_company_id', 'actor', 'role', 'related_entity_type']) {
+        expect(url.searchParams.has(key)).toBe(false)
+      }
+      const company = url.searchParams.get('carrier_company_id')
+      expect(company === 'co-1' || (options.secondCompany && company === 'co-2')).toBe(true)
+      expect(headers['x-company-id']).toBe(company)
+      if (options.documents === 'forbidden') {
+        await route.fulfill({ status: 403, json: { message: 'forbidden' } })
+        return
+      }
+      if (options.documents === 'not_found') {
+        await route.fulfill({ status: 404, json: { message: 'not found' } })
+        return
+      }
+      if (options.documents === 'unavailable') {
+        await route.fulfill({ status: 503, json: { message: 'unavailable' } })
+        return
+      }
+      if (options.documents === 'stale' && url.pathname === '/api/v1/carrier/documents' && company === 'co-1') {
+        calls.held.push(route)
+        return
+      }
+      if (url.pathname.endsWith('/content')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/pdf',
+          headers: {
+            'content-disposition': 'attachment; filename="pod.pdf"',
+            'x-storage-bucket': 'secret-bucket',
+            'x-object-key': 'secret-object-key',
+          },
+          body: Buffer.from('%PDF'),
+        })
+        return
+      }
+      if (url.pathname.endsWith('/attachments')) {
+        await route.fulfill({
+          json: {
+            items: [{
+              id: 'att-1',
+              document_id: 'doc-1',
+              file_name: 'pod.pdf',
+              media_type: 'application/pdf',
+              size_bytes: 4,
+              status: 'FINALIZED',
+              finalized_at: '2026-12-01T10:05:00Z',
+              object_key: 'secret-object-key',
+            }],
+          },
+        })
+        return
+      }
+      const document = {
+        id: 'doc-1',
+        document_number: 'DOC-1',
+        document_type: 'POD',
+        document_status: 'SIGNED',
+        related_entity_type: 'SHIPMENT',
+        related_entity_id: 'shipment-A',
+        created_at: '2026-12-01T10:00:00Z',
+        updated_at: '2026-12-01T11:00:00Z',
+        version: 1,
+        storage_bucket: 'secret-bucket',
+      }
+      if (url.pathname === '/api/v1/carrier/documents') {
+        expect(url.searchParams.get('shipment_id')).toBeTruthy()
+        expect(Number(url.searchParams.get('limit'))).toBeLessThanOrEqual(50)
+        if (company === 'co-2' || options.documents === 'empty') {
+          await route.fulfill({ json: { items: [], total: 0, limit: 20, offset: 0 } })
+          return
+        }
+        await route.fulfill({ json: { items: [document], total: 1, limit: 20, offset: 0 } })
+        return
+      }
+      await route.fulfill({ json: document })
       return
     }
     if (url.pathname === '/api/v1/drivers') {
@@ -453,6 +553,134 @@ test('an unavailable tracking section leaves locations and forecasts visible', a
   await expect(page.getByTestId('location-row')).toContainText('55.75')
   await expect(page.getByTestId('eta-arrival')).toHaveText('2026-12-01T11:00:00Z')
   await expect(page.getByTestId('slot-pickup')).toContainText('Europe/Moscow')
+})
+
+const documentOrders = [
+  {
+    transport_order_id: 'order-1',
+    transport_order_number: 'TO-1',
+    transport_order_status: 'CONFIRMED',
+    shipment_id: 'shipment-A',
+    shipment_status: 'IN_TRANSIT',
+  },
+  {
+    transport_order_id: 'order-2',
+    transport_order_number: 'TO-2',
+    transport_order_status: 'CONFIRMED',
+  },
+]
+
+test('documents open from the server shipment reference', async ({ page }) => {
+  const calls = await installGateway(page, ['CARRIER_DISPATCHER'], { orders: documentOrders, documents: 'ready' })
+  await signIn(page)
+  await chooseCompany(page)
+  await page.getByRole('link', { name: 'Заявки' }).click()
+  const linked = page.locator('tr', { hasText: 'TO-1' })
+  const unlinked = page.locator('tr', { hasText: 'TO-2' })
+  await expect(linked.getByTestId('open-documents')).toHaveAttribute('href', '/shipments/shipment-A/documents')
+  await expect(unlinked.getByTestId('open-documents')).toHaveCount(0)
+  await expect(page.getByTestId('shipment-id-input')).toHaveCount(0)
+  await expect(page.getByTestId('company-switch')).toHaveCount(0)
+  await linked.getByTestId('open-documents').click()
+  await expect(page.getByTestId('document-number')).toHaveText('DOC-1')
+  await expect(page.getByText('secret-bucket')).toHaveCount(0)
+  await expect(page.getByText('secret-object-key')).toHaveCount(0)
+  expect(calls.some((call) => call.includes('/api/v1/carrier/documents?') && call.includes('carrier_company_id=co-1') && call.includes('shipment_id=shipment-A'))).toBe(true)
+  expect(calls.some((call) => call.includes('/api/v1/documents'))).toBe(false)
+  await page.getByTestId('open-document').click()
+  await expect(page.getByTestId('document-type')).toHaveText('POD')
+  await expect(page.getByTestId('attachment-row')).toContainText('pod.pdf')
+  await page.getByTestId('download-attachment').click()
+  await expect.poll(() => calls.some((call) => call.includes('/api/v1/carrier/documents/doc-1/attachments/att-1/content') && call.includes('carrier_company_id=co-1'))).toBe(true)
+  await expect(page.getByText('secret-bucket')).toHaveCount(0)
+})
+
+test('document detail uses the nested shipment id', async ({ page }) => {
+  await installGateway(page, ['CARRIER_ADMIN'], {
+    documents: 'ready',
+    orderDetail: {
+      transport_order_id: 'order-1',
+      transport_order_number: 'TO-1',
+      transport_order_status: 'CONFIRMED',
+      shipment: { id: 'shipment-A', status: 'IN_TRANSIT' },
+      provenance: { amount: 1500, currency_code: 'RUB' },
+    },
+  })
+  await signIn(page)
+  await chooseCompany(page)
+  await page.getByRole('link', { name: 'Заявки' }).click()
+  await page.getByTestId('open-order').click()
+  await expect(page.getByTestId('open-documents')).toHaveAttribute('href', '/shipments/shipment-A/documents')
+})
+
+test('an empty document list is not an error', async ({ page }) => {
+  await installGateway(page, ['CARRIER_DISPATCHER'], { orders: documentOrders, documents: 'empty' })
+  await signIn(page)
+  await chooseCompany(page)
+  await page.goto('/shipments/shipment-A/documents')
+  await expect(page.getByText('Документов нет')).toBeVisible()
+  await expect(page.getByText('Доступ запрещён')).toHaveCount(0)
+})
+
+test('forbidden, missing, and unavailable document reads stay distinct', async ({ page }) => {
+  await installGateway(page, ['CARRIER_DISPATCHER'], { documents: 'forbidden' })
+  await signIn(page)
+  await chooseCompany(page)
+  await page.goto('/shipments/shipment-A/documents')
+  await expect(page.getByTestId('shipment-documents')).toContainText('Доступ запрещён')
+  await expect(page.getByTestId('documents-empty')).toHaveCount(0)
+})
+
+test('a missing document is not an empty list', async ({ page }) => {
+  await installGateway(page, ['CARRIER_DISPATCHER'], { documents: 'not_found' })
+  await signIn(page)
+  await chooseCompany(page)
+  await page.goto('/shipments/shipment-A/documents')
+  await expect(page.getByTestId('shipment-documents')).toContainText('Документ недоступен для выбранной компании')
+  await expect(page.getByTestId('documents-empty')).toHaveCount(0)
+})
+
+test('an unavailable document service can be recognized', async ({ page }) => {
+  await installGateway(page, ['CARRIER_DISPATCHER'], { documents: 'unavailable' })
+  await signIn(page)
+  await chooseCompany(page)
+  await page.goto('/shipments/shipment-A/documents')
+  await expect(page.getByTestId('shipment-documents')).toContainText('Сервис недоступен')
+})
+
+test('switching company clears the previous documents and ignores a stale response', async ({ page }) => {
+  const calls = await installGateway(page, ['CARRIER_DISPATCHER'], {
+    orders: documentOrders,
+    documents: 'stale',
+    secondCompany: true,
+  })
+  await signIn(page)
+  await chooseCompany(page)
+  await page.goto('/shipments/shipment-A/documents')
+  await expect(page.getByTestId('company-switch')).toBeVisible()
+  await page.getByTestId('company-switch').selectOption('co-2')
+  await expect(page.getByText('DOC-1')).toHaveCount(0)
+  expect(calls.held.length).toBeGreaterThan(0)
+  await calls.held[0].fulfill({
+    json: {
+      items: [{
+        id: 'doc-1',
+        document_number: 'DOC-1',
+        document_type: 'POD',
+        document_status: 'SIGNED',
+        related_entity_type: 'SHIPMENT',
+        related_entity_id: 'shipment-A',
+      }],
+      total: 1,
+      limit: 20,
+      offset: 0,
+    },
+  })
+  await expect(page.getByText('DOC-1')).toHaveCount(0)
+  await expect(page.getByTestId('transport-orders')).toBeVisible()
+  const documentCalls = calls.filter((call) => call.includes('/api/v1/carrier/documents'))
+  expect(documentCalls.every((call) => call.includes('carrier_company_id=co-1'))).toBe(true)
+  expect(documentCalls.some((call) => call.includes('carrier_company_id=co-2'))).toBe(false)
 })
 
 test('driver cannot enter the carrier office', async ({ page }) => {

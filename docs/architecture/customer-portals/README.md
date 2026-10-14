@@ -268,3 +268,18 @@ CARRIER_DOCUMENT_WRITE_SAFE=NO
 CARRIER_EDO_SIGNING_SAFE=NO
 CARRIER_QES_SAFE=NO
 ```
+
+## Carrier documents UI 0.2D
+
+[CARRIER_DOCUMENTS_UI_0_2D.md](CARRIER_DOCUMENTS_UI_0_2D.md) records the read-only documents screen in the existing Carrier Portal. It opens from a transport order shipment reference and uses the accepted carrier document routes. The gateway status block above is unchanged. Writes, signing, and storage metadata stay closed.
+
+```text
+CARRIER_DOCUMENTS_UI=YES_READ_ONLY
+SHIPMENT_CONTEXT_ONLY=YES
+CARRIER_DOCUMENTS_CUSTOMER_SAFE=YES_READ_ONLY
+CARRIER_ATTACHMENT_DOWNLOAD_CUSTOMER_SAFE=YES
+CUSTOMER_DOCUMENTS_SAFE=NO_GLOBAL_SHIPPER_AND_CARRIER_READ_ONLY
+CARRIER_DOCUMENT_WRITE_SAFE=NO
+CARRIER_EDO_SIGNING_SAFE=NO
+CARRIER_QES_SAFE=NO
+```

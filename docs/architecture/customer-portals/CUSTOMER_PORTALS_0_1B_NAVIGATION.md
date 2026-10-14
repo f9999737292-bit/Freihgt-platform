@@ -99,3 +99,7 @@ Common:
 ## Carrier tracking UI 0.1
 
 The carrier table above stays the 0.1B map. The carrier tracking screen is now a read-only page opened from a transport order when that order already carries a server shipment reference. It is not a top-level navigation item. Driver actions stay in `apps/driver-mobile`.
+
+## Carrier documents UI 0.2D
+
+The carrier table above stays the 0.1B map. Carrier documents are a read-only shipment screen opened from a transport order that already returns a shipment reference. They are not a top-level navigation item. Upload, signing, and archive actions stay out of the carrier office.
