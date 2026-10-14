@@ -57,3 +57,7 @@ EDO 0.2 architecture freeze is accepted. EDO 0.3 discovery is documentation only
 ## Network Optimizer
 
 BINTRANS Transportation & Network Optimizer v0.1 is an architecture freeze only. It does not authorize a new service, migrations, or production OpenAPI changes: [network-optimizer/README.md](network-optimizer/README.md).
+
+## Product roadmap / NEXT
+
+Strategic 2026–2027 NEXT architecture freeze (docs only; does not authorize implementation): [BINTRANS_PRODUCT_ROADMAP_2026_2027_NEXT.md](BINTRANS_PRODUCT_ROADMAP_2026_2027_NEXT.md).
