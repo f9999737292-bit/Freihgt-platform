@@ -1,4 +1,12 @@
 import {
+  documentListSpec,
+  documentReadSpec,
+  type CarrierAttachment,
+  type CarrierDocument,
+  type DocumentListFilters,
+  type DocumentPage,
+} from '../domain/document'
+import {
   carrierReadSpec,
   type CarrierTrackingSuffix,
   type ETAHistoryItem,
@@ -165,6 +173,30 @@ export function useCarrierApi() {
     return readTracking<HistoryPage<SlotHistoryItem>>(shipmentId, '/slots/history', query)
   }
 
+  function listDocuments(shipmentId: string, filters: DocumentListFilters = {}) {
+    const companyId = office.requireCompany()
+    const spec = documentListSpec(shipmentId, companyId, filters)
+    return office.client.request<DocumentPage>(spec.path, { companyId, query: spec.query })
+  }
+
+  function getDocument(documentId: string) {
+    const companyId = office.requireCompany()
+    const spec = documentReadSpec(companyId, documentId)
+    return office.client.request<CarrierDocument>(spec.path, { companyId, query: spec.query })
+  }
+
+  function listDocumentAttachments(documentId: string) {
+    const companyId = office.requireCompany()
+    const spec = documentReadSpec(companyId, documentId, '/attachments')
+    return office.client.request<{ items?: CarrierAttachment[] }>(spec.path, { companyId, query: spec.query })
+  }
+
+  function downloadDocumentAttachment(documentId: string, attachmentId: string) {
+    const companyId = office.requireCompany()
+    const spec = documentReadSpec(companyId, documentId, `/attachments/${encodeURIComponent(attachmentId)}/content`)
+    return office.client.download(spec.path, { companyId, query: spec.query })
+  }
+
   async function listFleet() {
     const companyId = office.requireCompany()
     const scope = { companyId, query: { carrier_company_id: companyId } }
@@ -194,6 +226,10 @@ export function useCarrierApi() {
     listETAHistory,
     getSlots,
     listSlotHistory,
+    listDocuments,
+    getDocument,
+    listDocumentAttachments,
+    downloadDocumentAttachment,
     listFleet,
   }
 }

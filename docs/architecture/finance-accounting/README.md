@@ -14,6 +14,7 @@ FINANCE-0.1A is a docs-only inventory of the BINTRANS financial chain on `origin
 | [FINANCE_0_1B_TAX_BASIS.md](FINANCE_0_1B_TAX_BASIS.md) | Server-owned tax basis and unknown-tax gate |
 | [FINANCE_0_1B_MIGRATION_PLAN.md](FINANCE_0_1B_MIGRATION_PLAN.md) | Additive legacy mapping and later implementation slices |
 | [FINANCE_0_1C_RUSSIAN_ACCOUNTING_DOCUMENT_RESEARCH.md](FINANCE_0_1C_RUSSIAN_ACCOUNTING_DOCUMENT_RESEARCH.md) | Primary-source research for Russian accounting and tax documents, including the 2026 source completion |
+| [FINANCE_0_1D_ACCOUNTING_DOCUMENT_RULES.md](FINANCE_0_1D_ACCOUNTING_DOCUMENT_RULES.md) | Decision contract for which accounting document is required, and which VAT class the facts support |
 
 ```text
 LEGAL_COMPLIANCE_RESEARCH_REQUIRED=YES
@@ -21,4 +22,4 @@ FINANCE_CORE_ARCHITECTURE_FROZEN=YES
 PRODUCT_CODE_CHANGED=NO
 ```
 
-FINANCE-0.1A evidence files stay the inventory of what the code does. FINANCE-0.1B freezes the target financial kernel. FINANCE-0.1C records primary-source document research. FINANCE-0.1C-R1 adds the 2026 statutory catalog and the freight treatment conditions. This folder still does not choose a BINTRANS VAT rate or exemption, does not define statutory XML, and does not define a margin recognition policy. Implementation is not authorized.
+FINANCE-0.1A evidence files stay the inventory of what the code does. FINANCE-0.1B freezes the target financial kernel. FINANCE-0.1C records primary-source document research. FINANCE-0.1C-R1 adds the 2026 statutory catalog and the freight treatment conditions. FINANCE-0.1D freezes the document decision contract. It does not set a global BINTRANS VAT rate, does not treat international carriage as automatically zero-rated, and does not define statutory XML. Implementation is not authorized.

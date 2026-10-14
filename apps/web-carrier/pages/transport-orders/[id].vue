@@ -2,12 +2,18 @@
 import { Card, CustomerPageHeader } from '@freight-platform/ui'
 import PortalState from '../../components/PortalState.vue'
 import { viewKindFromError, type PortalViewKind } from '../../domain/viewState'
+import { companyMayReadDocuments } from '../../domain/document'
 import type { TransportOrderSummary } from '../../composables/useCarrierApi'
 
 const route = useRoute()
 const { t } = useI18n()
 const localePath = useLocalePath()
 const api = useCarrierApi()
+const office = useCarrierOffice()
+const canReadDocuments = computed(() => {
+  const selected = office.companies.value.find((item) => item.companyId === office.selectedCompanyId.value)
+  return selected ? companyMayReadDocuments(selected.roleCodes) : false
+})
 const order = ref<TransportOrderSummary | null>(null)
 const kind = ref<PortalViewKind>('loading')
 const detail = ref('')
@@ -50,6 +56,13 @@ function titleFor(state: PortalViewKind) {
           data-testid="open-tracking"
         >
           {{ t('carrier.openTracking') }}
+        </NuxtLink>
+        <NuxtLink
+          v-if="order.shipment?.id && canReadDocuments"
+          :to="localePath(`/shipments/${order.shipment.id}/documents`)"
+          data-testid="open-documents"
+        >
+          {{ t('carrier.openDocuments') }}
         </NuxtLink>
       </Card>
     </template>
