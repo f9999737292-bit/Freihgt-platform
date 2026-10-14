@@ -26,6 +26,11 @@ type Budget struct {
 	Started              time.Time
 	BlockedReason        string
 	now                  func() time.Time
+	// Optional tighter ceilings for a chain-owned invocation.
+	// Zero keeps the route-plan defaults.
+	SequenceCeiling int
+	LegCeiling      int
+	TimeCeiling     time.Duration
 }
 
 func NewBudget(now func() time.Time) *Budget {
@@ -46,14 +51,22 @@ func (b *Budget) before(kind string) error {
 	if b.BlockedReason != "" {
 		return &SearchError{Code: ResultBudget, Budget: b.BlockedReason, Detail: ReasonBudgetExceeded}
 	}
-	if b.elapsed() > TimeBudget {
+	timeLimit := TimeBudget
+	if b.TimeCeiling > 0 {
+		timeLimit = b.TimeCeiling
+	}
+	if b.elapsed() > timeLimit {
 		b.BlockedReason = BudgetTime
 		return &SearchError{Code: ResultBudget, Budget: BudgetTime, Detail: ReasonBudgetExceeded}
 	}
 	var current, limit int
 	switch kind {
 	case BudgetSequences:
-		current, limit = b.SequenceCandidates, MaxSequenceCandidates
+		current = b.SequenceCandidates
+		limit = MaxSequenceCandidates
+		if b.SequenceCeiling > 0 {
+			limit = b.SequenceCeiling
+		}
 	case BudgetRouting:
 		current, limit = b.RoutingProviderCalls, MaxRoutingProviderCalls
 	case BudgetGroupage:
@@ -61,11 +74,15 @@ func (b *Budget) before(kind string) error {
 	case BudgetTime:
 		return nil
 	default:
-		current, limit = b.RouteLegEvaluations, MaxRouteLegEvaluations
+		current = b.RouteLegEvaluations
+		limit = MaxRouteLegEvaluations
+		if b.LegCeiling > 0 {
+			limit = b.LegCeiling
+		}
 		kind = "legs"
 	}
 	if kind == "legs" {
-		if b.RouteLegEvaluations >= MaxRouteLegEvaluations {
+		if b.RouteLegEvaluations >= limit {
 			b.BlockedReason = "routing"
 			return &SearchError{Code: ResultBudget, Budget: "routing", Detail: ReasonBudgetExceeded}
 		}

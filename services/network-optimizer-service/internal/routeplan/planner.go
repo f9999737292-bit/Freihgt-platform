@@ -147,6 +147,9 @@ type Input struct {
 	Now                    func() time.Time
 	Budget                 *Budget
 	cache                  map[string]Leg
+	// PreserveInsertionOrder inserts Loads in the supplied order.
+	// The default false keeps the UUID sort used by caller-supplied route-plan evaluate.
+	PreserveInsertionOrder bool
 }
 
 type Planner struct{}
@@ -163,7 +166,9 @@ func (Planner) Plan(ctx context.Context, in Input) (Outcome, *Budget, error) {
 		in.cache = map[string]Leg{}
 	}
 	loads := append([]Load(nil), in.Loads...)
-	sort.Slice(loads, func(i, j int) bool { return loads[i].ID.String() < loads[j].ID.String() })
+	if !in.PreserveInsertionOrder {
+		sort.Slice(loads, func(i, j int) bool { return loads[i].ID.String() < loads[j].ID.String() })
+	}
 	parent := []Stop{cloneStop(in.Start)}
 	if in.End != nil {
 		parent = append(parent, cloneStop(*in.End))
@@ -623,7 +628,13 @@ func routeLeg(ctx context.Context, in Input, budget *Budget, from, to Stop, depa
 		RouteMode: routing.RouteFastest, TrafficMode: traffic,
 	}
 	result, err := in.Route.Route(ctx, request)
-	if err != nil || result.DistanceM < 0 || result.DurationSeconds < 0 || result.Provider == "" {
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, routing.ErrSearchBudget) {
+			return Leg{}, err
+		}
+		return Leg{}, errSequenceRouting
+	}
+	if result.DistanceM < 0 || result.DurationSeconds < 0 || result.Provider == "" {
 		return Leg{}, errSequenceRouting
 	}
 	requestFP := result.RequestFingerprint
