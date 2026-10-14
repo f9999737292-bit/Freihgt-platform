@@ -14,7 +14,7 @@ SHIPMENT_ID_UNIQUELY_IDENTIFIES_SETTLEMENT=NO
 
 ## Context
 
-BINTRANS closes money only when physical execution, legal documents, and commercial settlement stay correctly owned. Finance-0.1B froze decimal money, commercial relationships, and tax fail-closed behavior. EDO ADRs froze document ownership, billing/EDO boundary, and Receivable versus PaymentObligation. Without a registry-level chain decision, NEXT work risks:
+BINTRANS closes money only when physical execution, legal documents, and commercial settlement stay correctly owned. Finance-0.1B froze decimal money, commercial relationships, and tax fail-closed behavior. Finance-0.1D freezes accounting-document policy rules on top of that foundation and leaves its open legal questions unresolved. EDO ADRs froze document ownership, billing/EDO boundary, and Receivable versus PaymentObligation. Without a registry-level chain decision, NEXT work risks:
 
 - treating shipment id as the sole settlement key
 - letting billing invent legal XML truth
@@ -70,7 +70,7 @@ Unknown tax blocks accounting close and tax-bearing documents. Client-authored b
 
 ### 6. Registry relationship
 
-`ADR-FIN-*` is the strategic registry prefix for finance and settlement product decisions. Finance-0.1B documents and ADR-EDO-002 / ADR-EDO-005 remain binding detail. This ADR does not reopen those freezes.
+`ADR-FIN-*` is the strategic registry prefix for finance and settlement product decisions. Finance-0.1B ownership and money foundations, Finance-0.1D accounting-document rule freeze, and ADR-EDO-002 / ADR-EDO-005 remain binding detail. This ADR does not reopen those freezes, does not close the open legal questions left by Finance-0.1D, and does not authorize finance runtime.
 
 ## Consequences
 
@@ -87,5 +87,6 @@ This ADR does not authorize migrations, Go/OpenAPI changes, AR/AP runtime, bank 
 - [BINTRANS_PRODUCT_ROADMAP_2026_2027_NEXT.md](../architecture/BINTRANS_PRODUCT_ROADMAP_2026_2027_NEXT.md)
 - [FINANCE_0_1B_ARCHITECTURE.md](../architecture/finance-accounting/FINANCE_0_1B_ARCHITECTURE.md)
 - [FINANCE_0_1B_COMMERCIAL_RELATIONSHIP.md](../architecture/finance-accounting/FINANCE_0_1B_COMMERCIAL_RELATIONSHIP.md)
+- [FINANCE_0_1D_ACCOUNTING_DOCUMENT_RULES.md](../architecture/finance-accounting/FINANCE_0_1D_ACCOUNTING_DOCUMENT_RULES.md)
 - [ADR-EDO-002](ADR-EDO-002-billing-edo-boundary.md)
 - [ADR-EDO-005](ADR-EDO-005-receivable-vs-payment-obligation.md)

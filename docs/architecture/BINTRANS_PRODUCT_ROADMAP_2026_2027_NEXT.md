@@ -22,8 +22,8 @@ Move BINTRANS from a working operational TMS baseline toward a coherent next pro
 | Theme | Strategic ADR | Intent |
 | --- | --- | --- |
 | Agent-ready Control Tower | [ADR-PLAT-002](../adr/ADR-PLAT-002-agent-ready-action-model.md) | Recommend actions; humans or authorized workflows execute |
-| Canonical analytics | [ADR-AN-001](../adr/ADR-AN-001-canonical-analytics-semantic-layer.md) | One KPI meaning, versioned semantic layer |
-| Progressive network optimization | [ADR-NLO-001](../adr/ADR-NLO-001-progressive-network-optimization.md) | Grow NLO by bounded stages; never claim a global solver |
+| Canonical analytics | [ADR-AN-006](../adr/ADR-AN-006-canonical-analytics-semantic-layer.md) | One KPI meaning, versioned semantic layer |
+| Progressive network optimization | [ADR-NET-026](../adr/ADR-NET-026-progressive-network-optimization.md) | Grow NLO by bounded stages; never claim a global solver |
 | Execution → document → settlement | [ADR-FIN-001](../adr/ADR-FIN-001-execution-document-settlement-chain.md) | Preserve ownership across the money chain |
 
 ## Non-authorization
@@ -40,7 +40,8 @@ Existing stage freezes remain in force until a newer authorized contract superse
 
 - Analytics-0.1B architecture and `docs/architecture/analytics/**`
 - NLO stage freezes under `docs/architecture/network-optimizer/**`
-- Finance-0.1B under `docs/architecture/finance-accounting/**`
+- Finance-0.1B ownership and money foundations under `docs/architecture/finance-accounting/**`
+- Finance-0.1D accounting-document rule freeze: [FINANCE_0_1D_ACCOUNTING_DOCUMENT_RULES.md](finance-accounting/FINANCE_0_1D_ACCOUNTING_DOCUMENT_RULES.md) (open legal questions remain open; runtime not authorized)
 - EDO ADRs under `docs/adr/ADR-EDO-*`
 - Customer portal and Control Tower rollout docs already on main
 
@@ -53,7 +54,7 @@ BINTRANS already has:
 - Control Tower operational read model (shadow-first; primary mode separately gated)
 - Network Optimizer progressive stages through chain foundation workstreams
 - Analytics source inventory and architecture freeze without a warehouse claim
-- Finance money and commercial-relationship freezes without full AR/AP runtime
+- Finance money, commercial-relationship, and accounting-document rule freezes without full AR/AP runtime
 
 This roadmap does not restate every readiness score. It freezes **direction**.
 

@@ -1,8 +1,8 @@
-# Architecture Decision Records — EDO Program
+# BINTRANS Architecture Decision Records
 
 ## Status
 
-Active registry for BINTRANS EDO / TEDO / MM / FF architecture decisions.
+Active cross-program BINTRANS ADR registry. It covers EDO / TEDO / platform, analytics, network optimizer, finance / settlement, tracking, and related product decisions. Program-local ADR trees (for example under `docs/architecture/analytics/adr/` and `docs/architecture/network-optimizer/adr/`) remain binding for their scopes and are indexed here when promoted to strategic NEXT records.
 
 ## Numbering convention
 
@@ -12,7 +12,7 @@ Active registry for BINTRANS EDO / TEDO / MM / FF architecture decisions.
 | `ADR-TEDO-*` | Transport EDO / EPD | Operator port, ETRN lifecycle |
 | `ADR-PLAT-*` | Platform / identity / cross-cutting | Membership, RBAC, agent-ready actions |
 | `ADR-AN-*` | Analytics / KPI semantic layer | Canonical KPI definitions, semantic layer |
-| `ADR-NLO-*` | Network optimizer | Progressive optimization stages |
+| `ADR-NET-*` | Network optimizer | Progressive optimization and stage freezes |
 | `ADR-FIN-*` | Finance / settlement | Execution–document–settlement chain |
 | `ADR-MM-*` | Multimodal logistics | Reserved for MM-specific decisions |
 | `ADR-FF-*` | Freight finance / factoring | Reserved for FF-specific decisions |
@@ -58,11 +58,13 @@ These records freeze 2026–2027 product direction. They do **not** authorize ag
 | ID | Title | Status |
 |----|-------|--------|
 | [ADR-PLAT-002](ADR-PLAT-002-agent-ready-action-model.md) | Agent-ready action model | Accepted — strategic architecture freeze; implementation separately authorized |
-| [ADR-AN-001](ADR-AN-001-canonical-analytics-semantic-layer.md) | Canonical analytics semantic layer | Accepted — strategic architecture freeze; implementation separately authorized |
-| [ADR-NLO-001](ADR-NLO-001-progressive-network-optimization.md) | Progressive network optimization | Accepted — strategic architecture freeze; implementation separately authorized |
+| [ADR-AN-006](ADR-AN-006-canonical-analytics-semantic-layer.md) | Canonical analytics semantic layer | Accepted — strategic architecture freeze; implementation separately authorized |
+| [ADR-NET-026](ADR-NET-026-progressive-network-optimization.md) | Progressive network optimization | Accepted — strategic architecture freeze; implementation separately authorized |
 | [ADR-FIN-001](ADR-FIN-001-execution-document-settlement-chain.md) | Execution–document–settlement chain | Accepted — strategic architecture freeze; implementation separately authorized |
 
 Roadmap index: [BINTRANS_PRODUCT_ROADMAP_2026_2027_NEXT.md](../architecture/BINTRANS_PRODUCT_ROADMAP_2026_2027_NEXT.md).
+
+Analytics-tree ADR-AN-001 through ADR-AN-005 under `docs/architecture/analytics/adr/` remain unchanged. Network Optimizer stage ADR-NET-001 through ADR-NET-025 under `docs/architecture/network-optimizer/adr/` remain unchanged. A parallel `ADR-NLO-*` registry prefix is not used.
 
 ## Related documents
 

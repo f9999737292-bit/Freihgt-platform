@@ -1,11 +1,11 @@
-# ADR-NLO-001: Progressive network optimization
+# ADR-NET-026: Progressive network optimization
 
 ## Status
 
 Accepted — strategic architecture freeze; implementation separately authorized
 
 ```text
-ADR_NLO_001=ACCEPTED
+ADR_NET_026=ACCEPTED
 RUNTIME_IMPLEMENTATION_AUTHORIZED=NO
 GLOBAL_CHAIN_OPTIMIZATION_CLAIM_ALLOWED=NO
 GLOBAL_NETWORK_OPTIMUM_CLAIM_ALLOWED=NO
@@ -13,9 +13,9 @@ GLOBAL_NETWORK_OPTIMUM_CLAIM_ALLOWED=NO
 
 ## Context
 
-Network Optimizer work on main already follows a staged ladder documented under `docs/architecture/network-optimizer/`: capacity and load foundation, prediction, consolidation and current-trip fill, route-plan execution boundaries, backhaul budgets, urban profiles, and bounded chain architecture. Detail ADRs in that tree (for example `ADR-NET-*`) remain stage-specific.
+Network Optimizer work on main already follows a staged ladder documented under `docs/architecture/network-optimizer/`: capacity and load foundation, prediction, consolidation and current-trip fill, route-plan execution boundaries, backhaul budgets, urban profiles, and bounded chain architecture. Stage ADRs in that tree use the `ADR-NET-*` namespace through ADR-NET-025.
 
-NEXT needs a registry-level rule: optimization grows by progressive, measured stages. Agents must not jump to an unbounded solver or claim global optimality.
+NEXT needs a registry-level rule: optimization grows by progressive, measured stages. Agents must not jump to an unbounded solver or claim global optimality. This record continues the same `ADR-NET` namespace as ADR-NET-026. A parallel `ADR-NLO-*` registry prefix is not created.
 
 ## Decision
 
@@ -61,7 +61,7 @@ Search and ranking remain tenant-scoped with trusted identity. Cross-tenant visi
 
 ### 5. Registry relationship
 
-`ADR-NLO-*` is the strategic registry prefix for network optimizer product decisions. Stage ADRs under `docs/architecture/network-optimizer/adr/` remain the detailed freeze records. This ADR does not reopen closed stage acceptances and does not authorize the next runtime slice.
+`ADR-NET-*` is the single Network Optimizer ADR namespace. ADR-NET-001 through ADR-NET-025 remain unchanged stage freezes under `docs/architecture/network-optimizer/adr/`. This ADR is the strategic progressive-optimization product freeze as ADR-NET-026 and does not reopen closed stage acceptances or authorize the next runtime slice.
 
 ## Consequences
 

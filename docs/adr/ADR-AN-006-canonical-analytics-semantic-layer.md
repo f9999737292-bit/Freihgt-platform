@@ -1,11 +1,11 @@
-# ADR-AN-001: Canonical analytics semantic layer
+# ADR-AN-006: Canonical analytics semantic layer
 
 ## Status
 
 Accepted — strategic architecture freeze; implementation separately authorized
 
 ```text
-ADR_AN_001=ACCEPTED
+ADR_AN_006=ACCEPTED
 RUNTIME_IMPLEMENTATION_AUTHORIZED=NO
 ANALYTICS_MAY_INVENT_SOURCE_FACTS=NO
 ONE_BUSINESS_KPI_ONE_CANONICAL_DEFINITION=YES
@@ -14,9 +14,9 @@ DWH_V1_REQUIRED_NOW=NO
 
 ## Context
 
-Analytics-0.1A inventoried KPI readiness and source gaps. Analytics-0.1B froze ownership, history classes, and the logical semantic contract without implementing a warehouse. Detailed records already exist under `docs/architecture/analytics/`, including storage boundary ADR-AN-002 and Control Tower versus analytics ADR-AN-005 in that tree.
+Analytics-0.1A inventoried KPI readiness and source gaps. Analytics-0.1B froze ownership, history classes, and the logical semantic contract without implementing a warehouse. Detailed records already exist under `docs/architecture/analytics/`, including KPI ownership ADR-AN-001, storage boundary ADR-AN-002, and Control Tower versus analytics ADR-AN-005 in that tree.
 
-NEXT needs a registry-level decision: the semantic layer is the product contract for KPI meaning across portals, Control Tower, and future BI.
+NEXT needs a registry-level decision: the semantic layer is the product contract for KPI meaning across portals, Control Tower, and future BI. This record is numbered ADR-AN-006 so it does not collide with the existing analytics-tree ADR-AN-001.
 
 ## Decision
 
@@ -58,7 +58,7 @@ until an authorized stage proves otherwise for a named KPI set.
 
 ### 6. Registry relationship
 
-This ADR is the strategic registry entry for `ADR-AN-*`. Stage detail under `docs/architecture/analytics/` remains binding evidence. Where a later authorized analytics ADR in that tree narrows a KPI slice, it must not weaken the rules above without superseding this ADR.
+This ADR is the strategic registry entry that freezes the NEXT semantic-layer product contract under `ADR-AN-*`. Existing analytics-tree records ADR-AN-001 through ADR-AN-005 remain unchanged and binding for their scopes. Where a later authorized analytics ADR narrows a KPI slice, it must not weaken the rules above without superseding this ADR.
 
 ## Consequences
 
