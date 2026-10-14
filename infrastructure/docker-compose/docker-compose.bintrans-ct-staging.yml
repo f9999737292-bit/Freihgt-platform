@@ -178,7 +178,8 @@ services:
       TRACKING_SERVICE_URL: http://tracking-service:8089
       TRACKING_INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       # Pilot operator SSH tunnel serves web-admin at localhost:13000; browser fetch to localhost:18080 requires explicit CORS allow.
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:13000,http://127.0.0.1:13000}
+      # Carrier portal local dev origin is http://localhost:3002 (apps/web-carrier).
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:13000,http://127.0.0.1:13000,http://localhost:3002}
 
   prometheus:
     ports: !override
