@@ -75,6 +75,8 @@ Not a second freight exchange, not a second RFx engine, not a second freight-cos
 | [NLO_0_9A_CHAIN_SEARCH_MODEL.md](NLO_0_9A_CHAIN_SEARCH_MODEL.md) | Conceptual chain objects, future pipeline, and unset caps |
 | [NLO_0_9A_CHAIN_SECURITY_PERSISTENCE_API.md](NLO_0_9A_CHAIN_SECURITY_PERSISTENCE_API.md) | Privacy gap, persistence decision, and separate chain-search resource |
 | [NLO_0_9A_CHAIN_TEST_AND_IMPLEMENTATION_ROADMAP.md](NLO_0_9A_CHAIN_TEST_AND_IMPLEMENTATION_ROADMAP.md) | Future chain tests and the unauthorized later stages |
+| [NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md](NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md) | Frozen two-load chain policy: horizon, budget, objective, identity, privacy, stacking, and execution boundary |
+| [adr/ADR-NET-025-bounded-two-load-chain.md](adr/ADR-NET-025-bounded-two-load-chain.md) | Architecture-only acceptance of the NLO-0.9B two-load chain decisions |
 | [NLO_0_5B_TEST_STRATEGY.md](NLO_0_5B_TEST_STRATEGY.md) | B2 routing-budget gates and B3 one-load feasibility |
 | [NLO_0_5B0_BENCHMARK.md](NLO_0_5B0_BENCHMARK.md) | Local prefilter sample and uncapped call accounting |
 | [NLO_0_4D_ARCHITECTURE_FREEZE.md](NLO_0_4D_ARCHITECTURE_FREEZE.md) | NLO-0.4D-R1 docs-only freeze for service duration and TMS acknowledgement |
@@ -91,6 +93,17 @@ NLO-0.6 remains regional routing, open and closed. NLO-0.9A documents the bounda
 ```text
 NLO_0_9A_STATUS=DISCOVERY_ONLY
 CHAIN_RUNTIME_IMPLEMENTED=NO
+IMPLEMENTATION_AUTHORIZED=NO
+```
+
+## NLO-0.9B chain architecture freeze
+
+NLO-0.9B freezes the two-load chain decisions that 0.9A left open. It does not implement the chain. Runtime remains unauthorized. See [NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md](NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md) and [ADR-NET-025](adr/ADR-NET-025-bounded-two-load-chain.md).
+
+```text
+NLO_0_9B_STATUS=ARCHITECTURE_FROZEN
+CHAIN_RUNTIME_IMPLEMENTED=NO
+RUNTIME_IMPLEMENTATION_AUTHORIZED=NO
 IMPLEMENTATION_AUTHORIZED=NO
 ```
 
