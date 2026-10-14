@@ -101,6 +101,40 @@ func TestBudgetStopsBeforeExceeding(t *testing.T) {
 	}
 }
 
+func TestPreserveInsertionOrderIsOptIn(t *testing.T) {
+	endID := uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	end := Stop{Role: RoleEnd, Point: canonical(endID, 48, 2)}
+	lower := loadAt("00000000-0000-0000-0000-0000000000a1", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1", "cccccccc-cccc-cccc-cccc-ccccccccccc1", 10)
+	higher := loadAt("00000000-0000-0000-0000-0000000000a2", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2", "cccccccc-cccc-cccc-cccc-ccccccccccc2", 10)
+	base := Input{
+		Mode: ModeCurrentTrip, Start: Stop{Role: RoleStart, Point: anchor(55, 37)}, End: &end,
+		Loads: []Load{higher, lower}, Initial: knownCapacity(1000),
+		Clock: time.Date(2026, 9, 27, 8, 0, 0, 0, time.UTC), Route: &scriptRoute{},
+		Groupage: compatibleGroupage, ServiceDurationSeconds: intPtr(0), VehicleProfile: completeProfile(),
+	}
+	sorted, _, err := Planner{}.Plan(context.Background(), base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base.PreserveInsertionOrder = true
+	base.Loads = []Load{lower, higher}
+	same, _, err := Planner{}.Plan(context.Background(), base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if EvaluationFingerprint(sorted) != EvaluationFingerprint(same) {
+		t.Fatal("default order diverged from lower-id-first")
+	}
+	base.Loads = []Load{higher, lower}
+	reversed, _, err := Planner{}.Plan(context.Background(), base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if EvaluationFingerprint(reversed) == EvaluationFingerprint(sorted) {
+		t.Fatal("insertion order did not change the plan")
+	}
+}
+
 func TestBoundedInsertion(t *testing.T) {
 	start := anchor(55, 37)
 	endID := uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
