@@ -54,3 +54,4 @@ The EDO-0.2 table above is unchanged. ADR-EDO-010 and ADR-EDO-011 stay proposed.
 - Freeze report: [docs/architecture/edo-0.2-final-report.md](../architecture/edo-0.2-final-report.md)
 - EDO 0.3 discovery (not an accepted ADR, implementation not authorized): [docs/architecture/edo-0.3-discovery.md](../architecture/edo-0.3-discovery.md)
 - Event contracts: [docs/events/edo-0.2-event-contracts.md](../events/edo-0.2-event-contracts.md)
+- Document completeness source contract (not an accepted runtime): [docs/architecture/edo-document-completeness-source-v0.4b.md](../architecture/edo-document-completeness-source-v0.4b.md)

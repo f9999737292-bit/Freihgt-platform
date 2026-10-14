@@ -57,6 +57,7 @@ TMS execution implementation does not remove or weaken the NLO activation releas
 | [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md) | Execution rights are not marketplace visibility |
 | [EVENTS.md](EVENTS.md) | Outbox in the same transaction; separate version stream |
 | [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) | Waves after controller acceptance |
+| [TMS analytics source contracts 0.4B](../tms/TMS_ANALYTICS_SOURCE_CONTRACTS_0_4B.md) | Source facts requested by Analytics 0.4A. Docs only. Implementation is not authorized |
 
 ## ADRs
 
