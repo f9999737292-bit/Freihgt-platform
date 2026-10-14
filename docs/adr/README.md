@@ -10,7 +10,10 @@ Active registry for BINTRANS EDO / TEDO / MM / FF architecture decisions.
 |--------|-------|----------|
 | `ADR-EDO-*` | Electronic document exchange core | Document ownership, archive, events |
 | `ADR-TEDO-*` | Transport EDO / EPD | Operator port, ETRN lifecycle |
-| `ADR-PLAT-*` | Platform / identity / cross-cutting | Membership, RBAC |
+| `ADR-PLAT-*` | Platform / identity / cross-cutting | Membership, RBAC, agent-ready actions |
+| `ADR-AN-*` | Analytics / KPI semantic layer | Canonical KPI definitions, semantic layer |
+| `ADR-NLO-*` | Network optimizer | Progressive optimization stages |
+| `ADR-FIN-*` | Finance / settlement | Execution–document–settlement chain |
 | `ADR-MM-*` | Multimodal logistics | Reserved for MM-specific decisions |
 | `ADR-FF-*` | Freight finance / factoring | Reserved for FF-specific decisions |
 | `ADR-TRACK-*` | Tracking provider boundary | External provider ingest contract |
@@ -47,6 +50,19 @@ The EDO-0.2 table above is unchanged. ADR-EDO-010 and ADR-EDO-011 stay proposed.
 | ID | Title | Status |
 |----|-------|--------|
 | [ADR-TRACK-001](ADR-TRACK-001-external-provider-ingest-contract.md) | External provider ingest contract | Accepted — provider-neutral contract freeze |
+
+## Strategic NEXT records
+
+These records freeze 2026–2027 product direction. They do **not** authorize agents to start NEXT implementation, migrations, OpenAPI changes, or staging mutation. Implementation requires a separate Task Contract.
+
+| ID | Title | Status |
+|----|-------|--------|
+| [ADR-PLAT-002](ADR-PLAT-002-agent-ready-action-model.md) | Agent-ready action model | Accepted — strategic architecture freeze; implementation separately authorized |
+| [ADR-AN-001](ADR-AN-001-canonical-analytics-semantic-layer.md) | Canonical analytics semantic layer | Accepted — strategic architecture freeze; implementation separately authorized |
+| [ADR-NLO-001](ADR-NLO-001-progressive-network-optimization.md) | Progressive network optimization | Accepted — strategic architecture freeze; implementation separately authorized |
+| [ADR-FIN-001](ADR-FIN-001-execution-document-settlement-chain.md) | Execution–document–settlement chain | Accepted — strategic architecture freeze; implementation separately authorized |
+
+Roadmap index: [BINTRANS_PRODUCT_ROADMAP_2026_2027_NEXT.md](../architecture/BINTRANS_PRODUCT_ROADMAP_2026_2027_NEXT.md).
 
 ## Related documents
 
