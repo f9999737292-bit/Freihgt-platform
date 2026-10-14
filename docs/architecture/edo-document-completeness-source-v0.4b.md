@@ -137,7 +137,7 @@ DOCUMENT_COMPLETENESS_SOURCE_CONTRACT_VERSION=v0.4b
 | `RELATED_ENTITY_TYPE` | `SHIPMENT` or `TRANSPORT_ORDER` for v0.4b. Other related-entity values are out of this subject |
 | `RELATED_ENTITY_ID` | Server-known id of that entity |
 | `REQUIRED_DOCUMENT_TYPES` | Server-owned evaluated set. Empty only when a real policy says nothing is required. Unknown is not empty |
-| `PRESENT_DOCUMENT_IDS` | Tenant-scoped canonical document ids that satisfy the set |
+| `PRESENT_DOCUMENT_IDS` | Canonical ids that are safe satisfying evidence. Inventory rows that are not safe evidence stay out of this list |
 | `MISSING_DOCUMENT_TYPES` | Required types with no satisfying document |
 | `COMPLETENESS_STATUS` | `COMPLETE`, `INCOMPLETE`, or `UNKNOWN` |
 | `EVALUATED_AT` | Time of this evaluation. Not `documents.updated_at` and not an Analytics `generatedAt` |
@@ -152,8 +152,9 @@ COMPLETENESS_STATUS=COMPLETE|INCOMPLETE|UNKNOWN
 Rules:
 
 - Unknown requirement policy, or a known type set without an acceptance state for each type: `UNKNOWN`.
-- Known policy and every required type has a satisfying canonical document: `COMPLETE`.
-- Known policy and at least one required type has no satisfying document: `INCOMPLETE`.
+- No `CORRECTS` or `REPLACES` ambiguity, known requirement policy, known acceptance state, and every required type has a satisfying canonical document: `COMPLETE`.
+- No `CORRECTS` or `REPLACES` ambiguity, known policy, and at least one required type has no satisfying document: `INCOMPLETE`.
+- A required type touched by unresolved `CORRECTS` or `REPLACES` ambiguity: `UNKNOWN` for that evaluation. That is not `INCOMPLETE`.
 - `SIGNED` alone is not completeness.
 - A count of rows is not completeness.
 - An extra document does not fill a different missing type.
@@ -193,19 +194,51 @@ ATTACHMENT_FINALIZED_REQUIRED_FOR_EVERY_TYPE=NO
 SIGNED_STATUS_IS_COMPLETENESS=NO
 ```
 
+### Normal evaluation
+
+When the required type has no `CORRECTS` or `REPLACES` ambiguity, evaluation proceeds. It still needs a known requirement policy, a known acceptance state for that type, the server tenant, the evaluated related entity, a matching type, a row that is not soft-deleted, and a status in that type's acceptance set. Then the result may be `COMPLETE` or `INCOMPLETE`.
+
+Several live documents of the same required type, with no `CORRECTS` or `REPLACES` edge and no other ambiguity, satisfy that type when at least one of them meets the acceptance state. They do not satisfy a different missing type. This rule stops where successor ambiguity starts.
+
+```text
+MULTIPLE_SAME_TYPE_NO_SUCCESSOR_NORMAL_EVALUATION=YES
+```
+
 ### Successor
 
-`documents.document_relationships` can store `CORRECTS`, `REPLACES`, and `RELATED_TO`. The table is append-only and tenant-scoped. Document-service does not currently use those edges to decide completeness. The schema does not state which endpoint is the successor.
-
-Until a later contract names that direction and the cardinality:
+`documents.document_relationships` can store `CORRECTS`, `REPLACES`, and `RELATED_TO`. The table is append-only and tenant-scoped. Document-service does not currently use those edges to decide completeness. The schema does not state which endpoint is the current document.
 
 ```text
 SUCCESSOR_SATISFACTION=NOT_EVALUABLE
+SUCCESSOR_CURRENT_DOCUMENT_POLICY_PRESENT=NO
+AMBIGUOUS_SUCCESSOR_COMPLETENESS=UNKNOWN
+SATISFIED_DOCUMENT_ID_WHILE_SUCCESSOR_AMBIGUOUS=NOT_SELECTED
+AMBIGUOUS_SUCCESSOR_PRESENT_AS_SATISFYING=NO
+RELATED_TO_CHANGES_SATISFACTION=NO
 ```
 
-A `CORRECTS` or `REPLACES` edge does not by itself make either document the satisfying one. `RELATED_TO` never substitutes one required type for another. Two live documents of the same required type, with no evaluable successor rule, still satisfy that one type once one of them meets the acceptance state. They do not satisfy a missing different type.
+If documents of a required type are joined by `CORRECTS` or `REPLACES`, and the evaluation cannot prove edge direction, the authoritative successor, the current canonical document, predecessor validity, and cardinality, the evaluation fails closed:
 
-A future successor rule, once direction is explicit, must say which endpoint remains satisfying and must keep the predecessor from satisfying the same requirement after `REPLACES` or `CORRECTS`. That rule is not implemented here.
+- do not select the predecessor as satisfying;
+- do not select the other endpoint as satisfying;
+- do not return `COMPLETE`;
+- do not return `INCOMPLETE` only because one side cannot be used;
+- return `UNKNOWN` for the affected required-document evaluation.
+
+`PRESENT_DOCUMENT_IDS` lists only ids that are safe satisfying evidence. An ambiguous predecessor or successor may remain in internal inventory. It is not emitted as satisfying evidence.
+
+`RELATED_TO` is not substitution. That edge alone does not make completeness `UNKNOWN`, does not satisfy another type, does not replace predecessor or successor semantics, and does not change the required type.
+
+A later contract has to freeze these fields before runtime can choose a current document. This stage does not assign their values:
+
+```text
+SUCCESSOR_EDGE_DIRECTION
+SUCCESSOR_CARDINALITY
+CURRENT_DOCUMENT_SELECTION
+PREDECESSOR_VALIDITY_AFTER_CORRECTS
+PREDECESSOR_VALIDITY_AFTER_REPLACES
+SUCCESSOR_ACCEPTANCE_STATE_RULE
+```
 
 ## POD boundary
 
@@ -228,6 +261,15 @@ Document-service does not copy POD requirement rules. A future lookup, not built
 
 If Agent C has not said whether POD is required, document-service does not treat a POD row as proof that POD was required, and it does not treat a missing POD row as `INCOMPLETE`.
 
+If the POD document itself has unresolved `CORRECTS` or `REPLACES` ambiguity:
+
+```text
+POD_SATISFACTION_STATUS=UNKNOWN
+SATISFIED_DOCUMENT_ID=null
+```
+
+Neither ambiguous POD id is satisfying evidence.
+
 ## Security
 
 ```text
@@ -236,7 +278,7 @@ CLIENT_SUPPLIED_TENANT_AUTHORITY=NO
 CROSS_TENANT_DOCUMENT_READ=DENY
 ```
 
-The tenant comes from the trusted gateway or internal identity. A caller tenant, body tenant, or query tenant is not authority. Present ids are canonical ids in that tenant. A foreign document id is not returned and cannot satisfy the requirement. Missing and foreign both fail closed without disclosing the other tenant's row.
+The tenant comes from the trusted gateway or internal identity. A caller tenant, body tenant, or query tenant is not authority. Present ids are canonical ids in that tenant. A foreign document id is not returned and cannot satisfy the requirement. Missing and foreign both fail closed without disclosing the other tenant's row. A relationship edge that crosses tenants does not change completeness and does not reveal the foreign id.
 
 ## Future acceptance tests
 
@@ -248,10 +290,17 @@ These tests are `FUTURE_REQUIRED`. This stage does not add them.
 4. `SIGNED` alone, with no known required set, does not evaluate to `COMPLETE`.
 5. An extra document of another type does not fill a missing required type.
 6. A `CANCELLED` document does not satisfy its type.
-7. Successor behavior stays `NOT_EVALUABLE` until direction is explicit. An edge alone does not choose the satisfying id.
-8. A document from another tenant does not satisfy the requirement, and the read does not leak it.
-9. When Agent C requires POD, satisfaction returns the canonical document id of the satisfying POD, or null when none satisfies.
-10. A client-supplied tenant does not select the document population.
+7. `SUCCESSOR-01`. Known policy, a satisfying document, and no successor edge evaluate to `COMPLETE`.
+8. `SUCCESSOR-02`. A `CORRECTS` edge whose current document cannot be determined evaluates to `UNKNOWN`.
+9. `SUCCESSOR-03`. A `REPLACES` edge whose current document cannot be determined evaluates to `UNKNOWN`.
+10. `SUCCESSOR-04`. Ambiguous predecessor and successor ids are not returned as satisfying evidence.
+11. `SUCCESSOR-05`. `RELATED_TO` does not substitute a missing required type.
+12. `SUCCESSOR-06`. Two documents of the same required type, with no successor ambiguity, may satisfy that type when one meets the policy.
+13. `SUCCESSOR-07`. A cross-tenant relationship edge is denied, does not change completeness, and does not leak ids.
+14. `SUCCESSOR-08`. POD successor ambiguity returns POD satisfaction `UNKNOWN` and no satisfying document id.
+15. A document from another tenant does not satisfy the requirement, and the read does not leak it.
+16. When Agent C requires POD and there is no successor ambiguity, satisfaction returns the canonical document id of the satisfying POD, or null when none satisfies.
+17. A client-supplied tenant does not select the document population.
 
 ## Non-goals
 
