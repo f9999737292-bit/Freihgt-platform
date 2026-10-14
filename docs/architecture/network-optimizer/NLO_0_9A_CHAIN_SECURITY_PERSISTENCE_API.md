@@ -13,6 +13,13 @@ MIGRATION_AUTHORIZED=NO
 
 Search model: [NLO_0_9A_CHAIN_SEARCH_MODEL.md](NLO_0_9A_CHAIN_SEARCH_MODEL.md). Blockers: [NLO_0_9A_CHAIN_OPTIMIZER_DISCOVERY.md](NLO_0_9A_CHAIN_OPTIMIZER_DISCOVERY.md).
 
+NLO-0.9B supersedes the unfrozen privacy surface, persistence choice, API path, and execution boundary in this document. Current visibility and storage facts remain. See [NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md](NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md).
+
+```text
+NLO_0_9A_POLICY_VALUES_SUPERSEDED_BY=NLO-0.9B
+RUNTIME_IMPLEMENTATION_AUTHORIZED=NO
+```
+
 ## Privacy and tenancy
 
 ```text

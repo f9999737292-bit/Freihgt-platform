@@ -2,42 +2,47 @@
 
 These tests are specified for a later runtime. None are implemented in NLO-0.9A. None have been executed. The status of every row is `FUTURE_REQUIRED`.
 
+NLO-0.9B supersedes the unfrozen policy references below. Current-source facts in the 0.9A discovery stay in force. Concrete expectations now come from [NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md](NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md) and [ADR-NET-025](adr/ADR-NET-025-bounded-two-load-chain.md).
+
 ```text
 NLO_0_9A_MODE=DISCOVERY_DOCS_ONLY
+NLO_0_9A_POLICY_VALUES_SUPERSEDED_BY=NLO-0.9B
 CHAIN_RUNTIME_IMPLEMENTED=NO
 IMPLEMENTATION_AUTHORIZED=NO
 NEXT_STAGE_AUTHORIZED=NO
 TESTS_IMPLEMENTED_IN_0_9A=NO
+CHAIN_TESTS_IMPLEMENTED=NO
 ```
 
 Evidence for the cases: [NLO_0_9A_CHAIN_OPTIMIZER_DISCOVERY.md](NLO_0_9A_CHAIN_OPTIMIZER_DISCOVERY.md), [NLO_0_9A_CHAIN_SEARCH_MODEL.md](NLO_0_9A_CHAIN_SEARCH_MODEL.md), and [NLO_0_9A_CHAIN_SECURITY_PERSISTENCE_API.md](NLO_0_9A_CHAIN_SECURITY_PERSISTENCE_API.md).
 
 ## Future acceptance tests
 
-| ID | Case | Status |
+| ID | Expected behavior under the 0.9B freeze | Status |
 | --- | --- | --- |
-| CHAIN-01 | Deterministic pair discovery. The same seed and the same visible loads produce the same ordered L1 and L2 pair. | FUTURE_REQUIRED |
-| CHAIN-02 | Candidate bounds. First-load shortlist, second loads per first load, pair cap, and route-plan evaluation cap stop expansion. The numeric caps are the values frozen later, not values invented here. | FUTURE_REQUIRED |
-| CHAIN-03 | Global budget exhaustion. Provider-call and wall-clock budgets stop the search with an explicit budget result. | FUTURE_REQUIRED |
-| CHAIN-04 | Horizon boundary. A load outside the frozen horizon is excluded. A load inside it remains eligible for discovery. | FUTURE_REQUIRED |
-| CHAIN-05 | Cross-tenant deny. A tenant cannot read another tenant’s unpublished load or another tenant’s chain search. | FUTURE_REQUIRED |
-| CHAIN-06 | Cross-shipper visibility. A foreign load without cross-shipper opt-in is not placed in a chain result. Individual visibility alone is not enough. | FUTURE_REQUIRED |
-| CHAIN-07 | Unknown compatibility fails closed. Missing multi-party reference context does not become a feasible chain. | FUTURE_REQUIRED |
-| CHAIN-08 | Stacking policy behavior. The frozen stacking policy accepts or rejects the pair. The current absence of a stacking check is not treated as a pass. | FUTURE_REQUIRED |
-| CHAIN-09 | Capacity after L1 pickup and after L1 delivery. Pickup decreases remaining capacity. Delivery restores it. Unknown capacity does not become zero. | FUTURE_REQUIRED |
-| CHAIN-10 | Capacity before L2 pickup. L2 is checked against the capacity that remains after the preceding actions, not against the seed capacity alone. | FUTURE_REQUIRED |
-| CHAIN-11 | Intermediate groupage incompatibility. L1 and L2 onboard together are rejected when groupage returns a hard incompatibility. | FUTURE_REQUIRED |
-| CHAIN-12 | Window feasibility. An arrival after the stop window drops that sequence. Waiting until a window opens is allowed only inside the window. | FUTURE_REQUIRED |
-| CHAIN-13 | Unknown service duration. Missing service duration yields an indeterminate plan and blocks activation while the production service-duration gate stays on. | FUTURE_REQUIRED |
-| CHAIN-14 | Routing provider failure. A failed or invalid road leg does not become a feasible chain and is not replaced by straight-line distance. | FUTURE_REQUIRED |
-| CHAIN-15 | Duplicate chain candidate. The same ordered pair is evaluated once. | FUTURE_REQUIRED |
-| CHAIN-16 | Version drift. A changed load version or capacity version changes the evaluation fingerprint and does not replay the old result as current. | FUTURE_REQUIRED |
-| CHAIN-17 | Policy version drift. A changed service-duration policy, catalog, rule set, or algorithm policy version changes the fingerprint. | FUTURE_REQUIRED |
-| CHAIN-18 | Two-load route persistence. An evaluated pair stores two load subjects, their versions, stops, actions, and road legs. | FUTURE_REQUIRED |
-| CHAIN-19 | Ranking determinism. Equal inputs and the same frozen chain objective produce the same order. Duration-only planner order is not substituted for that objective. | FUTURE_REQUIRED |
-| CHAIN-20 | No raw foreign commercial data. A pre-accept chain result omits the other shipper’s commercial terms, contracts, customer identity, and internal shipment ids. | FUTURE_REQUIRED |
-| CHAIN-21 | Activation and handoff contract. Accept, activate, and projection match the frozen execution-support boundary. Today’s planner result stays `ExecutionSupported=false` until that proof exists. | FUTURE_REQUIRED |
-| CHAIN-22 | Idempotent execution projection. The same activation key and body replays. A reused key with a different body conflicts. | FUTURE_REQUIRED |
+| CHAIN-01 | The same seed, visible loads, and policy version produce the same selected order. A new request without the same idempotency key receives a new `chain_search_id`. | FUTURE_REQUIRED |
+| CHAIN-02 | Expansion stops at 8 first loads, 2 second loads per first load, 4 pairs, and 2 route-plan evaluations. | FUTURE_REQUIRED |
+| CHAIN-03 | The search stops before the 25th provider call, or when the 20s global wall clock is exhausted, whichever happens first. The result is `CHAIN_BUDGET_EXHAUSTED`, `search_complete=false`, and `global_optimum=false`. An unfinished candidate is not feasible. | FUTURE_REQUIRED |
+| CHAIN-HTTP-01 | A worst-case synchronous chain request returns its application response before the gateway 30s write timeout. The chain compute budget remains 20s. | FUTURE_REQUIRED |
+| CHAIN-04 | A load whose pickup starts at or after seed availability plus 48h is excluded. A load inside that fixed UTC window can remain eligible. Caller N-day overrides are rejected. | FUTURE_REQUIRED |
+| CHAIN-05 | A tenant cannot read another tenant’s unpublished load or another tenant’s chain search. | FUTURE_REQUIRED |
+| CHAIN-06 | A foreign load without `cross_shipper_consolidation_allowed` is not placed in a returned pair. | FUTURE_REQUIRED |
+| CHAIN-07 | Missing multi-party reference context does not become a feasible chain. | FUTURE_REQUIRED |
+| CHAIN-08 | Overlapping onboard time with unknown or false `stackable` is rejected. `stackable=true` adds no pallet space. Non-overlapping loads are not rejected for stacking. | FUTURE_REQUIRED |
+| CHAIN-09 | L1 pickup decreases remaining capacity and L1 delivery restores it. Unknown capacity is not stored as zero. | FUTURE_REQUIRED |
+| CHAIN-10 | L2 pickup is checked against capacity after the preceding actions. | FUTURE_REQUIRED |
+| CHAIN-11 | L1 and L2 onboard together are rejected when groupage returns a hard incompatibility. | FUTURE_REQUIRED |
+| CHAIN-12 | Arrival after the stop window drops that sequence. Waiting until the window opens is allowed only inside the window and inside the 48h horizon. | FUTURE_REQUIRED |
+| CHAIN-13 | Unknown service duration yields an indeterminate plan. NLO-0.9C still returns `execution_supported=false`. | FUTURE_REQUIRED |
+| CHAIN-14 | A failed road leg excludes the pair. Straight-line distance is not a substitute and is not zero. | FUTURE_REQUIRED |
+| CHAIN-15 | The same unordered load pair and versions in one search produce one `chain_candidate_id`. Both action orders are evaluations of that candidate. | FUTURE_REQUIRED |
+| CHAIN-16 | A changed load or capacity version changes the evaluation fingerprint and does not replay the previous result as current. | FUTURE_REQUIRED |
+| CHAIN-17 | A changed service-duration policy, catalog, rule set, or algorithm policy version changes the fingerprint. | FUTURE_REQUIRED |
+| CHAIN-18 | A finished evaluation stores two load subjects, their versions, stops, actions, and road legs on the route plan. The chain shortlist stores the candidate separately. | FUTURE_REQUIRED |
+| CHAIN-19 | Equal inputs rank by empty road kilometres, then duration, then known utilization, then target distance, then authoritative revenue, then load-id tie-break. Missing revenue is omitted, not zero. One-load score and greedy duration order are not the chain rank. | FUTURE_REQUIRED |
+| CHAIN-20 | The pre-accept result omits the other shipper’s identity, customer, contract, rate, and internal shipment id, including inside reason text. | FUTURE_REQUIRED |
+| CHAIN-21 | NLO-0.9C returns `execution_supported=false` and does not activate. Accept, activate, and TMS proof belong to NLO-0.9D and are not enabled by this freeze. | FUTURE_REQUIRED |
+| CHAIN-22 | The same chain-search idempotency key and body hash replay the same search id. A reused key with a different hash conflicts. | FUTURE_REQUIRED |
 
 ```text
 CHAIN_TESTS_PASSED_IN_0_9A=0
@@ -63,9 +68,9 @@ NLO_0_9A_INCLUDES_AT_RISK_REOPTIMIZATION=NO
 CHAIN_IMPLEMENTATION_CAN_START_NOW=NO
 ```
 
-## Decisions NLO-0.9B must freeze
+## Decisions NLO-0.9A left open
 
-NLO-0.9B cannot authorize implementation until each of these has a value. NLO-0.9A leaves them unset where the source does not already decide them.
+NLO-0.9A left these unset. NLO-0.9B supersedes this table in [NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md](NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md). The 0.9A column is the discovery record, not the current policy.
 
 | Decision | NLO-0.9A value |
 | --- | --- |
@@ -78,14 +83,14 @@ NLO-0.9B cannot authorize implementation until each of these has a value. NLO-0.
 | STACKING_POLICY | TBD |
 | ROUTEPLAN_SELECTION_POLICY | Current behavior recorded, acceptance not frozen |
 | FIRST_RUNTIME_SEED_SOURCE | TBD |
-| API_RESOURCE_SHAPE | SEPARATE_CHAIN_SEARCH_RESOURCE, path TBD |
-| EXECUTION_SUPPORT_BOUNDARY | TBD |
+| API_RESOURCE_SHAPE | SEPARATE_CHAIN_SEARCH_RESOURCE, path unset in 0.9A |
+| EXECUTION_SUPPORT_BOUNDARY | unset in 0.9A |
 
-`API_RESOURCE_SHAPE` records the discovery recommendation only. The path and the public-versus-internal choice remain open. `CHAIN_DISCOVERY_PERSISTENCE` records that route-plan storage can hold an evaluated two-load plan and that match-candidate rows cannot hold a chain. It does not authorize a migration.
+The 0.9A path and execution boundary were unset. NLO-0.9B freezes both. `CHAIN_DISCOVERY_PERSISTENCE` in 0.9A recorded that route-plan storage can hold an evaluated two-load plan and that match-candidate rows cannot hold a chain. NLO-0.9B selects search-run and shortlist persistence for a later migration. It does not authorize that migration.
 
 ## Blockers carried forward
 
-All remain open:
+NLO-0.9A recorded these as open. NLO-0.9B closes each one in the architecture freeze. Closure is not runtime implementation.
 
 ```text
 BLOCKER_CHAIN_001=HORIZON_POLICY
@@ -95,8 +100,8 @@ BLOCKER_CHAIN_004=CHAIN_RANKING_AND_OBJECTIVE
 BLOCKER_CHAIN_005=CROSS_SHIPPER_PRIVACY
 BLOCKER_CHAIN_006=STACKING_COMPATIBILITY
 BLOCKER_CHAIN_007=ROUTEPLAN_SELECTION_POLICY
-BLOCKS_DISCOVERY=NO
-BLOCKS_IMPLEMENTATION=YES
+NLO_0_9A_BLOCKS_DISCOVERY=NO
+NLO_0_9B_BLOCKER_STATUS=CLOSED
 ```
 
 Detail and source evidence are in [NLO_0_9A_CHAIN_OPTIMIZER_DISCOVERY.md](NLO_0_9A_CHAIN_OPTIMIZER_DISCOVERY.md).
