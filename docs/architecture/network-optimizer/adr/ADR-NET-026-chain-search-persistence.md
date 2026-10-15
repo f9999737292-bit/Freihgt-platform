@@ -46,6 +46,10 @@ Budget exhaustion persists as `FAILED` with `failure_code=CHAIN_BUDGET_EXHAUSTED
 ## Consequences
 
 - A later persistence implementation may open a migration under a newly assigned number and must match this contract.
+- Claim and search creation are atomic. Matching in-flight requests return `409` / `CHAIN_SEARCH_IN_PROGRESS`; expired claims terminalize as `FAILED` / `CHAIN_INTERRUPTED` without retry. Owner-token and expiry fencing prevent late writes.
+- Composite foreign keys enforce tenant-matched search and route-plan linkage, and idempotency/search fingerprint equality.
+- Request fingerprints include resolved service-duration policy provenance and values; one stored snapshot governs chain and route-plan evaluation.
+- Both GET endpoints return indistinguishable `404` for unknown and other-tenant ids; role-based `403` is independent of resource existence.
 - Public routes stay inactive until separately authorized.
 - Exact HTTP mapping for mid-flight disconnect does not invent repository-wide `499`/`408` requirements; durable `CANCELLED` remains mandatory.
 - NLO-0.9C remains incomplete until persistence and public activation stages finish under their own authorizations.
