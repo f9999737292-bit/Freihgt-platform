@@ -83,8 +83,8 @@ CREATE TABLE network_optimizer.chain_search_runs (
         )
     ),
     CONSTRAINT chain_search_runs_claim_window_chk CHECK (
-        deadline_at > created_at
-        AND claim_expires_at > deadline_at
+        deadline_at = created_at + interval '20 seconds'
+        AND claim_expires_at = deadline_at + interval '5 seconds'
     ),
     CONSTRAINT chain_search_runs_search_complete_chk CHECK (
         (status = 'COMPLETED' AND search_complete = true)

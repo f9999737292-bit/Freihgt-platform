@@ -149,15 +149,109 @@ func TestI2A_DB_TenantIntegrity(t *testing.T) {
 			t.Fatalf("I2A-DB-13 infeasible want check fail got %v", err)
 		}
 	})
+
+	t.Run("I2A-DB-14 exact 20s+5s window succeeds", func(t *testing.T) {
+		id := insertMinimalChainSearch(t, ctx, pool, uuid.New(), "fp-exact")
+		var created, deadline, claim time.Time
+		if err := pool.QueryRow(ctx, `
+			SELECT created_at, deadline_at, claim_expires_at
+			FROM network_optimizer.chain_search_runs WHERE id=$1`, id).Scan(&created, &deadline, &claim); err != nil {
+			t.Fatal(err)
+		}
+		if !deadline.Equal(created.Add(20*time.Second)) || !claim.Equal(deadline.Add(5*time.Second)) {
+			t.Fatalf("window created=%v deadline=%v claim=%v", created, deadline, claim)
+		}
+	})
+
+	t.Run("I2A-DB-15 deadline 19s rejected", func(t *testing.T) {
+		err := insertSearchWithOffsets(ctx, pool, uuid.New(), uuid.New(), 19*time.Second, 24*time.Second)
+		if err == nil || !isCheckViolation(err) {
+			t.Fatalf("I2A-DB-15 want check fail got %v", err)
+		}
+	})
+
+	t.Run("I2A-DB-16 deadline 21s rejected", func(t *testing.T) {
+		err := insertSearchWithOffsets(ctx, pool, uuid.New(), uuid.New(), 21*time.Second, 26*time.Second)
+		if err == nil || !isCheckViolation(err) {
+			t.Fatalf("I2A-DB-16 want check fail got %v", err)
+		}
+	})
+
+	t.Run("I2A-DB-17 claim expiry deadline+4s rejected", func(t *testing.T) {
+		err := insertSearchWithOffsets(ctx, pool, uuid.New(), uuid.New(), 20*time.Second, 24*time.Second)
+		if err == nil || !isCheckViolation(err) {
+			t.Fatalf("I2A-DB-17 want check fail got %v", err)
+		}
+	})
+
+	t.Run("I2A-DB-18 claim expiry deadline+6s rejected", func(t *testing.T) {
+		err := insertSearchWithOffsets(ctx, pool, uuid.New(), uuid.New(), 20*time.Second, 26*time.Second)
+		if err == nil || !isCheckViolation(err) {
+			t.Fatalf("I2A-DB-18 want check fail got %v", err)
+		}
+	})
+
+	t.Run("I2A-DB-19 cross-tenant same idempotency key coexistence", func(t *testing.T) {
+		store := NewPostgres(pool)
+		key := "shared-idem-key"
+		tenantX := uuid.New()
+		tenantY := uuid.New()
+		searchX := insertMinimalChainSearch(t, ctx, pool, tenantX, "fp-x")
+		searchY := insertMinimalChainSearch(t, ctx, pool, tenantY, "fp-y")
+		now := time.Now().UTC()
+		if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+			if err := tx.InsertChainSearchIdempotency(ctx, ChainSearchIdempotency{
+				TenantID: tenantX, IdempotencyKey: key, RequestFingerprint: "fp-x", SearchID: searchX, CreatedAt: now,
+			}); err != nil {
+				return err
+			}
+			return tx.InsertChainSearchIdempotency(ctx, ChainSearchIdempotency{
+				TenantID: tenantY, IdempotencyKey: key, RequestFingerprint: "fp-y", SearchID: searchY, CreatedAt: now,
+			})
+		}); err != nil {
+			t.Fatalf("I2A-DB-19 insert both: %v", err)
+		}
+		var gotX, gotY ChainSearchIdempotency
+		if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+			var err error
+			gotX, err = tx.GetChainSearchIdempotency(ctx, tenantX, key)
+			if err != nil {
+				return err
+			}
+			gotY, err = tx.GetChainSearchIdempotency(ctx, tenantY, key)
+			return err
+		}); err != nil {
+			t.Fatalf("I2A-DB-19 get: %v", err)
+		}
+		if gotX.SearchID != searchX || gotY.SearchID != searchY {
+			t.Fatalf("I2A-DB-19 tenant isolation gotX=%v gotY=%v", gotX.SearchID, gotY.SearchID)
+		}
+		if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+			_, err := tx.GetChainSearchIdempotency(ctx, tenantX, key+"-missing")
+			if !errors.Is(err, ErrNotFound) {
+				return err
+			}
+			_, err = tx.GetChainSearchIdempotency(ctx, tenantY, key)
+			if err != nil {
+				return err
+			}
+			_, err = tx.GetChainSearchIdempotency(ctx, uuid.New(), key)
+			if !errors.Is(err, ErrNotFound) {
+				t.Fatalf("foreign tenant saw key: %v", err)
+			}
+			return nil
+		}); err != nil {
+			t.Fatalf("I2A-DB-19 scoped get: %v", err)
+		}
+	})
 }
 
 func insertMinimalChainSearch(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenant uuid.UUID, fingerprint string) uuid.UUID {
 	t.Helper()
 	id := uuid.New()
-	created := time.Now().UTC().Truncate(time.Millisecond)
-	deadline, claim := DeadlineAndClaimExpiry(created)
 	one := 1
 	if _, err := pool.Exec(ctx, `
+		WITH claim_clock AS (SELECT clock_timestamp() AS ts)
 		INSERT INTO network_optimizer.chain_search_runs (
 			id, tenant_id, status, created_at, request_fingerprint, policy_version, algorithm_version,
 			catalog_fingerprint, routing_provider_version, deadline_at, owner_token, claim_expires_at,
@@ -165,22 +259,47 @@ func insertMinimalChainSearch(t *testing.T, ctx context.Context, pool *pgxpool.P
 			seed_capacity_id, seed_capacity_version,
 			candidate_count, evaluated_pair_count, provider_call_count,
 			search_complete, global_optimum, execution_supported, reason_counts_json
-		) VALUES (
-			$1,$2,'PENDING',$3,$4,'NLO-0.9C-I0/BOUNDED_TWO_LOAD','BOUNDED_TWO_ORDER_COMPARISON',
-			'catalog','UNKNOWN',$5,$6,$7,
-			$8::jsonb,$9,$10,'MANUAL_AVAILABLE_CAPACITY',
-			$11,$12,
+		)
+		SELECT
+			$1,$2,'PENDING', claim_clock.ts, $3,'NLO-0.9C-I0/BOUNDED_TWO_LOAD','BOUNDED_TWO_ORDER_COMPARISON',
+			'catalog','UNKNOWN', claim_clock.ts + interval '20 seconds', $4, claim_clock.ts + interval '25 seconds',
+			$5::jsonb, claim_clock.ts, claim_clock.ts + interval '48 hours','MANUAL_AVAILABLE_CAPACITY',
+			$6,$7,
 			0,0,0,
 			false,false,false,'{}'::jsonb
-		)`,
-		id, tenant, created, fingerprint, deadline, uuid.New(), claim,
+		FROM claim_clock`,
+		id, tenant, fingerprint, uuid.New(),
 		`{"state":"UNKNOWN","pickup_known":false,"delivery_known":false}`,
-		created, created.Add(48*time.Hour),
 		uuid.New(), &one,
 	); err != nil {
 		t.Fatalf("insert chain search: %v", err)
 	}
 	return id
+}
+
+func insertSearchWithOffsets(ctx context.Context, pool *pgxpool.Pool, tenant, id uuid.UUID, deadlineOffset, claimOffset time.Duration) error {
+	one := 1
+	_, err := pool.Exec(ctx, `
+		WITH claim_clock AS (SELECT clock_timestamp() AS ts)
+		INSERT INTO network_optimizer.chain_search_runs (
+			id, tenant_id, status, created_at, request_fingerprint, policy_version, algorithm_version,
+			catalog_fingerprint, routing_provider_version, deadline_at, owner_token, claim_expires_at,
+			service_duration_snapshot_json, horizon_start, horizon_end, seed_source,
+			seed_capacity_id, seed_capacity_version,
+			candidate_count, evaluated_pair_count, provider_call_count,
+			search_complete, global_optimum, execution_supported, reason_counts_json
+		)
+		SELECT
+			$1,$2,'PENDING', claim_clock.ts, $3,'NLO-0.9C-I0/BOUNDED_TWO_LOAD','BOUNDED_TWO_ORDER_COMPARISON',
+			'catalog','UNKNOWN', claim_clock.ts + $4::interval, $5, claim_clock.ts + $6::interval,
+			'{"state":"UNKNOWN","pickup_known":false,"delivery_known":false}'::jsonb,
+			claim_clock.ts, claim_clock.ts + interval '48 hours','MANUAL_AVAILABLE_CAPACITY',
+			$7,$8,
+			0,0,0,false,false,false,'{}'::jsonb
+		FROM claim_clock`,
+		id, tenant, "fp-"+id.String(), deadlineOffset.String(), uuid.New(), claimOffset.String(), uuid.New(), one,
+	)
+	return err
 }
 
 func insertRawCandidate(ctx context.Context, pool *pgxpool.Pool, candidateID, searchID, tenant uuid.UUID, ordinal int, first, second uuid.UUID, feasibility string, selectedOrder *string, routePlan *uuid.UUID) error {

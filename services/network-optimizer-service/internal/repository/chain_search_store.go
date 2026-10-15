@@ -130,16 +130,36 @@ type ChainSearchStore interface {
 }
 
 // ChainSearchTx is a transaction-scoped chain persistence surface for I2A/I2B.
+// Mutation paths are intentionally separated so deadline and claim-expiry gates
+// cannot be confused or bypassed with optional parameters.
 type ChainSearchTx interface {
-	InsertChainSearchRun(context.Context, ChainSearchRun) error
+	// InsertChainSearchRun persists a new claim. created_at/deadline_at/claim_expires_at
+	// are assigned from the database clock (20s + 5s) and returned on the row.
+	InsertChainSearchRun(context.Context, ChainSearchRun) (ChainSearchRun, error)
 	GetChainSearchRun(context.Context, uuid.UUID, uuid.UUID) (ChainSearchRun, error)
 	LockChainSearchRun(context.Context, uuid.UUID, uuid.UUID) error
-	UpdateChainSearchRunConditional(ctx context.Context, run ChainSearchRun, expectedStatus string, ownerToken *uuid.UUID, requireBeforeClaimExpiry bool) (bool, error)
+
+	// MarkChainSearchRunning is the only PENDING -> RUNNING / compute-start path.
+	// Requires exact owner_token and database time before deadline_at.
+	MarkChainSearchRunning(ctx context.Context, tenant, searchID, ownerToken uuid.UUID) (bool, error)
+
+	// OwnerPersistChainSearchRun applies owner persistence/terminal writes.
+	// Requires exact owner_token, expected nonterminal state, and database time
+	// before claim_expires_at. Cannot start or restart computation (no transition to RUNNING).
+	OwnerPersistChainSearchRun(ctx context.Context, run ChainSearchRun, ownerToken uuid.UUID, expectedStatus string) (bool, error)
+
+	// RecoverExpiredChainSearchClaim is an explicit recovery CAS primitive for I2B.
+	// It only terminalizes expired PENDING/RUNNING rows to FAILED/CHAIN_INTERRUPTED.
+	RecoverExpiredChainSearchClaim(ctx context.Context, tenant, searchID uuid.UUID) (bool, error)
+
 	InsertChainCandidate(context.Context, ChainCandidate) error
 	ListChainCandidates(context.Context, uuid.UUID, uuid.UUID) ([]ChainCandidate, error)
 	InsertChainSearchIdempotency(context.Context, ChainSearchIdempotency) error
 	GetChainSearchIdempotency(context.Context, uuid.UUID, string) (ChainSearchIdempotency, error)
 }
+
+// Failure code for abandoned-claim recovery (I1).
+const ChainInterruptedFailureCode = "CHAIN_INTERRUPTED"
 
 func marshalServiceDurationSnapshot(snapshot ServiceDurationSnapshot) ([]byte, error) {
 	if snapshot.State == "" {

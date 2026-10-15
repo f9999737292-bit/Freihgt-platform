@@ -26,16 +26,30 @@ func (p *Postgres) WithinChainSearch(ctx context.Context, fn func(ChainSearchTx)
 	return tx.Commit(ctx)
 }
 
-func (t *chainSearchTx) InsertChainSearchRun(ctx context.Context, run ChainSearchRun) error {
+func (t *chainSearchTx) InsertChainSearchRun(ctx context.Context, run ChainSearchRun) (ChainSearchRun, error) {
 	snapshot, err := marshalServiceDurationSnapshot(run.ServiceDurationSnapshot)
 	if err != nil {
-		return err
+		return ChainSearchRun{}, err
 	}
 	reasonCounts, err := marshalReasonCounts(run.ReasonCounts)
 	if err != nil {
-		return err
+		return ChainSearchRun{}, err
 	}
-	_, err = t.tx.Exec(ctx, `
+	status := run.Status
+	if status == "" {
+		status = ChainSearchPending
+	}
+	// Claim timing is owned by the database clock inside the insert transaction.
+	// A single clock_timestamp() seed keeps the frozen 20s + 5s window exact.
+	var (
+		createdAt      time.Time
+		deadlineAt     time.Time
+		claimExpiresAt time.Time
+	)
+	err = t.tx.QueryRow(ctx, `
+		WITH claim_clock AS (
+			SELECT clock_timestamp() AS ts
+		)
 		INSERT INTO network_optimizer.chain_search_runs (
 			id, tenant_id, status, created_at, started_at, completed_at, cancelled_at,
 			request_fingerprint, policy_version, algorithm_version, catalog_fingerprint,
@@ -46,31 +60,42 @@ func (t *chainSearchTx) InsertChainSearchRun(ctx context.Context, run ChainSearc
 			candidate_count, evaluated_pair_count, provider_call_count,
 			search_complete, global_optimum, execution_supported,
 			failure_code, cancel_reason_class, reason_counts_json
-		) VALUES (
-			$1,$2,$3,$4,$5,$6,$7,
-			$8,$9,$10,$11,
-			$12,$13,$14,$15,
-			$16,$17,$18::jsonb,
-			$19,$20,$21,
-			$22,$23,$24,$25,
-			$26,$27,$28,
-			$29,$30,$31,
-			$32,$33,$34::jsonb
-		)`,
-		run.ID, run.TenantID, run.Status, run.CreatedAt, run.StartedAt, run.CompletedAt, run.CancelledAt,
+		)
+		SELECT
+			$1,$2,$3, claim_clock.ts, $4,$5,$6,
+			$7,$8,$9,$10,
+			$11, claim_clock.ts + interval '20 seconds', $12, claim_clock.ts + interval '25 seconds',
+			$13,$14,$15::jsonb,
+			$16,$17,$18,
+			$19,$20,$21,$22,
+			$23,$24,$25,
+			$26,false,false,
+			$27,$28,$29::jsonb
+		FROM claim_clock
+		RETURNING created_at, deadline_at, claim_expires_at`,
+		run.ID, run.TenantID, status, run.StartedAt, run.CompletedAt, run.CancelledAt,
 		run.RequestFingerprint, run.PolicyVersion, run.AlgorithmVersion, run.CatalogFingerprint,
-		run.RoutingProviderVersion, run.DeadlineAt, run.OwnerToken, run.ClaimExpiresAt,
+		run.RoutingProviderVersion, run.OwnerToken,
 		run.ServiceDurationPolicyID, run.ServiceDurationPolicyVersion, snapshot,
 		run.HorizonStart, run.HorizonEnd, run.SeedSource,
 		run.SeedCapacityID, run.SeedCapacityVersion, run.SeedShipmentID, run.SeedShipmentVersion,
 		run.CandidateCount, run.EvaluatedPairCount, run.ProviderCallCount,
-		run.SearchComplete, false, false,
+		run.SearchComplete,
 		run.FailureCode, run.CancelReasonClass, reasonCounts,
-	)
+	).Scan(&createdAt, &deadlineAt, &claimExpiresAt)
 	if isUniqueViolation(err) {
-		return ErrConflict
+		return ChainSearchRun{}, ErrConflict
 	}
-	return err
+	if err != nil {
+		return ChainSearchRun{}, err
+	}
+	run.Status = status
+	run.CreatedAt = createdAt
+	run.DeadlineAt = deadlineAt
+	run.ClaimExpiresAt = claimExpiresAt
+	run.GlobalOptimum = false
+	run.ExecutionSupported = false
+	return run, nil
 }
 
 func (t *chainSearchTx) GetChainSearchRun(ctx context.Context, tenant, id uuid.UUID) (ChainSearchRun, error) {
@@ -132,41 +157,94 @@ func (t *chainSearchTx) LockChainSearchRun(ctx context.Context, tenant, id uuid.
 	return err
 }
 
-func (t *chainSearchTx) UpdateChainSearchRunConditional(
-	ctx context.Context,
-	run ChainSearchRun,
-	expectedStatus string,
-	ownerToken *uuid.UUID,
-	requireBeforeClaimExpiry bool,
-) (bool, error) {
-	// Service-duration policy id/version and snapshot are claim-time immutable.
-	// InsertChainSearchRun owns those columns; this update must not rewrite them.
+func (t *chainSearchTx) MarkChainSearchRunning(ctx context.Context, tenant, searchID, ownerToken uuid.UUID) (bool, error) {
+	if ownerToken == uuid.Nil {
+		return false, errors.New("owner_token required")
+	}
+	tag, err := t.tx.Exec(ctx, `
+		UPDATE network_optimizer.chain_search_runs
+		SET status = $4,
+		    started_at = COALESCE(started_at, now())
+		WHERE tenant_id = $1
+		  AND id = $2
+		  AND owner_token = $3
+		  AND status = $5
+		  AND now() < deadline_at`,
+		tenant, searchID, ownerToken, ChainSearchRunning, ChainSearchPending,
+	)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+func (t *chainSearchTx) OwnerPersistChainSearchRun(ctx context.Context, run ChainSearchRun, ownerToken uuid.UUID, expectedStatus string) (bool, error) {
+	if ownerToken == uuid.Nil {
+		return false, errors.New("owner_token required")
+	}
+	if expectedStatus != ChainSearchPending && expectedStatus != ChainSearchRunning {
+		return false, errors.New("expectedStatus must be nonterminal")
+	}
+	target := run.Status
+	// Owner persistence cannot start or restart computation.
+	if target == ChainSearchRunning && expectedStatus == ChainSearchPending {
+		return false, errors.New("PENDING to RUNNING requires MarkChainSearchRunning")
+	}
+	if target == ChainSearchPending {
+		return false, errors.New("owner persist cannot set status PENDING")
+	}
+	if target != ChainSearchRunning && target != ChainSearchCompleted && target != ChainSearchCancelled && target != ChainSearchFailed {
+		return false, errors.New("invalid owner persist target status")
+	}
 	reasonCounts, err := marshalReasonCounts(run.ReasonCounts)
 	if err != nil {
 		return false, err
 	}
 	tag, err := t.tx.Exec(ctx, `
 		UPDATE network_optimizer.chain_search_runs SET
-			status=$3,
-			started_at=$4,
-			completed_at=$5,
-			cancelled_at=$6,
-			candidate_count=$7,
-			evaluated_pair_count=$8,
-			provider_call_count=$9,
-			search_complete=$10,
-			failure_code=$11,
-			cancel_reason_class=$12,
-			reason_counts_json=$13::jsonb
-		WHERE tenant_id=$1 AND id=$2
-			AND status=$14
-			AND ($15::uuid IS NULL OR owner_token=$15)
-			AND ($16::boolean = false OR claim_expires_at > now())`,
+			status = $3,
+			started_at = COALESCE(started_at, $4),
+			completed_at = $5,
+			cancelled_at = $6,
+			candidate_count = $7,
+			evaluated_pair_count = $8,
+			provider_call_count = $9,
+			search_complete = $10,
+			failure_code = $11,
+			cancel_reason_class = $12,
+			reason_counts_json = $13::jsonb
+		WHERE tenant_id = $1
+		  AND id = $2
+		  AND owner_token = $14
+		  AND status = $15
+		  AND status IN ('PENDING', 'RUNNING')
+		  AND now() < claim_expires_at`,
 		run.TenantID, run.ID,
 		run.Status, run.StartedAt, run.CompletedAt, run.CancelledAt,
 		run.CandidateCount, run.EvaluatedPairCount, run.ProviderCallCount,
 		run.SearchComplete, run.FailureCode, run.CancelReasonClass, reasonCounts,
-		expectedStatus, ownerToken, requireBeforeClaimExpiry,
+		ownerToken, expectedStatus,
+	)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+func (t *chainSearchTx) RecoverExpiredChainSearchClaim(ctx context.Context, tenant, searchID uuid.UUID) (bool, error) {
+	failure := ChainInterruptedFailureCode
+	tag, err := t.tx.Exec(ctx, `
+		UPDATE network_optimizer.chain_search_runs
+		SET status = $3,
+		    search_complete = false,
+		    failure_code = $4,
+		    completed_at = COALESCE(completed_at, now()),
+		    cancel_reason_class = NULL
+		WHERE tenant_id = $1
+		  AND id = $2
+		  AND status IN ('PENDING', 'RUNNING')
+		  AND claim_expires_at <= now()`,
+		tenant, searchID, ChainSearchFailed, failure,
 	)
 	if err != nil {
 		return false, err

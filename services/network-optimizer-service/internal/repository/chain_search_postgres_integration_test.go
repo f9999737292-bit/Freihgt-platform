@@ -20,8 +20,7 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 
 	tenant := uuid.New()
 	otherTenant := uuid.New()
-	created := time.Now().UTC().Truncate(time.Millisecond)
-	deadline, claim := DeadlineAndClaimExpiry(created)
+	createdHint := time.Now().UTC()
 	owner := uuid.New()
 	policyID := uuid.New()
 	policyVersion := 2
@@ -41,20 +40,17 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 		ID:                           uuid.New(),
 		TenantID:                     tenant,
 		Status:                       ChainSearchPending,
-		CreatedAt:                    created,
 		RequestFingerprint:           "req-fp-pending",
 		PolicyVersion:                "NLO-0.9C-I0/BOUNDED_TWO_LOAD",
 		AlgorithmVersion:             "BOUNDED_TWO_ORDER_COMPARISON",
 		CatalogFingerprint:           "catalog-fp",
 		RoutingProviderVersion:       "UNKNOWN",
-		DeadlineAt:                   deadline,
 		OwnerToken:                   owner,
-		ClaimExpiresAt:               claim,
 		ServiceDurationPolicyID:      &policyID,
 		ServiceDurationPolicyVersion: &policyVersion,
 		ServiceDurationSnapshot:      knownZero,
-		HorizonStart:                 created,
-		HorizonEnd:                   created.Add(48 * time.Hour),
+		HorizonStart:                 createdHint,
+		HorizonEnd:                   createdHint.Add(48 * time.Hour),
 		SeedSource:                   ChainSeedManualAvailableCapacity,
 		SeedCapacityID:               &capacityID,
 		SeedCapacityVersion:          &capacityVersion,
@@ -62,15 +58,19 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 		EvaluatedPairCount:           0,
 		ProviderCallCount:            0,
 		SearchComplete:               false,
-		GlobalOptimum:                false,
-		ExecutionSupported:           false,
 		ReasonCounts:                 map[string]int{},
 	}
 
+	var inserted ChainSearchRun
 	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
-		return tx.InsertChainSearchRun(ctx, pending)
+		var err error
+		inserted, err = tx.InsertChainSearchRun(ctx, pending)
+		return err
 	}); err != nil {
 		t.Fatalf("insert pending: %v", err)
+	}
+	if !inserted.DeadlineAt.Equal(inserted.CreatedAt.Add(20*time.Second)) || !inserted.ClaimExpiresAt.Equal(inserted.DeadlineAt.Add(5*time.Second)) {
+		t.Fatalf("DB claim window mismatch created=%v deadline=%v claim=%v", inserted.CreatedAt, inserted.DeadlineAt, inserted.ClaimExpiresAt)
 	}
 
 	var got ChainSearchRun
@@ -87,9 +87,6 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 	if got.ServiceDurationSnapshot.State != ServiceDurationKnown || got.ServiceDurationSnapshot.PickupSeconds == nil || *got.ServiceDurationSnapshot.PickupSeconds != 0 {
 		t.Fatalf("known zero not preserved: %+v", got.ServiceDurationSnapshot)
 	}
-	if !got.DeadlineAt.Equal(deadline) || !got.ClaimExpiresAt.Equal(claim) {
-		t.Fatalf("deadline/claim mismatch got %v %v", got.DeadlineAt, got.ClaimExpiresAt)
-	}
 
 	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
 		_, err := tx.GetChainSearchRun(ctx, otherTenant, pending.ID)
@@ -101,17 +98,27 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 		t.Fatalf("cross-tenant get: %v", err)
 	}
 
-	started := created.Add(time.Second)
-	completed := created.Add(10 * time.Second)
+	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+		ok, err := tx.MarkChainSearchRunning(ctx, tenant, pending.ID, owner)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			t.Fatal("mark running missed")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("mark running: %v", err)
+	}
+
+	completed := time.Now().UTC()
 	terminal := got
 	terminal.Status = ChainSearchCompleted
-	terminal.StartedAt = &started
 	terminal.CompletedAt = &completed
 	terminal.SearchComplete = true
 	terminal.CandidateCount = 1
 	terminal.EvaluatedPairCount = 2
 	terminal.ProviderCallCount = 3
-	// Attempt to poison duration fields; repository must ignore them on update.
 	terminal.ServiceDurationPolicyID = nil
 	terminal.ServiceDurationPolicyVersion = nil
 	terminal.ServiceDurationSnapshot = ServiceDurationSnapshot{State: ServiceDurationUnknown, PickupKnown: false, DeliveryKnown: false}
@@ -121,12 +128,12 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 		if err := tx.LockChainSearchRun(ctx, tenant, pending.ID); err != nil {
 			return err
 		}
-		ok, err := tx.UpdateChainSearchRunConditional(ctx, terminal, ChainSearchPending, &owner, true)
+		ok, err := tx.OwnerPersistChainSearchRun(ctx, terminal, owner, ChainSearchRunning)
 		if err != nil {
 			return err
 		}
 		if !ok {
-			t.Fatal("conditional update missed")
+			t.Fatal("owner persist missed")
 		}
 		return nil
 	}); err != nil {
@@ -214,7 +221,7 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 		IdempotencyKey:     "idem-1",
 		RequestFingerprint: pending.RequestFingerprint,
 		SearchID:           pending.ID,
-		CreatedAt:          created,
+		CreatedAt:          inserted.CreatedAt,
 	}
 	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
 		return tx.InsertChainSearchIdempotency(ctx, idem)
@@ -251,8 +258,7 @@ func TestI2A_PG_IMMUTABLE_01_ServiceDurationSnapshot(t *testing.T) {
 	store := NewPostgres(pool)
 
 	tenant := uuid.New()
-	created := time.Now().UTC().Truncate(time.Millisecond)
-	deadline, claim := DeadlineAndClaimExpiry(created)
+	createdHint := time.Now().UTC()
 	owner := uuid.New()
 	policyID := uuid.New()
 	policyVersion := 3
@@ -263,15 +269,12 @@ func TestI2A_PG_IMMUTABLE_01_ServiceDurationSnapshot(t *testing.T) {
 		ID:                           uuid.New(),
 		TenantID:                     tenant,
 		Status:                       ChainSearchPending,
-		CreatedAt:                    created,
 		RequestFingerprint:           "req-fp-immutable",
 		PolicyVersion:                "NLO-0.9C-I0/BOUNDED_TWO_LOAD",
 		AlgorithmVersion:             "BOUNDED_TWO_ORDER_COMPARISON",
 		CatalogFingerprint:           "catalog-fp",
 		RoutingProviderVersion:       "UNKNOWN",
-		DeadlineAt:                   deadline,
 		OwnerToken:                   owner,
-		ClaimExpiresAt:               claim,
 		ServiceDurationPolicyID:      &policyID,
 		ServiceDurationPolicyVersion: &policyVersion,
 		ServiceDurationSnapshot: ServiceDurationSnapshot{
@@ -283,24 +286,35 @@ func TestI2A_PG_IMMUTABLE_01_ServiceDurationSnapshot(t *testing.T) {
 			DeliveryKnown:   true,
 			DeliverySeconds: &zero,
 		},
-		HorizonStart:        created,
-		HorizonEnd:          created.Add(48 * time.Hour),
+		HorizonStart:        createdHint,
+		HorizonEnd:          createdHint.Add(48 * time.Hour),
 		SeedSource:          ChainSeedManualAvailableCapacity,
 		SeedCapacityID:      &capacityID,
 		SeedCapacityVersion: &capacityVersion,
 		ReasonCounts:        map[string]int{},
 	}
 	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
-		return tx.InsertChainSearchRun(ctx, original)
+		_, err := tx.InsertChainSearchRun(ctx, original)
+		return err
 	}); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
+	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+		ok, err := tx.MarkChainSearchRunning(ctx, tenant, original.ID, owner)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			t.Fatal("mark running missed")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("mark running: %v", err)
+	}
 
-	started := created.Add(time.Second)
-	completed := created.Add(5 * time.Second)
+	completed := time.Now().UTC()
 	poisoned := original
 	poisoned.Status = ChainSearchCompleted
-	poisoned.StartedAt = &started
 	poisoned.CompletedAt = &completed
 	poisoned.SearchComplete = true
 	poisoned.ServiceDurationPolicyID = nil
@@ -313,7 +327,7 @@ func TestI2A_PG_IMMUTABLE_01_ServiceDurationSnapshot(t *testing.T) {
 	poisoned.ReasonCounts = map[string]int{"X": 1}
 
 	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
-		ok, err := tx.UpdateChainSearchRunConditional(ctx, poisoned, ChainSearchPending, &owner, true)
+		ok, err := tx.OwnerPersistChainSearchRun(ctx, poisoned, owner, ChainSearchRunning)
 		if err != nil {
 			return err
 		}
