@@ -62,7 +62,7 @@ Not a second freight exchange, not a second RFx engine, not a second freight-cos
 | [NLO_0_3_IMPLEMENTATION_ROADMAP.md](NLO_0_3_IMPLEMENTATION_ROADMAP.md) | Frozen waves, traceability, and acceptance |
 | [NLO_0_4_IMPLEMENTATION_ROADMAP.md](NLO_0_4_IMPLEMENTATION_ROADMAP.md) | NLO-0.4B, NLO-0.4C, and NLO-0.4D are on main. NLO-0.4D is accepted and closed at `00b53de9db50cdc1e875df95b8ba7ef2daa0fe8a` |
 | [NLO_0_4A_CURRENT_STATE_INVENTORY.md](NLO_0_4A_CURRENT_STATE_INVENTORY.md) | Route-plan discovery inventory |
-| [adr/](adr/) | ADR-NET-001 … ADR-NET-024 |
+| [adr/](adr/) | ADR-NET-001 … ADR-NET-026 |
 | [NLO_0_5A_CURRENT_STATE_INVENTORY.md](NLO_0_5A_CURRENT_STATE_INVENTORY.md) | Routing and search inventory for backhaul |
 | [NLO_0_5A_BACKHAUL_MODEL.md](NLO_0_5A_BACKHAUL_MODEL.md) | One-load backhaul |
 | [NLO_0_5A_ROUNDTRIP_MODEL.md](NLO_0_5A_ROUNDTRIP_MODEL.md) | Bounded return toward the policy target |
@@ -77,6 +77,8 @@ Not a second freight exchange, not a second RFx engine, not a second freight-cos
 | [NLO_0_9A_CHAIN_TEST_AND_IMPLEMENTATION_ROADMAP.md](NLO_0_9A_CHAIN_TEST_AND_IMPLEMENTATION_ROADMAP.md) | Future chain tests and the unauthorized later stages |
 | [NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md](NLO_0_9B_CHAIN_ARCHITECTURE_FREEZE.md) | Frozen two-load chain policy: horizon, budget, objective, identity, privacy, stacking, and execution boundary |
 | [adr/ADR-NET-025-bounded-two-load-chain.md](adr/ADR-NET-025-bounded-two-load-chain.md) | Architecture-only acceptance of the NLO-0.9B two-load chain decisions |
+| [NLO_0_9C_I1_CHAIN_PERSISTENCE_DESIGN.md](NLO_0_9C_I1_CHAIN_PERSISTENCE_DESIGN.md) | Durable search run, shortlist, idempotency, fingerprints, and public API contract freeze |
+| [adr/ADR-NET-026-chain-search-persistence.md](adr/ADR-NET-026-chain-search-persistence.md) | Architecture-only acceptance of the NLO-0.9C-I1 persistence and API contract |
 | [NLO_0_5B_TEST_STRATEGY.md](NLO_0_5B_TEST_STRATEGY.md) | B2 routing-budget gates and B3 one-load feasibility |
 | [NLO_0_5B0_BENCHMARK.md](NLO_0_5B0_BENCHMARK.md) | Local prefilter sample and uncapped call accounting |
 | [NLO_0_4D_ARCHITECTURE_FREEZE.md](NLO_0_4D_ARCHITECTURE_FREEZE.md) | NLO-0.4D-R1 docs-only freeze for service duration and TMS acknowledgement |
@@ -84,7 +86,7 @@ Not a second freight exchange, not a second RFx engine, not a second freight-cos
 | [EXECUTION_HANDOFF_ACK.md](EXECUTION_HANDOFF_ACK.md) | Synchronous projection acknowledgement |
 | [ACTIVATION_STATE_MACHINE.md](ACTIVATION_STATE_MACHINE.md) | Activation statuses and link gates |
 
-ADR numbering follows the repository convention of a domain prefix (`ADR-EDO-*`, `ADR-RFX-*`, `ADR-PLAT-*`). ADR-NET-001 through ADR-NET-012 remain Proposed. ADR-NET-013 through ADR-NET-021 are Accepted. ADR-NET-022 records the NLO-0.4D service-duration and execution-acknowledgement freeze. ADR-NET-023 is the NLO-0.5A backhaul and roundtrip architecture, merged in PR #201 at `4c8b22e8`. ADR-NET-024 accepts the bounded search policy: discovery 1000 is enforced by NLO-0.5B1, the routing budget is enforced by NLO-0.5B2, and one-load feasibility is evaluated by NLO-0.5B3. `BACKHAUL_RUNTIME_IMPLEMENTED=NO`. `ROUNDTRIP_RUNTIME_IMPLEMENTED=NO`. `EXTERNAL_PROVIDER_BENCHMARK=BLOCKED`. `PROVIDER_SLA_PROVEN=NO`. NLO-0.3 is complete. NLO-0.4A architecture is frozen. NLO-0.4B is IMPLEMENTED_CLOSED on main `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c` (PR #184, migration `000085_nlo_route_plan_bounded_planner_v0_4b`). `NLO_0_4_IMPLEMENTATION_STARTED=YES`. `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`. `NLO_0_4C_ACCEPTED=YES`. `NLO_0_4D_ACCEPTED=YES`. `NLO_0_4D_CLOSED=YES`. `NLO_0_4D_MERGE_SHA=00b53de9db50cdc1e875df95b8ba7ef2daa0fe8a`. `TMS_PROJECTION_HANDSHAKE_IMPLEMENTED=YES`. NLO-0.5A is merged at `4c8b22e8`. NLO-0.5B1 is merged at `349eedc89e0c47a71e3b23a107cc97fad5aebc91`.
+ADR numbering follows the repository convention of a domain prefix (`ADR-EDO-*`, `ADR-RFX-*`, `ADR-PLAT-*`). ADR-NET-001 through ADR-NET-012 remain Proposed. ADR-NET-013 through ADR-NET-021 are Accepted. ADR-NET-022 records the NLO-0.4D service-duration and execution-acknowledgement freeze. ADR-NET-023 is the NLO-0.5A backhaul and roundtrip architecture, merged in PR #201 at `4c8b22e8`. ADR-NET-024 accepts the bounded search policy: discovery 1000 is enforced by NLO-0.5B1, the routing budget is enforced by NLO-0.5B2, and one-load feasibility is evaluated by NLO-0.5B3. ADR-NET-025 accepts the NLO-0.9B two-load chain architecture. ADR-NET-026 accepts the NLO-0.9C-I1 durable chain-search persistence and API contract only. `BACKHAUL_RUNTIME_IMPLEMENTED=NO`. `ROUNDTRIP_RUNTIME_IMPLEMENTED=NO`. `EXTERNAL_PROVIDER_BENCHMARK=BLOCKED`. `PROVIDER_SLA_PROVEN=NO`. NLO-0.3 is complete. NLO-0.4A architecture is frozen. NLO-0.4B is IMPLEMENTED_CLOSED on main `0fc6a7979ca5ea0cbbbd50ff5770bbbf22304a5c` (PR #184, migration `000085_nlo_route_plan_bounded_planner_v0_4b`). `NLO_0_4_IMPLEMENTATION_STARTED=YES`. `NLO_0_4B_STATUS=IMPLEMENTED_CLOSED`. `NLO_0_4C_ACCEPTED=YES`. `NLO_0_4D_ACCEPTED=YES`. `NLO_0_4D_CLOSED=YES`. `NLO_0_4D_MERGE_SHA=00b53de9db50cdc1e875df95b8ba7ef2daa0fe8a`. `TMS_PROJECTION_HANDSHAKE_IMPLEMENTED=YES`. NLO-0.5A is merged at `4c8b22e8`. NLO-0.5B1 is merged at `349eedc89e0c47a71e3b23a107cc97fad5aebc91`.
 
 ## NLO-0.9A chain optimizer discovery
 
@@ -105,6 +107,18 @@ NLO_0_9B_STATUS=ARCHITECTURE_FROZEN
 CHAIN_RUNTIME_IMPLEMENTED=NO
 RUNTIME_IMPLEMENTATION_AUTHORIZED=NO
 IMPLEMENTATION_AUTHORIZED=NO
+```
+
+## NLO-0.9C-I1 chain persistence design
+
+NLO-0.9C-I0 placed the in-memory two-load engine on main without durable tables or a public route. NLO-0.9C-I1 freezes the persistence and public API contract for search runs, shortlists, durable idempotency, fingerprints, and cancellation. It does not create a migration or activate endpoints. See [NLO_0_9C_I1_CHAIN_PERSISTENCE_DESIGN.md](NLO_0_9C_I1_CHAIN_PERSISTENCE_DESIGN.md) and [ADR-NET-026](adr/ADR-NET-026-chain-search-persistence.md).
+
+```text
+NLO_0_9C_I1_STATUS=PERSISTENCE_API_CONTRACT_FROZEN
+MIGRATION_NUMBER=UNASSIGNED
+MIGRATION_CREATED=NO
+PUBLIC_CHAIN_ENDPOINT_ACTIVE=NO
+PERSISTENCE_IMPLEMENTATION_AUTHORIZED=NO
 ```
 
 ## Status labels used in discovery
