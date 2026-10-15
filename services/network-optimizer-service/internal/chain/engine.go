@@ -62,17 +62,17 @@ func (e Engine) Search(ctx context.Context, req Request) (Result, error) {
 	}
 	if err := ctx.Err(); err != nil {
 		result.Status = StatusCancelled
-		result.SearchID = e.nextID()
+		result.SearchID = resolveSearchID(e, req)
 		return e.finish(ctx, req, hash, nil, result)
 	}
-	horizonStart, horizonEnd, ok := horizonBounds(req.Seed, started)
+	horizonStart, horizonEnd, ok := resolveHorizon(req, started)
 	if !ok {
 		result.Status = StatusRejected
 		result.ReasonCounts[ReasonWindowNotAbsolute] = 1
-		result.SearchID = e.nextID()
+		result.SearchID = resolveSearchID(e, req)
 		return e.finish(ctx, req, hash, nil, result)
 	}
-	result.SearchID = e.nextID()
+	result.SearchID = resolveSearchID(e, req)
 	result.HorizonStart = horizonStart
 	result.HorizonEnd = horizonEnd
 	base := req.Route
@@ -80,7 +80,10 @@ func (e Engine) Search(ctx context.Context, req Request) (Result, error) {
 		base = unavailableProvider{}
 	}
 	deadline := effectiveComputeDeadline(started, req.ComputeDeadline)
-	limited := &limitedProvider{base: base, now: now, deadline: deadline}
+	limited := &limitedProvider{
+		base: base, now: now, deadline: deadline,
+		durableAbsolute: req.ComputeDeadline != nil && !req.ComputeDeadline.IsZero(),
+	}
 	if !started.Before(deadline) {
 		result.Status = StatusBudgetExhausted
 		result.SearchComplete = false
@@ -705,6 +708,25 @@ func effectiveComputeDeadline(started time.Time, absolute *time.Time) time.Time 
 		return persisted
 	}
 	return fresh
+}
+
+func resolveSearchID(e Engine, req Request) uuid.UUID {
+	if req.DurableSearchID != nil && *req.DurableSearchID != uuid.Nil {
+		return *req.DurableSearchID
+	}
+	return e.nextID()
+}
+
+func resolveHorizon(req Request, started time.Time) (time.Time, time.Time, bool) {
+	if req.PersistedHorizonStart != nil && req.PersistedHorizonEnd != nil {
+		start := req.PersistedHorizonStart.UTC()
+		end := req.PersistedHorizonEnd.UTC()
+		if start.IsZero() || end.IsZero() {
+			return time.Time{}, time.Time{}, false
+		}
+		return start, end, true
+	}
+	return horizonBounds(req.Seed, started)
 }
 
 func requestHash(req Request) string {

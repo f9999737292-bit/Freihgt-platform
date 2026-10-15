@@ -43,7 +43,8 @@ var (
 	ErrDurationSnapshot      = errors.New("service duration snapshot cannot be consumed safely")
 	ErrFingerprintConflict   = errors.New("idempotency fingerprint conflict")
 	ErrInProgress            = errors.New("chain search in progress")
-	errFencedDiscard         = errors.New("owner fenced output discarded")
+	ErrDurationResolverRequired = errors.New("DurationResolver is required")
+	errFencedDiscard            = errors.New("owner fenced output discarded")
 )
 
 // DurationResolver is the server-owned active-policy source for claim provenance.
@@ -93,14 +94,12 @@ type FingerprintInput struct {
 
 // ClaimRequest creates a PENDING search + idempotency mapping atomically.
 // Search IDs are always generated internally; callers cannot choose them.
+// Persisted horizon bounds are derived server-side from fingerprint anchors
+// (AvailableFrom/Until or SEARCH_CLOCK+48H) — callers cannot inject them.
 type ClaimRequest struct {
 	TenantID       uuid.UUID
 	IdempotencyKey string
 	Fingerprint    FingerprintInput
-	// HorizonStart/End are persisted execution bounds derived from frozen anchors.
-	// They are not hashed into the request fingerprint.
-	HorizonStart time.Time
-	HorizonEnd   time.Time
 }
 
 // ClaimResult is the internal orchestration result of Claim.

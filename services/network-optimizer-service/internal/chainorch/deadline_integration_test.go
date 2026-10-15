@@ -28,7 +28,10 @@ func (p *countingProvider) Route(ctx context.Context, _ routing.RouteRequest) (r
 	if dl, ok := ctx.Deadline(); ok {
 		p.lastTO.Store(time.Until(dl))
 	}
-	return routing.RouteResult{DistanceM: 1000, DurationSeconds: 60}, nil
+	return routing.RouteResult{
+		Provider: "script", DistanceM: 1000, DurationSeconds: 60,
+		CalculatedAt: time.Unix(1, 0).UTC(), ExpiresAt: time.Unix(1, 0).UTC().Add(time.Hour),
+	}, nil
 }
 
 func (p *countingProvider) Matrix(context.Context, routing.MatrixRequest) (routing.MatrixResult, error) {
@@ -171,25 +174,126 @@ func TestI2B_DeadlineContract(t *testing.T) {
 			t.Fatalf("terminal persistence in grace ok=%v err=%v", ok, err)
 		}
 	})
+
+	t.Run("I2B-DEADLINE-06 stale Request.Now cannot keep compute open past wall deadline", func(t *testing.T) {
+		tenant := uuid.New()
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "dl-06", i2bFP(tenant)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		run := res.Search
+		setDeadlineIn(t, ctx, pool, run.ID, 1*time.Second)
+		run = getRun(t, ctx, store, tenant, run.ID)
+		frozen := time.Now().UTC() // looks "before" deadline if frozen, but we sleep past it
+		prov := &countingProvider{}
+		base := durableChainRequest(tenant, prov, func() time.Time { return frozen }, frozen)
+		base.Loads = []chain.VisibleLoad{visibleLoad(tenant, frozen, 1), visibleLoad(tenant, frozen, 2)}
+		time.Sleep(1200 * time.Millisecond)
+		out, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, run, base)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if atomic.LoadInt32(&prov.calls) != 0 || out.ProviderCalls != 0 {
+			t.Fatalf("stale Now must not allow compute after wall deadline calls=%d", prov.calls)
+		}
+	})
+
+	t.Run("I2B-DEADLINE-07 stale Request.Now cannot extend route-plan evaluation", func(t *testing.T) {
+		tenant := uuid.New()
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "dl-07", i2bFP(tenant)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		run := res.Search
+		expireToPastDeadline(t, ctx, pool, run.ID)
+		run = getRun(t, ctx, store, tenant, run.ID)
+		// Fake Now still deep inside a 20s window relative to claim creation.
+		fakeNow := run.CreatedAt.Add(time.Second)
+		prov := &countingProvider{}
+		base := durableChainRequest(tenant, prov, func() time.Time { return fakeNow }, fakeNow)
+		base.Loads = []chain.VisibleLoad{visibleLoad(tenant, fakeNow, 1), visibleLoad(tenant, fakeNow, 2)}
+		out, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, run, base)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if atomic.LoadInt32(&prov.calls) != 0 || out.ProviderCalls != 0 {
+			t.Fatal("route-plan/provider must not start after durable deadline despite fake Now")
+		}
+	})
+
+	t.Run("I2B-DEADLINE-08 in-flight provider cannot outlive persisted deadline_at", func(t *testing.T) {
+		tenant := uuid.New()
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "dl-08", i2bFP(tenant)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		run := res.Search
+		setDeadlineIn(t, ctx, pool, run.ID, 2*time.Second)
+		run = getRun(t, ctx, store, tenant, run.ID)
+		block := &blockingProvider{blockFor: 8 * time.Second}
+		base := durableChainRequest(tenant, block, time.Now, time.Now().UTC())
+		base.Loads = []chain.VisibleLoad{visibleLoad(tenant, time.Now().UTC(), 1)}
+		start := time.Now()
+		_, _ = chainorch.RunDurableChainSearch(ctx, chain.Engine{}, run, base)
+		elapsed := time.Since(start)
+		if elapsed > 4*time.Second {
+			t.Fatalf("provider call outlived absolute deadline elapsed=%v", elapsed)
+		}
+		if !block.sawCancel {
+			t.Fatal("expected provider context cancellation from absolute deadline")
+		}
+	})
+
+	t.Run("I2B-DEADLINE-09 no fresh provider timeouts after absolute deadline", func(t *testing.T) {
+		tenant := uuid.New()
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "dl-09", i2bFP(tenant)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		run := res.Search
+		expireToPastDeadline(t, ctx, pool, run.ID)
+		run = getRun(t, ctx, store, tenant, run.ID)
+		prov := &countingProvider{}
+		base := durableChainRequest(tenant, prov, time.Now, time.Now().UTC())
+		base.Loads = []chain.VisibleLoad{
+			visibleLoad(tenant, time.Now().UTC(), 1),
+			visibleLoad(tenant, time.Now().UTC(), 2),
+			visibleLoad(tenant, time.Now().UTC(), 3),
+		}
+		out, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, run, base)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if atomic.LoadInt32(&prov.calls) != 0 || out.ProviderCalls != 0 {
+			t.Fatalf("no provider calls after deadline calls=%d", prov.calls)
+		}
+	})
+}
+
+type blockingProvider struct {
+	blockFor  time.Duration
+	sawCancel bool
+}
+
+func (p *blockingProvider) Route(ctx context.Context, _ routing.RouteRequest) (routing.RouteResult, error) {
+	select {
+	case <-time.After(p.blockFor):
+		return routing.RouteResult{
+			Provider: "script", DistanceM: 1000, DurationSeconds: 60,
+			CalculatedAt: time.Unix(1, 0).UTC(), ExpiresAt: time.Unix(1, 0).UTC().Add(time.Hour),
+		}, nil
+	case <-ctx.Done():
+		p.sawCancel = true
+		return routing.RouteResult{}, ctx.Err()
+	}
+}
+
+func (p *blockingProvider) Matrix(context.Context, routing.MatrixRequest) (routing.MatrixResult, error) {
+	return routing.MatrixResult{}, routing.ErrInvalidResponse
 }
 
 func durableChainRequest(tenant uuid.UUID, route routing.Provider, now func() time.Time, clock time.Time) chain.Request {
-	loc := uuid.New()
-	return chain.Request{
-		TenantID: tenant,
-		Seed: chain.Seed{
-			Source: chain.SeedManualAvailable,
-			Start: routeplan.Point{
-				Kind: routeplan.PointCanonical, LocationID: &loc, Latitude: 1, Longitude: 2, Source: routeplan.SourceCanonical,
-			},
-			Capacity: chain.Capacity{
-				Payload: chain.Dimension{Known: true, Value: 1000},
-			},
-		},
-		VehicleProfile: routing.VehicleProfile{},
-		Now:            now,
-		Route:          route,
-	}
+	return durableExecRequest(tenant, route, clock)
 }
 
 func visibleLoad(tenant uuid.UUID, clock time.Time, n int) chain.VisibleLoad {

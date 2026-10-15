@@ -698,13 +698,10 @@ func i2bFP(tenant uuid.UUID) chainorch.FingerprintInput {
 }
 
 func i2bClaim(tenant uuid.UUID, key string, fp chainorch.FingerprintInput) chainorch.ClaimRequest {
-	now := time.Now().UTC().Truncate(time.Second)
 	return chainorch.ClaimRequest{
 		TenantID:       tenant,
 		IdempotencyKey: key,
 		Fingerprint:    fp,
-		HorizonStart:   now,
-		HorizonEnd:     now.Add(48 * time.Hour),
 	}
 }
 

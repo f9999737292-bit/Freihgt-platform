@@ -4,20 +4,33 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/freight-platform/network-optimizer-service/internal/chain"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
 )
 
-// PrepareDurableChainRequest binds a claimed search's persisted deadline and
-// immutable duration snapshot into a chain.Request for real engine execution.
+// PrepareDurableChainRequest binds a claimed search's persisted identity, horizon,
+// absolute deadline, and immutable duration snapshot into a chain.Request.
 //
-// ComputeDeadline is the absolute persisted deadline_at (never restarted as
-// engine_start+20s). Duration comes only from the stored snapshot.
+// Durable orchestration owns idempotency: legacy IdempotencyKey / engine.Repository
+// paths are cleared. ClientChainID is stripped. Request.Now is replaced with the
+// server wall clock so a stale caller clock cannot extend compute.
 func PrepareDurableChainRequest(run repository.ChainSearchRun, base chain.Request) (chain.Request, error) {
 	out := base
 	out.TenantID = run.TenantID
+	out.IdempotencyKey = ""
+	out.ClientChainID = nil
+	id := run.ID
+	out.DurableSearchID = &id
+	hs := run.HorizonStart.UTC()
+	he := run.HorizonEnd.UTC()
+	out.PersistedHorizonStart = &hs
+	out.PersistedHorizonEnd = &he
 	deadline := run.DeadlineAt.UTC()
 	out.ComputeDeadline = &deadline
+	// Server-owned wall clock for all durable engine/provider deadline checks.
+	out.Now = time.Now
 	if err := ApplyStoredDurationToChainRequest(&out, run.ServiceDurationSnapshot); err != nil {
 		return chain.Request{}, err
 	}
@@ -43,22 +56,42 @@ func RemainingComputeBudget(run repository.ChainSearchRun, now time.Time) time.D
 }
 
 // RunDurableChainSearch executes the in-memory chain engine under the claimed
-// search's persisted absolute deadline and stored duration snapshot.
+// search's persisted identity, horizon, absolute deadline, and stored duration.
+// The engine copy has Repository=nil so legacy Claim/Commit cannot run.
 func RunDurableChainSearch(ctx context.Context, engine chain.Engine, run repository.ChainSearchRun, base chain.Request) (chain.Result, error) {
 	prepared, err := PrepareDurableChainRequest(run, base)
 	if err != nil {
 		return chain.Result{}, err
 	}
-	if prepared.ComputeDeadline != nil && !time.Now().UTC().Before(prepared.ComputeDeadline.UTC()) {
-		// Fail closed before engine work when already past durable deadline.
-		res := chain.Result{
+	deadline := run.DeadlineAt.UTC()
+	wallNow := time.Now().UTC()
+	if !wallNow.Before(deadline) {
+		return chain.Result{
 			SearchID:       run.ID,
 			Status:         chain.StatusBudgetExhausted,
 			SearchComplete: false,
 			NoRetry:        true,
+			HorizonStart:   run.HorizonStart,
+			HorizonEnd:     run.HorizonEnd,
 			ReasonCounts:   map[string]int{},
-		}
-		return res, nil
+		}, nil
 	}
-	return engine.Search(ctx, prepared)
+	// Absolute context deadline so provider work cannot outlive persisted deadline_at.
+	execCtx, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
+
+	durableEngine := engine
+	durableEngine.Repository = nil
+	if durableEngine.NewID == nil {
+		// Defensive: durable path must never allocate a different public identity.
+		pinned := run.ID
+		durableEngine.NewID = func() uuid.UUID { return pinned }
+	}
+
+	result, err := durableEngine.Search(execCtx, prepared)
+	// Pin durable resource identity and horizon regardless of engine internals.
+	result.SearchID = run.ID
+	result.HorizonStart = run.HorizonStart
+	result.HorizonEnd = run.HorizonEnd
+	return result, err
 }

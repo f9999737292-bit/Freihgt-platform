@@ -82,9 +82,16 @@ type Request struct {
 	// When set, the engine uses it instead of started+WallClockBudget so a late
 	// start cannot reopen a fresh 20s window past the persisted claim deadline.
 	ComputeDeadline *time.Time
-	Groupage        func([]compat.GroupageItem) compat.Result
-	Now             func() time.Time
-	Route           routing.Provider
+	// DurableSearchID, when set, is the already-allocated chain_search_runs.id.
+	// The engine must not allocate a second search identity.
+	DurableSearchID *uuid.UUID
+	// PersistedHorizonStart/End, when both set, are the durable run's stored
+	// horizon bounds. The engine must not re-derive a new horizon from start time.
+	PersistedHorizonStart *time.Time
+	PersistedHorizonEnd   *time.Time
+	Groupage              func([]compat.GroupageItem) compat.Result
+	Now                   func() time.Time
+	Route                 routing.Provider
 }
 
 type Result struct {

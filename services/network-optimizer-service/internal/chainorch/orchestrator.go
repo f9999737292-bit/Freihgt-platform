@@ -56,12 +56,7 @@ func (o *Orchestrator) Claim(ctx context.Context, req ClaimRequest) (ClaimResult
 	}
 	fp := ComputeRequestFingerprint(fpIn)
 	searchID := uuid.New()
-
-	horizonStart := req.HorizonStart
-	horizonEnd := req.HorizonEnd
-	if horizonStart.IsZero() || horizonEnd.IsZero() {
-		horizonStart, horizonEnd = derivePersistedHorizon(fpIn, o.now())
-	}
+	horizonStart, horizonEnd := derivePersistedHorizon(fpIn, o.now())
 
 	run := repository.ChainSearchRun{
 		ID:                           searchID,
@@ -119,11 +114,13 @@ func (o *Orchestrator) Claim(ctx context.Context, req ClaimRequest) (ClaimResult
 
 func (o *Orchestrator) resolveDuration(ctx context.Context, tenant uuid.UUID) (repository.ServiceDurationSnapshot, error) {
 	if o.DurationResolver == nil {
-		return UnknownDurationSnapshot(), nil
+		return repository.ServiceDurationSnapshot{}, ErrDurationResolverRequired
 	}
 	return o.DurationResolver.ResolveServiceDuration(ctx, tenant)
 }
 
+// derivePersistedHorizon builds durable horizon bounds from fingerprint anchors.
+// Manual: AvailableFrom/Until. Search-clock: server claim clock + frozen 48h policy.
 func derivePersistedHorizon(in FingerprintInput, clock time.Time) (time.Time, time.Time) {
 	start := clock.UTC()
 	if in.AvailableFrom != nil && !in.AvailableFrom.IsZero() {
