@@ -5,7 +5,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/freight-platform/network-optimizer-service/internal/chain"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
+	"github.com/freight-platform/network-optimizer-service/internal/routeplan"
 )
 
 func TestI2B_15_KnownZeroDistinctFromUnknown(t *testing.T) {
@@ -19,13 +21,13 @@ func TestI2B_15_KnownZeroDistinctFromUnknown(t *testing.T) {
 	if fpZero == fpUnknown {
 		t.Fatal("request fingerprints must differ for KNOWN_ZERO vs UNKNOWN")
 	}
-	sec, err := EffectiveServiceDurationSeconds(zero)
-	if err != nil || sec == nil || *sec != 0 {
-		t.Fatalf("known zero seconds=%v err=%v", sec, err)
+	actions, err := ActionServiceSecondsFromSnapshot(zero)
+	if err != nil || actions == nil || actions[routeplan.ActionPickup] != 0 || actions[routeplan.ActionDelivery] != 0 {
+		t.Fatalf("known zero actions=%v err=%v", actions, err)
 	}
-	sec, err = EffectiveServiceDurationSeconds(unknown)
-	if err != nil || sec != nil {
-		t.Fatalf("unknown must yield nil seconds got=%v err=%v", sec, err)
+	actions, err = ActionServiceSecondsFromSnapshot(unknown)
+	if err != nil || actions != nil {
+		t.Fatalf("unknown must yield nil actions got=%v err=%v", actions, err)
 	}
 }
 
@@ -35,9 +37,9 @@ func TestI2B_14_DurationPolicyChangeChangesFingerprint(t *testing.T) {
 	b := SnapshotFromPolicy(repository.ServiceDurationPolicy{ID: id, Version: 2, PickupSeconds: 60, DeliverySeconds: 60})
 	c := SnapshotFromPolicy(repository.ServiceDurationPolicy{ID: id, Version: 1, PickupSeconds: 90, DeliverySeconds: 90})
 	base := FingerprintInput{
-		PolicyVersion: "p", AlgorithmVersion: "a", CatalogFingerprint: "c",
+		TenantID: uuid.New(), PolicyVersion: "p", AlgorithmVersion: "a", CatalogFingerprint: "c",
 		RoutingProviderVersion: "r", SeedSource: repository.ChainSeedManualAvailableCapacity,
-		Duration: a,
+		HorizonAnchorPolicy: HorizonAnchorSearchClock, Duration: a,
 	}
 	fpA := ComputeRequestFingerprint(base)
 	base.Duration = b
@@ -49,18 +51,25 @@ func TestI2B_14_DurationPolicyChangeChangesFingerprint(t *testing.T) {
 	}
 }
 
-func TestApplyStoredDurationToChainRequest(t *testing.T) {
-	var dest *int
+func TestI2B_DUR_AsymmetricPickupDelivery(t *testing.T) {
 	snap := SnapshotFromPolicy(repository.ServiceDurationPolicy{
-		ID: uuid.New(), Version: 1, PickupSeconds: 120, DeliverySeconds: 120,
+		ID: uuid.New(), Version: 1, PickupSeconds: 900, DeliverySeconds: 1200,
 	})
-	if err := ApplyStoredDurationToChainRequest(&dest, snap); err != nil || dest == nil || *dest != 120 {
-		t.Fatalf("apply known dest=%v err=%v", dest, err)
+	actions, err := ActionServiceSecondsFromSnapshot(snap)
+	if err != nil {
+		t.Fatal(err)
 	}
-	asym := snap
-	d := 200
-	asym.DeliverySeconds = &d
-	if err := ApplyStoredDurationToChainRequest(&dest, asym); err == nil {
-		t.Fatal("asymmetric snapshot must fail closed")
+	if actions[routeplan.ActionPickup] != 900 || actions[routeplan.ActionDelivery] != 1200 {
+		t.Fatalf("asymmetric actions=%v", actions)
+	}
+	var req chain.Request
+	if err := ApplyStoredDurationToChainRequest(&req, snap); err != nil {
+		t.Fatal(err)
+	}
+	if req.ServiceDurationSeconds != nil {
+		t.Fatal("scalar must stay nil when action map is used")
+	}
+	if req.ActionServiceSeconds[routeplan.ActionPickup] != 900 {
+		t.Fatalf("pickup=%v", req.ActionServiceSeconds)
 	}
 }

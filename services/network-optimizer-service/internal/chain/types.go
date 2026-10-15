@@ -73,9 +73,18 @@ type Request struct {
 	Loads                  []VisibleLoad
 	VehicleProfile         routing.VehicleProfile
 	ServiceDurationSeconds *int
-	Groupage               func([]compat.GroupageItem) compat.Result
-	Now                    func() time.Time
-	Route                  routing.Provider
+	// ActionServiceSeconds maps routeplan action types (PICKUP/DELIVERY) to
+	// claim-time stored durations. When set, it supersedes ServiceDurationSeconds.
+	ActionServiceSeconds         map[string]int
+	ServiceDurationPolicyID      *uuid.UUID
+	ServiceDurationPolicyVersion *int
+	// ComputeDeadline is an absolute wall-clock stop for durable I2B execution.
+	// When set, the engine uses it instead of started+WallClockBudget so a late
+	// start cannot reopen a fresh 20s window past the persisted claim deadline.
+	ComputeDeadline *time.Time
+	Groupage        func([]compat.GroupageItem) compat.Result
+	Now             func() time.Time
+	Route           routing.Provider
 }
 
 type Result struct {

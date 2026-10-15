@@ -3,6 +3,7 @@
 package chainorch
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -30,6 +31,9 @@ const (
 const (
 	DefaultCleanupTimeout = 4 * time.Second
 	AlgorithmVersion      = "BOUNDED_TWO_ORDER_COMPARISON"
+	// HorizonAnchorSearchClock is the frozen policy marker for search-clock-derived horizons.
+	// It must not embed a wall-clock instant so replay stays stable.
+	HorizonAnchorSearchClock = "SEARCH_CLOCK+48H"
 )
 
 var (
@@ -42,9 +46,34 @@ var (
 	errFencedDiscard         = errors.New("owner fenced output discarded")
 )
 
+// DurationResolver is the server-owned active-policy source for claim provenance.
+type DurationResolver interface {
+	ResolveServiceDuration(ctx context.Context, tenant uuid.UUID) (repository.ServiceDurationSnapshot, error)
+}
+
+// FixedDurationResolver injects a pre-resolved snapshot (tests / offline seams only).
+type FixedDurationResolver struct {
+	Snapshot repository.ServiceDurationSnapshot
+}
+
+func (f FixedDurationResolver) ResolveServiceDuration(context.Context, uuid.UUID) (repository.ServiceDurationSnapshot, error) {
+	return f.Snapshot, nil
+}
+
+// PostgresDurationResolver resolves from the tenant ACTIVE service-duration policy.
+type PostgresDurationResolver struct {
+	Store *repository.Postgres
+}
+
+func (p PostgresDurationResolver) ResolveServiceDuration(ctx context.Context, tenant uuid.UUID) (repository.ServiceDurationSnapshot, error) {
+	return ResolveActiveDurationSnapshot(ctx, p.Store, tenant)
+}
+
 // FingerprintInput is the frozen request material hashed into request_fingerprint.
-// Service-duration provenance must already be resolved before hashing.
+// Duration is overwritten by Claim from DurationResolver before hashing.
+// Horizon wall-clock instants are not idempotency material; use anchors/policy markers.
 type FingerprintInput struct {
+	TenantID               uuid.UUID // overwritten from ClaimRequest.TenantID
 	PolicyVersion          string
 	AlgorithmVersion       string
 	CatalogFingerprint     string
@@ -54,25 +83,24 @@ type FingerprintInput struct {
 	SeedCapacityVersion    *int
 	SeedShipmentID         *uuid.UUID
 	SeedShipmentVersion    *int
-	HorizonStart           time.Time
-	HorizonEnd             time.Time
-	LoadIDsVersions        []LoadRef
+	AvailableFrom          *time.Time // manual capacity absolute anchor
+	AvailableUntil         *time.Time // manual capacity absolute anchor
+	HorizonAnchorPolicy    string     // e.g. HorizonAnchorSearchClock
 	PublicationVisibility  string
+	FilterFingerprint      string // deterministic server-applied filter material
 	Duration               repository.ServiceDurationSnapshot
 }
 
-// LoadRef is a load identity included in the request fingerprint.
-type LoadRef struct {
-	ID      uuid.UUID
-	Version int
-}
-
 // ClaimRequest creates a PENDING search + idempotency mapping atomically.
+// Search IDs are always generated internally; callers cannot choose them.
 type ClaimRequest struct {
 	TenantID       uuid.UUID
 	IdempotencyKey string
-	SearchID       uuid.UUID // generated when uuid.Nil
 	Fingerprint    FingerprintInput
+	// HorizonStart/End are persisted execution bounds derived from frozen anchors.
+	// They are not hashed into the request fingerprint.
+	HorizonStart time.Time
+	HorizonEnd   time.Time
 }
 
 // ClaimResult is the internal orchestration result of Claim.

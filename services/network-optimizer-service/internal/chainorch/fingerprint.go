@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"sort"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -15,10 +15,12 @@ import (
 
 const timeRFC3339Nano = "2006-01-02T15:04:05.999999999Z07:00"
 
-// ComputeRequestFingerprint hashes frozen I1 fingerprint inputs, including
-// resolved service-duration provenance and known-zero vs unknown distinction.
+// ComputeRequestFingerprint hashes frozen I1/ADR-026 request identity.
+// It must not include mutable discovered load pools or freshly generated
+// wall-clock HorizonStart/HorizonEnd values.
 func ComputeRequestFingerprint(in FingerprintInput) string {
 	sum := sha256.New()
+	fmt.Fprintf(sum, "tenant_id=%s\n", in.TenantID.String())
 	fmt.Fprintf(sum, "policy_version=%s\n", in.PolicyVersion)
 	fmt.Fprintf(sum, "algorithm_version=%s\n", in.AlgorithmVersion)
 	fmt.Fprintf(sum, "catalog_fingerprint=%s\n", in.CatalogFingerprint)
@@ -28,22 +30,17 @@ func ComputeRequestFingerprint(in FingerprintInput) string {
 	writeOptInt(sum, "seed_capacity_version", in.SeedCapacityVersion)
 	writeOptUUID(sum, "seed_shipment_id", in.SeedShipmentID)
 	writeOptInt(sum, "seed_shipment_version", in.SeedShipmentVersion)
-	fmt.Fprintf(sum, "horizon_start=%s\n", in.HorizonStart.UTC().Format(timeRFC3339Nano))
-	fmt.Fprintf(sum, "horizon_end=%s\n", in.HorizonEnd.UTC().Format(timeRFC3339Nano))
+	writeHorizonAnchors(sum, in)
 	fmt.Fprintf(sum, "publication_visibility=%s\n", in.PublicationVisibility)
+	fmt.Fprintf(sum, "filter_fingerprint=%s\n", in.FilterFingerprint)
 	writeDurationProvenance(sum, in.Duration)
-
-	loads := append([]LoadRef(nil), in.LoadIDsVersions...)
-	sort.Slice(loads, func(i, j int) bool {
-		if loads[i].ID.String() == loads[j].ID.String() {
-			return loads[i].Version < loads[j].Version
-		}
-		return loads[i].ID.String() < loads[j].ID.String()
-	})
-	for _, load := range loads {
-		fmt.Fprintf(sum, "load=%s:%d\n", load.ID, load.Version)
-	}
 	return hex.EncodeToString(sum.Sum(nil))
+}
+
+func writeHorizonAnchors(w io.Writer, in FingerprintInput) {
+	fmt.Fprintf(w, "horizon_anchor_policy=%s\n", in.HorizonAnchorPolicy)
+	writeOptTime(w, "available_from", in.AvailableFrom)
+	writeOptTime(w, "available_until", in.AvailableUntil)
 }
 
 func writeDurationProvenance(w io.Writer, snap repository.ServiceDurationSnapshot) {
@@ -87,4 +84,12 @@ func writeOptInt(w io.Writer, name string, v *int) {
 		return
 	}
 	fmt.Fprintf(w, "%s=%s\n", name, strconv.Itoa(*v))
+}
+
+func writeOptTime(w io.Writer, name string, t *time.Time) {
+	if t == nil || t.IsZero() {
+		fmt.Fprintf(w, "%s=\n", name)
+		return
+	}
+	fmt.Fprintf(w, "%s=%s\n", name, t.UTC().Format(timeRFC3339Nano))
 }

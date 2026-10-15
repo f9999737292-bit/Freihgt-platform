@@ -23,12 +23,15 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 	pool := startPostgres(t, ctx)
 	applyThrough000097(t, ctx, pool)
 	store := repository.NewPostgres(pool)
-	orch := &chainorch.Orchestrator{Store: store}
+	orch := &chainorch.Orchestrator{
+		Store:            store,
+		DurationResolver: chainorch.FixedDurationResolver{Snapshot: chainorch.UnknownDurationSnapshot()},
+	}
 
 	t.Run("I2B-01 atomic search + idempotency commit", func(t *testing.T) {
 		tenant := uuid.New()
 		key := "i2b-01"
-		res, err := orch.Claim(ctx, i2bClaim(tenant, key, i2bFP(i2bUnknownDuration())))
+		res, err := orch.Claim(ctx, i2bClaim(tenant, key, i2bFP(tenant)))
 		if err != nil || res.Outcome != chainorch.OutcomeCreated {
 			t.Fatalf("claim outcome=%s err=%v", res.Outcome, err)
 		}
@@ -61,7 +64,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 				PolicyVersion: chain.PolicyVersion, AlgorithmVersion: chainorch.AlgorithmVersion,
 				CatalogFingerprint: "c", RoutingProviderVersion: "UNKNOWN",
 				ServiceDurationSnapshot: repository.ServiceDurationSnapshot{State: repository.ServiceDurationUnknown},
-				HorizonStart: now, HorizonEnd: now.Add(48 * time.Hour),
+				HorizonStart:            now, HorizonEnd: now.Add(48 * time.Hour),
 				SeedSource: repository.ChainSeedManualAvailableCapacity, SeedCapacityID: &capID, SeedCapacityVersion: &one,
 				ReasonCounts: map[string]int{},
 			}); err != nil {
@@ -91,7 +94,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 	t.Run("I2B-03 concurrent same-key creates one search", func(t *testing.T) {
 		tenant := uuid.New()
 		key := "i2b-03"
-		fp := i2bFP(i2bUnknownDuration())
+		fp := i2bFP(tenant)
 		var created int32
 		var ids sync.Map
 		var wg sync.WaitGroup
@@ -124,7 +127,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 	t.Run("I2B-04 same key/same fingerprint terminal replay", func(t *testing.T) {
 		tenant := uuid.New()
 		key := "i2b-04"
-		fp := i2bFP(i2bUnknownDuration())
+		fp := i2bFP(tenant)
 		first, err := orch.Claim(ctx, i2bClaim(tenant, key, fp))
 		if err != nil {
 			t.Fatal(err)
@@ -152,7 +155,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 	t.Run("I2B-05 same key/different fingerprint conflict", func(t *testing.T) {
 		tenant := uuid.New()
 		key := "i2b-05"
-		fp1 := i2bFP(i2bUnknownDuration())
+		fp1 := i2bFP(tenant)
 		if _, err := orch.Claim(ctx, i2bClaim(tenant, key, fp1)); err != nil {
 			t.Fatal(err)
 		}
@@ -167,7 +170,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 	t.Run("I2B-06 same key/in-flight returns in-progress", func(t *testing.T) {
 		tenant := uuid.New()
 		key := "i2b-06"
-		fp := i2bFP(i2bUnknownDuration())
+		fp := i2bFP(tenant)
 		first, err := orch.Claim(ctx, i2bClaim(tenant, key, fp))
 		if err != nil {
 			t.Fatal(err)
@@ -187,7 +190,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 	t.Run("I2B-07 same key/expired recovers interrupted", func(t *testing.T) {
 		tenant := uuid.New()
 		key := "i2b-07"
-		fp := i2bFP(i2bUnknownDuration())
+		fp := i2bFP(tenant)
 		first, err := orch.Claim(ctx, i2bClaim(tenant, key, fp))
 		if err != nil {
 			t.Fatal(err)
@@ -215,12 +218,11 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 		key := "i2b-08-shared"
 		a := uuid.New()
 		b := uuid.New()
-		fp := i2bFP(i2bUnknownDuration())
-		ra, err := orch.Claim(ctx, i2bClaim(a, key, fp))
+		ra, err := orch.Claim(ctx, i2bClaim(a, key, i2bFP(a)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		rb, err := orch.Claim(ctx, i2bClaim(b, key, fp))
+		rb, err := orch.Claim(ctx, i2bClaim(b, key, i2bFP(b)))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -232,7 +234,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 	t.Run("I2B-09 only one owner reaches RUNNING", func(t *testing.T) {
 		tenant := uuid.New()
 		key := "i2b-09"
-		fp := i2bFP(i2bUnknownDuration())
+		fp := i2bFP(tenant)
 		first, err := orch.Claim(ctx, i2bClaim(tenant, key, fp))
 		if err != nil {
 			t.Fatal(err)
@@ -316,7 +318,10 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 			ID: policyID, Version: 3, PickupSeconds: 45, DeliverySeconds: 45,
 		})
 		tenant := uuid.New()
-		res, err := orch.Claim(ctx, i2bClaim(tenant, "i2b-13", i2bFP(snap)))
+		local := &chainorch.Orchestrator{
+			Store: store, DurationResolver: chainorch.FixedDurationResolver{Snapshot: snap},
+		}
+		res, err := local.Claim(ctx, i2bClaim(tenant, "i2b-13", i2bFP(tenant)))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -324,18 +329,18 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 		if got.ServiceDurationSnapshot.PolicyVersion == nil || *got.ServiceDurationSnapshot.PolicyVersion != 3 {
 			t.Fatalf("stored snapshot missing policy version: %+v", got.ServiceDurationSnapshot)
 		}
-		var applied *int
-		if err := chainorch.ApplyStoredDurationToChainRequest(&applied, got.ServiceDurationSnapshot); err != nil || applied == nil || *applied != 45 {
-			t.Fatalf("chain must consume stored snapshot seconds=%v err=%v", applied, err)
+		var req chain.Request
+		if err := chainorch.ApplyStoredDurationToChainRequest(&req, got.ServiceDurationSnapshot); err != nil {
+			t.Fatal(err)
+		}
+		if req.ActionServiceSeconds["PICKUP"] != 45 {
+			t.Fatalf("chain must consume stored snapshot actions=%v", req.ActionServiceSeconds)
 		}
 		live := chainorch.SnapshotFromPolicy(repository.ServiceDurationPolicy{
 			ID: policyID, Version: 4, PickupSeconds: 99, DeliverySeconds: 99,
 		})
 		if chainorch.SnapshotsEquivalent(got.ServiceDurationSnapshot, live) {
 			t.Fatal("live policy must differ from stored snapshot")
-		}
-		if err := chainorch.ApplyStoredDurationToChainRequest(&applied, got.ServiceDurationSnapshot); err != nil || *applied != 45 {
-			t.Fatalf("must keep stored 45 not live 99 got=%v err=%v", applied, err)
 		}
 	})
 
@@ -346,10 +351,12 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 		b := a
 		ver := 2
 		b.PolicyVersion = &ver
-		if _, err := orch.Claim(ctx, i2bClaim(tenant, key, i2bFP(a))); err != nil {
+		first := &chainorch.Orchestrator{Store: store, DurationResolver: chainorch.FixedDurationResolver{Snapshot: a}}
+		if _, err := first.Claim(ctx, i2bClaim(tenant, key, i2bFP(tenant))); err != nil {
 			t.Fatal(err)
 		}
-		res, err := orch.Claim(ctx, i2bClaim(tenant, key, i2bFP(b)))
+		second := &chainorch.Orchestrator{Store: store, DurationResolver: chainorch.FixedDurationResolver{Snapshot: b}}
+		res, err := second.Claim(ctx, i2bClaim(tenant, key, i2bFP(tenant)))
 		if !errors.Is(err, chainorch.ErrFingerprintConflict) {
 			t.Fatalf("want conflict got outcome=%s err=%v", res.Outcome, err)
 		}
@@ -359,11 +366,13 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 		tenant := uuid.New()
 		zero := chainorch.KnownZeroDurationSnapshot(uuid.New(), 1)
 		unknown := chainorch.UnknownDurationSnapshot()
-		r1, err := orch.Claim(ctx, i2bClaim(tenant, "i2b-15a", i2bFP(zero)))
+		r1, err := (&chainorch.Orchestrator{Store: store, DurationResolver: chainorch.FixedDurationResolver{Snapshot: zero}}).
+			Claim(ctx, i2bClaim(tenant, "i2b-15a", i2bFP(tenant)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		r2, err := orch.Claim(ctx, i2bClaim(tenant, "i2b-15b", i2bFP(unknown)))
+		r2, err := (&chainorch.Orchestrator{Store: store, DurationResolver: chainorch.FixedDurationResolver{Snapshot: unknown}}).
+			Claim(ctx, i2bClaim(tenant, "i2b-15b", i2bFP(tenant)))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -377,7 +386,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 
 	t.Run("I2B-16 cancellation persists with cleanup context", func(t *testing.T) {
 		tenant := uuid.New()
-		res, err := orch.Claim(ctx, i2bClaim(tenant, "i2b-16", i2bFP(i2bUnknownDuration())))
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "i2b-16", i2bFP(tenant)))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -434,7 +443,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 
 	t.Run("I2B-19 completion vs cancellation single winner", func(t *testing.T) {
 		tenant := uuid.New()
-		res, err := orch.Claim(ctx, i2bClaim(tenant, "i2b-19", i2bFP(i2bUnknownDuration())))
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "i2b-19", i2bFP(tenant)))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -558,7 +567,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 
 	t.Run("I2B-22 no partial terminal shortlist visibility", func(t *testing.T) {
 		tenant := uuid.New()
-		res, err := orch.Claim(ctx, i2bClaim(tenant, "i2b-22", i2bFP(i2bUnknownDuration())))
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "i2b-22", i2bFP(tenant)))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -589,7 +598,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 	t.Run("I2B-23 route-plan linkage owner/tenant fenced", func(t *testing.T) {
 		tenant := uuid.New()
 		other := uuid.New()
-		res, err := orch.Claim(ctx, i2bClaim(tenant, "i2b-23", i2bFP(i2bUnknownDuration())))
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "i2b-23", i2bFP(tenant)))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -639,7 +648,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 	t.Run("I2B-24 no recompute after terminal replay", func(t *testing.T) {
 		tenant := uuid.New()
 		key := "i2b-24"
-		fp := i2bFP(i2bUnknownDuration())
+		fp := i2bFP(tenant)
 		first, err := orch.Claim(ctx, i2bClaim(tenant, key, fp))
 		if err != nil {
 			t.Fatal(err)
@@ -670,11 +679,11 @@ func i2bUnknownDuration() repository.ServiceDurationSnapshot {
 	return chainorch.UnknownDurationSnapshot()
 }
 
-func i2bFP(duration repository.ServiceDurationSnapshot) chainorch.FingerprintInput {
-	now := time.Now().UTC().Truncate(time.Second)
+func i2bFP(tenant uuid.UUID) chainorch.FingerprintInput {
 	one := 1
 	capID := uuid.New()
 	return chainorch.FingerprintInput{
+		TenantID:               tenant,
 		PolicyVersion:          chain.PolicyVersion,
 		AlgorithmVersion:       chainorch.AlgorithmVersion,
 		CatalogFingerprint:     "catalog-i2b",
@@ -682,18 +691,20 @@ func i2bFP(duration repository.ServiceDurationSnapshot) chainorch.FingerprintInp
 		SeedSource:             repository.ChainSeedManualAvailableCapacity,
 		SeedCapacityID:         &capID,
 		SeedCapacityVersion:    &one,
-		HorizonStart:           now,
-		HorizonEnd:             now.Add(48 * time.Hour),
+		HorizonAnchorPolicy:    chainorch.HorizonAnchorSearchClock,
 		PublicationVisibility:  "tenant-pool",
-		Duration:               duration,
+		FilterFingerprint:      "filter-default",
 	}
 }
 
 func i2bClaim(tenant uuid.UUID, key string, fp chainorch.FingerprintInput) chainorch.ClaimRequest {
+	now := time.Now().UTC().Truncate(time.Second)
 	return chainorch.ClaimRequest{
 		TenantID:       tenant,
 		IdempotencyKey: key,
 		Fingerprint:    fp,
+		HorizonStart:   now,
+		HorizonEnd:     now.Add(48 * time.Hour),
 	}
 }
 

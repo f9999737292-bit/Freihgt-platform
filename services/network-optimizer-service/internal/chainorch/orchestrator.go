@@ -13,9 +13,10 @@ import (
 // Orchestrator performs I2B claim, fencing, cancellation, and recovery.
 // It never renews leases, takes over ownership, or auto-recomputes.
 type Orchestrator struct {
-	Store          repository.ChainSearchStore
-	Now            func() time.Time
-	CleanupTimeout time.Duration
+	Store            repository.ChainSearchStore
+	DurationResolver DurationResolver
+	Now              func() time.Time
+	CleanupTimeout   time.Duration
 }
 
 func (o *Orchestrator) now() time.Time {
@@ -34,39 +35,57 @@ func (o *Orchestrator) cleanupTimeout() time.Duration {
 
 // Claim atomically inserts PENDING search + idempotency, or resolves collisions.
 // No routing/provider/chain computation runs inside this method.
+// Duration provenance is always server-resolved; caller Fingerprint.Duration is ignored.
+// Search IDs are always generated internally.
 func (o *Orchestrator) Claim(ctx context.Context, req ClaimRequest) (ClaimResult, error) {
 	if req.TenantID == uuid.Nil || req.IdempotencyKey == "" {
 		return ClaimResult{}, errors.New("tenant_id and idempotency_key required")
 	}
-	fp := ComputeRequestFingerprint(req.Fingerprint)
-	searchID := req.SearchID
-	if searchID == uuid.Nil {
-		searchID = uuid.New()
+	snap, err := o.resolveDuration(ctx, req.TenantID)
+	if err != nil {
+		return ClaimResult{}, err
+	}
+	fpIn := req.Fingerprint
+	fpIn.TenantID = req.TenantID
+	fpIn.Duration = snap
+	if fpIn.AlgorithmVersion == "" {
+		fpIn.AlgorithmVersion = AlgorithmVersion
+	}
+	if fpIn.HorizonAnchorPolicy == "" && fpIn.AvailableFrom == nil && fpIn.AvailableUntil == nil {
+		fpIn.HorizonAnchorPolicy = HorizonAnchorSearchClock
+	}
+	fp := ComputeRequestFingerprint(fpIn)
+	searchID := uuid.New()
+
+	horizonStart := req.HorizonStart
+	horizonEnd := req.HorizonEnd
+	if horizonStart.IsZero() || horizonEnd.IsZero() {
+		horizonStart, horizonEnd = derivePersistedHorizon(fpIn, o.now())
 	}
 
 	run := repository.ChainSearchRun{
 		ID:                           searchID,
 		TenantID:                     req.TenantID,
 		RequestFingerprint:           fp,
-		PolicyVersion:                req.Fingerprint.PolicyVersion,
-		AlgorithmVersion:             req.Fingerprint.AlgorithmVersion,
-		CatalogFingerprint:           req.Fingerprint.CatalogFingerprint,
-		RoutingProviderVersion:       req.Fingerprint.RoutingProviderVersion,
-		ServiceDurationPolicyID:      req.Fingerprint.Duration.PolicyID,
-		ServiceDurationPolicyVersion: req.Fingerprint.Duration.PolicyVersion,
-		ServiceDurationSnapshot:      req.Fingerprint.Duration,
-		HorizonStart:                 req.Fingerprint.HorizonStart,
-		HorizonEnd:                   req.Fingerprint.HorizonEnd,
-		SeedSource:                   req.Fingerprint.SeedSource,
-		SeedCapacityID:               req.Fingerprint.SeedCapacityID,
-		SeedCapacityVersion:          req.Fingerprint.SeedCapacityVersion,
-		SeedShipmentID:               req.Fingerprint.SeedShipmentID,
-		SeedShipmentVersion:          req.Fingerprint.SeedShipmentVersion,
+		PolicyVersion:                fpIn.PolicyVersion,
+		AlgorithmVersion:             fpIn.AlgorithmVersion,
+		CatalogFingerprint:           fpIn.CatalogFingerprint,
+		RoutingProviderVersion:       fpIn.RoutingProviderVersion,
+		ServiceDurationPolicyID:      snap.PolicyID,
+		ServiceDurationPolicyVersion: snap.PolicyVersion,
+		ServiceDurationSnapshot:      snap,
+		HorizonStart:                 horizonStart,
+		HorizonEnd:                   horizonEnd,
+		SeedSource:                   fpIn.SeedSource,
+		SeedCapacityID:               fpIn.SeedCapacityID,
+		SeedCapacityVersion:          fpIn.SeedCapacityVersion,
+		SeedShipmentID:               fpIn.SeedShipmentID,
+		SeedShipmentVersion:          fpIn.SeedShipmentVersion,
 		ReasonCounts:                 map[string]int{},
 	}
 
 	var created repository.ChainSearchRun
-	err := o.Store.WithinChainSearch(ctx, func(tx repository.ChainSearchTx) error {
+	err = o.Store.WithinChainSearch(ctx, func(tx repository.ChainSearchTx) error {
 		inserted, err := tx.InsertChainSearchRun(ctx, run)
 		if err != nil {
 			return err
@@ -96,6 +115,25 @@ func (o *Orchestrator) Claim(ctx context.Context, req ClaimRequest) (ClaimResult
 		return ClaimResult{}, err
 	}
 	return o.resolveIdempotencyCollision(ctx, req.TenantID, req.IdempotencyKey, fp)
+}
+
+func (o *Orchestrator) resolveDuration(ctx context.Context, tenant uuid.UUID) (repository.ServiceDurationSnapshot, error) {
+	if o.DurationResolver == nil {
+		return UnknownDurationSnapshot(), nil
+	}
+	return o.DurationResolver.ResolveServiceDuration(ctx, tenant)
+}
+
+func derivePersistedHorizon(in FingerprintInput, clock time.Time) (time.Time, time.Time) {
+	start := clock.UTC()
+	if in.AvailableFrom != nil && !in.AvailableFrom.IsZero() {
+		start = in.AvailableFrom.UTC()
+	}
+	end := start.Add(48 * time.Hour)
+	if in.AvailableUntil != nil && !in.AvailableUntil.IsZero() && in.AvailableUntil.Before(end) {
+		end = in.AvailableUntil.UTC()
+	}
+	return start, end
 }
 
 func (o *Orchestrator) resolveIdempotencyCollision(ctx context.Context, tenant uuid.UUID, key, fp string) (ClaimResult, error) {
@@ -174,15 +212,6 @@ func (o *Orchestrator) BeginRunning(ctx context.Context, tenant, searchID, owner
 		return getErr
 	})
 	return out, err
-}
-
-// EnsureComputeAllowed fails when wall clock is at/after deadline_at.
-// Persistence grace (deadline..claim_expires) must not extend compute.
-func (o *Orchestrator) EnsureComputeAllowed(run repository.ChainSearchRun) error {
-	if !o.now().Before(run.DeadlineAt) {
-		return ErrComputeDeadlinePassed
-	}
-	return nil
 }
 
 // CompleteSearch persists candidates and COMPLETED in one fenced transaction.

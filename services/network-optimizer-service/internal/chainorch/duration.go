@@ -6,7 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/freight-platform/network-optimizer-service/internal/chain"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
+	"github.com/freight-platform/network-optimizer-service/internal/routeplan"
 )
 
 // SnapshotFromPolicy builds an immutable KNOWN duration snapshot from a policy row.
@@ -72,14 +74,9 @@ func ResolveActiveDurationSnapshot(ctx context.Context, store *repository.Postgr
 	return snap, err
 }
 
-// EffectiveServiceDurationSeconds maps a stored snapshot onto the single
-// chain/route-plan ServiceDurationSeconds input.
-//
-// UNKNOWN -> nil (no invented duration).
-// KNOWN with both legs present and equal -> that value (includes known-zero).
-// Asymmetric or incomplete KNOWN snapshots fail closed — route-plan cannot
-// safely consume mismatched pickup/delivery through one scalar field.
-func EffectiveServiceDurationSeconds(snap repository.ServiceDurationSnapshot) (*int, error) {
+// ActionServiceSecondsFromSnapshot maps stored pickup/delivery onto route-plan action map.
+// Asymmetric pickup/delivery is supported. UNKNOWN yields nil map (unknown duration).
+func ActionServiceSecondsFromSnapshot(snap repository.ServiceDurationSnapshot) (map[string]int, error) {
 	if snap.State == repository.ServiceDurationUnknown {
 		if snap.PickupKnown || snap.DeliveryKnown {
 			return nil, ErrDurationSnapshot
@@ -92,21 +89,31 @@ func EffectiveServiceDurationSeconds(snap repository.ServiceDurationSnapshot) (*
 	if !snap.PickupKnown || !snap.DeliveryKnown || snap.PickupSeconds == nil || snap.DeliverySeconds == nil {
 		return nil, ErrDurationSnapshot
 	}
-	if *snap.PickupSeconds != *snap.DeliverySeconds {
-		return nil, ErrDurationSnapshot
-	}
-	v := *snap.PickupSeconds
-	return &v, nil
+	return map[string]int{
+		routeplan.ActionPickup:   *snap.PickupSeconds,
+		routeplan.ActionDelivery: *snap.DeliverySeconds,
+	}, nil
 }
 
-// ApplyStoredDurationToChainRequest sets chain.Request.ServiceDurationSeconds from
-// the claim-time snapshot. Callers must not re-read an active policy mid-run.
-func ApplyStoredDurationToChainRequest(serviceDurationSeconds **int, snap repository.ServiceDurationSnapshot) error {
-	v, err := EffectiveServiceDurationSeconds(snap)
+// ApplyStoredDurationToChainRequest wires the claim-time snapshot into chain execution.
+// Callers must not re-read an active policy mid-run.
+func ApplyStoredDurationToChainRequest(req *chain.Request, snap repository.ServiceDurationSnapshot) error {
+	if req == nil {
+		return ErrDurationSnapshot
+	}
+	actions, err := ActionServiceSecondsFromSnapshot(snap)
 	if err != nil {
 		return err
 	}
-	*serviceDurationSeconds = v
+	req.ActionServiceSeconds = actions
+	req.ServiceDurationPolicyID = snap.PolicyID
+	req.ServiceDurationPolicyVersion = snap.PolicyVersion
+	// Legacy scalar remains unset when action map is present (including asymmetric).
+	req.ServiceDurationSeconds = nil
+	if len(actions) == 0 {
+		// UNKNOWN: both scalar and action map empty — planner treats as unknown.
+		return nil
+	}
 	return nil
 }
 
