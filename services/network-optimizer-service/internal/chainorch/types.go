@@ -34,6 +34,12 @@ const (
 	// HorizonAnchorSearchClock is the frozen policy marker for search-clock-derived horizons.
 	// It must not embed a wall-clock instant so replay stays stable.
 	HorizonAnchorSearchClock = "SEARCH_CLOCK+48H"
+
+	// Durable failure codes (FAILED.status + failure_code). Not new search statuses.
+	FailureBudgetExhausted         = "CHAIN_BUDGET_EXHAUSTED"
+	FailureUnexpectedEngineStatus  = "CHAIN_UNEXPECTED_ENGINE_STATUS"
+	FailureEngineError             = "CHAIN_ENGINE_ERROR"
+	FailureTerminalizeIncomplete   = "CHAIN_TERMINALIZE_INCOMPLETE"
 )
 
 var (

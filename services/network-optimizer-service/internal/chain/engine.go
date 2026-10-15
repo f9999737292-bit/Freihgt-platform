@@ -452,12 +452,26 @@ func projectPair(pair builtPair) ProjectedCandidate {
 		item.SelectedOrder = pair.score.Order
 		if pair.score.Utilization == nil {
 			item.OmittedComponents = append(item.OmittedComponents, OmitUtilization)
+		} else {
+			u := *pair.score.Utilization
+			item.Utilization = &u
 		}
 		if pair.score.TargetMeters == nil {
 			item.OmittedComponents = append(item.OmittedComponents, OmitTarget)
+		} else {
+			t := *pair.score.TargetMeters
+			item.TargetMeters = &t
 		}
 		if pair.score.Revenue == nil {
 			item.OmittedComponents = append(item.OmittedComponents, OmitRevenue)
+		} else {
+			r := *pair.score.Revenue
+			item.RevenueAmount = &r
+			// Currency is a non-private code when revenue is authoritative on both loads.
+			if pair.pair.low.Private.Currency != "" {
+				cur := pair.pair.low.Private.Currency
+				item.RevenueCurrency = &cur
+			}
 		}
 	}
 	return item

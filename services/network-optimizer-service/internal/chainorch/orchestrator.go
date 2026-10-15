@@ -12,11 +12,14 @@ import (
 
 // Orchestrator performs I2B claim, fencing, cancellation, and recovery.
 // It never renews leases, takes over ownership, or auto-recomputes.
+// Production callers use ExecuteOwnedDurableChainSearch for claim→terminal.
 type Orchestrator struct {
 	Store            repository.ChainSearchStore
 	DurationResolver DurationResolver
 	Now              func() time.Time
 	CleanupTimeout   time.Duration
+	// AfterProjectCandidates is a test-only seam; production must leave it nil.
+	AfterProjectCandidates AfterProjectCandidates
 }
 
 func (o *Orchestrator) now() time.Time {

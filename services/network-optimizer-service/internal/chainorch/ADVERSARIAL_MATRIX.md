@@ -34,3 +34,16 @@
 | already RUNNING => no second compute | `ErrInProgress` | I2B-EXEC-11 | I2B-EXEC-06 | PASS |
 | candidate IDs distinct from durable SearchID | `NewID` free; SearchID via DurableSearchID | I2B-EXEC-13 | I2B-EXEC-12 | PASS |
 | candidate IDs unique across shortlist | engine candidate allocation | I2B-EXEC-12 dup check | I2B-EXEC-12 | PASS |
+| real compute → terminal durable status | `ExecuteOwnedDurableChainSearch` | I2B-E2E-12/13 fail/cancel | I2B-E2E-01 COMPLETED | PASS |
+| budget → durable FAILED | `classifyDurableTerminal` + FailSearch | I2B-E2E-12 | I2B-E2E-12 | PASS |
+| context cancel → durable CANCELLED | CancelSearch cleanup ctx | I2B-E2E-13 | I2B-E2E-13 | PASS |
+| real engine shortlist → chain_candidates | `ProjectDurableCandidates` | I2B-E2E-15 partial | I2B-E2E-02 | PASS |
+| dense ordinal preservation (CHAIN-PERSIST-05) | ordinal 1..N engine order | I2B-E2E-03 | I2B-E2E-03 | PASS |
+| UNFINISHED distinction | mapFeasibility ReasonUnfinished | I2B-E2E-07 / project_test | I2B-E2E-07 | PASS |
+| known/unknown metric null semantics | json:"-" + nil preservation | I2B-E2E-09 unknowns | I2B-E2E-09 knowns | PASS |
+| candidate fingerprint determinism | `ComputeCandidateFingerprint` | I2B-E2E-10 drift | I2B-E2E-10 | PASS |
+| real counters persisted | `CountersFromEngineResult` | I2B-E2E-11 mismatch | I2B-E2E-11 | PASS |
+| candidate failure → no partial COMPLETED | CompleteSearch TX rollback | I2B-E2E-15 | I2B-E2E-14 path | PASS |
+| terminal replay → same shortlist + zero recompute | Claim OutcomeReplay + ErrSearchNotRunnable | I2B-E2E-17 | I2B-E2E-16 | PASS |
+| private shipper/customer/contract absent | E2E-18 JSON scan | I2B-E2E-18 | I2B-E2E-18 | PASS |
+| REJECTED never maps to COMPLETED | FailureUnexpectedEngineStatus | project_test reject | classify fail-closed | PASS |

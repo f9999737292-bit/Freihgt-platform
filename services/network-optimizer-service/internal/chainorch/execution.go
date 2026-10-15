@@ -56,9 +56,11 @@ func RemainingComputeBudget(run repository.ChainSearchRun, now time.Time) time.D
 	return remaining
 }
 
-// RunOwnedDurableChainSearch is the canonical I2B compute entry point.
+// RunOwnedDurableChainSearch is the low-level I2B compute primitive.
 // It commits PENDING -> RUNNING under tenant/search/owner fencing before any
 // provider/engine/route-plan work. No takeover and no automatic retry.
+// Production callers must use ExecuteOwnedDurableChainSearch, which terminalizes
+// durable state after compute. This method alone leaves RUNNING.
 func (o *Orchestrator) RunOwnedDurableChainSearch(
 	ctx context.Context,
 	tenant, searchID, ownerToken uuid.UUID,
