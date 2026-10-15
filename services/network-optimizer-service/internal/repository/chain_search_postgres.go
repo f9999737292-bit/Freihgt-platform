@@ -312,6 +312,93 @@ func (t *chainSearchTx) InsertChainCandidate(ctx context.Context, candidate Chai
 	return err
 }
 
+func (t *chainSearchTx) OwnerInsertChainCandidate(ctx context.Context, candidate ChainCandidate, ownerToken uuid.UUID, expectedStatus string) error {
+	if ownerToken == uuid.Nil {
+		return errors.New("owner_token required")
+	}
+	if expectedStatus != ChainSearchPending && expectedStatus != ChainSearchRunning {
+		return errors.New("expectedStatus must be nonterminal")
+	}
+	if candidate.CreatedAt.IsZero() {
+		candidate.CreatedAt = time.Now().UTC()
+	}
+	omitted := candidate.OmittedComponents
+	if omitted == nil {
+		omitted = []string{}
+	}
+	reasons := candidate.ReasonCodes
+	if reasons == nil {
+		reasons = []string{}
+	}
+	tag, err := t.tx.Exec(ctx, `
+		INSERT INTO network_optimizer.chain_candidates (
+			candidate_id, search_id, tenant_id, ordinal,
+			first_load_id, first_load_version, second_load_id, second_load_version,
+			feasibility_status, selected_order,
+			empty_road_distance_m, total_duration_seconds, utilization, target_distance_m,
+			revenue_amount, revenue_currency, omitted_components, reason_codes,
+			route_plan_id, candidate_fingerprint, created_at
+		)
+		SELECT
+			$1,$2,$3,$4,
+			$5,$6,$7,$8,
+			$9,$10,
+			$11,$12,$13,$14,
+			$15,$16,$17,$18,
+			$19,$20,$21
+		FROM network_optimizer.chain_search_runs AS run
+		WHERE run.tenant_id = $3
+		  AND run.id = $2
+		  AND run.owner_token = $22
+		  AND run.status = $23
+		  AND run.status IN ('PENDING', 'RUNNING')
+		  AND clock_timestamp() < run.claim_expires_at`,
+		candidate.CandidateID, candidate.SearchID, candidate.TenantID, candidate.Ordinal,
+		candidate.FirstLoadID, candidate.FirstLoadVersion, candidate.SecondLoadID, candidate.SecondLoadVersion,
+		candidate.FeasibilityStatus, candidate.SelectedOrder,
+		candidate.EmptyRoadDistanceM, candidate.TotalDurationSeconds, candidate.Utilization, candidate.TargetDistanceM,
+		candidate.RevenueAmount, candidate.RevenueCurrency, omitted, reasons,
+		candidate.RoutePlanID, candidate.CandidateFingerprint, candidate.CreatedAt,
+		ownerToken, expectedStatus,
+	)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return ErrConflict
+		}
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrConflict
+	}
+	return nil
+}
+
+func (t *chainSearchTx) ListExpiredChainSearchClaims(ctx context.Context, limit int) ([]ExpiredChainSearchClaim, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := t.tx.Query(ctx, `
+		SELECT tenant_id, id
+		FROM network_optimizer.chain_search_runs
+		WHERE status IN ('PENDING', 'RUNNING')
+		  AND claim_expires_at <= clock_timestamp()
+		ORDER BY claim_expires_at ASC
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ExpiredChainSearchClaim
+	for rows.Next() {
+		var row ExpiredChainSearchClaim
+		if err := rows.Scan(&row.TenantID, &row.SearchID); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
 func (t *chainSearchTx) ListChainCandidates(ctx context.Context, tenant, searchID uuid.UUID) ([]ChainCandidate, error) {
 	rows, err := t.tx.Query(ctx, `
 		SELECT candidate_id, search_id, tenant_id, ordinal,
