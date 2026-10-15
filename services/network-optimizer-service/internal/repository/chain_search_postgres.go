@@ -213,29 +213,37 @@ func (t *chainSearchTx) OwnerPersistChainSearchRun(ctx context.Context, run Chai
 	if err != nil {
 		return false, err
 	}
+	// Lifecycle timestamps are DB-owned. Caller StartedAt/CompletedAt/CancelledAt are ignored.
+	// started_at is preserved as-is (NULL for PENDING-origin, set only by MarkChainSearchRunning).
+	searchComplete := target == ChainSearchCompleted
 	tag, err := t.tx.Exec(ctx, `
 		UPDATE network_optimizer.chain_search_runs SET
 			status = $3,
-			started_at = COALESCE(started_at, $4),
-			completed_at = $5,
-			cancelled_at = $6,
-			candidate_count = $7,
-			evaluated_pair_count = $8,
-			provider_call_count = $9,
-			search_complete = $10,
-			failure_code = $11,
-			cancel_reason_class = $12,
-			reason_counts_json = $13::jsonb
+			completed_at = CASE
+				WHEN $3 IN ('COMPLETED', 'FAILED') THEN clock_timestamp()
+				ELSE NULL
+			END,
+			cancelled_at = CASE
+				WHEN $3 = 'CANCELLED' THEN clock_timestamp()
+				ELSE NULL
+			END,
+			candidate_count = $4,
+			evaluated_pair_count = $5,
+			provider_call_count = $6,
+			search_complete = $7,
+			failure_code = $8,
+			cancel_reason_class = $9,
+			reason_counts_json = $10::jsonb
 		WHERE tenant_id = $1
 		  AND id = $2
-		  AND owner_token = $14
-		  AND status = $15
+		  AND owner_token = $11
+		  AND status = $12
 		  AND status IN ('PENDING', 'RUNNING')
 		  AND clock_timestamp() < claim_expires_at`,
 		run.TenantID, run.ID,
-		run.Status, run.StartedAt, run.CompletedAt, run.CancelledAt,
+		target,
 		run.CandidateCount, run.EvaluatedPairCount, run.ProviderCallCount,
-		run.SearchComplete, run.FailureCode, run.CancelReasonClass, reasonCounts,
+		searchComplete, run.FailureCode, run.CancelReasonClass, reasonCounts,
 		ownerToken, expectedStatus,
 	)
 	if err != nil {
@@ -251,7 +259,8 @@ func (t *chainSearchTx) RecoverExpiredChainSearchClaim(ctx context.Context, tena
 		SET status = $3,
 		    search_complete = false,
 		    failure_code = $4,
-		    completed_at = COALESCE(completed_at, clock_timestamp()),
+		    completed_at = clock_timestamp(),
+		    cancelled_at = NULL,
 		    cancel_reason_class = NULL
 		WHERE tenant_id = $1
 		  AND id = $2

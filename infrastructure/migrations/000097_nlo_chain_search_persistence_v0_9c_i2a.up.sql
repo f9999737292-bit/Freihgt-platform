@@ -90,6 +90,36 @@ CREATE TABLE network_optimizer.chain_search_runs (
         (status = 'COMPLETED' AND search_complete = true)
         OR (status <> 'COMPLETED' AND search_complete = false)
     ),
+    CONSTRAINT chain_search_runs_lifecycle_timestamps_chk CHECK (
+        (
+            status = 'PENDING'
+            AND started_at IS NULL
+            AND completed_at IS NULL
+            AND cancelled_at IS NULL
+        )
+        OR (
+            status = 'RUNNING'
+            AND started_at IS NOT NULL
+            AND completed_at IS NULL
+            AND cancelled_at IS NULL
+        )
+        OR (
+            status = 'COMPLETED'
+            AND started_at IS NOT NULL
+            AND completed_at IS NOT NULL
+            AND cancelled_at IS NULL
+        )
+        OR (
+            status = 'CANCELLED'
+            AND cancelled_at IS NOT NULL
+            AND completed_at IS NULL
+        )
+        OR (
+            status = 'FAILED'
+            AND completed_at IS NOT NULL
+            AND cancelled_at IS NULL
+        )
+    ),
     CONSTRAINT chain_search_runs_duration_version_chk CHECK (
         service_duration_policy_version IS NULL
         OR service_duration_policy_version >= 1

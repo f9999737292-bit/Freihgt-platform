@@ -360,6 +360,154 @@ func TestI2A_TX_OwnerAndDeadlineFencing(t *testing.T) {
 		}
 		assertStatus(t, ctx, store, tenant, id, ChainSearchFailed)
 	})
+
+	t.Run("I2A-TX-19 PENDING to CANCELLED timestamps", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		before := time.Now().UTC().Add(-time.Second)
+		class := "CLIENT_CANCEL"
+		fake := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchCancelled,
+			StartedAt: &fake, CompletedAt: &fake, CancelledAt: &fake,
+			CancelReasonClass: &class, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchPending)
+		if err != nil || !ok {
+			t.Fatalf("ok=%v err=%v", ok, err)
+		}
+		got := getRun(t, ctx, store, tenant, id)
+		if got.StartedAt != nil || got.CompletedAt != nil || got.CancelledAt == nil {
+			t.Fatalf("shape started=%v completed=%v cancelled=%v", got.StartedAt, got.CompletedAt, got.CancelledAt)
+		}
+		if got.CancelledAt.Before(before) {
+			t.Fatalf("cancelled_at not DB-generated: %v", got.CancelledAt)
+		}
+	})
+
+	t.Run("I2A-TX-20 PENDING to FAILED timestamps", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		before := time.Now().UTC().Add(-time.Second)
+		code := "CHAIN_BUDGET_EXHAUSTED"
+		fake := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchFailed,
+			StartedAt: &fake, CompletedAt: &fake, CancelledAt: &fake,
+			FailureCode: &code, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchPending)
+		if err != nil || !ok {
+			t.Fatalf("ok=%v err=%v", ok, err)
+		}
+		got := getRun(t, ctx, store, tenant, id)
+		if got.StartedAt != nil || got.CompletedAt == nil || got.CancelledAt != nil {
+			t.Fatalf("shape started=%v completed=%v cancelled=%v", got.StartedAt, got.CompletedAt, got.CancelledAt)
+		}
+		if got.CompletedAt.Before(before) {
+			t.Fatalf("completed_at not DB-generated: %v", got.CompletedAt)
+		}
+	})
+
+	t.Run("I2A-TX-21 RUNNING to COMPLETED timestamps", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		if ok, err := markRunning(ctx, store, tenant, id, owner); err != nil || !ok {
+			t.Fatalf("mark running ok=%v err=%v", ok, err)
+		}
+		beforeComplete := time.Now().UTC().Add(-time.Second)
+		running := getRun(t, ctx, store, tenant, id)
+		if running.StartedAt == nil {
+			t.Fatal("expected started_at after RUNNING")
+		}
+		started := *running.StartedAt
+		fake := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchCompleted,
+			StartedAt: &fake, CompletedAt: &fake, CancelledAt: &fake,
+			SearchComplete: true, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchRunning)
+		if err != nil || !ok {
+			t.Fatalf("ok=%v err=%v", ok, err)
+		}
+		got := getRun(t, ctx, store, tenant, id)
+		if got.StartedAt == nil || !got.StartedAt.Equal(started) {
+			t.Fatalf("started_at not preserved got=%v want=%v", got.StartedAt, started)
+		}
+		if got.CompletedAt == nil || got.CancelledAt != nil || got.CompletedAt.Before(beforeComplete) {
+			t.Fatalf("completed shape completed=%v cancelled=%v", got.CompletedAt, got.CancelledAt)
+		}
+	})
+
+	t.Run("I2A-TX-22 RUNNING to CANCELLED timestamps", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		if ok, err := markRunning(ctx, store, tenant, id, owner); err != nil || !ok {
+			t.Fatalf("mark running ok=%v err=%v", ok, err)
+		}
+		started := *getRun(t, ctx, store, tenant, id).StartedAt
+		before := time.Now().UTC().Add(-time.Second)
+		class := "CLIENT_CANCEL"
+		fake := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchCancelled,
+			StartedAt: &fake, CompletedAt: &fake, CancelledAt: &fake,
+			CancelReasonClass: &class, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchRunning)
+		if err != nil || !ok {
+			t.Fatalf("ok=%v err=%v", ok, err)
+		}
+		got := getRun(t, ctx, store, tenant, id)
+		if got.StartedAt == nil || !got.StartedAt.Equal(started) || got.CompletedAt != nil || got.CancelledAt == nil || got.CancelledAt.Before(before) {
+			t.Fatalf("shape started=%v completed=%v cancelled=%v", got.StartedAt, got.CompletedAt, got.CancelledAt)
+		}
+	})
+
+	t.Run("I2A-TX-23 RUNNING to FAILED timestamps", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		if ok, err := markRunning(ctx, store, tenant, id, owner); err != nil || !ok {
+			t.Fatalf("mark running ok=%v err=%v", ok, err)
+		}
+		started := *getRun(t, ctx, store, tenant, id).StartedAt
+		before := time.Now().UTC().Add(-time.Second)
+		code := "CHAIN_BUDGET_EXHAUSTED"
+		fake := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchFailed,
+			StartedAt: &fake, CompletedAt: &fake, CancelledAt: &fake,
+			FailureCode: &code, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchRunning)
+		if err != nil || !ok {
+			t.Fatalf("ok=%v err=%v", ok, err)
+		}
+		got := getRun(t, ctx, store, tenant, id)
+		if got.StartedAt == nil || !got.StartedAt.Equal(started) || got.CompletedAt == nil || got.CancelledAt != nil || got.CompletedAt.Before(before) {
+			t.Fatalf("shape started=%v completed=%v cancelled=%v", got.StartedAt, got.CompletedAt, got.CancelledAt)
+		}
+	})
+
+	t.Run("I2A-TX-24 caller lifecycle timestamps ignored", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		if ok, err := markRunning(ctx, store, tenant, id, owner); err != nil || !ok {
+			t.Fatalf("mark running ok=%v err=%v", ok, err)
+		}
+		started := *getRun(t, ctx, store, tenant, id).StartedAt
+		fakePast := time.Date(1999, 12, 31, 23, 59, 59, 0, time.UTC)
+		fakeFuture := time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)
+		before := time.Now().UTC().Add(-time.Second)
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchCompleted,
+			StartedAt: &fakePast, CompletedAt: &fakePast, CancelledAt: &fakeFuture,
+			SearchComplete: true, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchRunning)
+		if err != nil || !ok {
+			t.Fatalf("ok=%v err=%v", ok, err)
+		}
+		got := getRun(t, ctx, store, tenant, id)
+		if !got.StartedAt.Equal(started) {
+			t.Fatalf("started_at overwritten by caller: %v", got.StartedAt)
+		}
+		if got.CompletedAt == nil || got.CompletedAt.Equal(fakePast) || got.CompletedAt.Before(before) {
+			t.Fatalf("completed_at not DB-owned: %v", got.CompletedAt)
+		}
+		if got.CancelledAt != nil {
+			t.Fatalf("cancelled_at must stay NULL got=%v", got.CancelledAt)
+		}
+	})
 }
 
 func insertRepoPending(t *testing.T, ctx context.Context, store *Postgres) (tenant, id, owner uuid.UUID) {
@@ -460,6 +608,14 @@ func ownerPersist(ctx context.Context, store *Postgres, run ChainSearchRun, owne
 
 func assertStatus(t *testing.T, ctx context.Context, store *Postgres, tenant, id uuid.UUID, want string) {
 	t.Helper()
+	got := getRun(t, ctx, store, tenant, id)
+	if got.Status != want {
+		t.Fatalf("status=%s want %s", got.Status, want)
+	}
+}
+
+func getRun(t *testing.T, ctx context.Context, store *Postgres, tenant, id uuid.UUID) ChainSearchRun {
+	t.Helper()
 	var got ChainSearchRun
 	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
 		var err error
@@ -468,7 +624,5 @@ func assertStatus(t *testing.T, ctx context.Context, store *Postgres, tenant, id
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if got.Status != want {
-		t.Fatalf("status=%s want %s", got.Status, want)
-	}
+	return got
 }
