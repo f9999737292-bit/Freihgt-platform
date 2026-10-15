@@ -38,6 +38,10 @@ type ExecuteOwnedResult struct {
 // without inventing a second persistence path.
 type AfterProjectCandidates func([]repository.ChainCandidate) []repository.ChainCandidate
 
+// trustedWallClock is the durable compute-finish proof clock. Tests must not replace
+// this with Orchestrator.Now or Request.Now.
+var trustedWallClock = func() time.Time { return time.Now().UTC() }
+
 // ExecuteOwnedDurableChainSearch is the canonical I2B production entry point:
 // owner-fenced RUNNING → real chain compute → durable terminal state (+ shortlist).
 // Callers must not interpret chain.Result statuses or choose persistence primitives.
@@ -54,8 +58,16 @@ func (o *Orchestrator) ExecuteOwnedDurableChainSearch(
 	if o == nil || o.Store == nil {
 		return ExecuteOwnedResult{}, errors.New("orchestrator store required")
 	}
+	if err := validateCancelReasonOption(opts); err != nil {
+		return ExecuteOwnedResult{}, err
+	}
 
 	engineResult, computeErr := o.RunOwnedDurableChainSearch(ctx, tenant, searchID, ownerToken, engine, base)
+	// Trusted server wall clock — not Orchestrator.Now / Request.Now.
+	computeFinishedAt := trustedWallClock()
+	if o.AfterComputeBeforeTerminalizeForTest != nil {
+		o.AfterComputeBeforeTerminalizeForTest()
+	}
 	if computeErr != nil {
 		// Pre-compute fencing failures: do not terminalize a PENDING/foreign row.
 		if errors.Is(computeErr, ErrNotOwner) ||
@@ -64,9 +76,19 @@ func (o *Orchestrator) ExecuteOwnedDurableChainSearch(
 			errors.Is(computeErr, ErrComputeDeadlinePassed) {
 			return ExecuteOwnedResult{}, computeErr
 		}
-		return o.terminalizeAfterCompute(ctx, tenant, searchID, ownerToken, engineResult, computeErr, opts)
+		return o.terminalizeAfterCompute(ctx, tenant, searchID, ownerToken, engineResult, computeErr, opts, computeFinishedAt)
 	}
-	return o.terminalizeAfterCompute(ctx, tenant, searchID, ownerToken, engineResult, nil, opts)
+	return o.terminalizeAfterCompute(ctx, tenant, searchID, ownerToken, engineResult, nil, opts, computeFinishedAt)
+}
+
+func validateCancelReasonOption(opts ExecuteOwnedOptions) error {
+	if opts.CancelReasonClass == "" {
+		return nil
+	}
+	if !ValidCancelReason(opts.CancelReasonClass) {
+		return ErrInvalidCancelReason
+	}
+	return nil
 }
 
 func (o *Orchestrator) terminalizeAfterCompute(
@@ -75,6 +97,7 @@ func (o *Orchestrator) terminalizeAfterCompute(
 	engineResult chain.Result,
 	computeErr error,
 	opts ExecuteOwnedOptions,
+	computeFinishedAt time.Time,
 ) (ExecuteOwnedResult, error) {
 	// Persistence must not depend on a cancelled/deadline-exceeded request ctx.
 	cleanup, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), o.cleanupTimeout())
@@ -100,7 +123,7 @@ func (o *Orchestrator) terminalizeAfterCompute(
 	if o.RewriteEngineResultForTest != nil {
 		engineResult = o.RewriteEngineResultForTest(engineResult)
 	}
-	decision := classifyDurableTerminal(ctx, run, engineResult, computeErr, o.now())
+	decision := classifyDurableTerminal(ctx, run, engineResult, computeErr, computeFinishedAt)
 	// No partial candidate rows on fail/cancel paths today — candidate_count stays 0
 	// unless rows are actually committed (COMPLETED shortlist only).
 	stats := TerminalStatsFromEngine(engineResult, 0, decision.reasonCounts)
@@ -143,6 +166,22 @@ func (o *Orchestrator) terminalizeAfterCompute(
 		return ExecuteOwnedResult{Outcome: ExecuteOutcomeFailed, Search: out, EngineResult: engineResult}, nil
 
 	case terminalComplete:
+		// Re-check request cancellation before committing COMPLETED.
+		if errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			reason := opts.CancelReasonClass
+			if reason == "" {
+				reason = CancelContextCancelled
+			}
+			out, ok, cancelErr := o.CancelSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, reason, stats)
+			if cancelErr != nil {
+				return ExecuteOwnedResult{EngineResult: engineResult, Search: run}, cancelErr
+			}
+			if !ok {
+				fresh, getErr := o.getRun(cleanup, tenant, searchID)
+				return ExecuteOwnedResult{Outcome: fresh.Status, Search: fresh, EngineResult: engineResult}, getErr
+			}
+			return ExecuteOwnedResult{Outcome: ExecuteOutcomeCancelled, Search: out, EngineResult: engineResult}, nil
+		}
 		candidates, projErr := ProjectDurableCandidates(run, engineResult)
 		if projErr != nil {
 			failReasons := map[string]int{}
@@ -163,6 +202,21 @@ func (o *Orchestrator) terminalizeAfterCompute(
 		}
 		if o.AfterProjectCandidates != nil {
 			candidates = o.AfterProjectCandidates(candidates)
+		}
+		if errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			reason := opts.CancelReasonClass
+			if reason == "" {
+				reason = CancelContextCancelled
+			}
+			out, ok, cancelErr := o.CancelSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, reason, stats)
+			if cancelErr != nil {
+				return ExecuteOwnedResult{EngineResult: engineResult, Search: run, Candidates: candidates}, cancelErr
+			}
+			if !ok {
+				fresh, getErr := o.getRun(cleanup, tenant, searchID)
+				return ExecuteOwnedResult{Outcome: fresh.Status, Search: fresh, EngineResult: engineResult, Candidates: candidates}, getErr
+			}
+			return ExecuteOwnedResult{Outcome: ExecuteOutcomeCancelled, Search: out, EngineResult: engineResult, Candidates: candidates}, nil
 		}
 		completeStats := TerminalStatsFromEngine(engineResult, len(candidates), decision.reasonCounts)
 		write := TerminalWrite{
@@ -222,31 +276,31 @@ type terminalDecision struct {
 }
 
 // classifyDurableTerminal decides durable terminalization from the engine result.
-// The persisted durable deadline is authoritative over an underlying provider
-// cancel/road-unavailable appearance when wall clock is at/after deadline_at.
+//
+// Priority:
+//  1. computeFinishedAt >= deadline_at (or engine budget) → FAILED / CHAIN_BUDGET_EXHAUSTED
+//  2. request cancellation observed before durable completion → CANCELLED
+//  3. SEARCH_COMPLETE with computeFinishedAt < deadline_at → COMPLETED
+//  4. engine error / unexpected → FAILED
+//
+// Persistence time is irrelevant: only computeFinishedAt proves deadline respect.
+// Parent context DeadlineExceeded before the durable deadline is cancellation, not budget.
 func classifyDurableTerminal(
 	ctx context.Context,
 	run repository.ChainSearchRun,
 	result chain.Result,
 	computeErr error,
-	wallNow time.Time,
+	computeFinishedAt time.Time,
 ) terminalDecision {
 	reasons := map[string]int{}
 	for k, v := range result.ReasonCounts {
 		reasons[k] = v
 	}
 
-	deadlinePassed := !wallNow.UTC().Before(run.DeadlineAt.UTC())
+	finishedAtOrAfterDeadline := !computeFinishedAt.UTC().Before(run.DeadlineAt.UTC())
 
-	// Successful engine completion terminalizes to COMPLETED even if wall clock
-	// has entered the +5s persistence grace after deadline_at.
-	if computeErr == nil && result.Status == chain.StatusSearchComplete {
-		return terminalDecision{kind: terminalComplete, reasonCounts: reasons}
-	}
-
-	// Persisted durable deadline is authoritative when compute did not complete:
-	// an in-flight provider cancel/deadline must still classify as budget exhaustion.
-	if deadlinePassed || result.Status == chain.StatusBudgetExhausted {
+	// 1) Durable compute deadline is authoritative — even if engine reported SEARCH_COMPLETE.
+	if finishedAtOrAfterDeadline || result.Status == chain.StatusBudgetExhausted {
 		return terminalDecision{kind: terminalBudget, failureCode: FailureBudgetExhausted, reasonCounts: reasons}
 	}
 
@@ -255,10 +309,8 @@ func classifyDurableTerminal(
 	errCanceled := errors.Is(computeErr, context.Canceled)
 	errDeadline := errors.Is(computeErr, context.DeadlineExceeded)
 
-	if result.Status == chain.StatusCancelled || ctxCanceled || errCanceled {
-		return terminalDecision{kind: terminalCancel, reasonCounts: reasons}
-	}
-	if ctxDeadline || errDeadline {
+	// 2) Cancellation observed before durable completion commit.
+	if result.Status == chain.StatusCancelled || ctxCanceled || errCanceled || ctxDeadline || errDeadline {
 		return terminalDecision{kind: terminalCancel, reasonCounts: reasons}
 	}
 
@@ -267,9 +319,13 @@ func classifyDurableTerminal(
 		return terminalDecision{kind: terminalFail, failureCode: FailureEngineError, reasonCounts: reasons}
 	}
 
+	// 3) Valid SEARCH_COMPLETE only when compute finished strictly before deadline_at.
+	if result.Status == chain.StatusSearchComplete {
+		return terminalDecision{kind: terminalComplete, reasonCounts: reasons}
+	}
+
 	switch result.Status {
 	case chain.StatusRejected:
-		// Never map REJECTED to COMPLETED.
 		reasons["ENGINE_REJECTED"] = reasons["ENGINE_REJECTED"] + 1
 		return terminalDecision{kind: terminalFail, failureCode: FailureUnexpectedEngineStatus, reasonCounts: reasons}
 	default:

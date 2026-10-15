@@ -53,3 +53,9 @@
 | candidate_count equals actually persisted rows | TerminalStats.CandidateCount | I2B-E2E-15 partial COMPLETED | I2B-E2E-11/19/20 | PASS |
 | canonical path ignores arbitrary caller counters | ExecuteOwned vs low-level FailSearch | I2B-E2E-22 arbitrary 99 | I2B-E2E-22 engine match | PASS |
 | unexpected failure keeps measurable counters | RewriteEngineResultForTest + FailSearch | I2B-E2E-21 zero | I2B-E2E-21 | PASS |
+| compute finished after deadline cannot COMPLETED | `computeFinishedAt` + classify | I270-001-A COMPLETED | I270-001-A FAILED budget | PASS |
+| compute before deadline may persist in grace | finish before deadline; delay terminalize | I270-001-B budget misclass | I270-001-B COMPLETED | PASS |
+| cancel after compute before terminal commit => CANCELLED | ctx cancel after finish capture | I270-002-A COMPLETED | I270-002-A CANCELLED | PASS |
+| cancelled search cannot be overwritten by completion | CompleteSearch after CANCELLED | I270-002-C overwrite | I270-002-C applied=false | PASS |
+| invalid cancel reason fails before compute | `validateCancelReasonOption` | I270-002-E RUNNING orphan | I270-002-E PENDING + ErrInvalidCancelReason | PASS |
+| trusted wall clock owns compute-finish proof | `trustedWallClock` / time.Now | Orchestrator.Now spoof | I270-001 unit + A/B | PASS |

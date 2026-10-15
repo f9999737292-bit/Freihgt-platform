@@ -24,6 +24,9 @@ type Orchestrator struct {
 	// RewriteEngineResultForTest is a test-only seam applied after compute and before
 	// durable classification. Production must leave it nil.
 	RewriteEngineResultForTest func(chain.Result) chain.Result
+	// AfterComputeBeforeTerminalizeForTest runs after trusted computeFinishedAt is
+	// captured and before terminal classification/persistence. Production must leave nil.
+	AfterComputeBeforeTerminalizeForTest func()
 }
 
 func (o *Orchestrator) now() time.Time {

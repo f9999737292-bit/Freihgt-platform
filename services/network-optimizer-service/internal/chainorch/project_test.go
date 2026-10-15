@@ -138,19 +138,39 @@ func TestProjectDurableCandidates_UnknownMetricsStayNil(t *testing.T) {
 
 func TestClassifyDurableTerminal_BudgetAuthoritative(t *testing.T) {
 	run := repository.ChainSearchRun{DeadlineAt: mustParseTime("2020-01-01T00:00:00Z")}
-	wall := mustParseTime("2020-01-01T00:00:01Z")
-	d := classifyDurableTerminal(contextBackground(), run, chain.Result{Status: chain.StatusCancelled}, context.Canceled, wall)
+	finished := mustParseTime("2020-01-01T00:00:01Z")
+	d := classifyDurableTerminal(contextBackground(), run, chain.Result{Status: chain.StatusCancelled}, context.Canceled, finished)
 	if d.kind != terminalBudget || d.failureCode != FailureBudgetExhausted {
 		t.Fatalf("want budget got %+v", d)
 	}
 }
 
-func TestClassifyDurableTerminal_SearchCompleteInGrace(t *testing.T) {
+func TestClassifyDurableTerminal_ComputeBeforeDeadlinePersistInGrace(t *testing.T) {
 	run := repository.ChainSearchRun{DeadlineAt: mustParseTime("2020-01-01T00:00:00Z")}
-	wall := mustParseTime("2020-01-01T00:00:03Z") // inside +5s grace
-	d := classifyDurableTerminal(contextBackground(), run, chain.Result{Status: chain.StatusSearchComplete}, nil, wall)
+	finishedBefore := mustParseTime("2019-12-31T23:59:59Z")
+	d := classifyDurableTerminal(contextBackground(), run, chain.Result{Status: chain.StatusSearchComplete}, nil, finishedBefore)
 	if d.kind != terminalComplete {
-		t.Fatalf("SEARCH_COMPLETE in grace must complete got %+v", d)
+		t.Fatalf("compute before deadline must allow COMPLETED got %+v", d)
+	}
+}
+
+func TestClassifyDurableTerminal_ComputeAfterDeadlineCannotComplete(t *testing.T) {
+	run := repository.ChainSearchRun{DeadlineAt: mustParseTime("2020-01-01T00:00:00Z")}
+	finishedAfter := mustParseTime("2020-01-01T00:00:03Z") // would be persistence grace if misused as finish time
+	d := classifyDurableTerminal(contextBackground(), run, chain.Result{Status: chain.StatusSearchComplete}, nil, finishedAfter)
+	if d.kind != terminalBudget || d.failureCode != FailureBudgetExhausted {
+		t.Fatalf("SEARCH_COMPLETE after deadline must budget-fail got %+v", d)
+	}
+}
+
+func TestClassifyDurableTerminal_CancelBeatsUncommittedComplete(t *testing.T) {
+	run := repository.ChainSearchRun{DeadlineAt: mustParseTime("2099-01-01T00:00:00Z")}
+	finished := mustParseTime("2020-01-01T00:00:00Z")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	d := classifyDurableTerminal(ctx, run, chain.Result{Status: chain.StatusSearchComplete}, nil, finished)
+	if d.kind != terminalCancel {
+		t.Fatalf("cancelled ctx must beat SEARCH_COMPLETE got %+v", d)
 	}
 }
 
