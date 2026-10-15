@@ -151,6 +151,12 @@ CREATE TABLE network_optimizer.chain_candidates (
         selected_order IS NULL
         OR selected_order IN ('L1_BEFORE_L2', 'L2_BEFORE_L1')
     ),
+    CONSTRAINT chain_candidates_route_plan_feasible_chk CHECK (
+        route_plan_id IS NULL OR feasibility_status = 'FEASIBLE'
+    ),
+    CONSTRAINT chain_candidates_selected_order_feasible_chk CHECK (
+        selected_order IS NULL OR feasibility_status = 'FEASIBLE'
+    ),
     CONSTRAINT chain_candidates_fingerprint_chk CHECK (candidate_fingerprint <> ''),
     CONSTRAINT chain_candidates_revenue_currency_chk CHECK (
         (revenue_amount IS NULL AND revenue_currency IS NULL)

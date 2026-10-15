@@ -12,7 +12,7 @@ import (
 )
 
 func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 	pool := startPostgres(t, ctx)
 	applyThrough000097(t, ctx, pool)
@@ -103,7 +103,6 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 
 	started := created.Add(time.Second)
 	completed := created.Add(10 * time.Second)
-	unknownSnapshot := ServiceDurationSnapshot{State: ServiceDurationUnknown, PickupKnown: false, DeliveryKnown: false}
 	terminal := got
 	terminal.Status = ChainSearchCompleted
 	terminal.StartedAt = &started
@@ -112,9 +111,10 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 	terminal.CandidateCount = 1
 	terminal.EvaluatedPairCount = 2
 	terminal.ProviderCallCount = 3
+	// Attempt to poison duration fields; repository must ignore them on update.
 	terminal.ServiceDurationPolicyID = nil
 	terminal.ServiceDurationPolicyVersion = nil
-	terminal.ServiceDurationSnapshot = unknownSnapshot
+	terminal.ServiceDurationSnapshot = ServiceDurationSnapshot{State: ServiceDurationUnknown, PickupKnown: false, DeliveryKnown: false}
 	terminal.ReasonCounts = map[string]int{"STACKING_UNKNOWN": 2}
 
 	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
@@ -143,8 +143,11 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 	if got.Status != ChainSearchCompleted || !got.SearchComplete || got.StartedAt == nil || got.CompletedAt == nil {
 		t.Fatalf("terminal fields incomplete: %+v", got)
 	}
-	if got.ServiceDurationSnapshot.State != ServiceDurationUnknown || got.ServiceDurationSnapshot.PickupKnown {
-		t.Fatalf("unknown snapshot not preserved: %+v", got.ServiceDurationSnapshot)
+	if got.ServiceDurationSnapshot.State != ServiceDurationKnown || got.ServiceDurationSnapshot.PickupSeconds == nil || *got.ServiceDurationSnapshot.PickupSeconds != 0 {
+		t.Fatalf("claim-time known-zero snapshot must remain immutable: %+v", got.ServiceDurationSnapshot)
+	}
+	if got.ServiceDurationPolicyID == nil || *got.ServiceDurationPolicyID != policyID || got.ServiceDurationPolicyVersion == nil || *got.ServiceDurationPolicyVersion != policyVersion {
+		t.Fatalf("claim-time policy provenance must remain immutable: id=%v ver=%v", got.ServiceDurationPolicyID, got.ServiceDurationPolicyVersion)
 	}
 	if got.ReasonCounts["STACKING_UNKNOWN"] != 2 {
 		t.Fatalf("reason counts: %+v", got.ReasonCounts)
@@ -237,5 +240,115 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 		return nil
 	}); err != nil {
 		t.Fatalf("cross-tenant idempotency: %v", err)
+	}
+}
+
+func TestI2A_PG_IMMUTABLE_01_ServiceDurationSnapshot(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancel()
+	pool := startPostgres(t, ctx)
+	applyThrough000097(t, ctx, pool)
+	store := NewPostgres(pool)
+
+	tenant := uuid.New()
+	created := time.Now().UTC().Truncate(time.Millisecond)
+	deadline, claim := DeadlineAndClaimExpiry(created)
+	owner := uuid.New()
+	policyID := uuid.New()
+	policyVersion := 3
+	zero := 0
+	capacityID := uuid.New()
+	capacityVersion := 1
+	original := ChainSearchRun{
+		ID:                           uuid.New(),
+		TenantID:                     tenant,
+		Status:                       ChainSearchPending,
+		CreatedAt:                    created,
+		RequestFingerprint:           "req-fp-immutable",
+		PolicyVersion:                "NLO-0.9C-I0/BOUNDED_TWO_LOAD",
+		AlgorithmVersion:             "BOUNDED_TWO_ORDER_COMPARISON",
+		CatalogFingerprint:           "catalog-fp",
+		RoutingProviderVersion:       "UNKNOWN",
+		DeadlineAt:                   deadline,
+		OwnerToken:                   owner,
+		ClaimExpiresAt:               claim,
+		ServiceDurationPolicyID:      &policyID,
+		ServiceDurationPolicyVersion: &policyVersion,
+		ServiceDurationSnapshot: ServiceDurationSnapshot{
+			State:           ServiceDurationKnown,
+			PolicyID:        &policyID,
+			PolicyVersion:   &policyVersion,
+			PickupKnown:     true,
+			PickupSeconds:   &zero,
+			DeliveryKnown:   true,
+			DeliverySeconds: &zero,
+		},
+		HorizonStart:        created,
+		HorizonEnd:          created.Add(48 * time.Hour),
+		SeedSource:          ChainSeedManualAvailableCapacity,
+		SeedCapacityID:      &capacityID,
+		SeedCapacityVersion: &capacityVersion,
+		ReasonCounts:        map[string]int{},
+	}
+	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+		return tx.InsertChainSearchRun(ctx, original)
+	}); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	started := created.Add(time.Second)
+	completed := created.Add(5 * time.Second)
+	poisoned := original
+	poisoned.Status = ChainSearchCompleted
+	poisoned.StartedAt = &started
+	poisoned.CompletedAt = &completed
+	poisoned.SearchComplete = true
+	poisoned.ServiceDurationPolicyID = nil
+	poisoned.ServiceDurationPolicyVersion = nil
+	poisoned.ServiceDurationSnapshot = ServiceDurationSnapshot{
+		State:         ServiceDurationUnknown,
+		PickupKnown:   false,
+		DeliveryKnown: false,
+	}
+	poisoned.ReasonCounts = map[string]int{"X": 1}
+
+	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+		ok, err := tx.UpdateChainSearchRunConditional(ctx, poisoned, ChainSearchPending, &owner, true)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			t.Fatal("update missed")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	var got ChainSearchRun
+	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+		var err error
+		got, err = tx.GetChainSearchRun(ctx, tenant, original.ID)
+		return err
+	}); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Status != ChainSearchCompleted {
+		t.Fatalf("status=%s", got.Status)
+	}
+	if got.ServiceDurationPolicyID == nil || *got.ServiceDurationPolicyID != policyID {
+		t.Fatalf("policy id mutated: %v", got.ServiceDurationPolicyID)
+	}
+	if got.ServiceDurationPolicyVersion == nil || *got.ServiceDurationPolicyVersion != policyVersion {
+		t.Fatalf("policy version mutated: %v", got.ServiceDurationPolicyVersion)
+	}
+	if got.ServiceDurationSnapshot.State != ServiceDurationKnown {
+		t.Fatalf("snapshot state mutated: %+v", got.ServiceDurationSnapshot)
+	}
+	if got.ServiceDurationSnapshot.PickupSeconds == nil || *got.ServiceDurationSnapshot.PickupSeconds != 0 {
+		t.Fatalf("KNOWN_ZERO pickup lost: %+v", got.ServiceDurationSnapshot)
+	}
+	if got.ServiceDurationSnapshot.DeliverySeconds == nil || *got.ServiceDurationSnapshot.DeliverySeconds != 0 {
+		t.Fatalf("KNOWN_ZERO delivery lost: %+v", got.ServiceDurationSnapshot)
 	}
 }

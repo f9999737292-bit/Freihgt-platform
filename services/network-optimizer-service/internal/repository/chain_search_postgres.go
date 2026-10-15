@@ -139,10 +139,8 @@ func (t *chainSearchTx) UpdateChainSearchRunConditional(
 	ownerToken *uuid.UUID,
 	requireBeforeClaimExpiry bool,
 ) (bool, error) {
-	snapshot, err := marshalServiceDurationSnapshot(run.ServiceDurationSnapshot)
-	if err != nil {
-		return false, err
-	}
+	// Service-duration policy id/version and snapshot are claim-time immutable.
+	// InsertChainSearchRun owns those columns; this update must not rewrite them.
 	reasonCounts, err := marshalReasonCounts(run.ReasonCounts)
 	if err != nil {
 		return false, err
@@ -159,19 +157,15 @@ func (t *chainSearchTx) UpdateChainSearchRunConditional(
 			search_complete=$10,
 			failure_code=$11,
 			cancel_reason_class=$12,
-			reason_counts_json=$13::jsonb,
-			service_duration_policy_id=$14,
-			service_duration_policy_version=$15,
-			service_duration_snapshot_json=$16::jsonb
+			reason_counts_json=$13::jsonb
 		WHERE tenant_id=$1 AND id=$2
-			AND status=$17
-			AND ($18::uuid IS NULL OR owner_token=$18)
-			AND ($19::boolean = false OR claim_expires_at > now())`,
+			AND status=$14
+			AND ($15::uuid IS NULL OR owner_token=$15)
+			AND ($16::boolean = false OR claim_expires_at > now())`,
 		run.TenantID, run.ID,
 		run.Status, run.StartedAt, run.CompletedAt, run.CancelledAt,
 		run.CandidateCount, run.EvaluatedPairCount, run.ProviderCallCount,
 		run.SearchComplete, run.FailureCode, run.CancelReasonClass, reasonCounts,
-		run.ServiceDurationPolicyID, run.ServiceDurationPolicyVersion, snapshot,
 		expectedStatus, ownerToken, requireBeforeClaimExpiry,
 	)
 	if err != nil {

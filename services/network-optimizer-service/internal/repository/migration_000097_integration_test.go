@@ -4,9 +4,11 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,21 +18,23 @@ import (
 )
 
 func TestI2A_MIG_01_UpFrom096Head(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 	pool := startPostgres(t, ctx)
-	applyThrough000094(t, ctx, pool)
+	applyOrderedMigrationsThrough(t, ctx, pool, 96)
+	assertMigration096Artifacts(t, ctx, pool, true)
 	if _, err := pool.Exec(ctx, mustRead(t, "000097_nlo_chain_search_persistence_v0_9c_i2a.up.sql")); err != nil {
 		t.Fatalf("I2A-MIG-01 up: %v", err)
 	}
 	assertChain097Present(t, ctx, pool, true)
+	assertMigration096Artifacts(t, ctx, pool, true)
 }
 
 func TestI2A_MIG_02_DownSucceeds(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 	pool := startPostgres(t, ctx)
-	applyThrough000094(t, ctx, pool)
+	applyOrderedMigrationsThrough(t, ctx, pool, 96)
 	if _, err := pool.Exec(ctx, mustRead(t, "000097_nlo_chain_search_persistence_v0_9c_i2a.up.sql")); err != nil {
 		t.Fatalf("up: %v", err)
 	}
@@ -38,13 +42,14 @@ func TestI2A_MIG_02_DownSucceeds(t *testing.T) {
 		t.Fatalf("I2A-MIG-02 down: %v", err)
 	}
 	assertChain097Present(t, ctx, pool, false)
+	assertMigration096Artifacts(t, ctx, pool, true)
 }
 
 func TestI2A_MIG_03_UpDownUp(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 	pool := startPostgres(t, ctx)
-	applyThrough000094(t, ctx, pool)
+	applyOrderedMigrationsThrough(t, ctx, pool, 96)
 	up := mustRead(t, "000097_nlo_chain_search_persistence_v0_9c_i2a.up.sql")
 	down := mustRead(t, "000097_nlo_chain_search_persistence_v0_9c_i2a.down.sql")
 	if _, err := pool.Exec(ctx, up); err != nil {
@@ -53,14 +58,16 @@ func TestI2A_MIG_03_UpDownUp(t *testing.T) {
 	if _, err := pool.Exec(ctx, down); err != nil {
 		t.Fatalf("down: %v", err)
 	}
+	assertMigration096Artifacts(t, ctx, pool, true)
 	if _, err := pool.Exec(ctx, up); err != nil {
 		t.Fatalf("I2A-MIG-03 up after down: %v", err)
 	}
 	assertChain097Present(t, ctx, pool, true)
+	assertMigration096Artifacts(t, ctx, pool, true)
 }
 
 func TestI2A_MIG_04_ContiguousNoCollision(t *testing.T) {
-	dir := filepath.Join("..", "..", "..", "..", "infrastructure", "migrations")
+	dir := migrationsDir(t)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -95,10 +102,10 @@ func TestI2A_MIG_04_ContiguousNoCollision(t *testing.T) {
 }
 
 func TestI2A_MIG_05_ExistingRoutePlansSurviveUnique(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 	pool := startPostgres(t, ctx)
-	applyThrough000094(t, ctx, pool)
+	applyOrderedMigrationsThrough(t, ctx, pool, 96)
 	tenant := uuid.New()
 	planID := uuid.New()
 	insertMinimalRoutePlan(t, ctx, pool, tenant, planID)
@@ -117,22 +124,69 @@ func TestI2A_MIG_05_ExistingRoutePlansSurviveUnique(t *testing.T) {
 		)`).Scan(&uniqueExists); err != nil || !uniqueExists {
 		t.Fatalf("I2A-MIG-05 unique missing err=%v exists=%v", err, uniqueExists)
 	}
+	assertMigration096Artifacts(t, ctx, pool, true)
 }
 
-func applyThrough000094(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+func applyOrderedMigrationsThrough(t *testing.T, ctx context.Context, pool *pgxpool.Pool, through int) {
 	t.Helper()
-	applyThrough000086(t, ctx, pool)
-	if _, err := pool.Exec(ctx, mustRead(t, "000094_nlo_service_duration_policy_v0_4d.up.sql")); err != nil {
-		t.Fatalf("up 000094: %v", err)
+	dir := migrationsDir(t)
+	files, err := filepath.Glob(filepath.Join(dir, "*.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(files)
+	applied := 0
+	var last string
+	for _, file := range files {
+		base := filepath.Base(file)
+		version, ok := migrationVersion(base)
+		if !ok {
+			t.Fatalf("unversioned migration file %s", base)
+		}
+		if version > through {
+			continue
+		}
+		content, readErr := os.ReadFile(file)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if _, execErr := pool.Exec(ctx, string(content)); execErr != nil {
+			t.Fatalf("apply %s: %v", base, execErr)
+		}
+		applied++
+		last = base
+	}
+	if applied == 0 || !strings.HasPrefix(last, fmt.Sprintf("%06d", through)) {
+		t.Fatalf("expected last applied migration %06d*, got last=%s applied=%d", through, last, applied)
 	}
 }
 
 func applyThrough000097(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
-	applyThrough000094(t, ctx, pool)
+	applyOrderedMigrationsThrough(t, ctx, pool, 96)
 	if _, err := pool.Exec(ctx, mustRead(t, "000097_nlo_chain_search_persistence_v0_9c_i2a.up.sql")); err != nil {
 		t.Fatalf("up 000097: %v", err)
 	}
+}
+
+func migrationsDir(t *testing.T) string {
+	t.Helper()
+	dir := filepath.Join("..", "..", "..", "..", "infrastructure", "migrations")
+	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+		t.Fatalf("migrations dir: %v", err)
+	}
+	return dir
+}
+
+func migrationVersion(name string) (int, bool) {
+	if len(name) < 6 {
+		return 0, false
+	}
+	n, err := strconv.Atoi(name[:6])
+	if err != nil {
+		return 0, false
+	}
+	return n, true
 }
 
 func assertChain097Present(t *testing.T, ctx context.Context, pool *pgxpool.Pool, want bool) {
@@ -156,6 +210,29 @@ func assertChain097Present(t *testing.T, ctx context.Context, pool *pgxpool.Pool
 	}
 	if uniqueExists != want {
 		t.Fatalf("route_plans_tenant_id_uidx exists=%v want %v", uniqueExists, want)
+	}
+}
+
+func assertMigration096Artifacts(t *testing.T, ctx context.Context, pool *pgxpool.Pool, want bool) {
+	t.Helper()
+	for _, item := range []struct {
+		schema string
+		table  string
+	}{
+		{"documents", "document_attachments"},              // 000095
+		{"documents", "attachment_signature_blobs"},        // 000096
+		{"documents", "signature_verification_evidence"},   // 000096
+		{"network_optimizer", "service_duration_policies"}, // 000094 (still present at 096 head)
+		{"network_optimizer", "route_plans"},               // 000085
+	} {
+		var exists bool
+		if err := pool.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.tables
+				WHERE table_schema=$1 AND table_name=$2
+			)`, item.schema, item.table).Scan(&exists); err != nil || exists != want {
+			t.Fatalf("%s.%s exists=%v want %v err=%v", item.schema, item.table, exists, want, err)
+		}
 	}
 }
 

@@ -4,16 +4,18 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestI2A_DB_TenantIntegrity(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 	pool := startPostgres(t, ctx)
 	applyThrough000097(t, ctx, pool)
@@ -28,27 +30,27 @@ func TestI2A_DB_TenantIntegrity(t *testing.T) {
 	insertMinimalRoutePlan(t, ctx, pool, tenantB, planB)
 
 	t.Run("I2A-DB-01 same-tenant candidate search FK", func(t *testing.T) {
-		if err := insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantA, 1, uuid.MustParse("00000000-0000-4000-8000-000000000001"), uuid.MustParse("00000000-0000-4000-8000-000000000002"), nil); err != nil {
+		if err := insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantA, 1, uuid.MustParse("00000000-0000-4000-8000-000000000001"), uuid.MustParse("00000000-0000-4000-8000-000000000002"), "UNFINISHED", nil, nil); err != nil {
 			t.Fatalf("I2A-DB-01: %v", err)
 		}
 	})
 
 	t.Run("I2A-DB-02 cross-tenant candidate search FK fails", func(t *testing.T) {
 		// Use a distinct ordinal so unique(search_id, ordinal) cannot mask the FK error.
-		err := insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantB, 4, uuid.MustParse("00000000-0000-4000-8000-000000000011"), uuid.MustParse("00000000-0000-4000-8000-000000000012"), nil)
+		err := insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantB, 4, uuid.MustParse("00000000-0000-4000-8000-000000000011"), uuid.MustParse("00000000-0000-4000-8000-000000000012"), "UNFINISHED", nil, nil)
 		if err == nil || !isFKViolation(err) {
 			t.Fatalf("I2A-DB-02 want FK fail got %v", err)
 		}
 	})
 
 	t.Run("I2A-DB-03 same-tenant candidate route_plan FK", func(t *testing.T) {
-		if err := insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantA, 2, uuid.MustParse("00000000-0000-4000-8000-000000000021"), uuid.MustParse("00000000-0000-4000-8000-000000000022"), &planA); err != nil {
+		if err := insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantA, 2, uuid.MustParse("00000000-0000-4000-8000-000000000021"), uuid.MustParse("00000000-0000-4000-8000-000000000022"), "FEASIBLE", nil, &planA); err != nil {
 			t.Fatalf("I2A-DB-03: %v", err)
 		}
 	})
 
 	t.Run("I2A-DB-04 cross-tenant candidate route_plan FK fails", func(t *testing.T) {
-		err := insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantA, 3, uuid.MustParse("00000000-0000-4000-8000-000000000031"), uuid.MustParse("00000000-0000-4000-8000-000000000032"), &planB)
+		err := insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantA, 3, uuid.MustParse("00000000-0000-4000-8000-000000000031"), uuid.MustParse("00000000-0000-4000-8000-000000000032"), "FEASIBLE", nil, &planB)
 		if err == nil || !isFKViolation(err) {
 			t.Fatalf("I2A-DB-04 want FK fail got %v", err)
 		}
@@ -96,10 +98,10 @@ func TestI2A_DB_TenantIntegrity(t *testing.T) {
 	t.Run("I2A-DB-09 duplicate canonical pair fails", func(t *testing.T) {
 		first := uuid.MustParse("00000000-0000-4000-8000-000000000041")
 		second := uuid.MustParse("00000000-0000-4000-8000-000000000042")
-		if err := insertRawCandidate(ctx, pool, uuid.New(), searchB, tenantB, 1, first, second, nil); err != nil {
+		if err := insertRawCandidate(ctx, pool, uuid.New(), searchB, tenantB, 1, first, second, "UNFINISHED", nil, nil); err != nil {
 			t.Fatalf("seed pair: %v", err)
 		}
-		err := insertRawCandidate(ctx, pool, uuid.New(), searchB, tenantB, 2, first, second, nil)
+		err := insertRawCandidate(ctx, pool, uuid.New(), searchB, tenantB, 2, first, second, "UNFINISHED", nil, nil)
 		if err == nil || !isUniqueViolation(err) {
 			t.Fatalf("I2A-DB-09 want unique fail got %v", err)
 		}
@@ -108,9 +110,43 @@ func TestI2A_DB_TenantIntegrity(t *testing.T) {
 	t.Run("I2A-DB-10 duplicate ordinal fails", func(t *testing.T) {
 		err := insertRawCandidate(ctx, pool, uuid.New(), searchB, tenantB, 1,
 			uuid.MustParse("00000000-0000-4000-8000-000000000051"),
-			uuid.MustParse("00000000-0000-4000-8000-000000000052"), nil)
+			uuid.MustParse("00000000-0000-4000-8000-000000000052"), "UNFINISHED", nil, nil)
 		if err == nil || !isUniqueViolation(err) {
 			t.Fatalf("I2A-DB-10 want unique fail got %v", err)
+		}
+	})
+
+	t.Run("I2A-DB-11 UNFINISHED with route_plan rejected", func(t *testing.T) {
+		err := insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantA, 4,
+			uuid.MustParse("00000000-0000-4000-8000-000000000061"),
+			uuid.MustParse("00000000-0000-4000-8000-000000000062"), "UNFINISHED", nil, &planA)
+		if err == nil || !isCheckViolation(err) {
+			t.Fatalf("I2A-DB-11 want check fail got %v", err)
+		}
+	})
+
+	t.Run("I2A-DB-12 INFEASIBLE with route_plan rejected", func(t *testing.T) {
+		err := insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantA, 4,
+			uuid.MustParse("00000000-0000-4000-8000-000000000071"),
+			uuid.MustParse("00000000-0000-4000-8000-000000000072"), "INFEASIBLE", nil, &planA)
+		if err == nil || !isCheckViolation(err) {
+			t.Fatalf("I2A-DB-12 want check fail got %v", err)
+		}
+	})
+
+	t.Run("I2A-DB-13 non-FEASIBLE with selected_order rejected", func(t *testing.T) {
+		order := "L1_BEFORE_L2"
+		err := insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantA, 4,
+			uuid.MustParse("00000000-0000-4000-8000-000000000081"),
+			uuid.MustParse("00000000-0000-4000-8000-000000000082"), "UNFINISHED", &order, nil)
+		if err == nil || !isCheckViolation(err) {
+			t.Fatalf("I2A-DB-13 unfinished want check fail got %v", err)
+		}
+		err = insertRawCandidate(ctx, pool, uuid.New(), searchA, tenantA, 4,
+			uuid.MustParse("00000000-0000-4000-8000-000000000083"),
+			uuid.MustParse("00000000-0000-4000-8000-000000000084"), "INFEASIBLE", &order, nil)
+		if err == nil || !isCheckViolation(err) {
+			t.Fatalf("I2A-DB-13 infeasible want check fail got %v", err)
 		}
 	})
 }
@@ -147,15 +183,15 @@ func insertMinimalChainSearch(t *testing.T, ctx context.Context, pool *pgxpool.P
 	return id
 }
 
-func insertRawCandidate(ctx context.Context, pool *pgxpool.Pool, candidateID, searchID, tenant uuid.UUID, ordinal int, first, second uuid.UUID, routePlan *uuid.UUID) error {
+func insertRawCandidate(ctx context.Context, pool *pgxpool.Pool, candidateID, searchID, tenant uuid.UUID, ordinal int, first, second uuid.UUID, feasibility string, selectedOrder *string, routePlan *uuid.UUID) error {
 	_, err := pool.Exec(ctx, `
 		INSERT INTO network_optimizer.chain_candidates (
 			candidate_id, search_id, tenant_id, ordinal,
 			first_load_id, first_load_version, second_load_id, second_load_version,
-			feasibility_status, omitted_components, reason_codes,
+			feasibility_status, selected_order, omitted_components, reason_codes,
 			route_plan_id, candidate_fingerprint, created_at
-		) VALUES ($1,$2,$3,$4,$5,1,$6,1,'UNFINISHED','{}','{}',$7,'fp',now())`,
-		candidateID, searchID, tenant, ordinal, first, second, routePlan)
+		) VALUES ($1,$2,$3,$4,$5,1,$6,1,$7,$8,'{}','{}',$9,'fp',now())`,
+		candidateID, searchID, tenant, ordinal, first, second, feasibility, selectedOrder, routePlan)
 	return err
 }
 
@@ -163,6 +199,15 @@ func isFKViolation(err error) bool {
 	if err == nil {
 		return false
 	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+		return true
+	}
 	msg := err.Error()
 	return strings.Contains(msg, "foreign key") || strings.Contains(msg, "violates foreign key") || strings.Contains(msg, "SQLSTATE 23503")
+}
+
+func isCheckViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23514"
 }
