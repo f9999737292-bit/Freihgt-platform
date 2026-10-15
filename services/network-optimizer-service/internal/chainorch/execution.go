@@ -2,6 +2,7 @@ package chainorch
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,10 +56,100 @@ func RemainingComputeBudget(run repository.ChainSearchRun, now time.Time) time.D
 	return remaining
 }
 
-// RunDurableChainSearch executes the in-memory chain engine under the claimed
-// search's persisted identity, horizon, absolute deadline, and stored duration.
-// The engine copy has Repository=nil so legacy Claim/Commit cannot run.
+// RunOwnedDurableChainSearch is the canonical I2B compute entry point.
+// It commits PENDING -> RUNNING under tenant/search/owner fencing before any
+// provider/engine/route-plan work. No takeover and no automatic retry.
+func (o *Orchestrator) RunOwnedDurableChainSearch(
+	ctx context.Context,
+	tenant, searchID, ownerToken uuid.UUID,
+	engine chain.Engine,
+	base chain.Request,
+) (chain.Result, error) {
+	if o == nil || o.Store == nil {
+		return chain.Result{}, errors.New("orchestrator store required")
+	}
+	if tenant == uuid.Nil || searchID == uuid.Nil || ownerToken == uuid.Nil {
+		return chain.Result{}, ErrNotOwner
+	}
+
+	var running repository.ChainSearchRun
+	err := o.Store.WithinChainSearch(ctx, func(tx repository.ChainSearchTx) error {
+		if err := tx.LockChainSearchRun(ctx, tenant, searchID); err != nil {
+			return err
+		}
+		row, err := tx.GetChainSearchRun(ctx, tenant, searchID)
+		if err != nil {
+			return err
+		}
+		if err := classifyComputeStart(row, ownerToken, o.now()); err != nil {
+			return err
+		}
+		ok, err := tx.MarkChainSearchRunning(ctx, tenant, searchID, ownerToken)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			// Concurrent start, deadline race, or fencing loss — re-read to classify.
+			row, err = tx.GetChainSearchRun(ctx, tenant, searchID)
+			if err != nil {
+				return err
+			}
+			if err := classifyComputeStart(row, ownerToken, o.now()); err != nil {
+				return err
+			}
+			return ErrNotOwner
+		}
+		running, err = tx.GetChainSearchRun(ctx, tenant, searchID)
+		if err != nil {
+			return err
+		}
+		if running.Status != repository.ChainSearchRunning {
+			return ErrSearchNotRunnable
+		}
+		return nil
+	})
+	if err != nil {
+		return chain.Result{}, err
+	}
+
+	// Compute only after RUNNING commit — never inside the start transaction.
+	return runDurableChainSearch(ctx, engine, running, base)
+}
+
+func classifyComputeStart(row repository.ChainSearchRun, ownerToken uuid.UUID, now time.Time) error {
+	if IsTerminal(row.Status) {
+		return ErrSearchNotRunnable
+	}
+	if row.Status == repository.ChainSearchRunning {
+		return ErrInProgress
+	}
+	if row.Status != repository.ChainSearchPending {
+		return ErrSearchNotRunnable
+	}
+	if row.OwnerToken != ownerToken {
+		return ErrNotOwner
+	}
+	if !now.Before(row.DeadlineAt) {
+		return ErrComputeDeadlinePassed
+	}
+	return nil
+}
+
+// RunDurableChainSearch is a low-level helper for an already-verified RUNNING row.
+// Production orchestration must use RunOwnedDurableChainSearch. This entry point
+// rejects any non-RUNNING status so PENDING/forged rows cannot bypass the gate.
 func RunDurableChainSearch(ctx context.Context, engine chain.Engine, run repository.ChainSearchRun, base chain.Request) (chain.Result, error) {
+	return runDurableChainSearch(ctx, engine, run, base)
+}
+
+// runDurableChainSearch executes the in-memory chain engine under a RUNNING
+// search's persisted identity, horizon, absolute deadline, and stored duration.
+// SearchID is pinned via DurableSearchID / result postcondition only — Engine.NewID
+// remains free for candidate ID generation.
+func runDurableChainSearch(ctx context.Context, engine chain.Engine, run repository.ChainSearchRun, base chain.Request) (chain.Result, error) {
+	if run.Status != repository.ChainSearchRunning {
+		return chain.Result{}, ErrSearchNotRunnable
+	}
 	prepared, err := PrepareDurableChainRequest(run, base)
 	if err != nil {
 		return chain.Result{}, err
@@ -76,20 +167,14 @@ func RunDurableChainSearch(ctx context.Context, engine chain.Engine, run reposit
 			ReasonCounts:   map[string]int{},
 		}, nil
 	}
-	// Absolute context deadline so provider work cannot outlive persisted deadline_at.
 	execCtx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
 
 	durableEngine := engine
 	durableEngine.Repository = nil
-	if durableEngine.NewID == nil {
-		// Defensive: durable path must never allocate a different public identity.
-		pinned := run.ID
-		durableEngine.NewID = func() uuid.UUID { return pinned }
-	}
+	// Do NOT pin NewID to run.ID — that would collide CandidateIDs with SearchID.
 
 	result, err := durableEngine.Search(execCtx, prepared)
-	// Pin durable resource identity and horizon regardless of engine internals.
 	result.SearchID = run.ID
 	result.HorizonStart = run.HorizonStart
 	result.HorizonEnd = run.HorizonEnd

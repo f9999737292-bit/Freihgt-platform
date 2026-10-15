@@ -44,6 +44,7 @@ var (
 	ErrFingerprintConflict   = errors.New("idempotency fingerprint conflict")
 	ErrInProgress            = errors.New("chain search in progress")
 	ErrDurationResolverRequired = errors.New("DurationResolver is required")
+	ErrSearchNotRunnable        = errors.New("chain search is not runnable")
 	errFencedDiscard            = errors.New("owner fenced output discarded")
 )
 

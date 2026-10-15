@@ -4,6 +4,7 @@ package chainorch_test
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -79,18 +80,16 @@ func TestI2B_DeadlineContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		run := res.Search
-		expireToPastDeadline(t, ctx, pool, run.ID)
-		run = getRun(t, ctx, store, tenant, run.ID)
+		expireToPastDeadline(t, ctx, pool, res.Search.ID)
 		prov := &countingProvider{}
-		clock := run.DeadlineAt.Add(time.Millisecond)
+		clock := time.Now().UTC()
 		base := durableChainRequest(tenant, prov, func() time.Time { return clock }, clock)
-		out, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, run, base)
-		if err != nil {
-			t.Fatal(err)
+		_, err = orch.RunOwnedDurableChainSearch(ctx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base)
+		if !errors.Is(err, chainorch.ErrComputeDeadlinePassed) {
+			t.Fatalf("want ErrComputeDeadlinePassed got %v", err)
 		}
-		if atomic.LoadInt32(&prov.calls) != 0 || out.ProviderCalls != 0 {
-			t.Fatalf("provider calls=%d result=%d want 0", prov.calls, out.ProviderCalls)
+		if atomic.LoadInt32(&prov.calls) != 0 {
+			t.Fatalf("provider calls=%d want 0", prov.calls)
 		}
 	})
 
@@ -100,14 +99,12 @@ func TestI2B_DeadlineContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		run := res.Search
-		setDeadlineIn(t, ctx, pool, run.ID, 2*time.Second)
-		run = getRun(t, ctx, store, tenant, run.ID)
+		setDeadlineIn(t, ctx, pool, res.Search.ID, 2*time.Second)
 		prov := &countingProvider{}
 		now := time.Now().UTC()
 		base := durableChainRequest(tenant, prov, func() time.Time { return time.Now().UTC() }, now)
 		base.Loads = []chain.VisibleLoad{visibleLoad(tenant, now, 1)}
-		_, _ = chainorch.RunDurableChainSearch(ctx, chain.Engine{}, run, base)
+		_, _ = orch.RunOwnedDurableChainSearch(ctx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base)
 		if atomic.LoadInt32(&prov.calls) == 0 {
 			t.Fatal("expected at least one provider call to observe timeout cap")
 		}
@@ -127,26 +124,26 @@ func TestI2B_DeadlineContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		run := res.Search
-		expireToPastDeadline(t, ctx, pool, run.ID)
-		run = getRun(t, ctx, store, tenant, run.ID)
+		expireToPastDeadline(t, ctx, pool, res.Search.ID)
+		run := getRun(t, ctx, store, tenant, res.Search.ID)
 		if err := orch.EnsureComputeAllowed(run); err == nil {
 			t.Fatal("compute must be blocked after deadline")
 		}
 		prov := &countingProvider{}
-		clock := run.DeadlineAt.Add(10 * time.Millisecond)
+		clock := time.Now().UTC()
 		base := durableChainRequest(tenant, prov, func() time.Time { return clock }, clock)
 		base.Loads = []chain.VisibleLoad{visibleLoad(tenant, clock, 1), visibleLoad(tenant, clock, 2)}
-		out, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, run, base)
-		if err != nil {
-			t.Fatal(err)
+		_, err = orch.RunOwnedDurableChainSearch(ctx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base)
+		if !errors.Is(err, chainorch.ErrComputeDeadlinePassed) {
+			t.Fatalf("want ErrComputeDeadlinePassed got %v", err)
 		}
-		if atomic.LoadInt32(&prov.calls) != 0 || out.ProviderCalls != 0 {
-			t.Fatalf("no compute after deadline calls=%d result=%d", prov.calls, out.ProviderCalls)
+		if atomic.LoadInt32(&prov.calls) != 0 {
+			t.Fatalf("no compute after deadline calls=%d", prov.calls)
 		}
 	})
 
 	t.Run("I2B-DEADLINE-05 grace allows terminal persistence but zero new compute", func(t *testing.T) {
+		// Low-level: already RUNNING past deadline — owned start would return ErrInProgress.
 		tenant := uuid.New()
 		id := uuid.New()
 		owner := uuid.New()
@@ -181,19 +178,17 @@ func TestI2B_DeadlineContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		run := res.Search
-		setDeadlineIn(t, ctx, pool, run.ID, 1*time.Second)
-		run = getRun(t, ctx, store, tenant, run.ID)
-		frozen := time.Now().UTC() // looks "before" deadline if frozen, but we sleep past it
+		setDeadlineIn(t, ctx, pool, res.Search.ID, 1*time.Second)
+		frozen := time.Now().UTC()
 		prov := &countingProvider{}
 		base := durableChainRequest(tenant, prov, func() time.Time { return frozen }, frozen)
 		base.Loads = []chain.VisibleLoad{visibleLoad(tenant, frozen, 1), visibleLoad(tenant, frozen, 2)}
 		time.Sleep(1200 * time.Millisecond)
-		out, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, run, base)
-		if err != nil {
-			t.Fatal(err)
+		_, err = orch.RunOwnedDurableChainSearch(ctx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base)
+		if !errors.Is(err, chainorch.ErrComputeDeadlinePassed) {
+			t.Fatalf("want ErrComputeDeadlinePassed got %v", err)
 		}
-		if atomic.LoadInt32(&prov.calls) != 0 || out.ProviderCalls != 0 {
+		if atomic.LoadInt32(&prov.calls) != 0 {
 			t.Fatalf("stale Now must not allow compute after wall deadline calls=%d", prov.calls)
 		}
 	})
@@ -204,19 +199,17 @@ func TestI2B_DeadlineContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		run := res.Search
-		expireToPastDeadline(t, ctx, pool, run.ID)
-		run = getRun(t, ctx, store, tenant, run.ID)
-		// Fake Now still deep inside a 20s window relative to claim creation.
+		expireToPastDeadline(t, ctx, pool, res.Search.ID)
+		run := getRun(t, ctx, store, tenant, res.Search.ID)
 		fakeNow := run.CreatedAt.Add(time.Second)
 		prov := &countingProvider{}
 		base := durableChainRequest(tenant, prov, func() time.Time { return fakeNow }, fakeNow)
 		base.Loads = []chain.VisibleLoad{visibleLoad(tenant, fakeNow, 1), visibleLoad(tenant, fakeNow, 2)}
-		out, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, run, base)
-		if err != nil {
-			t.Fatal(err)
+		_, err = orch.RunOwnedDurableChainSearch(ctx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base)
+		if !errors.Is(err, chainorch.ErrComputeDeadlinePassed) {
+			t.Fatalf("want ErrComputeDeadlinePassed got %v", err)
 		}
-		if atomic.LoadInt32(&prov.calls) != 0 || out.ProviderCalls != 0 {
+		if atomic.LoadInt32(&prov.calls) != 0 {
 			t.Fatal("route-plan/provider must not start after durable deadline despite fake Now")
 		}
 	})
@@ -227,14 +220,12 @@ func TestI2B_DeadlineContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		run := res.Search
-		setDeadlineIn(t, ctx, pool, run.ID, 2*time.Second)
-		run = getRun(t, ctx, store, tenant, run.ID)
+		setDeadlineIn(t, ctx, pool, res.Search.ID, 2*time.Second)
 		block := &blockingProvider{blockFor: 8 * time.Second}
 		base := durableChainRequest(tenant, block, time.Now, time.Now().UTC())
 		base.Loads = []chain.VisibleLoad{visibleLoad(tenant, time.Now().UTC(), 1)}
 		start := time.Now()
-		_, _ = chainorch.RunDurableChainSearch(ctx, chain.Engine{}, run, base)
+		_, _ = orch.RunOwnedDurableChainSearch(ctx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base)
 		elapsed := time.Since(start)
 		if elapsed > 4*time.Second {
 			t.Fatalf("provider call outlived absolute deadline elapsed=%v", elapsed)
@@ -250,9 +241,7 @@ func TestI2B_DeadlineContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		run := res.Search
-		expireToPastDeadline(t, ctx, pool, run.ID)
-		run = getRun(t, ctx, store, tenant, run.ID)
+		expireToPastDeadline(t, ctx, pool, res.Search.ID)
 		prov := &countingProvider{}
 		base := durableChainRequest(tenant, prov, time.Now, time.Now().UTC())
 		base.Loads = []chain.VisibleLoad{
@@ -260,11 +249,11 @@ func TestI2B_DeadlineContract(t *testing.T) {
 			visibleLoad(tenant, time.Now().UTC(), 2),
 			visibleLoad(tenant, time.Now().UTC(), 3),
 		}
-		out, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, run, base)
-		if err != nil {
-			t.Fatal(err)
+		_, err = orch.RunOwnedDurableChainSearch(ctx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base)
+		if !errors.Is(err, chainorch.ErrComputeDeadlinePassed) {
+			t.Fatalf("want ErrComputeDeadlinePassed got %v", err)
 		}
-		if atomic.LoadInt32(&prov.calls) != 0 || out.ProviderCalls != 0 {
+		if atomic.LoadInt32(&prov.calls) != 0 {
 			t.Fatalf("no provider calls after deadline calls=%d", prov.calls)
 		}
 	})

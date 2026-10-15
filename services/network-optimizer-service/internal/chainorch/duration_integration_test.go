@@ -292,7 +292,7 @@ func TestI2B_RealEngineDurationProof(t *testing.T) {
 		clock := time.Now().UTC()
 		base := durationExecRequest(tenant, clock)
 		base.Loads = durationSensitiveLoads(tenant, clock)
-		out, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, res.Search, base)
+		out, err := orch.RunOwnedDurableChainSearch(ctx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -322,7 +322,7 @@ func TestI2B_RealEngineDurationProof(t *testing.T) {
 		}
 		aBase := durationExecRequest(tenant, clock)
 		aBase.Loads = loads
-		aOut, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, aRes.Search, aBase)
+		aOut, err := aOrch.RunOwnedDurableChainSearch(ctx, tenant, aRes.Search.ID, aRes.OwnerToken, chain.Engine{}, aBase)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -334,7 +334,7 @@ func TestI2B_RealEngineDurationProof(t *testing.T) {
 		}
 		pBase := durationExecRequest(tenant, clock)
 		pBase.Loads = loads
-		pOut, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, pRes.Search, pBase)
+		pOut, err := pOrch.RunOwnedDurableChainSearch(ctx, tenant, pRes.Search.ID, pRes.OwnerToken, chain.Engine{}, pBase)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -365,7 +365,7 @@ func TestI2B_RealEngineDurationProof(t *testing.T) {
 		clock := time.Now().UTC()
 		base := durationExecRequest(tenant, clock)
 		base.Loads = durationSensitiveLoads(tenant, clock)
-		out, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, res.Search, base)
+		out, err := orch.RunOwnedDurableChainSearch(ctx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -391,7 +391,7 @@ func TestI2B_RealEngineDurationProof(t *testing.T) {
 		}
 		zBase := durationExecRequest(tenant, clock)
 		zBase.Loads = loads
-		zOut, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, zRes.Search, zBase)
+		zOut, err := zOrch.RunOwnedDurableChainSearch(ctx, tenant, zRes.Search.ID, zRes.OwnerToken, chain.Engine{}, zBase)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -403,7 +403,7 @@ func TestI2B_RealEngineDurationProof(t *testing.T) {
 		}
 		uBase := durationExecRequest(tenant, clock)
 		uBase.Loads = loads
-		uOut, err := chainorch.RunDurableChainSearch(ctx, chain.Engine{}, uRes.Search, uBase)
+		uOut, err := uOrch.RunOwnedDurableChainSearch(ctx, tenant, uRes.Search.ID, uRes.OwnerToken, chain.Engine{}, uBase)
 		if err != nil {
 			t.Fatal(err)
 		}
