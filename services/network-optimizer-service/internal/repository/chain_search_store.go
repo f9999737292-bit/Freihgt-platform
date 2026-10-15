@@ -133,23 +133,23 @@ type ChainSearchStore interface {
 // Mutation paths are intentionally separated so deadline and claim-expiry gates
 // cannot be confused or bypassed with optional parameters.
 type ChainSearchTx interface {
-	// InsertChainSearchRun persists a new claim. created_at/deadline_at/claim_expires_at
-	// are assigned from the database clock (20s + 5s) and returned on the row.
+	// InsertChainSearchRun creates a PENDING claim. Status is forced to PENDING,
+	// owner_token is generated internally, and claim timestamps come from one DB clock seed.
 	InsertChainSearchRun(context.Context, ChainSearchRun) (ChainSearchRun, error)
 	GetChainSearchRun(context.Context, uuid.UUID, uuid.UUID) (ChainSearchRun, error)
 	LockChainSearchRun(context.Context, uuid.UUID, uuid.UUID) error
 
 	// MarkChainSearchRunning is the only PENDING -> RUNNING / compute-start path.
-	// Requires exact owner_token and database time before deadline_at.
+	// Requires exact owner_token and clock_timestamp() before deadline_at.
 	MarkChainSearchRunning(ctx context.Context, tenant, searchID, ownerToken uuid.UUID) (bool, error)
 
-	// OwnerPersistChainSearchRun applies owner persistence/terminal writes.
-	// Requires exact owner_token, expected nonterminal state, and database time
-	// before claim_expires_at. Cannot start or restart computation (no transition to RUNNING).
+	// OwnerPersistChainSearchRun applies owner persistence/terminal writes under the frozen
+	// transition graph, exact owner_token, and clock_timestamp() before claim_expires_at.
 	OwnerPersistChainSearchRun(ctx context.Context, run ChainSearchRun, ownerToken uuid.UUID, expectedStatus string) (bool, error)
 
 	// RecoverExpiredChainSearchClaim is an explicit recovery CAS primitive for I2B.
-	// It only terminalizes expired PENDING/RUNNING rows to FAILED/CHAIN_INTERRUPTED.
+	// It only terminalizes expired PENDING/RUNNING rows to FAILED/CHAIN_INTERRUPTED
+	// when clock_timestamp() >= claim_expires_at.
 	RecoverExpiredChainSearchClaim(ctx context.Context, tenant, searchID uuid.UUID) (bool, error)
 
 	InsertChainCandidate(context.Context, ChainCandidate) error

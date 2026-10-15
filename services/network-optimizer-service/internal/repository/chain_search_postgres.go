@@ -35,12 +35,12 @@ func (t *chainSearchTx) InsertChainSearchRun(ctx context.Context, run ChainSearc
 	if err != nil {
 		return ChainSearchRun{}, err
 	}
-	status := run.Status
-	if status == "" {
-		status = ChainSearchPending
+	// Claim creation always starts PENDING. Caller-requested statuses are ignored.
+	ownerToken := uuid.New()
+	if ownerToken == uuid.Nil {
+		return ChainSearchRun{}, errors.New("failed to generate owner_token")
 	}
-	// Claim timing is owned by the database clock inside the insert transaction.
-	// A single clock_timestamp() seed keeps the frozen 20s + 5s window exact.
+	// Claim timing is owned by one database clock seed inside the insert transaction.
 	var (
 		createdAt      time.Time
 		deadlineAt     time.Time
@@ -62,26 +62,25 @@ func (t *chainSearchTx) InsertChainSearchRun(ctx context.Context, run ChainSearc
 			failure_code, cancel_reason_class, reason_counts_json
 		)
 		SELECT
-			$1,$2,$3, claim_clock.ts, $4,$5,$6,
-			$7,$8,$9,$10,
-			$11, claim_clock.ts + interval '20 seconds', $12, claim_clock.ts + interval '25 seconds',
-			$13,$14,$15::jsonb,
-			$16,$17,$18,
-			$19,$20,$21,$22,
-			$23,$24,$25,
-			$26,false,false,
-			$27,$28,$29::jsonb
+			$1,$2,$3, claim_clock.ts, NULL, NULL, NULL,
+			$4,$5,$6,$7,
+			$8, claim_clock.ts + interval '20 seconds', $9, claim_clock.ts + interval '25 seconds',
+			$10,$11,$12::jsonb,
+			$13,$14,$15,
+			$16,$17,$18,$19,
+			$20,$21,$22,
+			false,false,false,
+			NULL,NULL,$23::jsonb
 		FROM claim_clock
 		RETURNING created_at, deadline_at, claim_expires_at`,
-		run.ID, run.TenantID, status, run.StartedAt, run.CompletedAt, run.CancelledAt,
+		run.ID, run.TenantID, ChainSearchPending,
 		run.RequestFingerprint, run.PolicyVersion, run.AlgorithmVersion, run.CatalogFingerprint,
-		run.RoutingProviderVersion, run.OwnerToken,
+		run.RoutingProviderVersion, ownerToken,
 		run.ServiceDurationPolicyID, run.ServiceDurationPolicyVersion, snapshot,
 		run.HorizonStart, run.HorizonEnd, run.SeedSource,
 		run.SeedCapacityID, run.SeedCapacityVersion, run.SeedShipmentID, run.SeedShipmentVersion,
 		run.CandidateCount, run.EvaluatedPairCount, run.ProviderCallCount,
-		run.SearchComplete,
-		run.FailureCode, run.CancelReasonClass, reasonCounts,
+		reasonCounts,
 	).Scan(&createdAt, &deadlineAt, &claimExpiresAt)
 	if isUniqueViolation(err) {
 		return ChainSearchRun{}, ErrConflict
@@ -89,10 +88,17 @@ func (t *chainSearchTx) InsertChainSearchRun(ctx context.Context, run ChainSearc
 	if err != nil {
 		return ChainSearchRun{}, err
 	}
-	run.Status = status
+	run.Status = ChainSearchPending
+	run.OwnerToken = ownerToken
 	run.CreatedAt = createdAt
 	run.DeadlineAt = deadlineAt
 	run.ClaimExpiresAt = claimExpiresAt
+	run.StartedAt = nil
+	run.CompletedAt = nil
+	run.CancelledAt = nil
+	run.SearchComplete = false
+	run.FailureCode = nil
+	run.CancelReasonClass = nil
 	run.GlobalOptimum = false
 	run.ExecutionSupported = false
 	return run, nil
@@ -164,18 +170,29 @@ func (t *chainSearchTx) MarkChainSearchRunning(ctx context.Context, tenant, sear
 	tag, err := t.tx.Exec(ctx, `
 		UPDATE network_optimizer.chain_search_runs
 		SET status = $4,
-		    started_at = COALESCE(started_at, now())
+		    started_at = COALESCE(started_at, clock_timestamp())
 		WHERE tenant_id = $1
 		  AND id = $2
 		  AND owner_token = $3
 		  AND status = $5
-		  AND now() < deadline_at`,
+		  AND clock_timestamp() < deadline_at`,
 		tenant, searchID, ownerToken, ChainSearchRunning, ChainSearchPending,
 	)
 	if err != nil {
 		return false, err
 	}
 	return tag.RowsAffected() == 1, nil
+}
+
+func allowedOwnerPersistTransition(from, to string) bool {
+	switch from {
+	case ChainSearchPending:
+		return to == ChainSearchCancelled || to == ChainSearchFailed
+	case ChainSearchRunning:
+		return to == ChainSearchCompleted || to == ChainSearchCancelled || to == ChainSearchFailed
+	default:
+		return false
+	}
 }
 
 func (t *chainSearchTx) OwnerPersistChainSearchRun(ctx context.Context, run ChainSearchRun, ownerToken uuid.UUID, expectedStatus string) (bool, error) {
@@ -186,15 +203,11 @@ func (t *chainSearchTx) OwnerPersistChainSearchRun(ctx context.Context, run Chai
 		return false, errors.New("expectedStatus must be nonterminal")
 	}
 	target := run.Status
-	// Owner persistence cannot start or restart computation.
 	if target == ChainSearchRunning && expectedStatus == ChainSearchPending {
 		return false, errors.New("PENDING to RUNNING requires MarkChainSearchRunning")
 	}
-	if target == ChainSearchPending {
-		return false, errors.New("owner persist cannot set status PENDING")
-	}
-	if target != ChainSearchRunning && target != ChainSearchCompleted && target != ChainSearchCancelled && target != ChainSearchFailed {
-		return false, errors.New("invalid owner persist target status")
+	if !allowedOwnerPersistTransition(expectedStatus, target) {
+		return false, errors.New("owner persist transition not allowed")
 	}
 	reasonCounts, err := marshalReasonCounts(run.ReasonCounts)
 	if err != nil {
@@ -218,7 +231,7 @@ func (t *chainSearchTx) OwnerPersistChainSearchRun(ctx context.Context, run Chai
 		  AND owner_token = $14
 		  AND status = $15
 		  AND status IN ('PENDING', 'RUNNING')
-		  AND now() < claim_expires_at`,
+		  AND clock_timestamp() < claim_expires_at`,
 		run.TenantID, run.ID,
 		run.Status, run.StartedAt, run.CompletedAt, run.CancelledAt,
 		run.CandidateCount, run.EvaluatedPairCount, run.ProviderCallCount,
@@ -238,12 +251,12 @@ func (t *chainSearchTx) RecoverExpiredChainSearchClaim(ctx context.Context, tena
 		SET status = $3,
 		    search_complete = false,
 		    failure_code = $4,
-		    completed_at = COALESCE(completed_at, now()),
+		    completed_at = COALESCE(completed_at, clock_timestamp()),
 		    cancel_reason_class = NULL
 		WHERE tenant_id = $1
 		  AND id = $2
 		  AND status IN ('PENDING', 'RUNNING')
-		  AND claim_expires_at <= now()`,
+		  AND claim_expires_at <= clock_timestamp()`,
 		tenant, searchID, ChainSearchFailed, failure,
 	)
 	if err != nil {

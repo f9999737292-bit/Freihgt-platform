@@ -191,57 +191,76 @@ func TestI2A_DB_TenantIntegrity(t *testing.T) {
 		}
 	})
 
-	t.Run("I2A-DB-19 cross-tenant same idempotency key coexistence", func(t *testing.T) {
+	t.Run("I2A-DB-19 cross-tenant same idempotency key isolation", func(t *testing.T) {
 		store := NewPostgres(pool)
 		key := "shared-idem-key"
-		tenantX := uuid.New()
-		tenantY := uuid.New()
-		searchX := insertMinimalChainSearch(t, ctx, pool, tenantX, "fp-x")
-		searchY := insertMinimalChainSearch(t, ctx, pool, tenantY, "fp-y")
+		tenantA := uuid.New()
+		tenantB := uuid.New()
+		tenantC := uuid.New()
+		searchA := insertMinimalChainSearch(t, ctx, pool, tenantA, "fp-a-iso")
+		searchB := insertMinimalChainSearch(t, ctx, pool, tenantB, "fp-b-iso")
 		now := time.Now().UTC()
 		if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
 			if err := tx.InsertChainSearchIdempotency(ctx, ChainSearchIdempotency{
-				TenantID: tenantX, IdempotencyKey: key, RequestFingerprint: "fp-x", SearchID: searchX, CreatedAt: now,
+				TenantID: tenantA, IdempotencyKey: key, RequestFingerprint: "fp-a-iso", SearchID: searchA, CreatedAt: now,
 			}); err != nil {
 				return err
 			}
 			return tx.InsertChainSearchIdempotency(ctx, ChainSearchIdempotency{
-				TenantID: tenantY, IdempotencyKey: key, RequestFingerprint: "fp-y", SearchID: searchY, CreatedAt: now,
+				TenantID: tenantB, IdempotencyKey: key, RequestFingerprint: "fp-b-iso", SearchID: searchB, CreatedAt: now,
 			})
 		}); err != nil {
 			t.Fatalf("I2A-DB-19 insert both: %v", err)
 		}
-		var gotX, gotY ChainSearchIdempotency
+		var gotA, gotB ChainSearchIdempotency
 		if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
 			var err error
-			gotX, err = tx.GetChainSearchIdempotency(ctx, tenantX, key)
+			gotA, err = tx.GetChainSearchIdempotency(ctx, tenantA, key)
 			if err != nil {
 				return err
 			}
-			gotY, err = tx.GetChainSearchIdempotency(ctx, tenantY, key)
+			gotB, err = tx.GetChainSearchIdempotency(ctx, tenantB, key)
 			return err
 		}); err != nil {
-			t.Fatalf("I2A-DB-19 get: %v", err)
+			t.Fatalf("I2A-DB-19 get both: %v", err)
 		}
-		if gotX.SearchID != searchX || gotY.SearchID != searchY {
-			t.Fatalf("I2A-DB-19 tenant isolation gotX=%v gotY=%v", gotX.SearchID, gotY.SearchID)
+		if gotA.SearchID != searchA || gotA.TenantID != tenantA {
+			t.Fatalf("tenant A key must resolve only to A search got=%+v", gotA)
+		}
+		if gotB.SearchID != searchB || gotB.TenantID != tenantB {
+			t.Fatalf("tenant B key must resolve only to B search got=%+v", gotB)
+		}
+		if gotA.SearchID == gotB.SearchID {
+			t.Fatal("A and B must not resolve to the same search")
 		}
 		if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
-			_, err := tx.GetChainSearchIdempotency(ctx, tenantX, key+"-missing")
-			if !errors.Is(err, ErrNotFound) {
-				return err
-			}
-			_, err = tx.GetChainSearchIdempotency(ctx, tenantY, key)
+			row, err := tx.GetChainSearchIdempotency(ctx, tenantA, key)
 			if err != nil {
 				return err
 			}
-			_, err = tx.GetChainSearchIdempotency(ctx, uuid.New(), key)
+			if row.SearchID == searchB {
+				t.Fatal("tenant A scope retrieved tenant B mapping")
+			}
+			row, err = tx.GetChainSearchIdempotency(ctx, tenantB, key)
+			if err != nil {
+				return err
+			}
+			if row.SearchID == searchA {
+				t.Fatal("tenant B scope retrieved tenant A mapping")
+			}
+			_, err = tx.GetChainSearchIdempotency(ctx, tenantC, key)
 			if !errors.Is(err, ErrNotFound) {
-				t.Fatalf("foreign tenant saw key: %v", err)
+				t.Fatalf("third tenant want ErrNotFound got %v", err)
 			}
 			return nil
 		}); err != nil {
-			t.Fatalf("I2A-DB-19 scoped get: %v", err)
+			t.Fatalf("I2A-DB-19 isolation checks: %v", err)
+		}
+		var count int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*) FROM network_optimizer.chain_search_idempotency
+			WHERE idempotency_key=$1 AND tenant_id IN ($2,$3)`, key, tenantA, tenantB).Scan(&count); err != nil || count != 2 {
+			t.Fatalf("both rows must coexist count=%d err=%v", count, err)
 		}
 	})
 }

@@ -132,18 +132,248 @@ func TestI2A_TX_OwnerAndDeadlineFencing(t *testing.T) {
 		}
 		assertStatus(t, ctx, store, tenant, id, ChainSearchCompleted)
 	})
+
+	t.Run("I2A-TX-08 mark running uses wall clock not tx-stable now", func(t *testing.T) {
+		tenant := uuid.New()
+		id := uuid.New()
+		owner := uuid.New()
+		// deadline ≈ now()+500ms; claim grace remains for several seconds.
+		insertTimedSearch(t, ctx, pool, tenant, id, owner, ChainSearchPending, -20*time.Second+500*time.Millisecond)
+		var ok bool
+		err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+			// Transaction-stable now() would still be before deadline after this sleep.
+			time.Sleep(800 * time.Millisecond)
+			var markErr error
+			ok, markErr = tx.MarkChainSearchRunning(ctx, tenant, id, owner)
+			return markErr
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			t.Fatal("MarkChainSearchRunning must fail after wall-clock deadline inside long transaction")
+		}
+		assertStatus(t, ctx, store, tenant, id, ChainSearchPending)
+	})
+
+	t.Run("I2A-TX-09 owner persist uses wall clock not tx-stable now", func(t *testing.T) {
+		tenant := uuid.New()
+		id := uuid.New()
+		owner := uuid.New()
+		// claim_expires ≈ now()+500ms
+		insertTimedSearch(t, ctx, pool, tenant, id, owner, ChainSearchRunning, -25*time.Second+500*time.Millisecond)
+		var ok bool
+		err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+			time.Sleep(800 * time.Millisecond)
+			completed := time.Now().UTC()
+			var persistErr error
+			ok, persistErr = tx.OwnerPersistChainSearchRun(ctx, ChainSearchRun{
+				ID: id, TenantID: tenant, Status: ChainSearchCompleted, CompletedAt: &completed,
+				SearchComplete: true, ReasonCounts: map[string]int{},
+			}, owner, ChainSearchRunning)
+			return persistErr
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			t.Fatal("OwnerPersist must fail after wall-clock claim expiry inside long transaction")
+		}
+		assertStatus(t, ctx, store, tenant, id, ChainSearchRunning)
+	})
+
+	t.Run("I2A-TX-10 recovery uses wall clock not tx-stable now", func(t *testing.T) {
+		tenant := uuid.New()
+		id := uuid.New()
+		owner := uuid.New()
+		insertTimedSearch(t, ctx, pool, tenant, id, owner, ChainSearchRunning, -25*time.Second+500*time.Millisecond)
+		var ok bool
+		err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+			time.Sleep(800 * time.Millisecond)
+			var recoverErr error
+			ok, recoverErr = tx.RecoverExpiredChainSearchClaim(ctx, tenant, id)
+			return recoverErr
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			t.Fatal("RecoverExpiredChainSearchClaim must succeed after wall-clock claim expiry")
+		}
+		assertStatus(t, ctx, store, tenant, id, ChainSearchFailed)
+	})
+
+	t.Run("I2A-TX-11 claim creation forces PENDING", func(t *testing.T) {
+		tenant := uuid.New()
+		id := uuid.New()
+		now := time.Now().UTC()
+		one := 1
+		capID := uuid.New()
+		var inserted ChainSearchRun
+		if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+			var err error
+			inserted, err = tx.InsertChainSearchRun(ctx, ChainSearchRun{
+				ID: id, TenantID: tenant, Status: ChainSearchCompleted,
+				RequestFingerprint: "fp-force-pending", PolicyVersion: "NLO-0.9C-I0/BOUNDED_TWO_LOAD",
+				AlgorithmVersion: "BOUNDED_TWO_ORDER_COMPARISON", CatalogFingerprint: "catalog",
+				RoutingProviderVersion: "UNKNOWN", OwnerToken: uuid.New(),
+				ServiceDurationSnapshot: ServiceDurationSnapshot{State: ServiceDurationUnknown},
+				HorizonStart:            now, HorizonEnd: now.Add(48 * time.Hour),
+				SeedSource: ChainSeedManualAvailableCapacity, SeedCapacityID: &capID, SeedCapacityVersion: &one,
+				SearchComplete: true, ReasonCounts: map[string]int{},
+			})
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if inserted.Status != ChainSearchPending || inserted.SearchComplete {
+			t.Fatalf("forced pending got status=%s complete=%v", inserted.Status, inserted.SearchComplete)
+		}
+		assertStatus(t, ctx, store, tenant, id, ChainSearchPending)
+	})
+
+	t.Run("I2A-TX-12 owner token generated internally", func(t *testing.T) {
+		caller := uuid.New()
+		tenant := uuid.New()
+		id := uuid.New()
+		now := time.Now().UTC()
+		one := 1
+		capID := uuid.New()
+		var inserted ChainSearchRun
+		if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+			var err error
+			inserted, err = tx.InsertChainSearchRun(ctx, ChainSearchRun{
+				ID: id, TenantID: tenant, Status: ChainSearchPending,
+				RequestFingerprint: "fp-owner-gen", PolicyVersion: "NLO-0.9C-I0/BOUNDED_TWO_LOAD",
+				AlgorithmVersion: "BOUNDED_TWO_ORDER_COMPARISON", CatalogFingerprint: "catalog",
+				RoutingProviderVersion: "UNKNOWN", OwnerToken: caller,
+				ServiceDurationSnapshot: ServiceDurationSnapshot{State: ServiceDurationUnknown},
+				HorizonStart:            now, HorizonEnd: now.Add(48 * time.Hour),
+				SeedSource: ChainSeedManualAvailableCapacity, SeedCapacityID: &capID, SeedCapacityVersion: &one,
+				ReasonCounts: map[string]int{},
+			})
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if inserted.OwnerToken == uuid.Nil || inserted.OwnerToken == caller {
+			t.Fatalf("internal owner required got=%s caller=%s", inserted.OwnerToken, caller)
+		}
+		var got ChainSearchRun
+		_ = store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
+			var err error
+			got, err = tx.GetChainSearchRun(ctx, tenant, id)
+			return err
+		})
+		if got.OwnerToken != inserted.OwnerToken || got.OwnerToken == caller {
+			t.Fatalf("persisted owner mismatch got=%s inserted=%s caller=%s", got.OwnerToken, inserted.OwnerToken, caller)
+		}
+	})
+
+	t.Run("I2A-TX-13 PENDING to COMPLETED rejected", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		completed := time.Now().UTC()
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchCompleted, CompletedAt: &completed,
+			SearchComplete: true, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchPending)
+		if err == nil && ok {
+			t.Fatal("PENDING to COMPLETED must be rejected")
+		}
+		assertStatus(t, ctx, store, tenant, id, ChainSearchPending)
+	})
+
+	t.Run("I2A-TX-14 RUNNING to COMPLETED succeeds", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		if ok, err := markRunning(ctx, store, tenant, id, owner); err != nil || !ok {
+			t.Fatalf("setup running ok=%v err=%v", ok, err)
+		}
+		completed := time.Now().UTC()
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchCompleted, CompletedAt: &completed,
+			SearchComplete: true, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchRunning)
+		if err != nil || !ok {
+			t.Fatalf("RUNNING to COMPLETED ok=%v err=%v", ok, err)
+		}
+		assertStatus(t, ctx, store, tenant, id, ChainSearchCompleted)
+	})
+
+	t.Run("I2A-TX-15 PENDING to CANCELLED succeeds", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		cancelled := time.Now().UTC()
+		class := "CLIENT_CANCEL"
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchCancelled, CancelledAt: &cancelled,
+			CancelReasonClass: &class, SearchComplete: false, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchPending)
+		if err != nil || !ok {
+			t.Fatalf("PENDING to CANCELLED ok=%v err=%v", ok, err)
+		}
+		assertStatus(t, ctx, store, tenant, id, ChainSearchCancelled)
+	})
+
+	t.Run("I2A-TX-16 PENDING to FAILED succeeds", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		completed := time.Now().UTC()
+		code := "CHAIN_BUDGET_EXHAUSTED"
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchFailed, CompletedAt: &completed,
+			FailureCode: &code, SearchComplete: false, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchPending)
+		if err != nil || !ok {
+			t.Fatalf("PENDING to FAILED ok=%v err=%v", ok, err)
+		}
+		assertStatus(t, ctx, store, tenant, id, ChainSearchFailed)
+	})
+
+	t.Run("I2A-TX-17 RUNNING to CANCELLED succeeds", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		if ok, err := markRunning(ctx, store, tenant, id, owner); err != nil || !ok {
+			t.Fatalf("setup running ok=%v err=%v", ok, err)
+		}
+		cancelled := time.Now().UTC()
+		class := "CLIENT_CANCEL"
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchCancelled, CancelledAt: &cancelled,
+			CancelReasonClass: &class, SearchComplete: false, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchRunning)
+		if err != nil || !ok {
+			t.Fatalf("RUNNING to CANCELLED ok=%v err=%v", ok, err)
+		}
+		assertStatus(t, ctx, store, tenant, id, ChainSearchCancelled)
+	})
+
+	t.Run("I2A-TX-18 RUNNING to FAILED succeeds", func(t *testing.T) {
+		tenant, id, owner := insertRepoPending(t, ctx, store)
+		if ok, err := markRunning(ctx, store, tenant, id, owner); err != nil || !ok {
+			t.Fatalf("setup running ok=%v err=%v", ok, err)
+		}
+		completed := time.Now().UTC()
+		code := "CHAIN_BUDGET_EXHAUSTED"
+		ok, err := ownerPersist(ctx, store, ChainSearchRun{
+			ID: id, TenantID: tenant, Status: ChainSearchFailed, CompletedAt: &completed,
+			FailureCode: &code, SearchComplete: false, ReasonCounts: map[string]int{},
+		}, owner, ChainSearchRunning)
+		if err != nil || !ok {
+			t.Fatalf("RUNNING to FAILED ok=%v err=%v", ok, err)
+		}
+		assertStatus(t, ctx, store, tenant, id, ChainSearchFailed)
+	})
 }
 
 func insertRepoPending(t *testing.T, ctx context.Context, store *Postgres) (tenant, id, owner uuid.UUID) {
 	t.Helper()
 	tenant = uuid.New()
 	id = uuid.New()
-	owner = uuid.New()
+	callerToken := uuid.New()
 	now := time.Now().UTC()
 	one := 1
 	capID := uuid.New()
+	var inserted ChainSearchRun
 	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
-		_, err := tx.InsertChainSearchRun(ctx, ChainSearchRun{
+		var err error
+		inserted, err = tx.InsertChainSearchRun(ctx, ChainSearchRun{
 			ID:                     id,
 			TenantID:               tenant,
 			Status:                 ChainSearchPending,
@@ -152,7 +382,7 @@ func insertRepoPending(t *testing.T, ctx context.Context, store *Postgres) (tena
 			AlgorithmVersion:       "BOUNDED_TWO_ORDER_COMPARISON",
 			CatalogFingerprint:     "catalog",
 			RoutingProviderVersion: "UNKNOWN",
-			OwnerToken:             owner,
+			OwnerToken:             callerToken,
 			ServiceDurationSnapshot: ServiceDurationSnapshot{
 				State: ServiceDurationUnknown, PickupKnown: false, DeliveryKnown: false,
 			},
@@ -167,7 +397,10 @@ func insertRepoPending(t *testing.T, ctx context.Context, store *Postgres) (tena
 	}); err != nil {
 		t.Fatalf("insert pending: %v", err)
 	}
-	return tenant, id, owner
+	if inserted.OwnerToken == uuid.Nil || inserted.OwnerToken == callerToken {
+		t.Fatalf("owner token must be generated internally got=%s caller=%s", inserted.OwnerToken, callerToken)
+	}
+	return tenant, id, inserted.OwnerToken
 }
 
 func insertTimedSearch(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenant, id, owner uuid.UUID, status string, createdOffset time.Duration) {

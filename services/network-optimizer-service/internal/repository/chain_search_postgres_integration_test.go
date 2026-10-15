@@ -21,7 +21,6 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 	tenant := uuid.New()
 	otherTenant := uuid.New()
 	createdHint := time.Now().UTC()
-	owner := uuid.New()
 	policyID := uuid.New()
 	policyVersion := 2
 	zero := 0
@@ -39,13 +38,13 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 	pending := ChainSearchRun{
 		ID:                           uuid.New(),
 		TenantID:                     tenant,
-		Status:                       ChainSearchPending,
+		Status:                       ChainSearchCompleted, // forced to PENDING by claim create
 		RequestFingerprint:           "req-fp-pending",
 		PolicyVersion:                "NLO-0.9C-I0/BOUNDED_TWO_LOAD",
 		AlgorithmVersion:             "BOUNDED_TWO_ORDER_COMPARISON",
 		CatalogFingerprint:           "catalog-fp",
 		RoutingProviderVersion:       "UNKNOWN",
-		OwnerToken:                   owner,
+		OwnerToken:                   uuid.New(), // ignored; generated internally
 		ServiceDurationPolicyID:      &policyID,
 		ServiceDurationPolicyVersion: &policyVersion,
 		ServiceDurationSnapshot:      knownZero,
@@ -69,9 +68,13 @@ func TestI2A_PG_RepositoryRoundTrip(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("insert pending: %v", err)
 	}
+	if inserted.Status != ChainSearchPending || inserted.OwnerToken == uuid.Nil {
+		t.Fatalf("claim create status=%s owner=%s", inserted.Status, inserted.OwnerToken)
+	}
 	if !inserted.DeadlineAt.Equal(inserted.CreatedAt.Add(20*time.Second)) || !inserted.ClaimExpiresAt.Equal(inserted.DeadlineAt.Add(5*time.Second)) {
 		t.Fatalf("DB claim window mismatch created=%v deadline=%v claim=%v", inserted.CreatedAt, inserted.DeadlineAt, inserted.ClaimExpiresAt)
 	}
+	owner := inserted.OwnerToken
 
 	var got ChainSearchRun
 	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
@@ -259,7 +262,6 @@ func TestI2A_PG_IMMUTABLE_01_ServiceDurationSnapshot(t *testing.T) {
 
 	tenant := uuid.New()
 	createdHint := time.Now().UTC()
-	owner := uuid.New()
 	policyID := uuid.New()
 	policyVersion := 3
 	zero := 0
@@ -274,7 +276,7 @@ func TestI2A_PG_IMMUTABLE_01_ServiceDurationSnapshot(t *testing.T) {
 		AlgorithmVersion:             "BOUNDED_TWO_ORDER_COMPARISON",
 		CatalogFingerprint:           "catalog-fp",
 		RoutingProviderVersion:       "UNKNOWN",
-		OwnerToken:                   owner,
+		OwnerToken:                   uuid.New(),
 		ServiceDurationPolicyID:      &policyID,
 		ServiceDurationPolicyVersion: &policyVersion,
 		ServiceDurationSnapshot: ServiceDurationSnapshot{
@@ -293,9 +295,14 @@ func TestI2A_PG_IMMUTABLE_01_ServiceDurationSnapshot(t *testing.T) {
 		SeedCapacityVersion: &capacityVersion,
 		ReasonCounts:        map[string]int{},
 	}
+	var owner uuid.UUID
 	if err := store.WithinChainSearch(ctx, func(tx ChainSearchTx) error {
-		_, err := tx.InsertChainSearchRun(ctx, original)
-		return err
+		inserted, err := tx.InsertChainSearchRun(ctx, original)
+		if err != nil {
+			return err
+		}
+		owner = inserted.OwnerToken
+		return nil
 	}); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
