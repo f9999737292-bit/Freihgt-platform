@@ -47,3 +47,9 @@
 | terminal replay → same shortlist + zero recompute | Claim OutcomeReplay + ErrSearchNotRunnable | I2B-E2E-17 | I2B-E2E-16 | PASS |
 | private shipper/customer/contract absent | E2E-18 JSON scan | I2B-E2E-18 | I2B-E2E-18 | PASS |
 | REJECTED never maps to COMPLETED | FailureUnexpectedEngineStatus | project_test reject | classify fail-closed | PASS |
+| FAILED retains actual engine counters | `TerminalStatsFromEngine` + FailSearch | I2B-E2E-12/19 zero-reset | I2B-E2E-19 | PASS |
+| CANCELLED retains actual engine counters | CancelSearch stats | I2B-E2E-13/20 zero-reset | I2B-E2E-20 | PASS |
+| CANCELLED retains actual reason_counts | CancelSearch ReasonCounts | I2B-E2E-20 empty drop | I2B-E2E-20 | PASS |
+| candidate_count equals actually persisted rows | TerminalStats.CandidateCount | I2B-E2E-15 partial COMPLETED | I2B-E2E-11/19/20 | PASS |
+| canonical path ignores arbitrary caller counters | ExecuteOwned vs low-level FailSearch | I2B-E2E-22 arbitrary 99 | I2B-E2E-22 engine match | PASS |
+| unexpected failure keeps measurable counters | RewriteEngineResultForTest + FailSearch | I2B-E2E-21 zero | I2B-E2E-21 | PASS |

@@ -282,11 +282,11 @@ func TestI2B_OwnedComputeLifecycle(t *testing.T) {
 					t.Fatalf("complete ok=%v err=%v", ok, err)
 				}
 			case repository.ChainSearchCancelled:
-				if _, ok, err := orch.CancelSearch(ctx, tenant, res.Search.ID, res.OwnerToken, repository.ChainSearchRunning, chainorch.CancelClientCancelled); err != nil || !ok {
+				if _, ok, err := orch.CancelSearch(ctx, tenant, res.Search.ID, res.OwnerToken, repository.ChainSearchRunning, chainorch.CancelClientCancelled, chainorch.TerminalStats{}); err != nil || !ok {
 					t.Fatalf("cancel ok=%v err=%v", ok, err)
 				}
 			default:
-				if _, ok, err := orch.FailSearch(ctx, tenant, res.Search.ID, res.OwnerToken, repository.ChainSearchRunning, "TEST_FAIL", map[string]int{}); err != nil || !ok {
+				if _, ok, err := orch.FailSearch(ctx, tenant, res.Search.ID, res.OwnerToken, repository.ChainSearchRunning, "TEST_FAIL", chainorch.TerminalStats{}); err != nil || !ok {
 					t.Fatalf("fail ok=%v err=%v", ok, err)
 				}
 			}

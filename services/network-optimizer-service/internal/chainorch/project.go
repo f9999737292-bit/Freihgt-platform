@@ -207,12 +207,29 @@ func cloneString(v *string) *string {
 // CountersFromEngineResult derives durable run counters from the actual engine result.
 // candidate_count is the shortlist length that will be persisted.
 func CountersFromEngineResult(result chain.Result, durableCandidateCount int) (candidateCount, evaluatedPairCount, providerCallCount int, reasonCounts map[string]int) {
-	candidateCount = durableCandidateCount
-	evaluatedPairCount = result.Evaluations
-	providerCallCount = result.ProviderCalls
-	reasonCounts = map[string]int{}
-	for k, v := range result.ReasonCounts {
-		reasonCounts[k] = v
+	stats := TerminalStatsFromEngine(result, durableCandidateCount, nil)
+	return stats.CandidateCount, stats.EvaluatedPairCount, stats.ProviderCallCount, stats.ReasonCounts
+}
+
+// TerminalStatsFromEngine builds canonical terminal counters from an actual engine result.
+// durableCandidateCount must equal rows actually committed (0 when none are persisted).
+// classifiedReasons, when non-nil, replaces raw engine ReasonCounts (engine copy plus
+// any I2B classification keys). Evaluations/ProviderCalls always come from the engine.
+func TerminalStatsFromEngine(result chain.Result, durableCandidateCount int, classifiedReasons map[string]int) TerminalStats {
+	reasons := map[string]int{}
+	if classifiedReasons != nil {
+		for k, v := range classifiedReasons {
+			reasons[k] = v
+		}
+	} else {
+		for k, v := range result.ReasonCounts {
+			reasons[k] = v
+		}
 	}
-	return candidateCount, evaluatedPairCount, providerCallCount, reasonCounts
+	return TerminalStats{
+		CandidateCount:     durableCandidateCount,
+		EvaluatedPairCount: result.Evaluations,
+		ProviderCallCount:  result.ProviderCalls,
+		ReasonCounts:       reasons,
+	}
 }

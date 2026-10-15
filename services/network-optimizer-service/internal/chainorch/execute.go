@@ -97,10 +97,16 @@ func (o *Orchestrator) terminalizeAfterCompute(
 		return ExecuteOwnedResult{EngineResult: engineResult, Search: run}, ErrSearchNotRunnable
 	}
 
+	if o.RewriteEngineResultForTest != nil {
+		engineResult = o.RewriteEngineResultForTest(engineResult)
+	}
 	decision := classifyDurableTerminal(ctx, run, engineResult, computeErr, o.now())
+	// No partial candidate rows on fail/cancel paths today — candidate_count stays 0
+	// unless rows are actually committed (COMPLETED shortlist only).
+	stats := TerminalStatsFromEngine(engineResult, 0, decision.reasonCounts)
 	switch decision.kind {
 	case terminalBudget:
-		out, ok, failErr := o.FailSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, FailureBudgetExhausted, decision.reasonCounts)
+		out, ok, failErr := o.FailSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, FailureBudgetExhausted, stats)
 		if failErr != nil {
 			return ExecuteOwnedResult{EngineResult: engineResult, Search: run}, failErr
 		}
@@ -115,7 +121,7 @@ func (o *Orchestrator) terminalizeAfterCompute(
 		if reason == "" {
 			reason = CancelContextCancelled
 		}
-		out, ok, cancelErr := o.CancelSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, reason)
+		out, ok, cancelErr := o.CancelSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, reason, stats)
 		if cancelErr != nil {
 			return ExecuteOwnedResult{EngineResult: engineResult, Search: run}, cancelErr
 		}
@@ -126,7 +132,7 @@ func (o *Orchestrator) terminalizeAfterCompute(
 		return ExecuteOwnedResult{Outcome: ExecuteOutcomeCancelled, Search: out, EngineResult: engineResult}, nil
 
 	case terminalFail:
-		out, ok, failErr := o.FailSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, decision.failureCode, decision.reasonCounts)
+		out, ok, failErr := o.FailSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, decision.failureCode, stats)
 		if failErr != nil {
 			return ExecuteOwnedResult{EngineResult: engineResult, Search: run}, failErr
 		}
@@ -139,9 +145,13 @@ func (o *Orchestrator) terminalizeAfterCompute(
 	case terminalComplete:
 		candidates, projErr := ProjectDurableCandidates(run, engineResult)
 		if projErr != nil {
-			out, ok, failErr := o.FailSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, FailureUnexpectedEngineStatus, map[string]int{
-				"PROJECT_ERROR": 1,
-			})
+			failReasons := map[string]int{}
+			for k, v := range decision.reasonCounts {
+				failReasons[k] = v
+			}
+			failReasons["PROJECT_ERROR"] = failReasons["PROJECT_ERROR"] + 1
+			failStats := TerminalStatsFromEngine(engineResult, 0, failReasons)
+			out, ok, failErr := o.FailSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, FailureUnexpectedEngineStatus, failStats)
 			if failErr != nil {
 				return ExecuteOwnedResult{EngineResult: engineResult, Search: run}, failErr
 			}
@@ -154,16 +164,16 @@ func (o *Orchestrator) terminalizeAfterCompute(
 		if o.AfterProjectCandidates != nil {
 			candidates = o.AfterProjectCandidates(candidates)
 		}
-		candCount, evalCount, provCount, reasons := CountersFromEngineResult(engineResult, len(candidates))
+		completeStats := TerminalStatsFromEngine(engineResult, len(candidates), decision.reasonCounts)
 		write := TerminalWrite{
 			Run: repository.ChainSearchRun{
 				ID:                 run.ID,
 				TenantID:           run.TenantID,
 				Status:             repository.ChainSearchCompleted,
-				CandidateCount:     candCount,
-				EvaluatedPairCount: evalCount,
-				ProviderCallCount:  provCount,
-				ReasonCounts:       reasons,
+				CandidateCount:     completeStats.CandidateCount,
+				EvaluatedPairCount: completeStats.EvaluatedPairCount,
+				ProviderCallCount:  completeStats.ProviderCallCount,
+				ReasonCounts:       completeStats.ReasonCounts,
 			},
 			Candidates: candidates,
 		}
@@ -184,7 +194,7 @@ func (o *Orchestrator) terminalizeAfterCompute(
 		}, nil
 
 	default:
-		out, ok, failErr := o.FailSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, FailureUnexpectedEngineStatus, map[string]int{})
+		out, ok, failErr := o.FailSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchRunning, FailureUnexpectedEngineStatus, stats)
 		if failErr != nil {
 			return ExecuteOwnedResult{EngineResult: engineResult, Search: run}, failErr
 		}

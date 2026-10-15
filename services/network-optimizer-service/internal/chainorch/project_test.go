@@ -162,6 +162,21 @@ func TestClassifyDurableTerminal_RejectNotCompleted(t *testing.T) {
 	}
 }
 
+func TestTerminalStatsFromEngine_PreservesWork(t *testing.T) {
+	result := chain.Result{
+		Evaluations: 2, ProviderCalls: 7,
+		ReasonCounts: map[string]int{"ROAD_UNKNOWN": 1},
+	}
+	classified := map[string]int{"ROAD_UNKNOWN": 1, "UNEXPECTED_STATUS": 1}
+	stats := TerminalStatsFromEngine(result, 0, classified)
+	if stats.CandidateCount != 0 || stats.EvaluatedPairCount != 2 || stats.ProviderCallCount != 7 {
+		t.Fatalf("stats=%+v", stats)
+	}
+	if stats.ReasonCounts["UNEXPECTED_STATUS"] != 1 || stats.ReasonCounts["ROAD_UNKNOWN"] != 1 {
+		t.Fatalf("reasons=%v", stats.ReasonCounts)
+	}
+}
+
 func intPtr(v int) *int { return &v }
 
 func mustParseTime(s string) time.Time {

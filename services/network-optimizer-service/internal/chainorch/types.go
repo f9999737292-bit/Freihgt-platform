@@ -123,6 +123,16 @@ type TerminalWrite struct {
 	Candidates []repository.ChainCandidate
 }
 
+// TerminalStats is the frozen durable counter/reason payload for normal in-process
+// terminalization after a real engine result. Crash recovery (CHAIN_INTERRUPTED)
+// does not invent these values.
+type TerminalStats struct {
+	CandidateCount     int
+	EvaluatedPairCount int
+	ProviderCallCount  int
+	ReasonCounts       map[string]int
+}
+
 // IsTerminal reports whether status is COMPLETED/CANCELLED/FAILED.
 func IsTerminal(status string) bool {
 	switch status {

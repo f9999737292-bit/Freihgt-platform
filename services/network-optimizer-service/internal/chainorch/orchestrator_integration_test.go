@@ -392,7 +392,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 		}
 		cancelledParent, cancelFn := context.WithCancel(ctx)
 		cancelFn()
-		out, ok, err := orch.CancelSearch(cancelledParent, tenant, res.Search.ID, res.OwnerToken, repository.ChainSearchPending, chainorch.CancelClientCancelled)
+		out, ok, err := orch.CancelSearch(cancelledParent, tenant, res.Search.ID, res.OwnerToken, repository.ChainSearchPending, chainorch.CancelClientCancelled, chainorch.TerminalStats{})
 		if err != nil || !ok || out.Status != repository.ChainSearchCancelled {
 			t.Fatalf("cancel ok=%v status=%s err=%v", ok, out.Status, err)
 		}
@@ -468,7 +468,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 		}()
 		go func() {
 			defer wg.Done()
-			_, ok, err := orch.CancelSearch(ctx, tenant, res.Search.ID, res.OwnerToken, repository.ChainSearchRunning, chainorch.CancelContextCancelled)
+			_, ok, err := orch.CancelSearch(ctx, tenant, res.Search.ID, res.OwnerToken, repository.ChainSearchRunning, chainorch.CancelContextCancelled, chainorch.TerminalStats{})
 			if err != nil {
 				t.Errorf("cancel err=%v", err)
 				return
@@ -539,7 +539,7 @@ func TestI2B_ClaimRecoveryOrchestration(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			_, ok, err := orch.CancelSearch(ctx, tenant, id, owner, repository.ChainSearchRunning, chainorch.CancelGatewayCancelled)
+			_, ok, err := orch.CancelSearch(ctx, tenant, id, owner, repository.ChainSearchRunning, chainorch.CancelGatewayCancelled, chainorch.TerminalStats{})
 			if err != nil {
 				t.Errorf("cancel err=%v", err)
 				return

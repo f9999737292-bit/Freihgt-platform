@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/freight-platform/network-optimizer-service/internal/chain"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
 )
 
@@ -20,6 +21,9 @@ type Orchestrator struct {
 	CleanupTimeout   time.Duration
 	// AfterProjectCandidates is a test-only seam; production must leave it nil.
 	AfterProjectCandidates AfterProjectCandidates
+	// RewriteEngineResultForTest is a test-only seam applied after compute and before
+	// durable classification. Production must leave it nil.
+	RewriteEngineResultForTest func(chain.Result) chain.Result
 }
 
 func (o *Orchestrator) now() time.Time {
@@ -265,7 +269,9 @@ func (o *Orchestrator) CompleteSearch(ctx context.Context, ownerToken uuid.UUID,
 }
 
 // CancelSearch persists CANCELLED using a bounded cleanup context (not the cancelled request ctx).
-func (o *Orchestrator) CancelSearch(parent context.Context, tenant, searchID, ownerToken uuid.UUID, expectedStatus, reasonClass string) (repository.ChainSearchRun, bool, error) {
+// stats must carry actual engine counters/reason_counts when cancelling after real compute.
+// Pre-compute cancels may pass a zero TerminalStats.
+func (o *Orchestrator) CancelSearch(parent context.Context, tenant, searchID, ownerToken uuid.UUID, expectedStatus, reasonClass string, stats TerminalStats) (repository.ChainSearchRun, bool, error) {
 	if !ValidCancelReason(reasonClass) {
 		return repository.ChainSearchRun{}, false, ErrInvalidCancelReason
 	}
@@ -274,12 +280,18 @@ func (o *Orchestrator) CancelSearch(parent context.Context, tenant, searchID, ow
 
 	reason := reasonClass
 	run := repository.ChainSearchRun{
-		ID:                searchID,
-		TenantID:          tenant,
-		Status:            repository.ChainSearchCancelled,
-		SearchComplete:    false,
-		CancelReasonClass: &reason,
-		ReasonCounts:      map[string]int{},
+		ID:                 searchID,
+		TenantID:           tenant,
+		Status:             repository.ChainSearchCancelled,
+		SearchComplete:     false,
+		CancelReasonClass:  &reason,
+		CandidateCount:     stats.CandidateCount,
+		EvaluatedPairCount: stats.EvaluatedPairCount,
+		ProviderCallCount:  stats.ProviderCallCount,
+		ReasonCounts:       stats.ReasonCounts,
+	}
+	if run.ReasonCounts == nil {
+		run.ReasonCounts = map[string]int{}
 	}
 	var out repository.ChainSearchRun
 	var applied bool
@@ -303,15 +315,20 @@ func (o *Orchestrator) CancelSearch(parent context.Context, tenant, searchID, ow
 }
 
 // FailSearch persists FAILED under owner fencing (non-recovery path).
-func (o *Orchestrator) FailSearch(ctx context.Context, tenant, searchID, ownerToken uuid.UUID, expectedStatus, failureCode string, reasonCounts map[string]int) (repository.ChainSearchRun, bool, error) {
+// stats must carry actual engine counters/reason_counts when failing after real compute.
+// Crash recovery uses RecoverExpired and does not invent counters here.
+func (o *Orchestrator) FailSearch(ctx context.Context, tenant, searchID, ownerToken uuid.UUID, expectedStatus, failureCode string, stats TerminalStats) (repository.ChainSearchRun, bool, error) {
 	code := failureCode
 	run := repository.ChainSearchRun{
-		ID:             searchID,
-		TenantID:       tenant,
-		Status:         repository.ChainSearchFailed,
-		SearchComplete: false,
-		FailureCode:    &code,
-		ReasonCounts:   reasonCounts,
+		ID:                 searchID,
+		TenantID:           tenant,
+		Status:             repository.ChainSearchFailed,
+		SearchComplete:     false,
+		FailureCode:        &code,
+		CandidateCount:     stats.CandidateCount,
+		EvaluatedPairCount: stats.EvaluatedPairCount,
+		ProviderCallCount:  stats.ProviderCallCount,
+		ReasonCounts:       stats.ReasonCounts,
 	}
 	if run.ReasonCounts == nil {
 		run.ReasonCounts = map[string]int{}

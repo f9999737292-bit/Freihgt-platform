@@ -365,6 +365,7 @@ func TestI2B_E2E_DurableExecuteAndTerminalize(t *testing.T) {
 			t.Fatal("search_complete must be false")
 		}
 		assertStatus(t, ctx, store, tenant, res.Search.ID, repository.ChainSearchFailed)
+		assertTerminalCountersMatchEngine(t, ctx, store, tenant, res.Search.ID, out.EngineResult, 0)
 	})
 
 	t.Run("I2B-E2E-13 context cancel -> CANCELLED via cleanup", func(t *testing.T) {
@@ -403,6 +404,7 @@ func TestI2B_E2E_DurableExecuteAndTerminalize(t *testing.T) {
 		if got.SearchComplete {
 			t.Fatal("search_complete must be false")
 		}
+		assertTerminalCountersMatchEngine(t, ctx, store, tenant, res.Search.ID, out.EngineResult, 0)
 	})
 
 	t.Run("I2B-E2E-14/15 atomic shortlist terminalization", func(t *testing.T) {
@@ -554,6 +556,178 @@ func TestI2B_E2E_DurableExecuteAndTerminalize(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("I2B-E2E-19 budget after real provider work retains counters", func(t *testing.T) {
+		orch := baseOrch()
+		tenant := uuid.New()
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "e2e-19", i2bFP(tenant)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		setDeadlineIn(t, ctx, pool, res.Search.ID, 2*time.Second)
+		block := &blockingProvider{blockFor: 8 * time.Second}
+		clock := time.Now().UTC()
+		base := durableExecRequest(tenant, block, clock)
+		base.Loads = twoStackableLoads(tenant, clock)
+		out, err := orch.ExecuteOwnedDurableChainSearch(ctx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base, chainorch.ExecuteOwnedOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out.Outcome != chainorch.ExecuteOutcomeFailed {
+			t.Fatalf("outcome=%s", out.Outcome)
+		}
+		got := getRun(t, ctx, store, tenant, res.Search.ID)
+		if got.Status != repository.ChainSearchFailed {
+			t.Fatalf("status=%s", got.Status)
+		}
+		if got.FailureCode == nil || *got.FailureCode != chainorch.FailureBudgetExhausted {
+			t.Fatalf("failure_code=%v", got.FailureCode)
+		}
+		if out.EngineResult.ProviderCalls == 0 {
+			t.Fatal("expected real provider work before budget terminalization")
+		}
+		assertTerminalCountersMatchEngine(t, ctx, store, tenant, res.Search.ID, out.EngineResult, 0)
+		if !reasonCountsEqual(got.ReasonCounts, out.EngineResult.ReasonCounts) {
+			t.Fatalf("reason_counts got=%v engine=%v", got.ReasonCounts, out.EngineResult.ReasonCounts)
+		}
+	})
+
+	t.Run("I2B-E2E-20 cancel after real provider call retains counters", func(t *testing.T) {
+		orch := baseOrch()
+		tenant := uuid.New()
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "e2e-20", i2bFP(tenant)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		block := &blockingProvider{blockFor: 30 * time.Second}
+		clock := time.Now().UTC()
+		base := durableExecRequest(tenant, block, clock)
+		base.Loads = twoStackableLoads(tenant, clock)
+		execCtx, execCancel := context.WithCancel(ctx)
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			execCancel()
+		}()
+		out, err := orch.ExecuteOwnedDurableChainSearch(execCtx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base, chainorch.ExecuteOwnedOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out.Outcome != chainorch.ExecuteOutcomeCancelled {
+			t.Fatalf("outcome=%s engine=%s", out.Outcome, out.EngineResult.Status)
+		}
+		got := getRun(t, ctx, store, tenant, res.Search.ID)
+		if got.Status != repository.ChainSearchCancelled {
+			t.Fatalf("status=%s", got.Status)
+		}
+		if out.EngineResult.ProviderCalls == 0 || got.ProviderCallCount == 0 {
+			t.Fatalf("expected provider work calls engine=%d db=%d", out.EngineResult.ProviderCalls, got.ProviderCallCount)
+		}
+		assertTerminalCountersMatchEngine(t, ctx, store, tenant, res.Search.ID, out.EngineResult, 0)
+		if !reasonCountsEqual(got.ReasonCounts, out.EngineResult.ReasonCounts) {
+			t.Fatalf("reason_counts must be preserved got=%v engine=%v", got.ReasonCounts, out.EngineResult.ReasonCounts)
+		}
+		if len(got.ReasonCounts) == 0 && len(out.EngineResult.ReasonCounts) > 0 {
+			t.Fatal("cancelled path must not drop engine reason_counts")
+		}
+	})
+
+	t.Run("I2B-E2E-21 unexpected failure after measurable work keeps counters", func(t *testing.T) {
+		orch := baseOrch()
+		tenant := uuid.New()
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "e2e-21", i2bFP(tenant)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		orch.RewriteEngineResultForTest = func(r chain.Result) chain.Result {
+			if r.ProviderCalls == 0 {
+				r.ProviderCalls = 3
+			}
+			if r.Evaluations == 0 {
+				r.Evaluations = 1
+			}
+			if r.ReasonCounts == nil {
+				r.ReasonCounts = map[string]int{}
+			}
+			r.ReasonCounts["MEASURABLE_WORK"] = 1
+			r.Status = "NOT_A_REAL_ENGINE_STATUS"
+			r.SearchComplete = false
+			return r
+		}
+		clock := time.Now().UTC()
+		base := durableExecRequest(tenant, &countingProvider{}, clock)
+		base.Loads = twoStackableLoads(tenant, clock)
+		out, err := orch.ExecuteOwnedDurableChainSearch(ctx, tenant, res.Search.ID, res.OwnerToken, chain.Engine{}, base, chainorch.ExecuteOwnedOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out.Outcome != chainorch.ExecuteOutcomeFailed {
+			t.Fatalf("outcome=%s", out.Outcome)
+		}
+		got := getRun(t, ctx, store, tenant, res.Search.ID)
+		if got.Status != repository.ChainSearchFailed {
+			t.Fatalf("status=%s", got.Status)
+		}
+		if got.FailureCode == nil || *got.FailureCode != chainorch.FailureUnexpectedEngineStatus {
+			t.Fatalf("failure_code=%v", got.FailureCode)
+		}
+		if got.ProviderCallCount == 0 || got.EvaluatedPairCount == 0 {
+			t.Fatalf("counters reset to zero provider=%d eval=%d", got.ProviderCallCount, got.EvaluatedPairCount)
+		}
+		assertTerminalCountersMatchEngine(t, ctx, store, tenant, res.Search.ID, out.EngineResult, 0)
+		if got.ReasonCounts["UNEXPECTED_STATUS"] < 1 {
+			t.Fatalf("expected classification reason got=%v", got.ReasonCounts)
+		}
+		if got.ReasonCounts["MEASURABLE_WORK"] != 1 {
+			t.Fatalf("engine reason_counts not preserved got=%v", got.ReasonCounts)
+		}
+	})
+
+	t.Run("I2B-E2E-22 canonical terminalization ignores arbitrary caller counters", func(t *testing.T) {
+		orch := baseOrch()
+		tenant := uuid.New()
+		res, err := orch.Claim(ctx, i2bClaim(tenant, "e2e-22", i2bFP(tenant)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Low-level FailSearch can write arbitrary stats — not the canonical path.
+		if _, err := orch.BeginRunning(ctx, tenant, res.Search.ID, res.OwnerToken); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok, err := orch.FailSearch(ctx, tenant, res.Search.ID, res.OwnerToken, repository.ChainSearchRunning, "TEST_ARBITRARY", chainorch.TerminalStats{
+			CandidateCount: 0, EvaluatedPairCount: 99, ProviderCallCount: 99,
+			ReasonCounts: map[string]int{"ARBITRARY": 1},
+		}); err != nil || !ok {
+			t.Fatalf("low-level fail ok err=%v", err)
+		}
+		poisoned := getRun(t, ctx, store, tenant, res.Search.ID)
+		if poisoned.ProviderCallCount != 99 {
+			t.Fatalf("setup: low-level path should accept explicit stats got=%d", poisoned.ProviderCallCount)
+		}
+
+		// Canonical ExecuteOwned derives counters only from the engine result.
+		res2, err := orch.Claim(ctx, i2bClaim(tenant, "e2e-22b", i2bFP(tenant)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		setDeadlineIn(t, ctx, pool, res2.Search.ID, 2*time.Second)
+		block := &blockingProvider{blockFor: 8 * time.Second}
+		clock := time.Now().UTC()
+		base := durableExecRequest(tenant, block, clock)
+		base.Loads = twoStackableLoads(tenant, clock)
+		out, err := orch.ExecuteOwnedDurableChainSearch(ctx, tenant, res2.Search.ID, res2.OwnerToken, chain.Engine{}, base, chainorch.ExecuteOwnedOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := getRun(t, ctx, store, tenant, res2.Search.ID)
+		if got.ProviderCallCount != out.EngineResult.ProviderCalls || got.EvaluatedPairCount != out.EngineResult.Evaluations {
+			t.Fatalf("canonical counters must equal engine got provider=%d/%d eval=%d/%d",
+				got.ProviderCallCount, out.EngineResult.ProviderCalls, got.EvaluatedPairCount, out.EngineResult.Evaluations)
+		}
+		if got.ProviderCallCount == 99 || got.EvaluatedPairCount == 99 {
+			t.Fatal("canonical path must not use arbitrary caller counters")
+		}
+		_ = chainorch.ExecuteOwnedOptions{} // no counter fields exist for callers to inject
+	})
 }
 
 func listCands(t *testing.T, ctx context.Context, store *repository.Postgres, tenant, searchID uuid.UUID) ([]repository.ChainCandidate, error) {
@@ -565,6 +739,39 @@ func listCands(t *testing.T, ctx context.Context, store *repository.Postgres, te
 		return listErr
 	})
 	return out, err
+}
+
+func assertTerminalCountersMatchEngine(t *testing.T, ctx context.Context, store *repository.Postgres, tenant, searchID uuid.UUID, engine chain.Result, wantCandidateCount int) {
+	t.Helper()
+	got := getRun(t, ctx, store, tenant, searchID)
+	rows, err := listCands(t, ctx, store, tenant, searchID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CandidateCount != wantCandidateCount || got.CandidateCount != len(rows) {
+		t.Fatalf("candidate_count=%d want=%d rows=%d", got.CandidateCount, wantCandidateCount, len(rows))
+	}
+	if got.EvaluatedPairCount != engine.Evaluations {
+		t.Fatalf("evaluated_pair_count=%d evaluations=%d", got.EvaluatedPairCount, engine.Evaluations)
+	}
+	if got.ProviderCallCount != engine.ProviderCalls {
+		t.Fatalf("provider_call_count=%d provider_calls=%d", got.ProviderCallCount, engine.ProviderCalls)
+	}
+}
+
+func reasonCountsEqual(a, b map[string]int) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if b[k] != v {
+			return false
+		}
+	}
+	return true
 }
 
 func statuses(rows []repository.ChainCandidate) []string {
