@@ -18,7 +18,8 @@ GATEWAY_CHANGED=NO
 PRODUCT_CODE_CHANGED=NO
 ```
 
-Base: `755f2a946f5fa746363935de25d0925e32fd9e90`.
+Current review baseline: `52def1ba7f1098efe9a8da809b15ffa7da7d5abb`.
+Authoring baseline at first draft: `755f2a946f5fa746363935de25d0925e32fd9e90`.
 
 Authority order: NLO-0.9B freezes search policy (horizon, caps, objective, privacy, stacking, seed, execution boundary). NLO-0.9C-I0 implemented the in-memory engine without durable tables or a public route. This I1 freeze defines how a later persistence stage stores search runs, shortlists, and idempotency, and how the public resources behave. It does not supersede 0.9B policy values. It does not authorize NLO-0.9D execution.
 
