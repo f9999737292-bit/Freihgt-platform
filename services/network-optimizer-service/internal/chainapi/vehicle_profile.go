@@ -9,30 +9,48 @@ import (
 // routing.VehicleProfile. Vehicle payload capacity, internal cargo dimensions,
 // and ADR capability are not routing mass, external clearance, or onboard
 // dangerous-cargo state, so those fields stay nil.
-func routingProfileFromCanonical(capability *currenttrip.VehicleCapability, onboard []currenttrip.OnboardCargoUnit, observeOnboard bool) routing.VehicleProfile {
+func routingProfileFromCanonical(capability *currenttrip.VehicleCapability, resolution string, onboard []currenttrip.OnboardCargoUnit) routing.VehicleProfile {
 	_ = capability
-	profile := routing.VehicleProfile{}
-	if observeOnboard {
-		profile.DangerousCargo = confirmedOnboardDangerousCargo(onboard)
-	}
-	return profile
+	return routing.VehicleProfile{DangerousCargo: dangerousCargoState(resolution, onboard)}
 }
 
-func confirmedOnboardDangerousCargo(units []currenttrip.OnboardCargoUnit) *bool {
+func dangerousCargoState(resolution string, units []currenttrip.OnboardCargoUnit) *bool {
+	if resolution != currenttrip.EvidenceConfirmedOnboard && resolution != currenttrip.EvidenceUnloaded {
+		return nil
+	}
 	dangerous := false
+	unknown := false
+	confirmed := 0
 	for _, unit := range units {
 		if unit.EvidenceState != currenttrip.EvidenceConfirmedOnboard {
 			continue
 		}
+		confirmed++
 		known, carrying := knownDangerousCargo(unit.Profile)
 		if !known {
-			return nil
+			unknown = true
+			continue
 		}
 		if carrying {
 			dangerous = true
 		}
 	}
-	return &dangerous
+	if dangerous {
+		value := true
+		return &value
+	}
+	if unknown {
+		return nil
+	}
+	if confirmed == 0 {
+		if resolution == currenttrip.EvidenceUnloaded {
+			value := false
+			return &value
+		}
+		return nil
+	}
+	value := false
+	return &value
 }
 
 func knownDangerousCargo(profile currenttrip.CargoProfile) (bool, bool) {

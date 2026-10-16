@@ -111,14 +111,15 @@ func TestI2C_I271_001_vehicle_profile(t *testing.T) {
 	})
 
 	t.Run("I271_001_DANGEROUS_CARGO_NOT_FROM_ADR_CAPABILITY", func(t *testing.T) {
-		profile := routingProfileFromCanonical(&currenttrip.VehicleCapability{ADRCapability: &adr, CapacityWeight: &weight}, nil, true)
-		if profile.DangerousCargo == nil || *profile.DangerousCargo {
-			t.Fatalf("ADR capability became dangerous cargo: %+v", profile.DangerousCargo)
+		unproven := routingProfileFromCanonical(&currenttrip.VehicleCapability{ADRCapability: &adr, CapacityWeight: &weight}, currenttrip.ResolutionUnproven, nil)
+		plain := routingProfileFromCanonical(&currenttrip.VehicleCapability{}, currenttrip.ResolutionUnproven, nil)
+		if unproven.DangerousCargo != nil || plain.DangerousCargo != nil {
+			t.Fatalf("ADR capability changed dangerous cargo: adr=%v plain=%v", unproven.DangerousCargo, plain.DangerousCargo)
 		}
 	})
 
 	t.Run("I271_001_CAPACITY_WEIGHT_NOT_GROSS_WEIGHT_WITHOUT_PROOF", func(t *testing.T) {
-		profile := routingProfileFromCanonical(&currenttrip.VehicleCapability{CapacityWeight: &weight, InternalLengthMM: &internal, InternalWidthMM: &internal, InternalHeightMM: &internal}, nil, false)
+		profile := routingProfileFromCanonical(&currenttrip.VehicleCapability{CapacityWeight: &weight, InternalLengthMM: &internal, InternalWidthMM: &internal, InternalHeightMM: &internal}, "", nil)
 		assertUnmappedRoutingDimensions(t, profile)
 	})
 
@@ -183,7 +184,7 @@ func tripContext(company uuid.UUID, capability *currenttrip.VehicleCapability, u
 	lat, lon := 1.0, 2.0
 	return currenttrip.CurrentTripContext{
 		ShipmentID: uuid.New(), ShipmentVersion: 3, CarrierCompanyID: &company,
-		VehicleCapability: capability, OnboardCargoUnits: units,
+		VehicleCapability: capability, OnboardCargoUnits: units, OnboardCargoResolution: currenttrip.EvidenceConfirmedOnboard,
 		CurrentPosition: &currenttrip.TrackingPosition{Latitude: &lat, Longitude: &lon},
 	}
 }

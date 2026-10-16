@@ -189,7 +189,7 @@ func (r StoreSeedResolver) ResolveTrip(ctx context.Context, actor service.Actor,
 			},
 			OnboardSubjects: confirmed,
 		},
-		Vehicle: routingProfileFromCanonical(built.VehicleCapability, built.OnboardCargoUnits, true),
+		Vehicle: routingProfileFromCanonical(built.VehicleCapability, built.OnboardCargoResolution, built.OnboardCargoUnits),
 	}, nil
 }
 
@@ -210,7 +210,7 @@ func (r StoreSeedResolver) manualVehicle(ctx context.Context, actor service.Acto
 	if loaded.ID != *vehicleID || loaded.TenantID != actor.TenantID {
 		return routing.VehicleProfile{}, ErrSeedIneligible
 	}
-	return routingProfileFromCanonical(&loaded, nil, false), nil
+	return routingProfileFromCanonical(&loaded, "", nil), nil
 }
 
 func companyMatches(actorCompany, ownerCompany *uuid.UUID) bool {

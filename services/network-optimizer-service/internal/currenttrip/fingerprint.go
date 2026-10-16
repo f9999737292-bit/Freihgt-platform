@@ -16,6 +16,7 @@ type fingerprintDocument struct {
 	VehicleID             *uuid.UUID       `json:"vehicle_id"`
 	VehicleVersion        int              `json:"vehicle_version"`
 	Evidence              []fingerprintRow `json:"evidence"`
+	OnboardResolution     string           `json:"onboard_resolution"`
 	CargoVersions         []int            `json:"cargo_versions"`
 	PositionFreshness     string           `json:"position_freshness"`
 	PositionRecordedAt    *time.Time       `json:"position_recorded_at"`
@@ -42,6 +43,7 @@ func inputFingerprint(ctx CurrentTripContext) string {
 	doc := fingerprintDocument{
 		ShipmentID: ctx.ShipmentID, ShipmentVersion: ctx.ShipmentVersion, ShipmentStatus: ctx.ShipmentStatus,
 		VehicleID: ctx.VehicleID, VehicleVersion: ctx.VehicleVersion,
+		OnboardResolution: ctx.OnboardCargoResolution,
 		PositionFreshness: ctx.PositionFreshnessStatus, PositionRecordedAt: ctx.PositionObservedAt,
 		ETAFreshness: ctx.ETAFreshnessStatus, ETAObservedAt: ctx.ETAObservedAt,
 		ResidualPayload:       ctx.ResidualCapacity.Payload.Status,
