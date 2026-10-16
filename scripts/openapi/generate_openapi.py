@@ -89,6 +89,43 @@ ERROR_RESPONSES = """        '400':
                 $ref: '#/components/schemas/ErrorResponse'
 """
 
+CHAIN_ERROR_RESPONSES = """        '400':
+          description: Malformed JSON, invalid UUID, or ambiguous request shape.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChainSearchError'
+        '401':
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChainSearchError'
+        '403':
+          description: Authenticated but not allowed. Independent of search existence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChainSearchError'
+        '404':
+          description: Unknown or other-tenant search. Same response shape.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChainSearchError'
+        '409':
+          description: Fingerprint conflict, or matching unexpired in-flight search with code CHAIN_SEARCH_IN_PROGRESS.
+          headers:
+            Retry-After:
+              description: Present with value 1 when code is CHAIN_SEARCH_IN_PROGRESS.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChainSearchError'
+"""
+
 # (path, method, summary, tag, with_headers, secured, profile)
 ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/health", "get", "Gateway health check", "Gateway", False, False, None),
@@ -356,6 +393,9 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/network/predicted-capacities/{id}/activate", "post", "Activate predicted capacity", "Network Optimizer", True, True, "bno_prediction"),
     ("/api/v1/network/next-load/search", "post", "Search next-load candidates for an available capacity", "Network Optimizer", True, True, "bno_next_load"),
     ("/api/v1/network/consolidation/search", "post", "Search pairwise same-origin consolidation feasibility", "Network Optimizer", True, True, "bno_consolidation"),
+    ("/api/v1/network/chain-searches", "post", "Create or replay a bounded chain search", "Network Optimizer", True, True, "bno_chain_post"),
+    ("/api/v1/network/chain-searches/{searchId}", "get", "Read one tenant-owned chain search", "Network Optimizer", True, True, "bno_chain_get"),
+    ("/api/v1/network/chain-searches/{searchId}/candidates", "get", "Read the durable chain shortlist", "Network Optimizer", True, True, "bno_chain_candidates"),
     ("/api/v1/network/route-plans/evaluate", "post", "Evaluate a bounded route plan", "Network Optimizer", True, True, "bno_route_plan"),
     ("/api/v1/network/route-plans/{id}", "get", "Get an owned route plan", "Network Optimizer", True, True, "bno_route_plan"),
     ("/api/v1/network/route-plans/{id}/accept", "post", "Accept an evaluated route plan", "Network Optimizer", True, True, "bno_route_plan_accept"),
@@ -1449,6 +1489,17 @@ def render_parameters(path: str, method: str, with_headers: bool, profile: str |
             "            minLength: 1",
             "            maxLength: 128",
         ])
+    elif profile == "bno_chain_post":
+        lines.extend([
+            "        - name: Idempotency-Key",
+            "          in: header",
+            "          required: false",
+            "          description: Optional public idempotency key, max 128 characters. Omitted keys are server-owned and do not replay. Same tenant, key, and fingerprint replays a terminal search. Same key with a different fingerprint conflicts. Not part of the request fingerprint.",
+            "          schema:",
+            "            type: string",
+            "            minLength: 1",
+            "            maxLength: 128",
+        ])
     elif profile == "bno_route_plan" and method == "post":
         lines.extend([
             "        - name: Idempotency-Key",
@@ -1849,6 +1900,8 @@ def render_operation(
             lines.append("              $ref: '#/components/schemas/NextLoadSearchRequest'")
         elif profile == "bno_consolidation":
             lines.append("              $ref: '#/components/schemas/ConsolidationSearchRequest'")
+        elif profile == "bno_chain_post":
+            lines.append("              $ref: '#/components/schemas/ChainSearchCreateRequest'")
         elif profile == "bno_route_plan":
             lines.append("              $ref: '#/components/schemas/RoutePlanEvaluateRequest'")
         elif profile in {"bno_route_plan_accept", "bno_route_plan_activate"}:
@@ -2323,6 +2376,8 @@ def render_operation(
         success_code = "200"
     elif profile == "bno_next_load" or profile == "bno_consolidation":
         success_code = "200"
+    elif profile == "bno_chain_post":
+        success_code = "201"
     elif profile in {"bno_route_plan_accept", "bno_route_plan_activate"}:
         success_code = "200"
     elif profile in {"driver_stop_list", "driver_stop_command", "driver_stop_fail", "driver_delivery_disposition"}:
@@ -2350,6 +2405,12 @@ def render_operation(
         success_desc = "Effective verification status. Legacy metadata-only signatures stay UNVERIFIED. A detached signature with unavailable verifier evidence is PENDING with verification_reason_code VERIFIER_UNAVAILABLE. The storage object key is not included."
     elif profile == "analytics_kpi":
         success_desc = "Operations or carrier KPI. Tenant KPIs use one measure. Carrier KPIs use dimension CARRIER and one ratio per carrierCompanyId, ordered by that id. COUNT is an integer >= 0. RATIO is a decimal fraction from 0.0 to 1.0, not a percent. An empty rate population returns numerator 0, denominator 0, and value null. An empty carrier population returns items []. dataFreshness.status is UNKNOWN until the source supplies a watermark. generatedAt is the analytics response time."
+    elif profile == "bno_chain_post":
+        success_desc = "New search created and finished in this request. execution_supported is false."
+    elif profile == "bno_chain_get":
+        success_desc = "Tenant-owned chain search. Unknown and other-tenant ids are the same 404. Expired PENDING or RUNNING claims are recovered to FAILED CHAIN_INTERRUPTED with no recompute."
+    elif profile == "bno_chain_candidates":
+        success_desc = "Durable shortlist in ordinal order when status is COMPLETED. PENDING, RUNNING, FAILED, and CANCELLED return an empty candidate list."
 
     response_schema = READ_RESPONSE_SCHEMAS.get(profile or "")
     if profile == "bno_compatibility" and path.endswith("/evaluate"):
@@ -2358,6 +2419,10 @@ def render_operation(
         response_schema = "NextLoadSearchResponse"
     if profile == "bno_consolidation":
         response_schema = "ConsolidationSearchResponse"
+    if profile in {"bno_chain_post", "bno_chain_get"}:
+        response_schema = "ChainSearchResource"
+    if profile == "bno_chain_candidates":
+        response_schema = "ChainCandidateList"
     if profile == "bno_route_plan" or profile == "bno_route_plan_accept":
         response_schema = "RoutePlan"
     if profile == "bno_route_plan_activate":
@@ -2405,7 +2470,7 @@ def render_operation(
             "          content:",
             "            application/json:",
             *schema_lines,
-            ERROR_RESPONSES.rstrip("\n"),
+            (CHAIN_ERROR_RESPONSES if profile in {"bno_chain_post", "bno_chain_get", "bno_chain_candidates"} else ERROR_RESPONSES).rstrip("\n"),
         ]
     )
     if profile == "analytics_kpi":
@@ -2481,6 +2546,40 @@ def render_operation(
                 "            application/json:",
                 "              schema:",
                 "                $ref: '#/components/schemas/ErrorResponse'",
+            ]
+        )
+    elif profile == "bno_chain_post":
+        lines.extend(
+            [
+                "        '200':",
+                "          description: Terminal replay, including an expired claim recovered as FAILED CHAIN_INTERRUPTED. No recompute.",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ChainSearchResource'",
+                "        '422':",
+                "          description: Predicted-capacity seed, client-selected pair, or ineligible seed.",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ChainSearchError'",
+                "        '503':",
+                "          description: Persistence, recovery, or routing dependency unavailable.",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ChainSearchError'",
+            ]
+        )
+    elif profile in {"bno_chain_get", "bno_chain_candidates"}:
+        lines.extend(
+            [
+                "        '503':",
+                "          description: Recovery or persistence unavailable. No recompute.",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ChainSearchError'",
             ]
         )
     lines.append("")
@@ -4171,6 +4270,109 @@ components:
         version:
           type: integer
           minimum: 1
+    ChainSearchCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [seed_type]
+      description: |
+        One seed only. MANUAL_CAPACITY requires capacity_id. CURRENT_TRIP requires shipment_id.
+        PREDICTED_CAPACITY returns 422 and is not treated as manual capacity.
+        candidate_load_ids, L1, L2, chain_search_id, and chain_candidate_id return 422.
+      properties:
+        seed_type:
+          type: string
+          enum: [MANUAL_CAPACITY, CURRENT_TRIP, PREDICTED_CAPACITY]
+        capacity_id: {type: string, format: uuid}
+        shipment_id: {type: string, format: uuid}
+    ChainSearchPublicSeed:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type: {type: string, enum: [MANUAL_CAPACITY, CURRENT_TRIP]}
+        capacity_id: {type: string, format: uuid}
+        capacity_version: {type: integer}
+        shipment_id: {type: string, format: uuid}
+        shipment_version: {type: integer}
+    ChainCandidate:
+      type: object
+      additionalProperties: false
+      required: [chain_candidate_id, ordinal, first_load_id, first_load_version, second_load_id, second_load_version, feasibility_status, omitted_components, reason_codes, execution_supported]
+      properties:
+        chain_candidate_id: {type: string, format: uuid}
+        ordinal: {type: integer}
+        first_load_id: {type: string, format: uuid}
+        first_load_version: {type: integer}
+        second_load_id: {type: string, format: uuid}
+        second_load_version: {type: integer}
+        feasibility_status: {type: string, enum: [FEASIBLE, INFEASIBLE, UNFINISHED]}
+        selected_order: {type: string}
+        empty_road_distance_m: {type: number}
+        total_duration_seconds: {type: integer}
+        utilization: {type: number}
+        target_distance_m: {type: number}
+        revenue_amount: {type: integer, format: int64}
+        revenue_currency: {type: string}
+        omitted_components: {type: array, items: {type: string}}
+        reason_codes: {type: array, items: {type: string}}
+        route_plan_id: {type: string, format: uuid}
+        execution_supported: {type: boolean}
+    ChainCandidateList:
+      type: object
+      additionalProperties: false
+      required: [candidates]
+      properties:
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChainCandidate'
+    ChainSearchResource:
+      type: object
+      additionalProperties: false
+      required: [chain_search_id, status, search_complete, candidate_count, evaluated_pair_count, provider_call_count, global_optimum, execution_supported, reason_counts, created_at, horizon_start, horizon_end, seed]
+      properties:
+        chain_search_id: {type: string, format: uuid}
+        status: {type: string, enum: [PENDING, RUNNING, COMPLETED, CANCELLED, FAILED]}
+        search_complete: {type: boolean}
+        candidate_count: {type: integer}
+        evaluated_pair_count: {type: integer}
+        provider_call_count: {type: integer}
+        global_optimum: {type: boolean}
+        execution_supported: {type: boolean}
+        failure_code: {type: string}
+        cancel_reason_class: {type: string, enum: [CLIENT_CANCELLED, GATEWAY_CANCELLED, CONTEXT_CANCELLED]}
+        reason_counts:
+          type: object
+          additionalProperties: {type: integer}
+        created_at: {type: string, format: date-time}
+        started_at: {type: string, format: date-time}
+        completed_at: {type: string, format: date-time}
+        cancelled_at: {type: string, format: date-time}
+        horizon_start: {type: string, format: date-time}
+        horizon_end: {type: string, format: date-time}
+        seed:
+          $ref: '#/components/schemas/ChainSearchPublicSeed'
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChainCandidate'
+    ChainSearchError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, details]
+          properties:
+            code:
+              type: string
+              enum: [VALIDATION_ERROR, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, FINGERPRINT_CONFLICT, CHAIN_SEARCH_IN_PROGRESS, SERVICE_UNAVAILABLE]
+            message: {type: string}
+            details:
+              type: object
+              additionalProperties: true
     NextLoadSearchRequest:
       type: object
       required: [capacity_id]
