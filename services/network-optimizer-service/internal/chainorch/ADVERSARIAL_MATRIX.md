@@ -59,3 +59,10 @@
 | cancelled search cannot be overwritten by completion | CompleteSearch after CANCELLED | I270-002-C overwrite | I270-002-C applied=false | PASS |
 | invalid cancel reason fails before compute | `validateCancelReasonOption` | I270-002-E RUNNING orphan | I270-002-E PENDING + ErrInvalidCancelReason | PASS |
 | trusted wall clock owns compute-finish proof | `trustedWallClock` / time.Now | Orchestrator.Now spoof | I270-001 unit + A/B | PASS |
+| pre-running cancelled ctx -> durable CANCELLED | `cancelOwnedBeforeCompute` | I270-002-F PENDING orphan | I270-002-F | PASS |
+| pre-running context deadline -> CANCELLED | parent deadline before durable deadline | I270-002-G FAILED budget | I270-002-G | PASS |
+| cancel race cannot leave PENDING | start TX vs ctx cancel | I270-002-H PENDING | I270-002-H CANCELLED | PASS |
+| wrong owner cannot pre-cancel foreign claim | owner check before CancelSearch | I270-002-I | I270-002-I ErrNotOwner | PASS |
+| pre-running cancelled replay zero compute | Claim replay + ErrSearchNotRunnable | I270-002-J recompute | I270-002-J | PASS |
+| I270 tests executed by dedicated CI | ci.yml `-run TestI2A_\|TestI2B_\|TestI270_` | selector skip | dedicated job log | PASS |
+| I270-001-A assertion matches exercised path | groupage calls + planner + wall>=deadline | unlabeled SEARCH_COMPLETE claim | I270-001-A log engine status | PASS |

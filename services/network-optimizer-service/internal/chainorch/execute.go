@@ -68,6 +68,19 @@ func (o *Orchestrator) ExecuteOwnedDurableChainSearch(
 	if o.AfterComputeBeforeTerminalizeForTest != nil {
 		o.AfterComputeBeforeTerminalizeForTest()
 	}
+
+	// Parent cancel/deadline before or during the PENDING→RUNNING start must not
+	// leave a PENDING row. A parent deadline is cancellation, not durable budget.
+	if requestContextStopped(ctx, computeErr) {
+		handled, out, err := o.cancelOwnedBeforeCompute(ctx, tenant, searchID, ownerToken, opts)
+		if err != nil {
+			return ExecuteOwnedResult{}, err
+		}
+		if handled {
+			return out, nil
+		}
+	}
+
 	if computeErr != nil {
 		// Pre-compute fencing failures: do not terminalize a PENDING/foreign row.
 		if errors.Is(computeErr, ErrNotOwner) ||
@@ -79,6 +92,73 @@ func (o *Orchestrator) ExecuteOwnedDurableChainSearch(
 		return o.terminalizeAfterCompute(ctx, tenant, searchID, ownerToken, engineResult, computeErr, opts, computeFinishedAt)
 	}
 	return o.terminalizeAfterCompute(ctx, tenant, searchID, ownerToken, engineResult, nil, opts, computeFinishedAt)
+}
+
+func requestContextStopped(ctx context.Context, computeErr error) bool {
+	return errors.Is(ctx.Err(), context.Canceled) ||
+		errors.Is(ctx.Err(), context.DeadlineExceeded) ||
+		errors.Is(computeErr, context.Canceled) ||
+		errors.Is(computeErr, context.DeadlineExceeded)
+}
+
+// cancelOwnedBeforeCompute persists CANCELLED when the request stopped before a
+// durable RUNNING compute, or returns handled=false when the row is already RUNNING
+// so the caller can use the post-compute terminal path (with engine counters).
+// Wrong owners are not cancelled. Already-terminal rows are left unchanged.
+func (o *Orchestrator) cancelOwnedBeforeCompute(
+	parent context.Context,
+	tenant, searchID, ownerToken uuid.UUID,
+	opts ExecuteOwnedOptions,
+) (bool, ExecuteOwnedResult, error) {
+	cleanup, cancel := context.WithTimeout(context.WithoutCancel(parent), o.cleanupTimeout())
+	defer cancel()
+
+	run, err := o.getRun(cleanup, tenant, searchID)
+	if err != nil {
+		return false, ExecuteOwnedResult{}, err
+	}
+	if run.OwnerToken != ownerToken {
+		return true, ExecuteOwnedResult{}, ErrNotOwner
+	}
+	if IsTerminal(run.Status) {
+		cands, listErr := o.listCandidates(cleanup, tenant, searchID)
+		return true, ExecuteOwnedResult{
+			Outcome:    run.Status,
+			Search:     run,
+			Candidates: cands,
+		}, listErr
+	}
+	if run.Status == repository.ChainSearchRunning {
+		return false, ExecuteOwnedResult{}, nil
+	}
+	if run.Status != repository.ChainSearchPending {
+		return true, ExecuteOwnedResult{Search: run}, ErrSearchNotRunnable
+	}
+	reason := opts.CancelReasonClass
+	if reason == "" {
+		reason = CancelContextCancelled
+	}
+	out, ok, cancelErr := o.CancelSearch(cleanup, tenant, searchID, ownerToken, repository.ChainSearchPending, reason, TerminalStats{})
+	if cancelErr != nil {
+		return false, ExecuteOwnedResult{}, cancelErr
+	}
+	if !ok {
+		fresh, getErr := o.getRun(cleanup, tenant, searchID)
+		if getErr != nil {
+			return false, ExecuteOwnedResult{}, getErr
+		}
+		if fresh.OwnerToken != ownerToken {
+			return true, ExecuteOwnedResult{}, ErrNotOwner
+		}
+		if IsTerminal(fresh.Status) {
+			return true, ExecuteOwnedResult{Outcome: fresh.Status, Search: fresh}, nil
+		}
+		if fresh.Status == repository.ChainSearchRunning {
+			return false, ExecuteOwnedResult{}, nil
+		}
+		return true, ExecuteOwnedResult{Search: fresh}, ErrSearchNotRunnable
+	}
+	return true, ExecuteOwnedResult{Outcome: ExecuteOutcomeCancelled, Search: out}, nil
 }
 
 func validateCancelReasonOption(opts ExecuteOwnedOptions) error {

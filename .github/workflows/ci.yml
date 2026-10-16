@@ -177,7 +177,7 @@ jobs:
 
       - name: NLO-0.9C-I2A/I2B chain persistence integration
         working-directory: services/network-optimizer-service
-        run: go test -tags=integration ./internal/repository ./internal/chainorch -run 'TestI2A_|TestI2B_' -count=1 -v -timeout 35m
+        run: go test -tags=integration ./internal/repository ./internal/chainorch -run 'TestI2A_|TestI2B_|TestI270_' -count=1 -v -timeout 35m
 
   rfx-deadline-worker-integration:
     name: rfx-deadline-worker-integration
