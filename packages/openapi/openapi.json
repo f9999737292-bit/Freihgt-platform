@@ -35579,13 +35579,6 @@
           "target_distance_m": {
             "type": "number"
           },
-          "revenue_amount": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "revenue_currency": {
-            "type": "string"
-          },
           "omitted_components": {
             "type": "array",
             "items": {

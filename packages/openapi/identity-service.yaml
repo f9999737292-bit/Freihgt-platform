@@ -804,8 +804,6 @@ components:
         total_duration_seconds: {type: integer}
         utilization: {type: number}
         target_distance_m: {type: number}
-        revenue_amount: {type: integer, format: int64}
-        revenue_currency: {type: string}
         omitted_components: {type: array, items: {type: string}}
         reason_codes: {type: array, items: {type: string}}
         route_plan_id: {type: string, format: uuid}
