@@ -91,6 +91,14 @@ A missing shipment is not created by chain materialization.
 
 TMS itself stores `operating_tenant_id` on the execution and `shipment_tenant_id` on each participant. `projection_integration_test.go` keeps two shipper tenants and does not rewrite them to the operating tenant.
 
-## 6. What stays open
+## 6. Controller remediation R1
 
-Shipment status eligibility for more than the current-trip seed is not decided here. Chain accept and activate routes are not added. `execution_supported` stays false.
+`chain.Engine.planOrder` calls `Planner.Plan` and `scoreOrder` then discards the outcome. `toPlanLoad` turns a nil weight into `0` and omits the cargo facts `cargoFromLoad` copies. `chainapi.API.groupage` uses empty equipment and does not accumulate catalog or rule refs from inside `Plan`. `planOrder` does not pass the current-trip end stop, onboard actions, or `Input.Onboard`.
+
+The freeze requires the future execution-grade graph to pin those facts from the scoring invocation. It limits 0.9D execution materialization to `DEPOT_START`. A current-trip candidate is not given `route_plan_id`.
+
+Migration `000098` arrived from `main` at `6f7ba7e0fe65beefde8989cf64105387e51730bd`. This remediation does not edit it.
+
+## 7. What stays open
+
+Shipment status eligibility is not decided here. Chain accept and activate routes are not added. `execution_supported` stays false. Current-trip chain materialization stays blocked.
