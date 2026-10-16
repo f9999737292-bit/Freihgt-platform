@@ -12,6 +12,7 @@ type ProjectedLoad struct {
 
 // ProjectedCandidate is the pre-accept chain surface.
 // RoutePlanID stays nil until a later persistence stage stores an evaluation.
+// Fields tagged json:"-" are durable-persistence facts only — never public JSON.
 type ProjectedCandidate struct {
 	CandidateID       uuid.UUID       `json:"chain_candidate_id"`
 	Loads             []ProjectedLoad `json:"loads"`
@@ -23,6 +24,11 @@ type ProjectedCandidate struct {
 	ReasonCodes       []string        `json:"reason_codes,omitempty"`
 	OmittedComponents []string        `json:"omitted_components,omitempty"`
 	RoutePlanID       *uuid.UUID      `json:"route_plan_id"`
+	// Durable-only metric facts (privacy-safe; not public API).
+	Utilization     *float64 `json:"-"`
+	TargetMeters    *int     `json:"-"`
+	RevenueAmount   *int64   `json:"-"`
+	RevenueCurrency *string  `json:"-"`
 }
 
 func projectLoad(load VisibleLoad) ProjectedLoad {

@@ -62,24 +62,33 @@ func (e Engine) Search(ctx context.Context, req Request) (Result, error) {
 	}
 	if err := ctx.Err(); err != nil {
 		result.Status = StatusCancelled
-		result.SearchID = e.nextID()
+		result.SearchID = resolveSearchID(e, req)
 		return e.finish(ctx, req, hash, nil, result)
 	}
-	horizonStart, horizonEnd, ok := horizonBounds(req.Seed, started)
+	horizonStart, horizonEnd, ok := resolveHorizon(req, started)
 	if !ok {
 		result.Status = StatusRejected
 		result.ReasonCounts[ReasonWindowNotAbsolute] = 1
-		result.SearchID = e.nextID()
+		result.SearchID = resolveSearchID(e, req)
 		return e.finish(ctx, req, hash, nil, result)
 	}
-	result.SearchID = e.nextID()
+	result.SearchID = resolveSearchID(e, req)
 	result.HorizonStart = horizonStart
 	result.HorizonEnd = horizonEnd
 	base := req.Route
 	if base == nil {
 		base = unavailableProvider{}
 	}
-	limited := &limitedProvider{base: base, now: now, deadline: started.Add(WallClockBudget)}
+	deadline := effectiveComputeDeadline(started, req.ComputeDeadline)
+	limited := &limitedProvider{
+		base: base, now: now, deadline: deadline,
+		durableAbsolute: req.ComputeDeadline != nil && !req.ComputeDeadline.IsZero(),
+	}
+	if !started.Before(deadline) {
+		result.Status = StatusBudgetExhausted
+		result.SearchComplete = false
+		return e.finish(ctx, req, hash, limited, result)
+	}
 	loads := eligibleLoads(req.TenantID, req.Loads, horizonStart, horizonEnd, result.ReasonCounts)
 	sort.Slice(loads, func(i, j int) bool { return loads[i].ID.String() < loads[j].ID.String() })
 
@@ -310,19 +319,22 @@ func (e Engine) planOrder(ctx context.Context, req Request, limited *limitedProv
 		}
 	}
 	outcome, _, err := (routeplan.Planner{}).Plan(ctx, routeplan.Input{
-		Mode:                   mode,
-		Start:                  routeplan.Stop{Role: routeplan.RoleStart, Point: req.Seed.Start},
-		Loads:                  []routeplan.Load{toPlanLoad(first), toPlanLoad(second)},
-		BaseSubjects:           req.Seed.OnboardSubjects,
-		Initial:                toCapacity(req.Seed.Capacity),
-		VehicleProfile:         req.VehicleProfile,
-		Clock:                  started,
-		PreserveInsertionOrder: true,
-		ServiceDurationSeconds: req.ServiceDurationSeconds,
-		Groupage:               groupage,
-		Now:                    now,
-		Budget:                 budget,
-		Route:                  limited,
+		Mode:                         mode,
+		Start:                        routeplan.Stop{Role: routeplan.RoleStart, Point: req.Seed.Start},
+		Loads:                        []routeplan.Load{toPlanLoad(first), toPlanLoad(second)},
+		BaseSubjects:                 req.Seed.OnboardSubjects,
+		Initial:                      toCapacity(req.Seed.Capacity),
+		VehicleProfile:               req.VehicleProfile,
+		Clock:                        started,
+		PreserveInsertionOrder:       true,
+		ServiceDurationSeconds:       req.ServiceDurationSeconds,
+		ActionServiceSeconds:         req.ActionServiceSeconds,
+		ServiceDurationPolicyID:      req.ServiceDurationPolicyID,
+		ServiceDurationPolicyVersion: req.ServiceDurationPolicyVersion,
+		Groupage:                     groupage,
+		Now:                          now,
+		Budget:                       budget,
+		Route:                        limited,
 	})
 	if err == nil {
 		return outcome, true, false, stopNone
@@ -440,12 +452,26 @@ func projectPair(pair builtPair) ProjectedCandidate {
 		item.SelectedOrder = pair.score.Order
 		if pair.score.Utilization == nil {
 			item.OmittedComponents = append(item.OmittedComponents, OmitUtilization)
+		} else {
+			u := *pair.score.Utilization
+			item.Utilization = &u
 		}
 		if pair.score.TargetMeters == nil {
 			item.OmittedComponents = append(item.OmittedComponents, OmitTarget)
+		} else {
+			t := *pair.score.TargetMeters
+			item.TargetMeters = &t
 		}
 		if pair.score.Revenue == nil {
 			item.OmittedComponents = append(item.OmittedComponents, OmitRevenue)
+		} else {
+			r := *pair.score.Revenue
+			item.RevenueAmount = &r
+			// Currency is a non-private code when revenue is authoritative on both loads.
+			if pair.pair.low.Private.Currency != "" {
+				cur := pair.pair.low.Private.Currency
+				item.RevenueCurrency = &cur
+			}
 		}
 	}
 	return item
@@ -681,6 +707,40 @@ func toDim(dim Dimension) routeplan.Dimension {
 	}
 	value := dim.Value
 	return routeplan.Dimension{Status: routeplan.DimKnown, Value: &value}
+}
+
+// effectiveComputeDeadline returns the absolute compute stop.
+// When ComputeDeadline is set (durable I2B), it governs; otherwise I0 uses started+20s.
+func effectiveComputeDeadline(started time.Time, absolute *time.Time) time.Time {
+	fresh := started.UTC().Add(WallClockBudget)
+	if absolute == nil || absolute.IsZero() {
+		return fresh
+	}
+	persisted := absolute.UTC()
+	// Never reopen a fresh window past the persisted durable deadline.
+	if persisted.Before(fresh) {
+		return persisted
+	}
+	return fresh
+}
+
+func resolveSearchID(e Engine, req Request) uuid.UUID {
+	if req.DurableSearchID != nil && *req.DurableSearchID != uuid.Nil {
+		return *req.DurableSearchID
+	}
+	return e.nextID()
+}
+
+func resolveHorizon(req Request, started time.Time) (time.Time, time.Time, bool) {
+	if req.PersistedHorizonStart != nil && req.PersistedHorizonEnd != nil {
+		start := req.PersistedHorizonStart.UTC()
+		end := req.PersistedHorizonEnd.UTC()
+		if start.IsZero() || end.IsZero() {
+			return time.Time{}, time.Time{}, false
+		}
+		return start, end, true
+	}
+	return horizonBounds(req.Seed, started)
 }
 
 func requestHash(req Request) string {

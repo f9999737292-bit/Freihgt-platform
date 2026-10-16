@@ -153,9 +153,21 @@ type ChainSearchTx interface {
 	RecoverExpiredChainSearchClaim(ctx context.Context, tenant, searchID uuid.UUID) (bool, error)
 
 	InsertChainCandidate(context.Context, ChainCandidate) error
+	// OwnerInsertChainCandidate inserts a candidate only when the parent search matches
+	// tenant, owner_token, expected nonterminal status, and clock_timestamp() < claim_expires_at.
+	OwnerInsertChainCandidate(ctx context.Context, candidate ChainCandidate, ownerToken uuid.UUID, expectedStatus string) error
 	ListChainCandidates(context.Context, uuid.UUID, uuid.UUID) ([]ChainCandidate, error)
 	InsertChainSearchIdempotency(context.Context, ChainSearchIdempotency) error
 	GetChainSearchIdempotency(context.Context, uuid.UUID, string) (ChainSearchIdempotency, error)
+
+	// ListExpiredChainSearchClaims returns expired nonterminal claims for recovery sweeps.
+	ListExpiredChainSearchClaims(ctx context.Context, limit int) ([]ExpiredChainSearchClaim, error)
+}
+
+// ExpiredChainSearchClaim identifies one recoverable abandoned claim.
+type ExpiredChainSearchClaim struct {
+	TenantID uuid.UUID
+	SearchID uuid.UUID
 }
 
 // Failure code for abandoned-claim recovery (I1).
