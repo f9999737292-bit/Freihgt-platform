@@ -199,6 +199,13 @@ func NewRouter(
 			handlers.OperationsFoundationV2Path,
 			sourceHandler.GetExtended,
 		)
+		podHandler := handlers.NewPODRequirementHandler(
+			service.NewPODRequirementService(repository.NewPODRequirementRepository(sourceDB)),
+		)
+		r.With(internalAuth.Middleware).Get(
+			"/internal/v1/transport-executions/{executionId}/actions/{actionId}/pod-requirement",
+			podHandler.Get,
+		)
 	}
 
 	r.Route("/internal/v1/driver", func(r chi.Router) {
