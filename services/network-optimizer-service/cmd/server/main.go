@@ -12,6 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/freight-platform/network-optimizer-service/internal/chainapi"
+	"github.com/freight-platform/network-optimizer-service/internal/chainorch"
 	"github.com/freight-platform/network-optimizer-service/internal/config"
 	"github.com/freight-platform/network-optimizer-service/internal/currenttrip"
 	"github.com/freight-platform/network-optimizer-service/internal/executionproj"
@@ -19,6 +21,7 @@ import (
 	"github.com/freight-platform/network-optimizer-service/internal/locationclient"
 	"github.com/freight-platform/network-optimizer-service/internal/predict"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
+	"github.com/freight-platform/network-optimizer-service/internal/routing"
 	"github.com/freight-platform/network-optimizer-service/internal/routing/twogis"
 	"github.com/freight-platform/network-optimizer-service/internal/service"
 	"github.com/freight-platform/network-optimizer-service/internal/sourceclient"
@@ -45,8 +48,11 @@ func main() {
 	svc.UseDirectory(locationclient.NewHTTP(cfg.TransportOrderURL, cfg.ShipmentURL, cfg.InternalServiceToken))
 	svc.UsePolicies(store)
 	svc.UseScoreProfiles(store)
+	var route routing.Provider
 	if cfg.RoutingProvider == "2GIS" {
-		svc.UseRouting(twogis.New(cfg.TwoGISRoutingBaseURL, cfg.TwoGISAPIKey, log))
+		route = twogis.New(cfg.TwoGISRoutingBaseURL, cfg.TwoGISAPIKey, log)
+		svc.UseRouting(route)
+		log.Info("routing provider configured", slog.String("provider", cfg.RoutingProvider))
 	}
 	sources := sourceclient.New(cfg.ShipmentURL, cfg.TrackingURL, cfg.InternalServiceToken).WithTransportOrder(cfg.TransportOrderURL)
 	svc.ConfigurePrediction(sources, predict.Policy{
@@ -55,7 +61,20 @@ func main() {
 	})
 	svc.ConfigureCurrentTrip(currenttrip.NewProvider(sources, sources, sources, sources, sources, sources))
 	svc.UseExecutionProjection(executionproj.NewHTTP(cfg.ShipmentURL, cfg.InternalServiceToken))
-	router := httpserver.NewRouterWithCatalog(log, svc, ready(store), store)
+	orch := &chainorch.Orchestrator{Store: store, DurationResolver: chainorch.PostgresDurationResolver{Store: store}}
+	chainAPI := &chainapi.API{
+		Orch: orch, Seeds: chainapi.StoreSeedResolver{
+			Store: store, Trips: chainapi.ServiceTrip{Service: svc}, Vehicles: sources,
+		},
+		Pool: chainapi.MarketplacePool{Store: store}, Catalog: store,
+		Route: route, RoutingProviderVersion: "UNKNOWN",
+	}
+	sweepCtx, sweepCancel := context.WithCancel(context.Background())
+	defer sweepCancel()
+	go chainapi.RunRecovery(sweepCtx, orch, chainapi.RecoveryConfig{
+		Interval: cfg.ChainRecoveryInterval, Limit: cfg.ChainRecoveryLimit, Log: log,
+	})
+	router := httpserver.NewRouterWithChain(log, svc, ready(store), store, chainAPI)
 	server := &http.Server{
 		Addr:              ":" + itoa(cfg.HTTPPort),
 		Handler:           router,

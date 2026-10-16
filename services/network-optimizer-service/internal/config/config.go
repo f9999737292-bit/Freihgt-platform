@@ -19,6 +19,10 @@ type Config struct {
 	TwoGISRoutingBaseURL string
 	TwoGISAPIKey         string
 	Prediction           PredictionConfig
+	// ChainRecoveryInterval is the bounded startup/periodic abandoned-claim sweep.
+	// It does not renew claims or recompute. Default 5s when unset.
+	ChainRecoveryInterval time.Duration
+	ChainRecoveryLimit    int
 }
 
 type PredictionConfig struct {
@@ -54,6 +58,20 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	recoveryInterval := 5 * time.Second
+	if raw := strings.TrimSpace(os.Getenv("CHAIN_RECOVERY_SWEEP_INTERVAL")); raw != "" {
+		recoveryInterval, err = time.ParseDuration(raw)
+		if err != nil || recoveryInterval < time.Second {
+			return Config{}, fmt.Errorf("invalid CHAIN_RECOVERY_SWEEP_INTERVAL")
+		}
+	}
+	recoveryLimit := 32
+	if raw := strings.TrimSpace(os.Getenv("CHAIN_RECOVERY_SWEEP_LIMIT")); raw != "" {
+		recoveryLimit, err = strconv.Atoi(raw)
+		if err != nil || recoveryLimit < 1 || recoveryLimit > 200 {
+			return Config{}, fmt.Errorf("invalid CHAIN_RECOVERY_SWEEP_LIMIT")
+		}
+	}
 	floor := 0.5
 	if raw := strings.TrimSpace(os.Getenv("BNO_PREDICTION_CONFIDENCE_FLOOR")); raw != "" {
 		floor, err = strconv.ParseFloat(raw, 64)
@@ -76,6 +94,8 @@ func Load() (Config, error) {
 			ConfidenceFloor: floor,
 			AutoActivate:    strings.EqualFold(strings.TrimSpace(os.Getenv("BNO_PREDICTION_AUTO_ACTIVATE")), "true"),
 		},
+		ChainRecoveryInterval: recoveryInterval,
+		ChainRecoveryLimit:    recoveryLimit,
 	}, nil
 }
 

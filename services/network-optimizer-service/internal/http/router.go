@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/freight-platform/network-optimizer-service/internal/chainapi"
 	"github.com/freight-platform/network-optimizer-service/internal/http/handlers"
 	"github.com/freight-platform/network-optimizer-service/internal/reference"
 	"github.com/freight-platform/network-optimizer-service/internal/service"
@@ -21,6 +22,10 @@ func NewRouter(log *slog.Logger, svc *service.Service, ready func(http.ResponseW
 }
 
 func NewRouterWithCatalog(log *slog.Logger, svc *service.Service, ready func(http.ResponseWriter, *http.Request), catalog reference.Catalog) http.Handler {
+	return NewRouterWithChain(log, svc, ready, catalog, nil)
+}
+
+func NewRouterWithChain(log *slog.Logger, svc *service.Service, ready func(http.ResponseWriter, *http.Request), catalog reference.Catalog, chain *chainapi.API) http.Handler {
 	r := chi.NewRouter()
 	r.Use(sharedmiddleware.RequestID)
 	r.Use(func(next http.Handler) http.Handler {
@@ -30,6 +35,7 @@ func NewRouterWithCatalog(log *slog.Logger, svc *service.Service, ready func(htt
 		})
 	})
 	h := handlers.New(log, svc)
+	h.UseChainAPI(chain)
 	if catalog != nil {
 		h.UseCatalog(catalog)
 		svc.UseCatalog(catalog)
@@ -81,6 +87,9 @@ func NewRouterWithCatalog(log *slog.Logger, svc *service.Service, ready func(htt
 	r.Post("/v1/network/compatibility/groupage/evaluate", h.EvaluateGroupage)
 	r.Post("/v1/network/next-load/search", h.SearchNextLoad)
 	r.Post("/v1/network/consolidation/search", h.SearchConsolidation)
+	r.Post("/v1/network/chain-searches", h.PostChainSearch)
+	r.Get("/v1/network/chain-searches/{searchId}", h.GetChainSearch)
+	r.Get("/v1/network/chain-searches/{searchId}/candidates", h.GetChainCandidates)
 	r.Post("/v1/network/route-plans/evaluate", h.EvaluateRoutePlan)
 	r.Get("/v1/network/route-plans/{id}", h.GetRoutePlan)
 	r.Post("/v1/network/route-plans/{id}/accept", h.AcceptRoutePlan)

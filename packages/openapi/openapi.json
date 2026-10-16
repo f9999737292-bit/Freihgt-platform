@@ -32294,6 +32294,398 @@
         }
       }
     },
+    "/api/v1/network/chain-searches": {
+      "post": {
+        "tags": [
+          "Network Optimizer"
+        ],
+        "summary": "Create or replay a bounded chain search",
+        "operationId": "post_create_or_replay_a_bounded_chain_search",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Optional public idempotency key, max 128 characters. Omitted keys are server-owned and do not replay. Same tenant, key, and fingerprint replays a terminal search. Same key with a different fingerprint conflicts. Not part of the request fingerprint.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChainSearchCreateRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "New search created and finished in this request. execution_supported is false.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchResource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON, invalid UUID, or ambiguous request shape.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not allowed. Independent of search existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or other-tenant search. Same response shape.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Fingerprint conflict, or matching unexpired in-flight search with code CHAIN_SEARCH_IN_PROGRESS.",
+            "headers": {
+              "Retry-After": {
+                "description": "Present with value 1 when code is CHAIN_SEARCH_IN_PROGRESS.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Terminal replay, including an expired claim recovered as FAILED CHAIN_INTERRUPTED. No recompute.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchResource"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Predicted-capacity seed, client-selected pair, or ineligible seed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Persistence, recovery, or routing dependency unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/network/chain-searches/{searchId}": {
+      "get": {
+        "tags": [
+          "Network Optimizer"
+        ],
+        "summary": "Read one tenant-owned chain search",
+        "operationId": "get_read_one_tenant_owned_chain_search",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "searchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant-owned chain search. Unknown and other-tenant ids are the same 404. Expired PENDING or RUNNING claims are recovered to FAILED CHAIN_INTERRUPTED with no recompute.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchResource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON, invalid UUID, or ambiguous request shape.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not allowed. Independent of search existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or other-tenant search. Same response shape.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Fingerprint conflict, or matching unexpired in-flight search with code CHAIN_SEARCH_IN_PROGRESS.",
+            "headers": {
+              "Retry-After": {
+                "description": "Present with value 1 when code is CHAIN_SEARCH_IN_PROGRESS.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Recovery or persistence unavailable. No recompute.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/network/chain-searches/{searchId}/candidates": {
+      "get": {
+        "tags": [
+          "Network Optimizer"
+        ],
+        "summary": "Read the durable chain shortlist",
+        "operationId": "get_read_the_durable_chain_shortlist",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XRequestID"
+          },
+          {
+            "$ref": "#/components/parameters/XTenantID"
+          },
+          {
+            "$ref": "#/components/parameters/XCompanyID"
+          },
+          {
+            "$ref": "#/components/parameters/XLocale"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "name": "searchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Durable shortlist in ordinal order when status is COMPLETED. PENDING, RUNNING, FAILED, and CANCELLED return an empty candidate list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainCandidateList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON, invalid UUID, or ambiguous request shape.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not allowed. Independent of search existence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or other-tenant search. Same response shape.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Fingerprint conflict, or matching unexpired in-flight search with code CHAIN_SEARCH_IN_PROGRESS.",
+            "headers": {
+              "Retry-After": {
+                "description": "Present with value 1 when code is CHAIN_SEARCH_IN_PROGRESS.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Recovery or persistence unavailable. No recompute.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainSearchError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/network/route-plans/evaluate": {
       "post": {
         "tags": [
@@ -35068,6 +35460,301 @@
           "version": {
             "type": "integer",
             "minimum": 1
+          }
+        }
+      },
+      "ChainSearchCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "seed_type"
+        ],
+        "description": "One seed only. MANUAL_CAPACITY requires capacity_id. CURRENT_TRIP requires shipment_id.\nPREDICTED_CAPACITY returns 422 and is not treated as manual capacity.\ncandidate_load_ids, L1, L2, chain_search_id, and chain_candidate_id return 422.\n",
+        "properties": {
+          "seed_type": {
+            "type": "string",
+            "enum": [
+              "MANUAL_CAPACITY",
+              "CURRENT_TRIP",
+              "PREDICTED_CAPACITY"
+            ]
+          },
+          "capacity_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shipment_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ChainSearchPublicSeed": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "MANUAL_CAPACITY",
+              "CURRENT_TRIP"
+            ]
+          },
+          "capacity_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "capacity_version": {
+            "type": "integer"
+          },
+          "shipment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "shipment_version": {
+            "type": "integer"
+          }
+        }
+      },
+      "ChainCandidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chain_candidate_id",
+          "ordinal",
+          "first_load_id",
+          "first_load_version",
+          "second_load_id",
+          "second_load_version",
+          "feasibility_status",
+          "omitted_components",
+          "reason_codes",
+          "execution_supported"
+        ],
+        "properties": {
+          "chain_candidate_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ordinal": {
+            "type": "integer"
+          },
+          "first_load_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "first_load_version": {
+            "type": "integer"
+          },
+          "second_load_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "second_load_version": {
+            "type": "integer"
+          },
+          "feasibility_status": {
+            "type": "string",
+            "enum": [
+              "FEASIBLE",
+              "INFEASIBLE",
+              "UNFINISHED"
+            ]
+          },
+          "selected_order": {
+            "type": "string"
+          },
+          "empty_road_distance_m": {
+            "type": "number"
+          },
+          "total_duration_seconds": {
+            "type": "integer"
+          },
+          "utilization": {
+            "type": "number"
+          },
+          "target_distance_m": {
+            "type": "number"
+          },
+          "omitted_components": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "route_plan_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "execution_supported": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ChainCandidateList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidates"
+        ],
+        "properties": {
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChainCandidate"
+            }
+          }
+        }
+      },
+      "ChainSearchResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chain_search_id",
+          "status",
+          "search_complete",
+          "candidate_count",
+          "evaluated_pair_count",
+          "provider_call_count",
+          "global_optimum",
+          "execution_supported",
+          "reason_counts",
+          "created_at",
+          "horizon_start",
+          "horizon_end",
+          "seed"
+        ],
+        "properties": {
+          "chain_search_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "COMPLETED",
+              "CANCELLED",
+              "FAILED"
+            ]
+          },
+          "search_complete": {
+            "type": "boolean"
+          },
+          "candidate_count": {
+            "type": "integer"
+          },
+          "evaluated_pair_count": {
+            "type": "integer"
+          },
+          "provider_call_count": {
+            "type": "integer"
+          },
+          "global_optimum": {
+            "type": "boolean"
+          },
+          "execution_supported": {
+            "type": "boolean"
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "cancel_reason_class": {
+            "type": "string",
+            "enum": [
+              "CLIENT_CANCELLED",
+              "GATEWAY_CANCELLED",
+              "CONTEXT_CANCELLED"
+            ]
+          },
+          "reason_counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cancelled_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "horizon_start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "horizon_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "seed": {
+            "$ref": "#/components/schemas/ChainSearchPublicSeed"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChainCandidate"
+            }
+          }
+        }
+      },
+      "ChainSearchError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message",
+              "details"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDATION_ERROR",
+                  "UNAUTHORIZED",
+                  "FORBIDDEN",
+                  "NOT_FOUND",
+                  "CONFLICT",
+                  "FINGERPRINT_CONFLICT",
+                  "CHAIN_SEARCH_IN_PROGRESS",
+                  "SERVICE_UNAVAILABLE"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
           }
         }
       },

@@ -202,6 +202,7 @@ type CurrentTripContext struct {
 	ETAFreshnessStatus      string
 	ETAObservedAt           *time.Time
 	OnboardCargoUnits       []OnboardCargoUnit
+	OnboardCargoResolution  string
 	VehicleCapability       *VehicleCapability
 	ResidualCapacity        ResidualCapacitySnapshot
 	InputFingerprint        string

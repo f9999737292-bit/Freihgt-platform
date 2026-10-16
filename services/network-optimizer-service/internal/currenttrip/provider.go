@@ -138,7 +138,7 @@ func (p *Provider) Build(ctx context.Context, tenantID, shipmentID uuid.UUID) (C
 	if resolution == "" {
 		resolution = ResolutionUnproven
 	}
-	if execution.CargoID == nil && len(onboard.Items) == 0 {
+	if execution.CargoID == nil && len(onboard.Items) == 0 && resolution != EvidenceUnloaded {
 		resolution = ResolutionUnproven
 	}
 	built := CurrentTripContext{
@@ -148,7 +148,7 @@ func (p *Provider) Build(ctx context.Context, tenantID, shipmentID uuid.UUID) (C
 		OriginLocationID: execution.OriginLocationID, DestinationLocationID: execution.DestinationLocationID,
 		CurrentPosition: position, PositionFreshnessStatus: positionFreshness, PositionObservedAt: positionAt,
 		ETA: eta, ETAFreshnessStatus: etaFreshness, ETAObservedAt: etaAt,
-		OnboardCargoUnits: units, VehicleCapability: capability,
+		OnboardCargoUnits: units, OnboardCargoResolution: resolution, VehicleCapability: capability,
 		ResidualCapacity: residualSnapshot(residualInput{
 			Resolution: resolution, Units: units, Vehicle: capability, Equivalences: p.equivalences,
 		}),
