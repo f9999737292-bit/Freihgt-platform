@@ -74,3 +74,5 @@ Analytics-tree ADR-AN-001 through ADR-AN-005 under `docs/architecture/analytics/
 - Event contracts: [docs/events/edo-0.2-event-contracts.md](../events/edo-0.2-event-contracts.md)
 - Document completeness source contract (not an accepted runtime): [docs/architecture/edo-document-completeness-source-v0.4b.md](../architecture/edo-document-completeness-source-v0.4b.md)
 - Document requirement policy framework (discovery freeze, not runtime): [docs/architecture/edo-document-requirement-policy-v0.1a.md](../architecture/edo-document-requirement-policy-v0.1a.md)
+- POD delivery-action evidence binding discovery (not a runtime): [docs/architecture/edo-pod-delivery-action-evidence-binding-v0.1a-discovery.md](../architecture/edo-pod-delivery-action-evidence-binding-v0.1a-discovery.md)
+- POD delivery-action evidence binding freeze (not an authorized runtime): [docs/architecture/edo-pod-delivery-action-evidence-binding-v0.1a-freeze.md](../architecture/edo-pod-delivery-action-evidence-binding-v0.1a-freeze.md)
