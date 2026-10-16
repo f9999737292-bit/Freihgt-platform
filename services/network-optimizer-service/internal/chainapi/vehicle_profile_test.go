@@ -16,7 +16,7 @@ import (
 	"github.com/freight-platform/network-optimizer-service/internal/service"
 )
 
-func TestI271_001_vehicle_profile(t *testing.T) {
+func TestI2C_I271_001_vehicle_profile(t *testing.T) {
 	ctx := context.Background()
 	tenant := uuid.New()
 	company := uuid.New()
