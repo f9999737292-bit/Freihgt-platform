@@ -58,6 +58,7 @@ TMS execution implementation does not remove or weaken the NLO activation releas
 | [EVENTS.md](EVENTS.md) | Outbox in the same transaction; separate version stream |
 | [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) | Waves after controller acceptance |
 | [TMS analytics source contracts 0.4B](../tms/TMS_ANALYTICS_SOURCE_CONTRACTS_0_4B.md) | Source facts requested by Analytics 0.4A. Docs only. Implementation is not authorized |
+| [TMS POD requirement source 0.4C](../tms/TMS_POD_REQUIREMENT_SOURCE_0_4C.md) | Server-owned POD requirement for one delivery action. Docs only. Runtime is not authorized |
 
 ## ADRs
 
