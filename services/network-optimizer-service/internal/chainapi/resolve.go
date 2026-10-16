@@ -206,7 +206,7 @@ func (p MarketplacePool) Loads(ctx context.Context, actor service.Actor) ([]chai
 	var rows []domain.LoadOpportunity
 	err := p.Store.Within(ctx, func(tx repository.Tx) error {
 		var err error
-		rows, err = tx.ListMarketplaceLoads(ctx, actor.TenantID, actor.CompanyID, domain.CandidateDiscoveryCap, 0)
+		rows, err = tx.ListChainDiscoveryLoads(ctx, actor.TenantID, actor.CompanyID, domain.CandidateDiscoveryCap, 0)
 		return err
 	})
 	if err != nil {

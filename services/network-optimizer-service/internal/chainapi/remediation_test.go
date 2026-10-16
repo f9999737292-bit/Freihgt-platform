@@ -147,12 +147,14 @@ func TestI2C_POOL_cross_shipper_policy(t *testing.T) {
 		load := publishedLoad(shipper, now, false, false, domain.VisMarketplace, nil)
 		putLoad(t, store, load)
 		loads := mustLoads(t, MarketplacePool{Store: store}, actor)
-		if len(loads) != 1 {
-			t.Fatalf("pool dropped the load before the engine: %+v", loads)
+		if len(loads) != 0 {
+			t.Fatalf("foreign load without cross-shipper opt-in entered the chain pool: %+v", loads)
 		}
-		result := searchLoads(t, carrier, now, loads)
-		if result.ReasonCounts[chain.ReasonConsolidation] != 1 || len(result.FirstLoadIDs) != 0 {
-			t.Fatalf("counts=%v ids=%v", result.ReasonCounts, result.FirstLoadIDs)
+		result := searchLoads(t, carrier, now, []chain.VisibleLoad{{
+			ID: load.ID, Version: 1, OwnerTenantID: shipper, CrossShipperConsolidationAllowed: false,
+		}})
+		if result.ReasonCounts[chain.ReasonConsolidation] != 1 {
+			t.Fatalf("engine counts=%v", result.ReasonCounts)
 		}
 	})
 
