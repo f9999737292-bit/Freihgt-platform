@@ -13,6 +13,7 @@ const (
 	PODDecisionStateUnknown = "UNKNOWN"
 
 	PODRequiredDocumentType = "POD"
+	PODDecisionActorSystem  = "SYSTEM"
 
 	PODReasonActionNotDelivery = "ACTION_NOT_DELIVERY"
 )
@@ -112,7 +113,7 @@ func ViewFromPODDecision(subject PODRequirementSubject, decision PODRequirementD
 		view.DecisionState = PODDecisionStateUnknown
 		return view, nil
 	case PODDecisionStateKnown:
-		if decision.PodRequired == nil || decision.RequirementDecidedAt == nil {
+		if !knownPODProvenanceComplete(decision) {
 			return PODRequirementView{}, apperrors.Unavailable("stored pod requirement decision is invalid", nil)
 		}
 		view.DecisionState = PODDecisionStateKnown
@@ -138,4 +139,14 @@ func ViewFromPODDecision(subject PODRequirementSubject, decision PODRequirementD
 	default:
 		return PODRequirementView{}, apperrors.Unavailable("stored pod requirement decision is invalid", nil)
 	}
+}
+
+func knownPODProvenanceComplete(decision PODRequirementDecision) bool {
+	if decision.PodRequired == nil || decision.RequirementDecidedAt == nil || decision.ExecutionRevisionID == nil {
+		return false
+	}
+	if decision.SourcePolicyID == nil || decision.SourcePolicyVersion == nil || *decision.SourcePolicyVersion < 1 {
+		return false
+	}
+	return decision.DecisionActorClass != nil && *decision.DecisionActorClass == PODDecisionActorSystem
 }

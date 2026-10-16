@@ -42,27 +42,21 @@ func TestStoredUnknownDoesNotBecomeFalse(t *testing.T) {
 
 func TestStoredKnownRequirementShapes(t *testing.T) {
 	subject := testPODSubject()
-	decided := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
 	policy := uuid.New()
 	policyVersion := 3
-	required, err := ViewFromPODDecision(subject, PODRequirementDecision{
-		ID: uuid.New(), DecisionVersion: 1, DecisionState: PODDecisionStateKnown,
-		PodRequired: boolPtr(true), RequiredDocumentType: strPtr(PODRequiredDocumentType),
-		AcceptancePolicyID: &policy, AcceptancePolicyVersion: &policyVersion, RequirementDecidedAt: &decided,
-	})
+	source := uuid.New()
+	sourceVersion := 1
+	required, err := ViewFromPODDecision(subject, knownDecision(true, &policy, &policyVersion, &source, &sourceVersion))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if required.DecisionState != PODDecisionStateKnown || required.PodRequired == nil || !*required.PodRequired || required.RequiredDocumentType == nil || *required.RequiredDocumentType != PODRequiredDocumentType {
 		t.Fatalf("known required = %+v", required)
 	}
-	if required.AcceptancePolicyID == nil || *required.AcceptancePolicyID != policy || required.AcceptancePolicyVersion == nil || *required.AcceptancePolicyVersion != policyVersion {
-		t.Fatal("known required dropped acceptance pin")
+	if required.AcceptancePolicyID == nil || *required.AcceptancePolicyID != policy || required.SourcePolicyID == nil || *required.SourcePolicyID != source {
+		t.Fatal("known required dropped pins")
 	}
-	notRequired, err := ViewFromPODDecision(subject, PODRequirementDecision{
-		ID: uuid.New(), DecisionVersion: 1, DecisionState: PODDecisionStateKnown,
-		PodRequired: boolPtr(false), RequirementDecidedAt: &decided,
-	})
+	notRequired, err := ViewFromPODDecision(subject, knownDecision(false, nil, nil, &source, &sourceVersion))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,14 +67,51 @@ func TestStoredKnownRequirementShapes(t *testing.T) {
 
 func TestKnownRequiredWithoutAcceptancePinIsInvalid(t *testing.T) {
 	subject := testPODSubject()
-	decided := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
-	_, err := ViewFromPODDecision(subject, PODRequirementDecision{
-		ID: uuid.New(), DecisionVersion: 1, DecisionState: PODDecisionStateKnown,
-		PodRequired: boolPtr(true), RequiredDocumentType: strPtr(PODRequiredDocumentType), RequirementDecidedAt: &decided,
-	})
-	if err == nil {
+	source := uuid.New()
+	sourceVersion := 1
+	decision := knownDecision(true, nil, nil, &source, &sourceVersion)
+	if _, err := ViewFromPODDecision(subject, decision); err == nil {
 		t.Fatal("expected invalid known required")
 	}
+}
+
+func TestKnownWithoutProvenanceIsUnavailable(t *testing.T) {
+	subject := testPODSubject()
+	source := uuid.New()
+	sourceVersion := 1
+	policy := uuid.New()
+	policyVersion := 1
+	base := knownDecision(true, &policy, &policyVersion, &source, &sourceVersion)
+	missingPolicy := base
+	missingPolicy.SourcePolicyID = nil
+	missingPolicy.SourcePolicyVersion = nil
+	missingRevision := base
+	missingRevision.ExecutionRevisionID = nil
+	missingActor := base
+	missingActor.DecisionActorClass = nil
+	for _, decision := range []PODRequirementDecision{missingPolicy, missingRevision, missingActor} {
+		if _, err := ViewFromPODDecision(subject, decision); err == nil {
+			t.Fatalf("accepted malformed known decision %+v", decision)
+		}
+	}
+}
+
+func knownDecision(required bool, acceptance *uuid.UUID, acceptanceVersion *int, source *uuid.UUID, sourceVersion *int) PODRequirementDecision {
+	decided := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
+	revision := uuid.New()
+	actor := PODDecisionActorSystem
+	decision := PODRequirementDecision{
+		ID: uuid.New(), DecisionVersion: 1, DecisionState: PODDecisionStateKnown,
+		ExecutionRevisionID: &revision, PodRequired: boolPtr(required), RequirementDecidedAt: &decided,
+		SourcePolicyID: source, SourcePolicyVersion: sourceVersion, DecisionActorClass: &actor,
+	}
+	if required {
+		docType := PODRequiredDocumentType
+		decision.RequiredDocumentType = &docType
+		decision.AcceptancePolicyID = acceptance
+		decision.AcceptancePolicyVersion = acceptanceVersion
+	}
+	return decision
 }
 
 func testPODSubject() PODRequirementSubject {

@@ -73,6 +73,10 @@ CREATE TABLE transport.transport_execution_pod_requirement_decisions (
                 AND acceptance_policy_id IS NOT NULL
                 AND acceptance_policy_version IS NOT NULL
                 AND requirement_decided_at IS NOT NULL
+                AND execution_revision_id IS NOT NULL
+                AND source_policy_id IS NOT NULL
+                AND source_policy_version IS NOT NULL
+                AND decision_actor_class IS NOT DISTINCT FROM 'SYSTEM'
             )
             OR (
                 decision_state = 'KNOWN'
@@ -81,6 +85,10 @@ CREATE TABLE transport.transport_execution_pod_requirement_decisions (
                 AND acceptance_policy_id IS NULL
                 AND acceptance_policy_version IS NULL
                 AND requirement_decided_at IS NOT NULL
+                AND execution_revision_id IS NOT NULL
+                AND source_policy_id IS NOT NULL
+                AND source_policy_version IS NOT NULL
+                AND decision_actor_class IS NOT DISTINCT FROM 'SYSTEM'
             )
         )
 );
@@ -122,6 +130,8 @@ DECLARE
     prior_tenant uuid;
     prior_action uuid;
     prior_version integer;
+    revision_execution uuid;
+    revision_tenant uuid;
 BEGIN
     SELECT a.action_type, a.execution_stop_id, a.shipment_id, a.cargo_id
       INTO action_type, action_stop, action_shipment, action_cargo
@@ -143,6 +153,18 @@ BEGIN
        OR stop_tenant IS DISTINCT FROM NEW.operating_tenant_id THEN
         RAISE EXCEPTION 'POD_REQUIREMENT_SUBJECT_MISMATCH'
             USING ERRCODE = '23514';
+    END IF;
+
+    IF NEW.execution_revision_id IS NOT NULL THEN
+        SELECT r.execution_id, r.operating_tenant_id
+          INTO revision_execution, revision_tenant
+          FROM transport.transport_execution_revisions AS r
+         WHERE r.id = NEW.execution_revision_id;
+        IF revision_execution IS DISTINCT FROM NEW.execution_id
+           OR revision_tenant IS DISTINCT FROM NEW.operating_tenant_id THEN
+            RAISE EXCEPTION 'POD_REQUIREMENT_REVISION_MISMATCH'
+                USING ERRCODE = '23514';
+        END IF;
     END IF;
 
     IF NEW.supersedes_decision_id IS NOT NULL THEN

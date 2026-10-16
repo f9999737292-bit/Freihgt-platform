@@ -138,8 +138,9 @@ func TestPODRequirementFoundation(t *testing.T) {
 		decided := time.Date(2026, 10, 16, 8, 0, 0, 0, time.UTC)
 		row := decisionInsert{
 			ID: uuid.New(), Version: 1, Operating: fresh.operating, Execution: fresh.executionID, Action: freshAction,
-			Stop: fresh.stopID, Shipment: fresh.ship.shipmentID, Cargo: fresh.ship.cargoID,
+			Stop: fresh.stopID, Shipment: fresh.ship.shipmentID, Cargo: fresh.ship.cargoID, Revision: &fresh.revisionID,
 			State: "KNOWN", PodRequired: boolPtr(true), DocType: strPtr("POD"), Policy: &policy, PolicyVersion: intPtr(2), DecidedAt: &decided,
+			SourcePolicy: uuidPtr(uuid.New()), SourceVersion: intPtr(1), Actor: strPtr("SYSTEM"),
 		}
 		insertDecision(t, env, row)
 		body := getPOD(t, router, token, fresh.operating, fresh.executionID, freshAction)
@@ -154,8 +155,9 @@ func TestPODRequirementFoundation(t *testing.T) {
 		decided := time.Date(2026, 10, 16, 8, 0, 0, 0, time.UTC)
 		row := decisionInsert{
 			ID: uuid.New(), Version: 1, Operating: fresh.operating, Execution: fresh.executionID, Action: freshAction,
-			Stop: fresh.stopID, Shipment: fresh.ship.shipmentID, Cargo: fresh.ship.cargoID,
+			Stop: fresh.stopID, Shipment: fresh.ship.shipmentID, Cargo: fresh.ship.cargoID, Revision: &fresh.revisionID,
 			State: "KNOWN", PodRequired: boolPtr(false), DecidedAt: &decided,
+			SourcePolicy: uuidPtr(uuid.New()), SourceVersion: intPtr(1), Actor: strPtr("SYSTEM"),
 		}
 		insertDecision(t, env, row)
 		body := getPOD(t, router, token, fresh.operating, fresh.executionID, freshAction)
@@ -269,6 +271,112 @@ func TestPODRequirementFoundation(t *testing.T) {
 		}
 	})
 
+	t.Run("C274_001_KNOWN_REQUIRED_WITHOUT_SOURCE_POLICY_REJECTED", func(t *testing.T) {
+		local, action, base := knownSubject(t, env)
+		row := base.withState("KNOWN", boolPtr(true), strPtr("POD"), uuidPtr(uuid.New()), intPtr(1), timePtr(time.Now().UTC()))
+		row.Revision = &local.revisionID
+		row.Actor = strPtr("SYSTEM")
+		expectDecisionReject(t, env, row)
+		_ = action
+	})
+
+	t.Run("C274_001_KNOWN_NOT_REQUIRED_WITHOUT_SOURCE_POLICY_REJECTED", func(t *testing.T) {
+		local, _, base := knownSubject(t, env)
+		row := base.withState("KNOWN", boolPtr(false), nil, nil, nil, timePtr(time.Now().UTC()))
+		row.Revision = &local.revisionID
+		row.Actor = strPtr("SYSTEM")
+		expectDecisionReject(t, env, row)
+	})
+
+	t.Run("C274_001_KNOWN_WITHOUT_REVISION_REJECTED", func(t *testing.T) {
+		_, _, base := knownSubject(t, env)
+		row := base.withState("KNOWN", boolPtr(true), strPtr("POD"), uuidPtr(uuid.New()), intPtr(1), timePtr(time.Now().UTC()))
+		row.Revision = nil
+		row.SourcePolicy = uuidPtr(uuid.New())
+		row.SourceVersion = intPtr(1)
+		row.Actor = strPtr("SYSTEM")
+		expectDecisionReject(t, env, row)
+	})
+
+	t.Run("C274_001_KNOWN_WITHOUT_SYSTEM_ACTOR_REJECTED", func(t *testing.T) {
+		local, _, base := knownSubject(t, env)
+		row := base.withState("KNOWN", boolPtr(true), strPtr("POD"), uuidPtr(uuid.New()), intPtr(1), timePtr(time.Now().UTC()))
+		row.Revision = &local.revisionID
+		row.SourcePolicy = uuidPtr(uuid.New())
+		row.SourceVersion = intPtr(1)
+		row.Actor = nil
+		expectDecisionReject(t, env, row)
+	})
+
+	t.Run("C274_001_VALID_KNOWN_REQUIRED_FIXTURE_READS", func(t *testing.T) {
+		local, action, base := knownSubject(t, env)
+		row := base.withState("KNOWN", boolPtr(true), strPtr("POD"), uuidPtr(uuid.New()), intPtr(2), timePtr(time.Now().UTC()))
+		row.Revision = &local.revisionID
+		row.SourcePolicy = uuidPtr(uuid.New())
+		row.SourceVersion = intPtr(1)
+		row.Actor = strPtr("SYSTEM")
+		insertDecision(t, env, row)
+		body := getPOD(t, router, token, local.operating, local.executionID, action)
+		if body["decision_state"] != "KNOWN" || body["pod_required"] != true || body["source_policy_id"] == nil || body["decision_actor_class"] != "SYSTEM" || body["acceptance_policy_id"] == nil {
+			t.Fatalf("valid required %+v", body)
+		}
+	})
+
+	t.Run("C274_001_VALID_KNOWN_NOT_REQUIRED_FIXTURE_READS", func(t *testing.T) {
+		local, _, base := knownSubject(t, env)
+		second := insertSecondDelivery(t, env, local)
+		var secondStop uuid.UUID
+		if err := env.pool.QueryRow(env.ctx, `SELECT execution_stop_id FROM transport.transport_execution_actions WHERE id=$1`, second).Scan(&secondStop); err != nil {
+			t.Fatal(err)
+		}
+		row := base.withState("KNOWN", boolPtr(false), nil, nil, nil, timePtr(time.Now().UTC()))
+		row.Action = second
+		row.Stop = secondStop
+		row.Revision = &local.revisionID
+		row.SourcePolicy = uuidPtr(uuid.New())
+		row.SourceVersion = intPtr(2)
+		row.Actor = strPtr("SYSTEM")
+		insertDecision(t, env, row)
+		body := getPOD(t, router, token, local.operating, local.executionID, second)
+		if body["decision_state"] != "KNOWN" || body["pod_required"] != false || body["acceptance_policy_id"] != nil || body["required_document_type"] != nil || body["source_policy_id"] == nil {
+			t.Fatalf("valid not required %+v", body)
+		}
+	})
+
+	t.Run("C274_002_REVISION_FROM_OTHER_EXECUTION_REJECTED", func(t *testing.T) {
+		local, action, base := knownSubject(t, env)
+		sibling := projectDelivery(t, env, local.operating)
+		row := base.withState("UNKNOWN", nil, nil, nil, nil, nil)
+		row.Action = action
+		row.Revision = &sibling.revisionID
+		expectDecisionReject(t, env, row)
+	})
+
+	t.Run("C274_002_REVISION_FROM_OTHER_TENANT_REJECTED", func(t *testing.T) {
+		_, action, base := knownSubject(t, env)
+		other := seedDelivery(t, env, 2, true)
+		row := base.withState("UNKNOWN", nil, nil, nil, nil, nil)
+		row.Action = action
+		row.Revision = &other.revisionID
+		expectDecisionReject(t, env, row)
+	})
+
+	t.Run("C274_002_SAME_EXECUTION_REVISION_ACCEPTED", func(t *testing.T) {
+		local, action, base := knownSubject(t, env)
+		other := seedDelivery(t, env, 2, true)
+		row := base.withState("UNKNOWN", nil, nil, nil, nil, nil)
+		row.Action = action
+		row.Revision = &local.revisionID
+		insertDecision(t, env, row)
+		body := getPOD(t, router, token, local.operating, local.executionID, action)
+		if body["execution_revision_id"] != local.revisionID.String() {
+			t.Fatalf("revision pin %+v", body["execution_revision_id"])
+		}
+		if strings.Contains(string(mustJSON(body)), other.revisionID.String()) {
+			t.Fatal("read exposed a foreign revision")
+		}
+	})
+
 	t.Run("successor delivery does not inherit a decision", func(t *testing.T) {
 		route := seedSuccessorRoute(t, env)
 		completeStop(t, env, route.endID)
@@ -345,6 +453,46 @@ func assertUnknownNoRow(t *testing.T, body map[string]any, seed deliverySeed, ac
 	}
 }
 
+func knownSubject(t *testing.T, env *execEnv) (deliverySeed, uuid.UUID, decisionInsert) {
+	t.Helper()
+	local := seedDelivery(t, env, 2, true)
+	action := deliveryActionID(t, env, local.stopID)
+	base := decisionInsert{
+		Operating: local.operating, Execution: local.executionID, Action: action, Stop: local.stopID,
+		Shipment: local.ship.shipmentID, Cargo: local.ship.cargoID,
+	}
+	return local, action, base
+}
+
+func projectDelivery(t *testing.T, env *execEnv, operating uuid.UUID) deliverySeed {
+	t.Helper()
+	carrierID := seedCompany(t, env, operating, "CARRIER", "Carrier sibling")
+	ship := seedShipment(t, env, "ret-sib", "IN_TRANSIT")
+	prepareCargo(t, env, ship, 2, true)
+	version := 1
+	start := uuid.New()
+	cargoStop := uuid.New()
+	end := uuid.New()
+	cmd := domain.ProjectionCommand{
+		ActivationID: uuid.New(), ActivationVersion: 1, ActivationStatus: domain.ActivationStatusPendingExecution,
+		RoutePlanID: uuid.New(), RoutePlanVersion: 1, PlanningMode: domain.PlanningModeCurrentTrip,
+		OperatingTenantID: operating, ContextShipmentID: &ship.shipmentID, ContextShipmentTenantID: &ship.tenantID, ContextShipmentVersion: &version,
+		CarrierCompanyID: carrierID, EvaluationFingerprint: "pod-sibling",
+		ExecutionSubjects: []domain.ProjectionSubject{materialSubject(ship, version)},
+		Stops: []domain.ProjectionStop{
+			{RoutePlanStopID: start, Ordinal: 0, StopRole: domain.StopRoleStart, PointKind: domain.PointKindPositionAnchor, Latitude: 55.2, Longitude: 37.2},
+			{RoutePlanStopID: cargoStop, Ordinal: 1, StopRole: domain.StopRoleCargo, PointKind: domain.PointKindCanonicalLocation, LocationID: &ship.originID, Latitude: 55.3, Longitude: 37.3},
+			{RoutePlanStopID: end, Ordinal: 2, StopRole: domain.StopRoleEnd, PointKind: domain.PointKindCanonicalLocation, LocationID: &ship.originID, Latitude: 55.4, Longitude: 37.4},
+		},
+		Actions: []domain.ProjectionAction{deliveryAction(cargoStop, ship, version, 0)},
+	}
+	result, err := env.svc.CreateExecutionProjectionFromActivation(env.ctx, cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return deliverySeed{operating: operating, executionID: result.ExecutionID, revisionID: result.RevisionID, ship: ship}
+}
+
 func deliveryActionID(t *testing.T, env *execEnv, stopID uuid.UUID) uuid.UUID {
 	t.Helper()
 	var id uuid.UUID
@@ -407,6 +555,9 @@ type decisionInsert struct {
 	Policy        *uuid.UUID
 	PolicyVersion *int
 	DecidedAt     *time.Time
+	SourcePolicy  *uuid.UUID
+	SourceVersion *int
+	Actor         *string
 	Supersedes    *uuid.UUID
 }
 
@@ -441,10 +592,11 @@ func execDecision(env *execEnv, row decisionInsert) error {
 		INSERT INTO transport.transport_execution_pod_requirement_decisions (
 			id, decision_version, operating_tenant_id, execution_id, execution_action_id, execution_revision_id,
 			execution_stop_id, shipment_id, cargo_id, decision_state, pod_required, required_document_type,
-			acceptance_policy_id, acceptance_policy_version, requirement_decided_at, created_at, supersedes_decision_id
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now(),$16)
+			acceptance_policy_id, acceptance_policy_version, requirement_decided_at, source_policy_id, source_policy_version,
+			decision_actor_class, created_at, supersedes_decision_id
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,now(),$19)
 	`, row.ID, row.Version, row.Operating, row.Execution, row.Action, row.Revision, row.Stop, row.Shipment, row.Cargo,
-		row.State, row.PodRequired, row.DocType, row.Policy, row.PolicyVersion, row.DecidedAt, row.Supersedes)
+		row.State, row.PodRequired, row.DocType, row.Policy, row.PolicyVersion, row.DecidedAt, row.SourcePolicy, row.SourceVersion, row.Actor, row.Supersedes)
 	return err
 }
 
