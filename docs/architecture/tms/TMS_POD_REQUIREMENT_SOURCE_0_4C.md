@@ -102,6 +102,33 @@ CANONICAL_DELIVERY_IDENTITY=operating_tenant_id + execution_id + execution_actio
 
 `source_action_id` on `transport.delivery_disposition_cases` and `transport.delivery_attempt_facts` is the same execution action id. Disposition identity and POD identity meet on that action. They stay different facts. Quantity rejection does not set the POD decision.
 
+## Document evidence binding
+
+Document-service does not currently bind POD evidence to a delivery action.
+
+`services/document-service/internal/domain/document.go` allows related entities `SHIPMENT`, `TRANSPORT_ORDER`, `BILLING_REGISTER`, `INVOICE`, and `COMPANY`. It does not allow `DELIVERY` or an execution-action type. `PODUploadService.CreateUploadIntent` stores `document_type=POD`, `related_entity_type=SHIPMENT`, and `related_entity_id` equal to the shipment id. Two delivery actions on one shipment therefore share one shipment-level POD population.
+
+```text
+EDO_DELIVERY_ACTION_EVIDENCE_BINDING_RUNTIME_PRESENT=NO
+SHIPMENT_LEVEL_POD_LINK_SUFFICIENT_FOR_MULTI_STOP=NO
+B_INTEGRATION_BLOCKED_BY_DELIVERY_EVIDENCE_BINDING=YES
+```
+
+This stage does not choose Agent B's schema and does not edit Agent B's branch. A later Agent B contract must freeze and implement one authoritative binding. These shapes are recorded only as conceptual choices:
+
+- a new document related-entity type for the execution delivery action
+- a dedicated document-to-delivery association
+- another server-owned immutable mapping
+
+Whichever shape Agent B later selects must preserve:
+
+- operating tenant
+- `execution_id`
+- `execution_action_id`
+- `shipment_id` as provenance, not as the satisfaction subject
+
+One POD evidence row does not satisfy two independent delivery actions unless an explicit server-owned relation says that it does. A shipment-level POD document does not automatically satisfy every delivery action of that shipment. Agent B must not treat the current shipment link as that relation.
+
 ## Decision model
 
 The canonical value is not a bool.
@@ -116,6 +143,26 @@ UNKNOWN=decision_state UNKNOWN and pod_required null
 Illegal combinations fail closed and are not stored: `KNOWN` with null `pod_required`, and `UNKNOWN` with a non-null `pod_required`.
 
 `required_document_type` uses the existing document-service type token `POD` only on `KNOWN_REQUIRED`. It is null on `KNOWN_NOT_REQUIRED`. It is null on `UNKNOWN`. Null plus `UNKNOWN` means unresolved. It does not mean the type is optional, and it does not mean an empty required set.
+
+`required_document_type=POD` is not an acceptance set. EDO completeness 0.4B evaluates a required type only when the policy that named the type also supplies a known acceptance state. `SIGNED` is not automatically sufficient. `ACCEPTED` is not automatically required. This contract does not list acceptance statuses.
+
+```text
+POD_ACCEPTANCE_POLICY_RUNTIME_PRESENT=NO
+POD_ACCEPTANCE_POLICY_SOURCE=NONE
+KNOWN_REQUIRED_WITHOUT_ACCEPTANCE_POLICY_EVALUABLE=NO
+ACCEPTANCE_POLICY_CONTRACT_SHAPE=B_ACCEPTANCE_POLICY_REFERENCE
+ACCEPTANCE_POLICY_OWNER=shipment-service/TMS/Agent C
+```
+
+TMS publishes the pin, not a status list. A complete `KNOWN_REQUIRED` decision carries `acceptance_policy_id` and `acceptance_policy_version`. Both are null on `KNOWN_NOT_REQUIRED` and on `UNKNOWN`. A `KNOWN_REQUIRED` result that omits either value is not stored and is not evaluable.
+
+TMS owns that pin because completeness 0.4B takes the acceptance state from the policy that named the type. For POD, TMS is that policy. Document-service owns the status vocabulary and the evidence row. It does not choose which statuses satisfy POD, and it must not guess them. No acceptance policy exists in this tree, so the pin cannot be filled now. That absence blocks a known-decision writer and blocks satisfaction.
+
+Until the pin exists:
+
+```text
+KNOWN_REQUIRED + POD document present + acceptance policy unknown = POD satisfaction UNKNOWN
+```
 
 ```text
 UNKNOWN_TO_FALSE=NO
@@ -159,6 +206,8 @@ A future server-owned record, one current version per delivery action, contains:
 | `decision_state` | `KNOWN` or `UNKNOWN` |
 | `pod_required` | `true`, `false`, or null, constrained as above |
 | `required_document_type` | `POD` only when `KNOWN_REQUIRED`. Otherwise null |
+| `acceptance_policy_id` | Required on `KNOWN_REQUIRED`. Otherwise null. Identifies the immutable acceptance policy. Does not contain statuses |
+| `acceptance_policy_version` | Required on `KNOWN_REQUIRED`. Otherwise null. Pinned with the decision version |
 | `requirement_decided_at` | Server time a `KNOWN` version was recorded. Null for `UNKNOWN` |
 | `business_effective_at` | Effective instant of the source policy, when that policy has one. Null when unknown. Not `requirement_decided_at` |
 | `source_policy_id` | Null until an authoritative policy source exists |
@@ -274,7 +323,7 @@ A new successor delivery action does not inherit the source action's requirement
 DECISION_IMMUTABILITY_CUTOFF=ACTION_TERMINAL
 ```
 
-Action statuses `COMPLETED`, `FAILED`, and `CANCELLED` are terminal. The current decision version for that action, including a missing row read as `UNKNOWN`, cannot be replaced after the action is terminal. Before the action is terminal, a future authoritative policy event may append a new version that sets `supersedes_decision_id`. That event updates nothing on the previous version: not `pod_required`, not source policy version, not `requirement_decided_at`.
+Action statuses `COMPLETED`, `FAILED`, and `CANCELLED` are terminal. The current decision version for that action, including a missing row read as `UNKNOWN`, cannot be replaced after the action is terminal. Before the action is terminal, a future authoritative policy event may append a new version that sets `supersedes_decision_id`. That event updates nothing on the previous version: not `pod_required`, not source policy version, not `acceptance_policy_id`, not `acceptance_policy_version`, and not `requirement_decided_at`. A later acceptance-policy version does not rewrite an evaluation pinned to the earlier version.
 
 ## Return and redirection
 
@@ -301,7 +350,7 @@ The path follows existing shipment-service internal execution routes under `/int
 
 Authentication is the existing `internalauth` middleware: header `X-Internal-Service-Token`. A missing or wrong token is HTTP 401 `UNAUTHORIZED`. A browser session is not a caller.
 
-Tenant is the verified `X-Tenant-ID` already required by `resolveVerifiedTenant` on internal execution handlers. The server accepts that header only after internal authentication, and it must equal `transport.transport_executions.operating_tenant_id` for the execution. Query or body tenant is ignored. The caller cannot set `pod_required`, `decision_version`, source policy identity, or `requirement_decided_at` on this read.
+Tenant is the verified `X-Tenant-ID` already required by `resolveVerifiedTenant` on internal execution handlers. The server accepts that header only after internal authentication, and it must equal `transport.transport_executions.operating_tenant_id` for the execution. Query or body tenant is ignored. The caller cannot set `pod_required`, `decision_version`, source policy identity, `acceptance_policy_id`, `acceptance_policy_version`, or `requirement_decided_at` on this read.
 
 Same-tenant response shape:
 
@@ -319,6 +368,8 @@ Same-tenant response shape:
 | `decision_state` | `UNKNOWN` | Stored |
 | `pod_required` | Null | Stored |
 | `required_document_type` | Null | Stored |
+| `acceptance_policy_id` | Null | Stored. Non-null only on a complete `KNOWN_REQUIRED` version |
+| `acceptance_policy_version` | Null | Stored. Non-null only on a complete `KNOWN_REQUIRED` version |
 | `requirement_decided_at` | Null | Stored |
 | `business_effective_at` | Null | Stored |
 | `source_policy_id` | Null | Stored |
@@ -347,7 +398,9 @@ TMS_POD_REQUIREMENT_DECISION + EDO_CANONICAL_CURRENT_DOCUMENT_EVIDENCE = POD_SAT
 CROSS_DOMAIN_WRITE_REQUIRED=NO
 ```
 
-TMS returns only the requirement decision. Document-service returns evidence and evaluates satisfaction. TMS does not ask document-service and then store `POD_SATISFIED`. Document-service does not update TMS decision rows.
+TMS returns only the requirement decision, including the acceptance-policy pin when the decision is `KNOWN_REQUIRED`. Document-service returns evidence and evaluates satisfaction. TMS does not ask document-service and then store `POD_SATISFIED`. Document-service does not update TMS decision rows.
+
+Satisfaction stays `UNKNOWN` when the TMS read is missing, when POD evidence is bound only at shipment level, or when `KNOWN_REQUIRED` has no acceptance-policy pin. A present POD document does not close any of those gaps. Agent B does not guess acceptance statuses.
 
 Analytics, when a later stage authorizes it, consumes the finalized EDO satisfaction output. Analytics does not read the future TMS decision table, does not count `document_type = POD`, and does not infer the requirement from shipment status. This stage does not change Analytics formulas.
 
@@ -379,11 +432,11 @@ There is no historical backfill job.
 | Slice | Owner | Depends on | What it may do |
 | --- | --- | --- | --- |
 | `C-FOUNDATION` | Agent C / shipment-service | This contract and a later implementation authorization | Persist the decision model and serve the internal read. May record or return `UNKNOWN` before a policy source exists. Must not write `KNOWN` from `RequiresPOD`, documents, or status |
-| `C-POLICY-SOURCE` | Agent C / shipment-service | A real server-owned rule that can prove `KNOWN_REQUIRED` or `KNOWN_NOT_REQUIRED` | The known-decision writer. Not implementable on current evidence |
-| `B-INTEGRATION` | Agent B / document-service | Live TMS internal read | Compose the TMS decision with canonical document evidence. Must not invent the requirement |
+| `C-POLICY-SOURCE` | Agent C / shipment-service | A real server-owned rule that can prove `KNOWN_REQUIRED` or `KNOWN_NOT_REQUIRED`, and, for every `KNOWN_REQUIRED` result, an authoritative `acceptance_policy_id` plus `acceptance_policy_version` | The known-decision writer. Not complete, and not implementable, while `POD_ACCEPTANCE_POLICY_SOURCE=NONE` |
+| `B-INTEGRATION` | Agent B / document-service | Both a live TMS POD requirement internal read and an authoritative EDO delivery-action evidence binding | Compose the TMS decision with canonical evidence bound to `execution_action_id`. Must not invent the requirement, the acceptance set, or a shipment-wide satisfaction |
 | `E-INTEGRATION` | Agent E / Analytics | Finalized EDO satisfaction or completeness output | Consume that output. Must not read TMS tables or count POD rows |
 
-Order is `C-FOUNDATION`, then `B-INTEGRATION` for `UNKNOWN` composition once the read exists, then `C-POLICY-SOURCE` when a rule exists, then known satisfaction in `B-INTEGRATION`, then `E-INTEGRATION`. Agent C does not implement the EDO or Analytics slices.
+`C-FOUNDATION` can still return `UNKNOWN` before either prerequisite of `B-INTEGRATION` exists. `B-INTEGRATION` does not start on the TMS read alone. `C-POLICY-SOURCE` does not start when a boolean rule appears without the acceptance-policy pin. Known satisfaction in `B-INTEGRATION` also waits on that pin. `E-INTEGRATION` stays after finalized EDO output. Agent C does not implement the EDO or Analytics slices.
 
 ```text
 TMS_POD_DECISION_FOUNDATION_IMPLEMENTABLE_NOW=YES
@@ -393,19 +446,21 @@ EDO_POD_COMPOSITION_IMPLEMENTABLE_NOW=NO
 GAP_C_002_FULL_RUNTIME_IMPLEMENTABLE_NOW=NO
 ```
 
-Foundation and the internal read are implementable because both can return `UNKNOWN` without a policy source. The known writer is not implementable. EDO composition is not implementable until the read exists at runtime. Full GAP-C-002 runtime needs the known writer and the EDO composition, so it is not implementable now. This document does not authorize any of those slices to start.
+Foundation and the internal read are implementable because both can return `UNKNOWN` without a policy source. The known writer is not implementable: no requirement rule exists, and no acceptance policy exists to pin. EDO composition is not implementable. The TMS read is absent, and the shipment-level POD link is not a delivery-action evidence binding. A present POD document plus an unbound acceptance policy would still be `UNKNOWN`. Full GAP-C-002 runtime needs the known writer, the evidence binding, and the EDO composition, so it is not implementable now. This document does not authorize any of those slices to start.
 
 ## Cross-domain gaps
 
 Agent B's 0.1A contract is not edited here. These items need controller reconciliation:
 
 ```text
-CROSS_DOMAIN_CONTRACT_GAP=EDO_0_1A_DELIVERY_SUBJECT_UNBOUND;EDO_0_1A_POD_REPLAY_MUST_USE_TMS_PIN;KNOWN_NOT_REQUIRED_MAPS_TO_NOT_APPLICABLE
+CROSS_DOMAIN_CONTRACT_GAP=EDO_0_1A_DELIVERY_SUBJECT_UNBOUND;EDO_0_1A_POD_REPLAY_MUST_USE_TMS_PIN;KNOWN_NOT_REQUIRED_MAPS_TO_NOT_APPLICABLE;EDO_DELIVERY_ACTION_EVIDENCE_BINDING_UNBOUND;POD_ACCEPTANCE_POLICY_UNBOUND
 ```
 
 - 0.1A names the POD subject `DELIVERY` and leaves stop and action as future-supported. This contract binds that subject to `transport.transport_execution_actions.id` with `action_type = DELIVERY`.
 - 0.1A replays EDO policy versions by `EFFECTIVE_FROM` / `EFFECTIVE_TO`. For POD, Agent B must consume the TMS decision version pin and must not recompute the requirement from a later policy window.
 - 0.1A does not yet map `KNOWN_NOT_REQUIRED` to `NOT_APPLICABLE`. This contract does. It must not be mapped to `OPTIONAL` or to an empty required set chosen by document-service.
+- Current document related entities and the driver POD upload bind evidence to `SHIPMENT`. They do not bind `execution_id` and `execution_action_id`. Agent B must freeze that binding later. This contract does not choose the schema.
+- Completeness 0.4B needs an acceptance state from the policy that named POD. No such policy exists. TMS will publish `acceptance_policy_id` and `acceptance_policy_version` on `KNOWN_REQUIRED`. Agent B must not guess statuses, and must not treat `SIGNED` or `ACCEPTED` as that set.
 
 Ownership is unchanged: TMS decides the requirement, EDO evaluates evidence.
 
@@ -435,6 +490,11 @@ These tests are `FUTURE_REQUIRED`. This stage does not add them.
 | POD-REQ-18 | Return and redirect do not inherit the source requirement |
 | POD-REQ-19 | `CUSTOMER_REFUSAL` does not set `POD_REQUIRED` |
 | POD-REQ-20 | A dependency failure is 503 and does not become known false |
+| POD-REQ-21 | Two delivery actions on one shipment do not share one shipment-level POD as satisfying evidence automatically |
+| POD-REQ-22 | POD evidence bound to delivery A does not satisfy delivery B |
+| POD-REQ-23 | `KNOWN_REQUIRED` without an acceptance-policy pin stays satisfaction `UNKNOWN` |
+| POD-REQ-24 | A document status outside the pinned acceptance set does not satisfy |
+| POD-REQ-25 | A later acceptance-policy version does not rewrite a historical evaluation |
 
 ```text
 ACCEPTANCE_MATRIX_FROZEN=YES
