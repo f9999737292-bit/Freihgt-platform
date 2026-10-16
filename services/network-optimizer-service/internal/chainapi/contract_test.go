@@ -64,4 +64,18 @@ func TestI2C_GW_contract_files(t *testing.T) {
 	if !strings.Contains(string(ci), "TestI2A_|TestI2B_|TestI270_|TestI2C_") {
 		t.Fatal("dedicated CI selector does not include TestI2C_")
 	}
+	candidate := text[strings.Index(text, "    ChainCandidate:"):strings.Index(text, "    ChainCandidateList:")]
+	for _, leaked := range []string{"revenue_amount", "revenue_currency", "contract_rate", "commercial"} {
+		if strings.Contains(candidate, leaked) {
+			t.Fatalf("public ChainCandidate exposes %s", leaked)
+		}
+	}
+	mainGo, err := os.ReadFile(filepath.Join(root, "services", "network-optimizer-service", "cmd", "server", "main.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wiring := string(mainGo)
+	if strings.Contains(wiring, `routingVersion = "2GIS"`) || !strings.Contains(wiring, `RoutingProviderVersion: "UNKNOWN"`) {
+		t.Fatal("routing provider name is stored as a version")
+	}
 }

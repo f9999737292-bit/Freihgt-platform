@@ -3,6 +3,7 @@
 package chainapi_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 	"github.com/freight-platform/network-optimizer-service/internal/chainapi"
 	"github.com/freight-platform/network-optimizer-service/internal/chainorch"
 	httpserver "github.com/freight-platform/network-optimizer-service/internal/http"
+	"github.com/freight-platform/network-optimizer-service/internal/reference"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
 	"github.com/freight-platform/network-optimizer-service/internal/routeplan"
 	"github.com/freight-platform/network-optimizer-service/internal/routing"
@@ -381,6 +383,83 @@ func TestI2C_PublicChainSearch(t *testing.T) {
 			t.Fatalf("not recovered %s", rec.Body.String())
 		}
 	})
+
+	t.Run("I2C-PRIV-01 durable revenue omitted from candidate GET", func(t *testing.T) {
+		id := insertStatus(t, ctx, pool, tenant, repository.ChainSearchCompleted)
+		insertRevenueCandidate(t, ctx, pool, tenant, id, 424242)
+		rec := getCandidates(handler, actor, id)
+		if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "revenue_amount") || strings.Contains(rec.Body.String(), "revenue_currency") || strings.Contains(rec.Body.String(), "424242") {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("I2C-PRIV-02 POST replay omits durable revenue", func(t *testing.T) {
+		rec := post(handler, actor, fmt.Sprintf(`{"seed_type":"MANUAL_CAPACITY","capacity_id":"%s"}`, capID), "priv-02")
+		if rec.Code != http.StatusCreated && rec.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		body := decodeSearch(t, rec.Body.Bytes())
+		insertRevenueCandidate(t, ctx, pool, tenant, body.ChainSearchID, 424242)
+		replay := post(handler, actor, fmt.Sprintf(`{"seed_type":"MANUAL_CAPACITY","capacity_id":"%s"}`, capID), "priv-02")
+		if replay.Code != http.StatusOK || strings.Contains(replay.Body.String(), "revenue_amount") || strings.Contains(replay.Body.String(), "revenue_currency") || strings.Contains(replay.Body.String(), "424242") || strings.Contains(strings.ToLower(replay.Body.String()), "contract") {
+			t.Fatalf("status=%d body=%s", replay.Code, replay.Body.String())
+		}
+	})
+
+	t.Run("I2C-DEP missing runtime dependency creates no claim", func(t *testing.T) {
+		body := fmt.Sprintf(`{"seed_type":"MANUAL_CAPACITY","capacity_id":"%s"}`, capID)
+		before := runCount(t, ctx, pool)
+		for name, mutate := range map[string]func(*chainapi.API){
+			"I2C-DEP-01": func(copyAPI *chainapi.API) { copyAPI.Pool = nil },
+			"I2C-DEP-02": func(copyAPI *chainapi.API) { copyAPI.Catalog = nil },
+			"I2C-DEP-03": func(copyAPI *chainapi.API) { copyAPI.Route = nil },
+		} {
+			copyAPI := *api
+			mutate(&copyAPI)
+			local := httpserver.NewRouterWithChain(nil, nil, nil, nil, &copyAPI)
+			rec := post(local, actor, body, "dep-"+name)
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("%s status=%d body=%s", name, rec.Code, rec.Body.String())
+			}
+		}
+		if runCount(t, ctx, pool) != before {
+			t.Fatal("misconfiguration created a chain claim")
+		}
+	})
+
+	t.Run("I2C-DEP-04 GET does not require route", func(t *testing.T) {
+		saved := api.Route
+		api.Route = nil
+		id := insertStatus(t, ctx, pool, tenant, repository.ChainSearchCompleted)
+		rec := getSearch(handler, actor, id)
+		api.Route = saved
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"status":"COMPLETED"`) {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("I2C-DEP-05 recovery GET does not recompute", func(t *testing.T) {
+		saved := api.Route
+		api.Route = nil
+		id := insertStatus(t, ctx, pool, tenant, repository.ChainSearchRunning)
+		before := prov.calls.Load()
+		calls := api.ComputeInvocations()
+		rec := getSearch(handler, actor, id)
+		api.Route = saved
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), repository.ChainInterruptedFailureCode) || prov.calls.Load() != before || api.ComputeInvocations() != calls {
+			t.Fatalf("status=%d calls=%d body=%s", rec.Code, prov.calls.Load(), rec.Body.String())
+		}
+	})
+
+	t.Run("I2C-FP-01 stored routing version is UNKNOWN", func(t *testing.T) {
+		var mismatched int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM network_optimizer.chain_search_runs WHERE routing_provider_version <> 'UNKNOWN'`).Scan(&mismatched); err != nil {
+			t.Fatal(err)
+		}
+		if mismatched != 0 {
+			t.Fatalf("false routing versions=%d", mismatched)
+		}
+	})
 }
 
 type memSeeds struct {
@@ -438,7 +517,8 @@ func newAPI(store *repository.Postgres, seeds *memSeeds, loads *memLoads, route 
 	}
 	return &chainapi.API{
 		Orch:  &chainorch.Orchestrator{Store: store, DurationResolver: chainorch.FixedDurationResolver{Snapshot: chainorch.KnownZeroDurationSnapshot(uuid.New(), 1)}},
-		Seeds: seeds, Pool: loads, Route: route, RoutingProviderVersion: "script",
+		Seeds: seeds, Pool: loads, Catalog: reference.NewMemoryCatalog(), Route: route,
+		RoutingProviderVersion: "UNKNOWN",
 	}
 }
 
@@ -547,6 +627,35 @@ func insertStatus(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenant 
 		t.Fatal(err)
 	}
 	return id
+}
+
+func runCount(t *testing.T, ctx context.Context, pool *pgxpool.Pool) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM network_optimizer.chain_search_runs`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func insertRevenueCandidate(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenant, searchID uuid.UUID, amount int64) {
+	t.Helper()
+	first, second := uuid.New(), uuid.New()
+	if bytes.Compare(first[:], second[:]) > 0 {
+		first, second = second, first
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO network_optimizer.chain_candidates (
+			candidate_id, search_id, tenant_id, ordinal,
+			first_load_id, first_load_version, second_load_id, second_load_version,
+			feasibility_status, revenue_amount, revenue_currency,
+			omitted_components, reason_codes, candidate_fingerprint, created_at
+		) VALUES ($1,$2,$3,1,$4,1,$5,1,'FEASIBLE',$6,'EUR','{}','{}',$7,now())
+		ON CONFLICT (search_id, ordinal) DO UPDATE
+		SET revenue_amount = EXCLUDED.revenue_amount, revenue_currency = EXCLUDED.revenue_currency`,
+		uuid.New(), searchID, tenant, first, second, amount, "fp-"+searchID.String()); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func startPostgres(t *testing.T, ctx context.Context) *pgxpool.Pool {

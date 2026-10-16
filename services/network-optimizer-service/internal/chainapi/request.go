@@ -3,6 +3,8 @@ package chainapi
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"strings"
 
 	"github.com/google/uuid"
@@ -30,7 +32,7 @@ func parsePublicSeed(raw []byte) (publicSeed, error) {
 	if err := dec.Decode(&body); err != nil {
 		return publicSeed{}, badRequest("request body is invalid")
 	}
-	if err := dec.Decode(&struct{}{}); err == nil {
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return publicSeed{}, badRequest("request body is invalid")
 	}
 	if body == nil {

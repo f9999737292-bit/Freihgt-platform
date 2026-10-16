@@ -41,9 +41,6 @@ type PostResult struct {
 }
 
 func (a *API) Post(ctx context.Context, actor service.Actor, body []byte, idempotencyHeader string, idempotencySupplied bool) (PostResult, error) {
-	if a == nil || a.Orch == nil || a.Orch.Store == nil {
-		return PostResult{}, unavailable(errors.New("chain orchestrator is not configured"))
-	}
 	if actor.TenantID == uuid.Nil || actor.UserID == uuid.Nil {
 		return PostResult{}, &StatusError{Status: 401, Code: "UNAUTHORIZED", Message: "verified tenant context is required", Details: map[string]any{}}
 	}
@@ -52,6 +49,9 @@ func (a *API) Post(ctx context.Context, actor service.Actor, body []byte, idempo
 	}
 	seedReq, err := parsePublicSeed(body)
 	if err != nil {
+		return PostResult{}, err
+	}
+	if err := a.postReady(); err != nil {
 		return PostResult{}, err
 	}
 	key, _, err := parseIdempotencyKey(idempotencyHeader, idempotencySupplied)
@@ -186,9 +186,19 @@ func (a *API) resolve(ctx context.Context, actor service.Actor, seed publicSeed)
 	return resolved, nil
 }
 
+func (a *API) postReady() error {
+	if a == nil || a.Orch == nil || a.Orch.Store == nil || a.Orch.DurationResolver == nil {
+		return unavailable(errors.New("chain orchestrator is not configured"))
+	}
+	if a.Seeds == nil || a.Pool == nil || a.Catalog == nil || a.Route == nil {
+		return unavailable(errors.New("chain search dependency is not configured"))
+	}
+	return nil
+}
+
 func (a *API) loads(ctx context.Context, actor service.Actor) ([]chain.VisibleLoad, error) {
 	if a.Pool == nil {
-		return nil, nil
+		return nil, errors.New("load pool is not configured")
 	}
 	return a.Pool.Loads(ctx, actor)
 }

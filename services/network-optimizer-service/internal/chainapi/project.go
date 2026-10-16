@@ -53,8 +53,6 @@ type PublicCandidate struct {
 	TotalDurationSeconds *int       `json:"total_duration_seconds,omitempty"`
 	Utilization          *float64   `json:"utilization,omitempty"`
 	TargetDistanceM      *float64   `json:"target_distance_m,omitempty"`
-	RevenueAmount        *int64     `json:"revenue_amount,omitempty"`
-	RevenueCurrency      *string    `json:"revenue_currency,omitempty"`
 	OmittedComponents    []string   `json:"omitted_components"`
 	ReasonCodes          []string   `json:"reason_codes"`
 	RoutePlanID          *uuid.UUID `json:"route_plan_id,omitempty"`
@@ -130,10 +128,6 @@ func projectCandidates(rows []repository.ChainCandidate) []PublicCandidate {
 			ReasonCodes:          append([]string(nil), row.ReasonCodes...),
 			RoutePlanID:          row.RoutePlanID,
 			ExecutionSupported:   false,
-		}
-		if row.RevenueAmount != nil && row.RevenueCurrency != nil && *row.RevenueCurrency != "" {
-			item.RevenueAmount = row.RevenueAmount
-			item.RevenueCurrency = row.RevenueCurrency
 		}
 		if item.OmittedComponents == nil {
 			item.OmittedComponents = []string{}

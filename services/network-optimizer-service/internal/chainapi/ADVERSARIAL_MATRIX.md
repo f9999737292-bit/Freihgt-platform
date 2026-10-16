@@ -24,4 +24,9 @@
 | spoofed tenant/user | JWT identity wins | I2C-SEC-07, I2C-SEC-08 |
 | foreign company | 403 before lookup | I2C-SEC-09 |
 | startup and periodic sweep | expired claim terminalized, sweep stops on cancel | I2C recovery startup and periodic |
-| dedicated CI | selector includes TestI2C_ | contract test + ci.yml |
+| durable revenue stays internal | public GET and POST omit amount and currency | I2C-PRIV-01, I2C-PRIV-02 |
+| nil or wrong carrier company | same ineligible outcome as an unknown seed | I2C-SEED-01..05 |
+| foreign cross-shipper opt-in | engine sees the load; ordinary consolidation flag is not a pre-filter | I2C-POOL-01..04 |
+| trailing JSON | 400 | I2C-JSON-01..05 |
+| missing pool, catalog, or route | 503 and no claim; GET recovery does not recompute | I2C-DEP-01..05 |
+| routing provenance | stored version is UNKNOWN unless a build is proven | I2C-FP-01, I2C-FP-02 |

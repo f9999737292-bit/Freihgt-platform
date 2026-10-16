@@ -49,11 +49,10 @@ func main() {
 	svc.UsePolicies(store)
 	svc.UseScoreProfiles(store)
 	var route routing.Provider
-	routingVersion := "UNKNOWN"
 	if cfg.RoutingProvider == "2GIS" {
 		route = twogis.New(cfg.TwoGISRoutingBaseURL, cfg.TwoGISAPIKey, log)
 		svc.UseRouting(route)
-		routingVersion = "2GIS"
+		log.Info("routing provider configured", slog.String("provider", cfg.RoutingProvider))
 	}
 	sources := sourceclient.New(cfg.ShipmentURL, cfg.TrackingURL, cfg.InternalServiceToken).WithTransportOrder(cfg.TransportOrderURL)
 	svc.ConfigurePrediction(sources, predict.Policy{
@@ -66,7 +65,7 @@ func main() {
 	chainAPI := &chainapi.API{
 		Orch: orch, Seeds: chainapi.StoreSeedResolver{Store: store, Trips: chainapi.ServiceTrip{Service: svc}},
 		Pool: chainapi.MarketplacePool{Store: store}, Catalog: store,
-		Route: route, RoutingProviderVersion: routingVersion,
+		Route: route, RoutingProviderVersion: "UNKNOWN",
 	}
 	sweepCtx, sweepCancel := context.WithCancel(context.Background())
 	defer sweepCancel()

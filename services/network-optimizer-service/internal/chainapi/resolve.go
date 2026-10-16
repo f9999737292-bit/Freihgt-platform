@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	filterFingerprint = "STATUS=PUBLISHED;CONSOLIDATION_ALLOWED;DISCOVERY_CAP=1000"
+	filterFingerprint = "STATUS=PUBLISHED;SAME_OWNER=CONSOLIDATION_ALLOWED;FOREIGN=CROSS_SHIPPER_CONSOLIDATION_ALLOWED;DISCOVERY_CAP=1000"
 	poolLabel         = "PUBLISHED_MARKETPLACE"
 )
 
@@ -188,8 +188,8 @@ func (r StoreSeedResolver) ResolveTrip(ctx context.Context, actor service.Actor,
 }
 
 func companyMatches(actorCompany, ownerCompany *uuid.UUID) bool {
-	if ownerCompany == nil || actorCompany == nil {
-		return true
+	if actorCompany == nil || ownerCompany == nil {
+		return false
 	}
 	return *actorCompany == *ownerCompany
 }
@@ -214,7 +214,7 @@ func (p MarketplacePool) Loads(ctx context.Context, actor service.Actor) ([]chai
 	}
 	out := make([]chain.VisibleLoad, 0, len(rows))
 	for _, row := range rows {
-		if !row.ConsolidationAllowed || row.Pickup.Latitude == nil || row.Pickup.Longitude == nil || row.Delivery.Latitude == nil || row.Delivery.Longitude == nil {
+		if row.Pickup.Latitude == nil || row.Pickup.Longitude == nil || row.Delivery.Latitude == nil || row.Delivery.Longitude == nil {
 			continue
 		}
 		if row.PickupWindow.Start == nil || row.PickupWindow.End == nil || row.DeliveryWindow.Start == nil || row.DeliveryWindow.End == nil {
