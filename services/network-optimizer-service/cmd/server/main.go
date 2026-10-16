@@ -63,7 +63,9 @@ func main() {
 	svc.UseExecutionProjection(executionproj.NewHTTP(cfg.ShipmentURL, cfg.InternalServiceToken))
 	orch := &chainorch.Orchestrator{Store: store, DurationResolver: chainorch.PostgresDurationResolver{Store: store}}
 	chainAPI := &chainapi.API{
-		Orch: orch, Seeds: chainapi.StoreSeedResolver{Store: store, Trips: chainapi.ServiceTrip{Service: svc}},
+		Orch: orch, Seeds: chainapi.StoreSeedResolver{
+			Store: store, Trips: chainapi.ServiceTrip{Service: svc}, Vehicles: sources,
+		},
 		Pool: chainapi.MarketplacePool{Store: store}, Catalog: store,
 		Route: route, RoutingProviderVersion: "UNKNOWN",
 	}

@@ -78,8 +78,9 @@ func (s ServiceTrip) Build(ctx context.Context, tenantID, shipmentID uuid.UUID) 
 
 // StoreSeedResolver reads capacity and current-trip context from canonical sources.
 type StoreSeedResolver struct {
-	Store repository.Store
-	Trips TripBuilder
+	Store    repository.Store
+	Trips    TripBuilder
+	Vehicles currenttrip.VehicleCapabilitySource
 }
 
 func (r StoreSeedResolver) ResolveManual(ctx context.Context, actor service.Actor, capacityID uuid.UUID) (ResolvedSeed, error) {
@@ -117,6 +118,10 @@ func (r StoreSeedResolver) ResolveManual(ctx context.Context, actor service.Acto
 	from := capacity.AvailableFrom.UTC()
 	until := capacity.AvailableUntil.UTC()
 	id := capacity.ID
+	vehicle, err := r.manualVehicle(ctx, actor, capacity.VehicleID)
+	if err != nil {
+		return ResolvedSeed{}, err
+	}
 	return ResolvedSeed{
 		InternalSource:  repository.ChainSeedManualAvailableCapacity,
 		CapacityID:      &id,
@@ -136,7 +141,7 @@ func (r StoreSeedResolver) ResolveManual(ctx context.Context, actor service.Acto
 				Volume:  dimPtr(capacity.VolumeRemainingM3),
 			},
 		},
-		Vehicle: routing.VehicleProfile{},
+		Vehicle: vehicle,
 	}, nil
 }
 
@@ -184,7 +189,28 @@ func (r StoreSeedResolver) ResolveTrip(ctx context.Context, actor service.Actor,
 			},
 			OnboardSubjects: confirmed,
 		},
+		Vehicle: routingProfileFromCanonical(built.VehicleCapability, built.OnboardCargoUnits, true),
 	}, nil
+}
+
+func (r StoreSeedResolver) manualVehicle(ctx context.Context, actor service.Actor, vehicleID *uuid.UUID) (routing.VehicleProfile, error) {
+	if vehicleID == nil {
+		return routing.VehicleProfile{}, nil
+	}
+	if r.Vehicles == nil {
+		return routing.VehicleProfile{}, ErrSeedUnavailable
+	}
+	loaded, err := r.Vehicles.VehicleCapability(ctx, actor.TenantID, *vehicleID)
+	if errors.Is(err, currenttrip.ErrNotFound) {
+		return routing.VehicleProfile{}, ErrSeedIneligible
+	}
+	if err != nil {
+		return routing.VehicleProfile{}, ErrSeedUnavailable
+	}
+	if loaded.ID != *vehicleID || loaded.TenantID != actor.TenantID {
+		return routing.VehicleProfile{}, ErrSeedIneligible
+	}
+	return routingProfileFromCanonical(&loaded, nil, false), nil
 }
 
 func companyMatches(actorCompany, ownerCompany *uuid.UUID) bool {
