@@ -1,0 +1,6 @@
+DROP TRIGGER IF EXISTS trg_pod_requirement_decisions_insert ON transport.transport_execution_pod_requirement_decisions;
+DROP TRIGGER IF EXISTS trg_pod_requirement_decisions_no_delete ON transport.transport_execution_pod_requirement_decisions;
+DROP TRIGGER IF EXISTS trg_pod_requirement_decisions_no_update ON transport.transport_execution_pod_requirement_decisions;
+DROP FUNCTION IF EXISTS transport.validate_pod_requirement_decision_insert();
+DROP FUNCTION IF EXISTS transport.reject_pod_requirement_decision_mutation();
+DROP TABLE IF EXISTS transport.transport_execution_pod_requirement_decisions;
