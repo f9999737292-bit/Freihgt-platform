@@ -22,16 +22,29 @@ MULTISTOP_EVIDENCE_ISOLATED=YES
 ACTION_ID_CLIENT_AUTHORITY=NO
 ACTION_TYPE_AUTHORITY=TMS
 ACTION_SHIPMENT_BINDING_AUTHORITY=TMS
-TMS_ACTION_VERIFICATION_CONTRACT=SHIPMENT_SERVICE_AUTHORIZES_INTENT
+TMS_ACTION_VERIFICATION_CONTRACT=SHIPMENT_SERVICE_PROXIES_UPLOAD_LIFECYCLE
 POD_REQUIREMENT_ENDPOINT_IS_EVIDENCE_DEPENDENCY=NO
-POD_UPLOAD_CALLER=shipment-service
-TENANT_AUTHORITY=action.shipment_tenant_id
+POD_DOCUMENT_TENANT_POLICY=OPERATING_CARRIER_TENANT
+POD_DOCUMENT_OWNER_COMPANY_SOURCE=transport.transport_executions.carrier_company_id
+POD_EVIDENCE_AUTHOR_COMPANY_SOURCE=transport.drivers.carrier_company_id
+DOCUMENT_TENANT_EQUALS_SHIPMENT_TENANT=NO
+DOCUMENT_TENANT_EQUALS_OPERATING_TENANT=YES
+CREATE_INTENT_CALLER=shipment-service
+UPLOAD_CONTENT_CALLER=shipment-service
+COMPLETE_UPLOAD_CALLER=shipment-service
+CREATE_INTENT_TENANT_SOURCE=execution.operating_tenant_id
+UPLOAD_CONTENT_TENANT_SOURCE=pinned document_tenant_id
+COMPLETE_UPLOAD_TENANT_SOURCE=pinned document_tenant_id
+CLIENT_SUPPLIED_TENANT_AUTHORITY=NO
+POD_ACTION_EVIDENCE_INTERNAL_AUTH=REQUIRED
+INTERNAL_CALLER_ALLOWLIST=shipment-service
+DIRECT_BROWSER_TO_DOCUMENT_SERVICE_ALLOWED=NO
 DRIVER_ID_AUTHORITY=transport.transport_executions.driver_id
-OWNER_COMPANY_AUTHORITY=trusted command plus CompanyExists in the document tenant
 DRIVER_ASSIGNMENT_AUTHORITY=shipment-service/TMS
 DOCUMENT_SERVICE_VERIFIES_DRIVER_ASSIGNMENT=NO
 ACTION_BIND_PIN_TIME=CREATE_UPLOAD_INTENT
-POD_ACTION_BINDING_IDEMPOTENCY_SCOPE=shipment_tenant_id+execution_action_id+idempotency_key
+IDEMPOTENCY_KEY_REQUIRED=YES
+POD_ACTION_BINDING_IDEMPOTENCY_SCOPE=document_tenant_id+execution_action_id+idempotency_key
 BOUND_EVIDENCE_PRESENT_STATE=COMPLETED_UPLOAD_AND_PINNED_FILE
 DOCUMENT_EXISTS_IMPLIES_REQUIREMENT=NO
 POD_UPLOAD_WRITES_TMS_REQUIREMENT=NO
@@ -67,52 +80,82 @@ Conceptual table `documents.pod_delivery_action_evidence`. No migration number i
 | Column | Rule |
 | --- | --- |
 | `id` | Stable id |
-| `document_tenant_id` | Equals `action.shipment_tenant_id` and `transport.shipments.tenant_id` |
-| `operating_tenant_id` | TMS scope copied from the verified execution. Not the document tenant |
+| `document_tenant_id` | Equals `execution.operating_tenant_id`. This is the document row tenant. It is not the shipment tenant |
+| `operating_tenant_id` | Same value as `document_tenant_id`, copied from the verified execution |
+| `owner_company_id` | `transport.transport_executions.carrier_company_id`. Must exist in the operating tenant |
+| `author_driver_id` | `transport.transport_executions.driver_id`. Actor provenance. Not the owner company |
+| `author_company_id` | `transport.drivers.carrier_company_id` for that driver. Actor provenance. Not `documents.owner_company_id` |
 | `execution_id` | Verified execution |
 | `execution_action_id` | Verified `DELIVERY` action. Immutable |
 | `execution_stop_id` | Stop that parents the action |
 | `shipment_id` | Action shipment. Matches `documents.related_entity_id` while the generic relation remains `SHIPMENT` |
+| `shipment_tenant_id` | `transport.shipments.tenant_id` copied from the action. Shipment ownership. Not the document tenant |
 | `cargo_id` | Action cargo |
 | `document_id` | Immutable. At most one action |
 | `document_version_id` | Version that owns the file |
 | `document_file_id` | File inserted at complete |
-| `idempotency_key` | With the action, identifies the intent |
+| `idempotency_key` | Required. With `document_tenant_id` and `execution_action_id`, identifies the intent |
 | `created_at` | Insert time |
 
 No update of `execution_action_id` or `document_id`. A correction is a new document and a new row. `RELATED_TO` is not this binding. Successor satisfaction is not decided here.
 
-Uniqueness: one row per (`document_tenant_id`, `execution_action_id`, `idempotency_key`) when the key is present, and at most one action per `document_id`. Several rows may share one action.
+Uniqueness: one row per (`document_tenant_id`, `execution_action_id`, `idempotency_key`). The key is not null. At most one action per `document_id`. Several rows may share one action.
 
 Index: (`operating_tenant_id`, `execution_id`, `execution_action_id`) and (`document_tenant_id`, `document_id`). No foreign key into `transport`.
 
 ## Tenancy
 
 ```text
-DOCUMENT_TENANT_SOURCE=documents.documents.tenant_id
+POD_DOCUMENT_TENANT_POLICY=OPERATING_CARRIER_TENANT
+DOCUMENT_TENANT_EQUALS_SHIPMENT_TENANT=NO
+DOCUMENT_TENANT_EQUALS_OPERATING_TENANT=YES
+POD_DOCUMENT_OWNER_COMPANY_SOURCE=transport.transport_executions.carrier_company_id
+POD_EVIDENCE_AUTHOR_COMPANY_SOURCE=transport.drivers.carrier_company_id
 SHIPMENT_TENANT_SOURCE=transport.shipments.tenant_id
 EXECUTION_OPERATING_TENANT_SOURCE=transport.transport_executions.operating_tenant_id
 ```
 
-The document tenant is the shipment tenant. The operating tenant locates the execution. Neither value is taken from a browser body or from an unverified `X-Tenant-ID` on document-service.
+Shipment ownership stays `shipment_tenant_id`. The document row tenant and `documents.owner_company_id` stay in the operating tenant. The driver and the driver company are actor provenance. A client body does not choose any of these.
 
-Fail closed, with no document id in the response, when the action's shipment tenant, the shipment row tenant, and the document tenant disagree, or when the operating tenant does not own the execution.
+`CompanyExists(owner_company_id, document_tenant)` must succeed for the execution carrier company. It must not be asked to accept a company from the shipment tenant, and the driver company must not be written into `owner_company_id`.
 
-## Caller
+The shipment link is authorized by the TMS action proof: `action.shipment_id`, `action.shipment_tenant_id`, and `transport.shipments.tenant_id` agree. `ShipmentExists(shipment_id, document_tenant)` is not that proof when the document tenant is the operating tenant and the shipment tenant is different. Fail closed, with no document id, when those shipment facts disagree or the operating tenant does not own the execution.
 
-shipment-service authorizes the upload intent after it has verified the action and the driver. document-service accepts that subject only from that authenticated internal caller. It does not accept an action id from the driver app or from a direct call that merely parses a body.
+## Caller and lifecycle
+
+shipment-service proxies create, content upload, and complete after it has verified the action and the driver. document-service accepts those three calls only from `shipment-service`.
+
+```text
+CREATE_INTENT_CALLER=shipment-service
+UPLOAD_CONTENT_CALLER=shipment-service
+COMPLETE_UPLOAD_CALLER=shipment-service
+CREATE_INTENT_TENANT_SOURCE=execution.operating_tenant_id
+UPLOAD_CONTENT_TENANT_SOURCE=pinned document_tenant_id
+COMPLETE_UPLOAD_TENANT_SOURCE=pinned document_tenant_id
+CLIENT_SUPPLIED_TENANT_AUTHORITY=NO
+POD_ACTION_EVIDENCE_INTERNAL_AUTH=REQUIRED
+INTERNAL_CALLER_ALLOWLIST=shipment-service
+DIRECT_BROWSER_TO_DOCUMENT_SERVICE_ALLOWED=NO
+```
+
+Authentication is `packages/shared-go/internalauth` token middleware plus `X-Internal-Service-Name=shipment-service`. A present `X-Tenant-ID` is not authentication and is not the tenant source on content or complete. The browser does not call document-service. The gateway does not call document-service for this binding.
+
+Create stores the pin `execution_id`, `execution_action_id`, `shipment_id`, `shipment_tenant_id`, and `document_tenant_id`. Content and complete resolve the intent with the pinned document tenant and the upload id. A different tenant or a different member of that pin fails the call. The intent is not re-homed.
 
 The existing `GET .../pod-requirement` route is not this authorization. Evidence capture does not read `pod_required`.
 
 Driver assignment is `transport.transport_executions.driver_id` for `operating_tenant_id`, and the action's stop belongs to that execution. document-service does not compute that assignment. `shipments.driver_id` on the current gateway POD path is not action authority.
 
-`owner_company_id` is supplied by the trusted command and must exist in the document tenant. A client company id is not authority.
-
 ## Pin and idempotency
 
-The action, execution, and shipment are pinned at create-upload-intent. Upload content and complete refuse a different subject. The object key and the binding row stay on the pinned ids.
+The action, execution, shipment, shipment tenant, and document tenant are pinned at create-upload-intent. Upload content and complete refuse a different subject. The object key and the binding row stay on the pinned ids.
 
-Scope is `shipment_tenant_id + execution_action_id + idempotency_key`. The same key and action replay one intent. The same key and a different action conflict. Completing twice yields one binding.
+```text
+IDEMPOTENCY_KEY_REQUIRED=YES
+POD_ACTION_BINDING_IDEMPOTENCY_SCOPE=document_tenant_id+execution_action_id+idempotency_key
+```
+
+A missing key is a validation reject and inserts no intent. The same key, same action, and same document tenant replay one intent when the shipment pin matches. The same key with a different action is `409`. The same key and action with a different `shipment_id` or `shipment_tenant_id` is `409`. Completing twice yields one binding.
 
 ## Presence
 
