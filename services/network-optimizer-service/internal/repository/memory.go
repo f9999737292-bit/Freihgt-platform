@@ -176,6 +176,34 @@ func locationKey(id *uuid.UUID) string {
 	return id.String()
 }
 
+func (t *memTx) ListChainDiscoveryLoads(ctx context.Context, viewer uuid.UUID, company *uuid.UUID, limit, offset int) ([]domain.LoadOpportunity, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	rows := make([]domain.LoadOpportunity, 0)
+	for _, load := range t.loads {
+		if chainDiscoveryEligible(load, viewer, company) {
+			rows = append(rows, copyLoad(load))
+		}
+	}
+	sortLoads(rows)
+	return pageLoads(rows, limit, offset), nil
+}
+
+func chainDiscoveryEligible(load domain.LoadOpportunity, viewer uuid.UUID, company *uuid.UUID) bool {
+	if load.Status != domain.LoadPublished {
+		return false
+	}
+	if load.OwnerTenantID == viewer {
+		return load.ConsolidationAllowed
+	}
+	if !load.CrossShipperConsolidationAllowed {
+		return false
+	}
+	ok, _ := domain.LoadVisible(load, viewer, company)
+	return ok
+}
+
 func (t *memTx) ListMarketplaceLoads(ctx context.Context, viewer uuid.UUID, company *uuid.UUID, limit, offset int) ([]domain.LoadOpportunity, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

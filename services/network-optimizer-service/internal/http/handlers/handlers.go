@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/freight-platform/network-optimizer-service/internal/chainapi"
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
 	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
 	bnometrics "github.com/freight-platform/network-optimizer-service/internal/platform/metrics"
@@ -29,6 +30,7 @@ type Handler struct {
 	log     *slog.Logger
 	svc     *service.Service
 	catalog reference.Catalog
+	chain   *chainapi.API
 }
 
 func New(log *slog.Logger, svc *service.Service) *Handler {

@@ -56,6 +56,9 @@ type Tx interface {
 	GetLoad(context.Context, uuid.UUID) (domain.LoadOpportunity, error)
 	ListOwnLoads(context.Context, uuid.UUID, int, int) ([]domain.LoadOpportunity, error)
 	ListMarketplaceLoads(context.Context, uuid.UUID, *uuid.UUID, int, int) ([]domain.LoadOpportunity, error)
+	// ListChainDiscoveryLoads is the bounded chain pool: eligible own loads plus
+	// publication-visible foreign loads. It is not the marketplace list.
+	ListChainDiscoveryLoads(context.Context, uuid.UUID, *uuid.UUID, int, int) ([]domain.LoadOpportunity, error)
 	// CountMarketplaceLoads counts the same visibility predicate as ListMarketplaceLoads.
 	// It does not load those rows into memory.
 	CountMarketplaceLoads(context.Context, uuid.UUID, *uuid.UUID) (int, error)

@@ -226,15 +226,43 @@ func (t *pgTx) ListPublicConsolidationPoolLimited(ctx context.Context, viewer uu
 
 // marketplaceVisibilitySQL is the tenant and publication predicate for marketplace discovery.
 // $1 is the viewer tenant. $2 is the viewer company, used only for invited-carrier rows.
+// Chain discovery must not reuse this predicate: it intentionally excludes viewer-owned loads.
 const marketplaceVisibilitySQL = `status='PUBLISHED' AND owner_tenant_id <> $1 AND (
 			visibility_scope IN ('MARKETPLACE', 'ANONYMIZED_MARKETPLACE')
 			OR (visibility_scope='INVITED_CARRIERS' AND $2::uuid IS NOT NULL AND $2 = ANY(invited_carrier_company_ids))
+		)`
+
+// chainDiscoverySQL is the combined own and foreign chain pool.
+// $1 is the viewer tenant. $2 is the viewer company, used only for invited-carrier rows.
+// The caller applies one LIMIT to this combined predicate.
+const chainDiscoverySQL = `status='PUBLISHED' AND (
+			(owner_tenant_id = $1 AND consolidation_allowed)
+			OR (
+				owner_tenant_id <> $1
+				AND cross_shipper_consolidation_allowed
+				AND (
+					visibility_scope IN ('MARKETPLACE', 'ANONYMIZED_MARKETPLACE')
+					OR (visibility_scope='INVITED_CARRIERS' AND $2::uuid IS NOT NULL AND $2 = ANY(invited_carrier_company_ids))
+				)
+			)
 		)`
 
 func (t *pgTx) ListMarketplaceLoads(ctx context.Context, viewer uuid.UUID, company *uuid.UUID, limit, offset int) ([]domain.LoadOpportunity, error) {
 	rows, err := t.tx.Query(ctx, `
 		SELECT `+loadColumns+` FROM network_optimizer.load_opportunities
 		WHERE `+marketplaceVisibilitySQL+`
+		ORDER BY created_at DESC, id LIMIT $3 OFFSET $4`, viewer, company, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanLoads(rows)
+}
+
+func (t *pgTx) ListChainDiscoveryLoads(ctx context.Context, viewer uuid.UUID, company *uuid.UUID, limit, offset int) ([]domain.LoadOpportunity, error) {
+	rows, err := t.tx.Query(ctx, `
+		SELECT `+loadColumns+` FROM network_optimizer.load_opportunities
+		WHERE `+chainDiscoverySQL+`
 		ORDER BY created_at DESC, id LIMIT $3 OFFSET $4`, viewer, company, limit, offset)
 	if err != nil {
 		return nil, err
