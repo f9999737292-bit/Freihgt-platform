@@ -133,7 +133,7 @@ func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, file := range files {
 		base := filepath.Base(file)
 		num := migrationNumber(base)
-		if num > 14 && num != 33 {
+		if num > 14 && num != 33 && num != 99 {
 			continue
 		}
 		content, readErr := os.ReadFile(file)

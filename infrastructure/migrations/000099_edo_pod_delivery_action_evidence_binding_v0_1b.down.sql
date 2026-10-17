@@ -1,0 +1,6 @@
+DROP TRIGGER IF EXISTS trg_pod_delivery_action_evidence_identity ON documents.pod_delivery_action_evidence;
+DROP TRIGGER IF EXISTS trg_pod_delivery_action_intent_pin ON documents.pod_delivery_action_upload_intent;
+DROP FUNCTION IF EXISTS documents.reject_pod_delivery_action_evidence_identity_update();
+DROP FUNCTION IF EXISTS documents.reject_pod_delivery_action_intent_pin_update();
+DROP TABLE IF EXISTS documents.pod_delivery_action_evidence;
+DROP TABLE IF EXISTS documents.pod_delivery_action_upload_intent;

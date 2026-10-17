@@ -8,6 +8,7 @@ import (
 
 	"github.com/freight-platform/document-service/internal/http/handlers"
 	"github.com/freight-platform/document-service/internal/service"
+	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shared-go/metrics"
 	"github.com/freight-platform/shared-go/observability"
 )
@@ -23,6 +24,8 @@ func NewRouter(
 	attachmentSvc *service.AttachmentService,
 	shipperSvc *service.ShipperDocumentService,
 	carrierSvc *service.CarrierDocumentService,
+	actionSvc *service.PODActionEvidenceService,
+	internalAuth internalauth.Config,
 ) http.Handler {
 	documentHandler := handlers.NewDocumentHandler(documentSvc)
 	signingHandler := handlers.NewSigningHandler(signingSvc)
@@ -82,6 +85,16 @@ func NewRouter(
 		r.Post("/", podHandler.CreateIntent)
 		r.Put("/{uploadId}/content", podHandler.UploadContent)
 		r.Post("/{uploadId}/complete", podHandler.Complete)
+	})
+
+	actionHandler := handlers.NewPODActionEvidenceHandler(actionSvc)
+	r.Route("/internal/v1/pod-action-evidence", func(r chi.Router) {
+		r.Use(internalAuth.Middleware)
+		r.Use(handlers.RequireShipmentServiceCaller)
+		r.Post("/upload-intents", actionHandler.CreateIntent)
+		r.Put("/upload-intents/{uploadId}/content", actionHandler.UploadContent)
+		r.Post("/upload-intents/{uploadId}/complete", actionHandler.Complete)
+		r.Get("/{operatingTenantId}/{executionId}/{executionActionId}", actionHandler.GetEvidence)
 	})
 
 	return r
