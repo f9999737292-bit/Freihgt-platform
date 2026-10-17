@@ -37,6 +37,8 @@ func Error(w http.ResponseWriter, err error) {
 		status = http.StatusBadRequest
 	case apperrors.CodeUnauthorized:
 		status = http.StatusUnauthorized
+	case apperrors.CodeForbidden:
+		status = http.StatusForbidden
 	case apperrors.CodeNotFound:
 		status = http.StatusNotFound
 	case apperrors.CodeConflict:
