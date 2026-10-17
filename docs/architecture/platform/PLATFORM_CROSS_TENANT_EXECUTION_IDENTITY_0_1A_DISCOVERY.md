@@ -4,6 +4,7 @@
 AGENT=A
 STAGE=PLATFORM-CROSS-TENANT-EXECUTION-IDENTITY-0.1A-DISCOVERY
 CONTINUATION_STAGE=PLATFORM-CROSS-TENANT-EXECUTION-IDENTITY-0.1A-DISCOVERY-CONTINUATION
+REMEDIATION_STAGE=PLATFORM-CROSS-TENANT-EXECUTION-IDENTITY-0.1A-PR280-CONTROLLER-REMEDIATION-R1
 BASE_SHA=655556b3d1ebf02fda8241a5a652012d5abc0a2e
 MAIN_MIGRATION_HEAD=000099
 KIND=DOCS_ONLY_DISCOVERY
@@ -21,9 +22,40 @@ IDENTITY_BRIDGE_DECISION=HYBRID
 CANONICAL_EXECUTION_CARRIER_OWNER=OPERATING_TENANT_COMPANY
 SHIPMENT_CARRIER_REFERENCE_MODEL=TENANT_LOCAL_COMPANY_REFERENCE
 CARRIER_BRIDGE_AUTHORITY=SERVER_OWNED_EXPLICIT_RELATIONSHIP
-CARRIER_BRIDGE_CREATED_BY=SERVER_COMMAND_AFTER_OPERATING_CARRIER_ACCEPTANCE
-CARRIER_BRIDGE_VERIFIED_BY=OPERATING_TENANT_MEMBERSHIP
+CARRIER_BRIDGE_CREATION_COMMAND=CreateCarrierOperatingRelationship
+SHIPPER_SIDE_IDENTITY_SOURCE=SHIPMENT|RFX_AWARD|AWARD_TRANSPORT_ORDER_LINK
+OPERATING_SIDE_IDENTITY_SOURCE=AUTHENTICATED_OPERATING_TENANT_MEMBERSHIP
+OPERATING_CARRIER_ACCEPTANCE_EVIDENCE=ACTIVE_COMPANY_MEMBERSHIP
+CARRIER_BRIDGE_COMMAND_OWNER_SERVICE=COMPANY_SERVICE
+CARRIER_BRIDGE_WRITE_SERVICE=COMPANY_SERVICE
+CARRIER_BRIDGE_COMMAND_IDEMPOTENCY_SCOPE=source_type+source_id+operating_tenant_id+accepting_user_id+idempotency_key
 CARRIER_BRIDGE_LIFECYCLE_OWNER=COMPANY_SERVICE
+CARRIER_RELATIONSHIP_LIFECYCLE_MODEL=IMMUTABLE_APPEND_ONLY_VERSIONS
+CARRIER_RELATIONSHIP_ENDPOINTS_IMMUTABLE=YES
+CARRIER_RELATIONSHIP_VERSION_REQUIRED=YES
+CARRIER_RELATIONSHIP_AUDIT_REQUIRED=YES
+CARRIER_RELATIONSHIP_RESOLUTION_PHASE=ACTIVATE_BEFORE_TMS_PROJECTION
+CARRIER_RELATIONSHIP_PIN_OWNER=TRANSPORT_EXECUTION_REVISION
+ACTIVATION_REVALIDATES_RELATIONSHIP_ACTIVE=YES
+EXECUTION_AUDIT_PRESERVES_RELATIONSHIP_PIN=YES
+RELATIONSHIP_REVOKED_BEFORE_ACTIVATE_POLICY=REFUSE_NO_EXECUTION
+RELATIONSHIP_REVOKED_AFTER_EXECUTION_POLICY=HISTORICAL_EXECUTION_UNCHANGED
+ACTIVE_RELATIONSHIP_UNIQUENESS=ONE_UNSUPERSEDED_ACTIVE_FOR_SHIPPER_CARRIER_AND_OPERATING_TENANT
+ZERO_RELATIONSHIP_POLICY=NOT_FOUND_FAIL_CLOSED
+MULTIPLE_RELATIONSHIP_POLICY=DATA_INTEGRITY_ERROR_FAIL_CLOSED
+OPERATING_DRIVER_AUTHORITY=transport.drivers under operating tenant
+OPERATING_VEHICLE_AUTHORITY=transport.vehicles under operating tenant
+EXECUTION_DRIVER_SERVER_VERIFIED=YES
+EXECUTION_VEHICLE_SERVER_VERIFIED=YES
+EXECUTION_DRIVER_MUST_MATCH_OPERATING_CARRIER=YES
+EXECUTION_VEHICLE_MUST_MATCH_OPERATING_CARRIER=YES
+EXECUTION_DRIVER_NULL_IDENTITY_POLICY=NULL_IS_NO_ASSIGNMENT
+EXECUTION_VEHICLE_NULL_IDENTITY_POLICY=NULL_IS_NO_ASSIGNMENT
+SHIPMENT_LOCAL_DRIVER_COMPARED_TO_EXECUTION_DRIVER=NO
+SHIPMENT_LOCAL_VEHICLE_COMPARED_TO_EXECUTION_VEHICLE=NO
+A280_001_CLOSED=YES
+A280_002_CLOSED=YES
+A280_003_CLOSED=YES
 BRIDGE_RESOLUTION_OWNER_SERVICE=SHIPMENT_SERVICE
 CANONICAL_EXECUTION_DRIVER_OWNER=OPERATING_EXECUTION
 SHIPMENT_DRIVER_ROLE=TENANT_LOCAL_ASSIGNMENT
@@ -48,7 +80,7 @@ FINANCE_RUNTIME_CHANGE_AUTHORIZED=NO
 HISTORICAL_AUTO_MATCH_ALLOWED=NO
 UNMAPPED_EXISTING_RECORD_POLICY=LEAVE_UNMAPPED_FAIL_CLOSED
 AMBIGUOUS_MATCH_POLICY=REFUSE_NO_ROW
-ROLLBACK_BOUNDARY=FUTURE_RELATIONSHIP_ROW_ONLY
+ROLLBACK_BOUNDARY=FUTURE_RELATIONSHIP_VERSION_ROW_ONLY
 A_BLOCKER_CARRIER_GLOBAL_IDENTITY=CLOSED
 A_BLOCKER_SHIPMENT_TO_OPERATING_CARRIER_BRIDGE=CLOSED
 A_BLOCKER_DRIVER_IDENTITY_BOUNDARY=CLOSED
@@ -179,27 +211,13 @@ The question "these two tenant-local company records represent the same operatin
 CANONICAL_EXECUTION_CARRIER_OWNER=OPERATING_TENANT_COMPANY
 SHIPMENT_CARRIER_REFERENCE_MODEL=TENANT_LOCAL_COMPANY_REFERENCE
 CARRIER_BRIDGE_AUTHORITY=SERVER_OWNED_EXPLICIT_RELATIONSHIP
-CARRIER_BRIDGE_CREATED_BY=SERVER_COMMAND_AFTER_OPERATING_CARRIER_ACCEPTANCE
-CARRIER_BRIDGE_VERIFIED_BY=OPERATING_TENANT_MEMBERSHIP
+CARRIER_BRIDGE_CREATION_COMMAND=CreateCarrierOperatingRelationship
 CARRIER_BRIDGE_LIFECYCLE_OWNER=COMPANY_SERVICE
 ```
 
 `requireCarrierTenant` already requires the execution carrier company to exist in `operating_tenant_id`. `CreateFromTransportOrder` already requires `shipment.carrier_company_id` to exist in the shipment tenant. The future relationship names that pair. The shipper company id remains the shipment reference. The operating company id is what execution and POD store.
 
-Future contract shape, with no table in this stage:
-
-```text
-relationship_id=server_generated
-shipper_tenant_id
-shipper_carrier_company_id
-operating_tenant_id
-operating_carrier_company_id
-status=ACTIVE|REVOKED
-```
-
-Both company ids are proved with the existing `id AND tenant_id` predicate before insert. One `ACTIVE` row is allowed for `(shipper_tenant_id, shipper_carrier_company_id, operating_tenant_id)`. A second operating company for that triple is ambiguous and inserts nothing. Attribute equality inserts nothing. A client-supplied pair inserts nothing.
-
-Lifecycle storage belongs with company identity because both ends are `core.companies` rows. Execution projection does not become the owner of the relationship.
+The creation command, version row, and activation pin are defined in section 12. Lifecycle storage belongs with company identity because both ends are `core.companies` rows. Execution projection stores the pin. It does not own the relationship.
 
 ## 4. Driver boundary
 
@@ -213,7 +231,19 @@ SHIPMENT_DRIVER_EQUALITY_REQUIRED_FOR_EXECUTION=NO
 DIRECT_DRIVER_UUID_EQUALITY_VALID=NO
 ```
 
-`ValidateExecutionAssignmentReadiness` remains a shipment-local rule: `DRIVER_ASSIGNED` to `PICKUP_SLOT_BOOKED` requires `shipment.driver_id` and `shipment.vehicle_id` to be non-null. That function does not read `transport_executions`. The shipment FSM stays as it is. Cross-tenant execution activation must not treat those non-null shipment ids as `execution.driver_id`. Readiness for the operating assignment is the execution row in the operating tenant. `PICKUP_SLOT_BOOKED` stays `BLOCKED_BY_IDENTITY_MODEL` as proof of the operating driver, which is the TMS freeze rule.
+`ValidateExecutionAssignmentReadiness` remains a shipment-local rule: `DRIVER_ASSIGNED` to `PICKUP_SLOT_BOOKED` requires `shipment.driver_id` and `shipment.vehicle_id` to be non-null. That function does not read `transport_executions`. The shipment FSM stays as it is. Cross-tenant execution activation must not treat those non-null shipment ids as `execution.driver_id`. `PICKUP_SLOT_BOOKED` stays `BLOCKED_BY_IDENTITY_MODEL` as proof of the operating driver, which is the TMS freeze rule.
+
+A non-null `transport_executions.driver_id` is stored only after the server reads `transport.drivers` and finds `id` equal to the requested id, `tenant_id` equal to `operating_tenant_id`, `carrier_company_id` equal to the operating carrier company, `status` equal to `ACTIVE`, and `deleted_at` null. The client UUID is not that proof. `insertExecution` does not perform this read today. The rule is future contract.
+
+```text
+OPERATING_DRIVER_AUTHORITY=transport.drivers under operating tenant
+EXECUTION_DRIVER_SERVER_VERIFIED=YES
+EXECUTION_DRIVER_MUST_MATCH_OPERATING_CARRIER=YES
+SHIPMENT_LOCAL_DRIVER_COMPARED_TO_EXECUTION_DRIVER=NO
+EXECUTION_DRIVER_NULL_IDENTITY_POLICY=NULL_IS_NO_ASSIGNMENT
+```
+
+Null means no operating driver is claimed. The identity layer accepts null and does not invent a driver row. Null is not operational readiness. A later TMS status stage decides whether activation requires a driver. This stage does not.
 
 A global driver or person id is not introduced. `users.email` is unique per tenant. `drivers.user_id` has no foreign key to `core.users`.
 
@@ -230,6 +260,18 @@ DIRECT_VEHICLE_UUID_EQUALITY_VALID=NO
 ```
 
 Shipment-local vehicle presence for `PICKUP_SLOT_BOOKED` stays inside the shipment tenant. It is not compared with `transport_executions.vehicle_id`.
+
+A non-null `transport_executions.vehicle_id` is stored only after the server reads `transport.vehicles` and finds `id` equal to the requested id, `tenant_id` equal to `operating_tenant_id`, `carrier_company_id` equal to the operating carrier company, `status` equal to `ACTIVE`, and `deleted_at` null. The client UUID is not that proof.
+
+```text
+OPERATING_VEHICLE_AUTHORITY=transport.vehicles under operating tenant
+EXECUTION_VEHICLE_SERVER_VERIFIED=YES
+EXECUTION_VEHICLE_MUST_MATCH_OPERATING_CARRIER=YES
+SHIPMENT_LOCAL_VEHICLE_COMPARED_TO_EXECUTION_VEHICLE=NO
+EXECUTION_VEHICLE_NULL_IDENTITY_POLICY=NULL_IS_NO_ASSIGNMENT
+```
+
+Null means no operating vehicle is claimed. The identity layer accepts null. Null is not operational readiness. A later TMS status stage decides whether activation requires a vehicle.
 
 ## 6. RFX to shipment provenance
 
@@ -278,7 +320,7 @@ BRIDGE_WRITE_AUTHORIZATION_SCOPE=SERVER_COMMAND_BOTH_COMPANIES_PROVEN
 
 A read is allowed only inside a server command that already holds a verified shipment in its owner tenant or a verified execution in its operating tenant. The read returns the operating carrier company id for that pair, or not-found. It does not return drivers, vehicles, or other shipments.
 
-A write is allowed only after both companies have been proved in their own tenants and the operating carrier membership has accepted the link. The acceptance is a server-recorded membership check. A request body that names the foreign company is not acceptance. The carrier command does not write `shipments.tenant_id`, shipper company, consignee company, or `shipment.carrier_company_id`.
+A write is the `CreateCarrierOperatingRelationship` command in section 12. A request body that names either company is not acceptance. The carrier command does not write `shipments.tenant_id`, shipper company, consignee company, or `shipment.carrier_company_id`.
 
 Resolution for one shipment does not report whether another shipper tenant has a relationship.
 
@@ -319,10 +361,10 @@ No migration is created.
 HISTORICAL_AUTO_MATCH_ALLOWED=NO
 UNMAPPED_EXISTING_RECORD_POLICY=LEAVE_UNMAPPED_FAIL_CLOSED
 AMBIGUOUS_MATCH_POLICY=REFUSE_NO_ROW
-ROLLBACK_BOUNDARY=FUTURE_RELATIONSHIP_ROW_ONLY
+ROLLBACK_BOUNDARY=FUTURE_RELATIONSHIP_VERSION_ROW_ONLY
 ```
 
-An unmapped historical shipment stays unmapped. A later cross-tenant activation of that shipment fails closed. An ambiguous attribute match creates no row. Rollback of a future relationship insert removes or revokes that relationship only. It does not rewrite companies, shipments, awards, executions, drivers, vehicles, billing rows, or documents.
+An unmapped historical shipment stays unmapped. A later cross-tenant activation of that shipment fails closed. An ambiguous attribute match creates no row. Rollback of an uncommitted command writes no version row. A committed version row is not deleted or edited. Revocation appends a successor. Companies, shipments, awards, executions, drivers, vehicles, billing rows, and documents stay as stored.
 
 ## 10. Decision
 
@@ -341,7 +383,100 @@ READY_FOR_NLO_0_9D_RUNTIME=NO
 
 `READY_FOR_CROSS_TENANT_IDENTITY_RUNTIME_DESIGN=YES` means a later controller may authorize a design of this contract. This discovery does not authorize that implementation. The TMS carrier, driver, vehicle, and cross-shipper runtime blockers stay open until that implementation exists.
 
-## 11. Failure and security matrix
+## 12. Controller remediation R1
+
+```text
+A280_001_CLOSED=YES
+A280_002_CLOSED=YES
+A280_003_CLOSED=YES
+```
+
+### Operating assignment
+
+`transport.transport_executions.driver_id` and `vehicle_id` stay nullable. `insertExecution` currently writes the projection values with no read of `transport.drivers` or `transport.vehicles`. The future identity rule is the opposite of that write.
+
+When `driver_id` is non-null, the server reads one `transport.drivers` row and requires all of these: `id` equals the requested id, `tenant_id` equals `operating_tenant_id`, `carrier_company_id` equals the operating carrier company on the execution, `status` equals `ACTIVE`, and `deleted_at` is null. A miss fails closed and stores no driver id.
+
+When `vehicle_id` is non-null, the server reads one `transport.vehicles` row with the same five predicates. A miss fails closed and stores no vehicle id.
+
+```text
+EXECUTION_DRIVER_NULL_IDENTITY_POLICY=NULL_IS_NO_ASSIGNMENT
+EXECUTION_VEHICLE_NULL_IDENTITY_POLICY=NULL_IS_NO_ASSIGNMENT
+```
+
+Null claims no resource. The identity layer allows it. A later TMS stage may require a non-null assignment before activation. This remediation does not make that operational decision, and it does not compare the shipment-local ids with the execution ids.
+
+### Relationship command
+
+```text
+CARRIER_BRIDGE_CREATION_COMMAND=CreateCarrierOperatingRelationship
+CARRIER_BRIDGE_COMMAND_OWNER_SERVICE=COMPANY_SERVICE
+CARRIER_BRIDGE_WRITE_SERVICE=COMPANY_SERVICE
+SHIPPER_SIDE_IDENTITY_SOURCE=SHIPMENT|RFX_AWARD|AWARD_TRANSPORT_ORDER_LINK
+OPERATING_SIDE_IDENTITY_SOURCE=AUTHENTICATED_OPERATING_TENANT_MEMBERSHIP
+OPERATING_CARRIER_ACCEPTANCE_EVIDENCE=ACTIVE_COMPANY_MEMBERSHIP
+CARRIER_BRIDGE_COMMAND_IDEMPOTENCY_SCOPE=source_type+source_id+operating_tenant_id+accepting_user_id+idempotency_key
+```
+
+The finite shipper-side set is the resources that already store a tenant-local carrier company id:
+
+| source_type | Read |
+| --- | --- |
+| `SHIPMENT` | `transport.shipments` by `id` and `tenant_id`, using its `carrier_company_id` |
+| `RFX_AWARD` | `rfx.rfx_awards` by `id` and `tenant_id`, using its `carrier_company_id` |
+| `AWARD_TRANSPORT_ORDER_LINK` | `rfx.rfx_award_transport_orders` by `id` and `tenant_id`, using its `carrier_company_id` |
+
+`rfx.rfx_participants` is a same-tenant invitation. It is not a creation source. No cross-tenant carrier-claim table exists.
+
+The command body does not supply either company id. Company-service loads `source_type` and `source_id` through the owning service and takes `shipper_tenant_id` and `shipper_carrier_company_id` from that row. The operating side is the authenticated actor. `ActiveMembershipExists` is `core.company_memberships` with `tenant_id`, `user_id`, `company_id`, `status = ACTIVE`, and `deleted_at` null. The operating tenant and operating carrier company are that membership, not a body field. The accepting member is authorized only when that active membership is for the operating carrier company.
+
+One command correlates those two reads. Both companies are then proved with `id` and `tenant_id`. The same idempotency key and the same resolved pair return the same relationship version. The same key with a different resolved pair conflicts and inserts nothing. An arbitrary client pair is refused. Attribute similarity is refused. This stage does not implement the command.
+
+### Version, pin, and uniqueness
+
+```text
+CARRIER_RELATIONSHIP_LIFECYCLE_MODEL=IMMUTABLE_APPEND_ONLY_VERSIONS
+```
+
+Each version is a new row. After insert, the row is not edited. Endpoint company identities are copied onto a successor and are never updated in place. Revocation inserts a successor with `status=REVOKED` and `supersedes_relationship_id` set to the previous version. The previous row remains the historical proof. Audit records the command correlation: source, accepting user, and idempotency key.
+
+```text
+relationship_id
+relationship_version
+shipper_tenant_id
+shipper_carrier_company_id
+operating_tenant_id
+operating_carrier_company_id
+status=ACTIVE|REVOKED
+source_type
+source_id
+created_at
+created_by
+accepted_at
+accepted_by
+revoked_at
+revoked_by
+revoke_reason
+supersedes_relationship_id
+```
+
+Resolution is activation, immediately before the TMS projection transaction. Route-plan scoring does not authorize execution. Accept selects the route plan and, in the TMS freeze, does not create execution identity and does not read this relationship. Activation resolves one unsuperseded `ACTIVE` version for the shipment owner tenant, the shipment-local carrier company, and the operating tenant. It then pins `relationship_id` and `relationship_version` on the `transport.transport_execution_revisions` row written in that same transaction. A later read of the committed execution uses that pin. It does not replace the pin with the current `ACTIVE` head.
+
+```text
+CARRIER_RELATIONSHIP_RESOLUTION_PHASE=ACTIVATE_BEFORE_TMS_PROJECTION
+CARRIER_RELATIONSHIP_PIN_OWNER=TRANSPORT_EXECUTION_REVISION
+ACTIVATION_REVALIDATES_RELATIONSHIP_ACTIVE=YES
+EXECUTION_AUDIT_PRESERVES_RELATIONSHIP_PIN=YES
+RELATIONSHIP_REVOKED_BEFORE_ACTIVATE_POLICY=REFUSE_NO_EXECUTION
+RELATIONSHIP_REVOKED_AFTER_EXECUTION_POLICY=HISTORICAL_EXECUTION_UNCHANGED
+ACTIVE_RELATIONSHIP_UNIQUENESS=ONE_UNSUPERSEDED_ACTIVE_FOR_SHIPPER_CARRIER_AND_OPERATING_TENANT
+ZERO_RELATIONSHIP_POLICY=NOT_FOUND_FAIL_CLOSED
+MULTIPLE_RELATIONSHIP_POLICY=DATA_INTEGRITY_ERROR_FAIL_CLOSED
+```
+
+The active key is `shipper_tenant_id`, `shipper_carrier_company_id`, and `operating_tenant_id` among version rows with `status=ACTIVE` and no successor. Zero such rows is not-found. More than one is a data-integrity error. Neither result creates an execution, and neither result picks a fallback company.
+
+## 13. Failure and security matrix
 
 Every row is `FUTURE_REQUIRED`. None of these checks exist as a bridge runtime in this tree.
 
@@ -372,3 +507,19 @@ Every row is `FUTURE_REQUIRED`. None of these checks exist as a bridge runtime i
 | XTI_23 | Shipment-local vehicle id differs from execution vehicle id | Allowed. Not a conflict |
 | XTI_24 | Historical shipment has no relationship | Stays unmapped. Cross-tenant activation fails closed |
 | XTI_25 | Relationship store is unavailable | Error. No guessed company |
+| XTI_26 | Operating driver tenant differs from `operating_tenant_id` | Fail closed. No driver id stored |
+| XTI_27 | Operating driver carrier company differs from the operating carrier | Fail closed. No driver id stored |
+| XTI_28 | Operating vehicle tenant differs from `operating_tenant_id` | Fail closed. No vehicle id stored |
+| XTI_29 | Operating vehicle carrier company differs from the operating carrier | Fail closed. No vehicle id stored |
+| XTI_30 | Relationship command has no verified shipper-side source | Refuse. No row |
+| XTI_31 | Relationship command has no active operating-carrier membership | Refuse. No row |
+| XTI_32 | Same idempotency key resolves to a different company pair | Conflict. No second row |
+| XTI_33 | Relationship is revoked after accept and before activate | Refuse. No execution |
+| XTI_34 | Store returns more than one unsuperseded ACTIVE row | Data-integrity error. No execution |
+| XTI_35 | Committed execution is read after revocation | Historical pin unchanged |
+| XTI_DRIVER_01 | Driver belongs to another tenant | Fail closed. No driver id stored |
+| XTI_DRIVER_02 | Driver belongs to another carrier company | Fail closed. No driver id stored |
+| XTI_DRIVER_03 | Driver is inactive or deleted | Fail closed. No driver id stored |
+| XTI_VEHICLE_01 | Vehicle belongs to another tenant | Fail closed. No vehicle id stored |
+| XTI_VEHICLE_02 | Vehicle belongs to another carrier company | Fail closed. No vehicle id stored |
+| XTI_VEHICLE_03 | Vehicle inactive or deleted | Fail closed. No vehicle id stored |
