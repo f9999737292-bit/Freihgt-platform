@@ -3,7 +3,7 @@
 ```text
 AGENT=A
 STAGE=PLATFORM-CROSS-TENANT-EXECUTION-IDENTITY-0.1A-DISCOVERY
-REMEDIATION_STAGE=PLATFORM-CROSS-TENANT-EXECUTION-IDENTITY-0.1A-PR280-CONTROLLER-REMEDIATION-R1
+REMEDIATION_STAGE=PLATFORM-CROSS-TENANT-EXECUTION-IDENTITY-0.1A-PR280-CONTROLLER-REMEDIATION-R2
 BASE_SHA=655556b3d1ebf02fda8241a5a652012d5abc0a2e
 MAIN_MIGRATION_HEAD=000099
 IDENTITY_BRIDGE_DECISION=HYBRID
@@ -16,13 +16,38 @@ CANONICAL_CROSS_TENANT_COMPANY_BRIDGE_PRESENT=NO
 CANONICAL_EXECUTION_CARRIER_OWNER=OPERATING_TENANT_COMPANY
 SHIPMENT_CARRIER_REFERENCE_MODEL=TENANT_LOCAL_COMPANY_REFERENCE
 CARRIER_BRIDGE_AUTHORITY=SERVER_OWNED_EXPLICIT_RELATIONSHIP
-CARRIER_BRIDGE_CREATION_COMMAND=CreateCarrierOperatingRelationship
+CARRIER_BRIDGE_CREATION_COMMAND=CreateCarrierOperatingRelationshipRequest
+CARRIER_BRIDGE_ACCEPTANCE_COMMAND=AcceptCarrierOperatingRelationshipRequest
 SHIPPER_SIDE_IDENTITY_SOURCE=SHIPMENT|RFX_AWARD|AWARD_TRANSPORT_ORDER_LINK
 OPERATING_SIDE_IDENTITY_SOURCE=AUTHENTICATED_OPERATING_TENANT_MEMBERSHIP
-OPERATING_CARRIER_ACCEPTANCE_EVIDENCE=ACTIVE_COMPANY_MEMBERSHIP
+OPERATING_CARRIER_ACCEPTANCE_EVIDENCE=ACTIVE_SELECTED_COMPANY_MEMBERSHIP+COMPANY_SCOPED_CARRIER_ADMIN_ROLE+VALID_RELATIONSHIP_REQUEST
+OPERATING_SELECTED_COMPANY_SOURCE=SERVER_VERIFIED_SELECTED_COMPANY_CONTEXT
+OPERATING_ACCEPTANCE_REQUIRED_ROLE=CARRIER_ADMIN|PLATFORM_ADMIN
+ORDINARY_ACTIVE_MEMBER_CAN_ACCEPT_RELATIONSHIP=NO
+MULTIPLE_MEMBERSHIPS_WITHOUT_SELECTED_COMPANY_POLICY=REFUSE
+CLIENT_SUPPLIED_OPERATING_COMPANY_AUTHORITY=NO
 CARRIER_BRIDGE_COMMAND_OWNER_SERVICE=COMPANY_SERVICE
 CARRIER_BRIDGE_WRITE_SERVICE=COMPANY_SERVICE
-CARRIER_BRIDGE_COMMAND_IDEMPOTENCY_SCOPE=source_type+source_id+operating_tenant_id+accepting_user_id+idempotency_key
+CARRIER_BRIDGE_COMMAND_IDEMPOTENCY_SCOPE=relationship_request_id+selected_operating_tenant_id+selected_operating_company_id+idempotency_key
+ACCEPTING_USER_IS_AUDIT_PROVENANCE=YES
+CARRIER_RELATIONSHIP_REQUEST_OWNER=COMPANY_SERVICE
+SHIPPER_SOURCE_VERIFICATION_OWNER=SOURCE_OWNING_SERVICE
+RELATIONSHIP_REQUEST_SERVER_GENERATED=YES
+RAW_SOURCE_TYPE_ID_ACCEPTANCE_ALLOWED=NO
+OPAQUE_REQUEST_TOKEN_REQUIRED=YES
+REQUEST_TOKEN_ALONE_IS_AUTHORITY=NO
+OPERATING_ADMIN_CONTEXT_REQUIRED=YES
+SOURCE_OWNER_AUTHORIZATION_REQUIRED=YES
+CLIENT_SUPPLIED_COMPANY_PAIR_AUTHORITY=NO
+TWO_SIDED_RELATIONSHIP_ACCEPTANCE_REQUIRED=YES
+SHIPPER_SIDE_CONSENT_PINNED_BY=RELATIONSHIP_REQUEST_ID_AND_SOURCE_PROOF
+OPERATING_SIDE_CONSENT_PINNED_BY=RELATIONSHIP_REQUEST_ID_AND_ADMIN_CONTEXT
+RELATIONSHIP_CREATED_ONLY_AFTER_BOTH_SIDES=YES
+SHIPMENT_SOURCE_OWNER=SHIPMENT_SERVICE
+RFX_AWARD_SOURCE_OWNER=RFX_SERVICE
+AWARD_LINK_SOURCE_OWNER=RFX_SERVICE
+COMPANY_SERVICE_DIRECT_TRANSPORT_AUTHORITY=NO
+COMPANY_SERVICE_DIRECT_RFX_AUTHORITY=NO
 CARRIER_BRIDGE_LIFECYCLE_OWNER=COMPANY_SERVICE
 CARRIER_RELATIONSHIP_LIFECYCLE_MODEL=IMMUTABLE_APPEND_ONLY_VERSIONS
 CARRIER_RELATIONSHIP_ENDPOINTS_IMMUTABLE=YES
@@ -85,21 +110,67 @@ This freeze selects the contract. It does not create the relationship, does not 
 
 ## Carrier relationship
 
-The operating execution carrier is a `core.companies` row in `operating_tenant_id`. The shipment carrier reference is a different `core.companies` row in the shipment tenant. The authority that they represent the same operating carrier is `CreateCarrierOperatingRelationship`.
+The operating execution carrier is a `core.companies` row in `operating_tenant_id`. The shipment carrier reference is a different `core.companies` row in the shipment tenant. The authority that they represent the same operating carrier is a server-generated relationship request plus privileged acceptance of that same request.
 
-Company-service owns and writes the command. The body does not supply either company id.
+```text
+CARRIER_BRIDGE_CREATION_COMMAND=CreateCarrierOperatingRelationshipRequest
+CARRIER_BRIDGE_ACCEPTANCE_COMMAND=AcceptCarrierOperatingRelationshipRequest
+OPERATING_CARRIER_ACCEPTANCE_EVIDENCE=ACTIVE_SELECTED_COMPANY_MEMBERSHIP+COMPANY_SCOPED_CARRIER_ADMIN_ROLE+VALID_RELATIONSHIP_REQUEST
+OPERATING_ACCEPTANCE_REQUIRED_ROLE=CARRIER_ADMIN|PLATFORM_ADMIN
+ORDINARY_ACTIVE_MEMBER_CAN_ACCEPT_RELATIONSHIP=NO
+```
 
-Shipper side, one of:
+`CreateCarrierOperatingRelationshipRequest` is step 1. The source owner verifies the shipper-side actor and the source, derives the shipper-local carrier company, and sends company-service the trusted subject `source_type`, `source_id`, `source_tenant_id`, `shipper_carrier_company_id`, source version or fingerprint, `requesting_user_id`, and authorization proof. Company-service stores the request. It does not query `transport.*` or `rfx.*` as the business owner.
 
-| source_type | Server read |
-| --- | --- |
-| `SHIPMENT` | `transport.shipments` by `id` and `tenant_id`; carrier id is `carrier_company_id` |
-| `RFX_AWARD` | `rfx.rfx_awards` by `id` and `tenant_id`; carrier id is `carrier_company_id` |
-| `AWARD_TRANSPORT_ORDER_LINK` | `rfx.rfx_award_transport_orders` by `id` and `tenant_id`; carrier id is `carrier_company_id` |
+| source_type | Owner | Carrier column |
+| --- | --- | --- |
+| `SHIPMENT` | `shipment-service` | `transport.shipments.carrier_company_id` |
+| `RFX_AWARD` | `rfx-service` | `rfx.rfx_awards.carrier_company_id` |
+| `AWARD_TRANSPORT_ORDER_LINK` | `rfx-service` | `rfx.rfx_award_transport_orders.carrier_company_id` |
 
-Operating side: the authenticated actor. Acceptance evidence is `core.company_memberships` for that user, the operating tenant, and the operating carrier company, with `status = ACTIVE` and `deleted_at` null. The operating company id is that membership.
+```text
+SHIPMENT_SOURCE_OWNER=SHIPMENT_SERVICE
+RFX_AWARD_SOURCE_OWNER=RFX_SERVICE
+AWARD_LINK_SOURCE_OWNER=RFX_SERVICE
+COMPANY_SERVICE_DIRECT_TRANSPORT_AUTHORITY=NO
+COMPANY_SERVICE_DIRECT_RFX_AUTHORITY=NO
+```
 
-Both company rows are proved with `id` and `tenant_id`. The source read and the membership read belong to the same command. The same idempotency key, `source_type+source_id+operating_tenant_id+accepting_user_id+idempotency_key`, returns the same version. The same key with a different resolved pair conflicts. A client pair and an attribute match insert nothing.
+The request row is immutable except through append-only lifecycle events or successor versions:
+
+```text
+relationship_request_id
+request_version
+source_type
+source_id
+shipper_tenant_id
+shipper_carrier_company_id
+request_status=PENDING|ACCEPTED|EXPIRED|CANCELLED
+opaque_acceptance_token_hash
+created_at
+created_by
+expires_at
+cancelled_at
+cancelled_by
+cancel_reason
+accepted_at
+accepted_by
+accepted_operating_tenant_id
+accepted_operating_carrier_company_id
+relationship_id
+relationship_version
+```
+
+`AcceptCarrierOperatingRelationshipRequest` is step 2. The body supplies the opaque request id or one-time token, and the idempotency key. The operating company is the server-verified selected company. The body does not supply it. Acceptance also requires an active membership for that user and company, and a `CARRIER_ADMIN` role on that same company and tenant. Tenant-global `PLATFORM_ADMIN` in the operating tenant may override the role check only. Several memberships and no selected company refuse. An ordinary member, a driver-only user, a role on another company, and a role in another tenant do not accept.
+
+The relationship version is inserted only when the shipper-side request and the operating admin acceptance of that same request both exist. A raw source id, a name, a tax id, a registration number, an email, a phone, and an ordinary membership are not that correlation. The token alone is not authority. An expired, cancelled, stale, or already-accepted-by-another-company request refuses.
+
+```text
+CARRIER_BRIDGE_COMMAND_IDEMPOTENCY_SCOPE=relationship_request_id+selected_operating_tenant_id+selected_operating_company_id+idempotency_key
+ACCEPTING_USER_IS_AUDIT_PROVENANCE=YES
+```
+
+The same request, same operating company, and same key replay the same relationship version. A different operating company or a different request on that key conflicts. Another authorized admin replaying the accepted request for the same company returns the same relationship. `accepted_by` is audit. A guessed request id without the token and admin context is not-found.
 
 ## Version row
 
@@ -166,4 +237,4 @@ POD remains compatible: document tenant and owner company stay in the operating 
 
 ## Failure matrix
 
-XTI_01 through XTI_35, and XTI_DRIVER_01 through XTI_DRIVER_03, and XTI_VEHICLE_01 through XTI_VEHICLE_03, in the discovery note are `FUTURE_REQUIRED`. They are part of this contract and are not implemented here.
+XTI_01 through XTI_50, and XTI_DRIVER_01 through XTI_DRIVER_03, and XTI_VEHICLE_01 through XTI_VEHICLE_03, in the discovery note are `FUTURE_REQUIRED`. They are part of this contract and are not implemented here.
