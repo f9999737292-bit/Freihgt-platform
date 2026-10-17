@@ -10,7 +10,7 @@ DEPOT_START_ONLY=YES
 CURRENT_TRIP_EXECUTION_INCLUDED=NO
 ```
 
-Evidence is the tree at `e114d990aae8c5d37394da6f4e07df47125f2f53`. The closed contract is `TMS_NLO_CHAIN_MULTISHIPMENT_STATUS_POLICY_0_1A_FREEZE.md`. NLO-0.9D-A already limits execution materialization to `DEPOT_START` and leaves shipment status eligibility to TMS. This note records the current rules that decision uses. It does not change the shipment FSM or the NLO planner.
+Evidence is the tree at `e114d990aae8c5d37394da6f4e07df47125f2f53`. `TMS_NLO_CHAIN_MULTISHIPMENT_STATUS_POLICY_0_1A_FREEZE.md` is a partial freeze: the status set is closed, and cross-tenant carrier, driver, and vehicle identity is not. NLO-0.9D-A already limits execution materialization to `DEPOT_START` and leaves shipment status eligibility to TMS. This note records the current rules that decision uses. It does not change the shipment FSM or the NLO planner.
 
 ## 1. Shipment status
 
@@ -63,6 +63,18 @@ For `TRANSPORT_ORDER`, `source_id` is the order id. `uq_shipments_transport_orde
 
 TMS integration coverage keeps two shipper tenants on one operating carrier and does not rewrite `shipment_tenant_id` to the operating tenant.
 
-## 5. Decision
+## 5. Status decision
 
-The five pre-`IN_PICKUP` statuses that the domain actually writes, and that the existing depot helper already names, are the eligible set. `IN_PICKUP` and later belong to movement, which current-trip activation already treats as a different window. `CANCELLED` and `DELIVERY_SLOT_BOOKED` are not in that pre-movement writer path. Statuses do not have to be identical across shipments. Carrier, driver, and vehicle identity are separate from status because those columns are nullable and one execution has one carrier, one driver, and one vehicle. The check belongs on activation, which already re-reads freshness, and not on accept, which does not read shipment status.
+The five pre-`IN_PICKUP` statuses that the domain actually writes, and that the existing depot helper already names, are the eligible status set. `IN_PICKUP` and later belong to movement, which current-trip activation already treats as a different window. `CANCELLED` and `DELIVERY_SLOT_BOOKED` are not in that pre-movement writer path. Statuses do not have to be identical across shipments. The status check belongs on activation, which already re-reads freshness, and not on accept, which does not read shipment status.
+
+Status eligibility is not carrier, driver, or vehicle identity. A shipment can be in an eligible status while the execution still has no proven way to name the same carrier, driver, or vehicle.
+
+## 6. Cross-tenant identity search
+
+`core.companies.id` is a global primary key. Each row has exactly one `tenant_id`. `ShipmentRepository.CompanyExists` and `TransportExecutionRepository.requireCarrierTenant` both require `id` and `tenant_id` together. `CreateFromTransportOrder` calls `CompanyExists(carrier_company_id, shipment_tenant_id)`. `AcceptRoutePlanActivation` calls `requireCarrierTenant(carrier_company_id, operating_tenant_id)` before `Project`. One company row cannot satisfy both a shipper tenant `S` and an operating carrier tenant `C` when `S` differs from `C`.
+
+`AssignDriver` loads the driver with `GetByIDAndTenant(driver_id, shipment_tenant)`. `AssignVehicle` loads the vehicle the same way. `transport.drivers` and `transport.vehicles` each have one `tenant_id`. `ValidateExecutionAssignmentReadiness` then requires both ids before `PICKUP_SLOT_BOOKED`. Those ids are shipment-tenant resources. `transport.transport_executions.driver_id` and `vehicle_id` are nullable columns on the operating execution. Migration `000088` does not reference `transport.drivers` or `transport.vehicles`, and projection does not compare them with the shipment columns.
+
+Searched schema and service code for a platform legal-entity id, a company-to-company relationship, a counterparty map, and a marketplace carrier, driver, or vehicle identity. `core.company_memberships` binds a user to a company inside one tenant. `tax_id` and `registration_number` are company attributes with no accepted contract that makes either the cross-tenant authority. `transport.drivers.user_id` is optional and `GetByUserIDAndTenant` is still tenant-scoped. None of these is a canonical bridge from a shipment-tenant company, driver, or vehicle to the operating-tenant execution row.
+
+Storing two `shipment_tenant_id` values on one execution proves owner-tenant preservation. It does not prove that `shipment.carrier_company_id`, `shipment.driver_id`, or `shipment.vehicle_id` is the same resource as the execution columns when the owner tenant and the operating tenant differ.
