@@ -3,7 +3,7 @@
 ```text
 AGENT=A
 STAGE=PLATFORM-CROSS-TENANT-EXECUTION-IDENTITY-0.1A-DISCOVERY
-REMEDIATION_STAGE=PLATFORM-CROSS-TENANT-EXECUTION-IDENTITY-0.1A-PR280-CONTROLLER-REMEDIATION-R2
+REMEDIATION_STAGE=PLATFORM-CROSS-TENANT-EXECUTION-IDENTITY-0.1A-PR280-CONTROLLER-REMEDIATION-R3
 BASE_SHA=655556b3d1ebf02fda8241a5a652012d5abc0a2e
 MAIN_MIGRATION_HEAD=000099
 IDENTITY_BRIDGE_DECISION=HYBRID
@@ -35,6 +35,18 @@ SHIPPER_SOURCE_VERIFICATION_OWNER=SOURCE_OWNING_SERVICE
 RELATIONSHIP_REQUEST_SERVER_GENERATED=YES
 RAW_SOURCE_TYPE_ID_ACCEPTANCE_ALLOWED=NO
 OPAQUE_REQUEST_TOKEN_REQUIRED=YES
+ACCEPTANCE_TOKEN_REQUIRED=YES
+RELATIONSHIP_REQUEST_ID_IS_ACCEPTANCE_AUTHORITY=NO
+RELATIONSHIP_REQUEST_ID_BODY_POLICY=OPTIONAL_NON_AUTHORITATIVE_LOCATOR
+TOKEN_RESOLVES_CANONICAL_RELATIONSHIP_REQUEST=YES
+TOKEN_AND_REQUEST_ID_MUST_MATCH=YES
+TOKEN_REQUEST_ID_MISMATCH_POLICY=REFUSE_NO_RELATIONSHIP
+TOKEN_MISSING_POLICY=REFUSE_NO_RELATIONSHIP
+ACCEPTANCE_TOKEN_FIRST_USE_REQUIRED=YES
+ACCEPTED_REQUEST_REPLAY_POLICY=SAME_REQUEST_SAME_OPERATING_COMPANY_SAME_IDEMPOTENCY_KEY_RETURNS_SAME_RELATIONSHIP
+CONSUMED_TOKEN_REUSE_FOR_DIFFERENT_COMPANY=REFUSE
+CONSUMED_TOKEN_REUSE_FOR_DIFFERENT_REQUEST=REFUSE
+CONSUMED_TOKEN_REUSE_FOR_DIFFERENT_IDEMPOTENCY_KEY=ACCEPTED_REQUEST_CONFLICT
 REQUEST_TOKEN_ALONE_IS_AUTHORITY=NO
 OPERATING_ADMIN_CONTEXT_REQUIRED=YES
 SOURCE_OWNER_AUTHORIZATION_REQUIRED=YES
@@ -101,6 +113,7 @@ ROLLBACK_BOUNDARY=FUTURE_RELATIONSHIP_VERSION_ROW_ONLY
 A280_001_CLOSED=YES
 A280_002_CLOSED=YES
 A280_003_CLOSED=YES
+A280_004_CLOSED=YES
 READY_FOR_CROSS_TENANT_IDENTITY_RUNTIME_DESIGN=YES
 READY_FOR_NLO_0_9D_STATUS_INTEGRATION=NO
 READY_FOR_NLO_0_9D_RUNTIME=NO
@@ -161,16 +174,18 @@ relationship_id
 relationship_version
 ```
 
-`AcceptCarrierOperatingRelationshipRequest` is step 2. The body supplies the opaque request id or one-time token, and the idempotency key. The operating company is the server-verified selected company. The body does not supply it. Acceptance also requires an active membership for that user and company, and a `CARRIER_ADMIN` role on that same company and tenant. Tenant-global `PLATFORM_ADMIN` in the operating tenant may override the role check only. Several memberships and no selected company refuse. An ordinary member, a driver-only user, a role on another company, and a role in another tenant do not accept.
+`AcceptCarrierOperatingRelationshipRequest` is step 2. The first acceptance requires a valid one-time acceptance token and an idempotency key. `relationship_request_id` may appear only as an optional locator. It is not acceptance authority. The token resolves the canonical request. When the locator is present, it must equal that request. A missing token refuses and creates no relationship. A mismatch refuses and creates no relationship. The body does not supply either company id.
 
-The relationship version is inserted only when the shipper-side request and the operating admin acceptance of that same request both exist. A raw source id, a name, a tax id, a registration number, an email, a phone, and an ordinary membership are not that correlation. The token alone is not authority. An expired, cancelled, stale, or already-accepted-by-another-company request refuses.
+The operating company is the server-verified selected company. Acceptance also requires the authenticated operating tenant, an active membership for that user and company, and a `CARRIER_ADMIN` role on that same company. Tenant-global `PLATFORM_ADMIN` in the operating tenant may override the role check only. The request must be `PENDING`, unexpired, and not cancelled. Several memberships and no selected company refuse. An ordinary member, a driver-only user, a role on another company, and a role in another tenant do not accept.
+
+The relationship version is inserted only when the shipper-side request and the operating admin acceptance of that same request both exist. A raw source id, a name, a tax id, a registration number, an email, a phone, an ordinary membership, and a request id without the token are not that correlation. The token alone is not authority. An expired, cancelled, stale, or already-accepted-by-another-company request refuses.
 
 ```text
 CARRIER_BRIDGE_COMMAND_IDEMPOTENCY_SCOPE=relationship_request_id+selected_operating_tenant_id+selected_operating_company_id+idempotency_key
 ACCEPTING_USER_IS_AUDIT_PROVENANCE=YES
 ```
 
-The same request, same operating company, and same key replay the same relationship version. A different operating company or a different request on that key conflicts. Another authorized admin replaying the accepted request for the same company returns the same relationship. `accepted_by` is audit. A guessed request id without the token and admin context is not-found.
+The idempotency record is checked before a consumed token is treated as reuse. The same request, same operating company, and same key return the same relationship version. The first use of the token is required for that acceptance. A consumed token for another operating company refuses. A consumed token for another request refuses. A consumed token with a different idempotency key is `ACCEPTED_REQUEST_CONFLICT` and does not insert another version. Another authorized admin replaying the same accepted request, same operating company, and same key returns the same relationship. `accepted_by` is audit. A guessed request id without the token and admin context is not-found.
 
 ## Version row
 
@@ -237,4 +252,4 @@ POD remains compatible: document tenant and owner company stay in the operating 
 
 ## Failure matrix
 
-XTI_01 through XTI_50, and XTI_DRIVER_01 through XTI_DRIVER_03, and XTI_VEHICLE_01 through XTI_VEHICLE_03, in the discovery note are `FUTURE_REQUIRED`. They are part of this contract and are not implemented here.
+XTI_01 through XTI_54, and XTI_DRIVER_01 through XTI_DRIVER_03, and XTI_VEHICLE_01 through XTI_VEHICLE_03, in the discovery note are `FUTURE_REQUIRED`. They are part of this contract and are not implemented here.
