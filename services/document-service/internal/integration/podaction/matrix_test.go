@@ -50,6 +50,14 @@ func TestPOD_BIND_01(t *testing.T) {
 	if sameTenantShipment != 0 {
 		t.Fatal("shipment ownership moved into the carrier tenant")
 	}
+	var provider string
+	var bucket *string
+	if err := env.pool.QueryRow(env.ctx, `SELECT storage_provider, bucket_name FROM documents.document_files WHERE id=$1`, done.FileID).Scan(&provider, &bucket); err != nil {
+		t.Fatal(err)
+	}
+	if provider != "local" || bucket != nil {
+		t.Fatalf("local file metadata provider=%s bucket=%v", provider, bucket)
+	}
 }
 
 func TestPOD_BIND_02(t *testing.T) {
@@ -60,18 +68,23 @@ func TestPOD_BIND_02(t *testing.T) {
 	if _, err := env.svc.CreateUploadIntent(env.ctx, in); codeOf(err) != apperrors.CodeValidation {
 		t.Fatalf("pickup command: %v", err)
 	}
-	in.ActionType = domain.PODActionTypeDelivery
-	if _, err := env.svc.CreateUploadIntent(env.ctx, in); codeOf(err) != apperrors.CodeNotFound {
-		t.Fatalf("pickup row: %v", err)
+	var n int
+	if err := env.pool.QueryRow(env.ctx, `SELECT COUNT(*) FROM documents.pod_delivery_action_upload_intent WHERE idempotency_key=$1`, "bind-02").Scan(&n); err != nil || n != 0 {
+		t.Fatalf("pickup command inserted %d err=%v", n, err)
 	}
 }
 
 func TestPOD_BIND_03(t *testing.T) {
 	fix := seedAction(t, true)
 	done := finish(t, fix.input("bind-03"))
-	_, err := env.svc.GetEvidence(env.ctx, fix.operating, uuid.New(), uuid.New())
-	if codeOf(err) != apperrors.CodeNotFound || strings.Contains(err.Error(), done.DocumentID.String()) {
-		t.Fatalf("unknown read: %v", err)
+	rows, err := env.svc.GetEvidence(env.ctx, fix.operating, uuid.New(), uuid.New())
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("unknown scope %+v %v", rows, err)
+	}
+	for _, row := range rows {
+		if row.DocumentID == done.DocumentID {
+			t.Fatal("unknown scope leaked document id")
+		}
 	}
 }
 
@@ -113,18 +126,26 @@ func TestPOD_BIND_07(t *testing.T) {
 	fix := seedAction(t, true)
 	done := finish(t, fix.input("bind-07"))
 	foreign := uuid.New()
-	_, err := env.svc.GetEvidence(env.ctx, foreign, fix.execution, fix.action)
-	if codeOf(err) != apperrors.CodeNotFound || strings.Contains(err.Error(), done.DocumentID.String()) {
-		t.Fatalf("foreign read: %v", err)
+	rows, err := env.svc.GetEvidence(env.ctx, foreign, fix.execution, fix.action)
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("foreign read %+v %v", rows, err)
+	}
+	for _, row := range rows {
+		if row.DocumentID == done.DocumentID {
+			t.Fatal("foreign operating tenant leaked document id")
+		}
 	}
 }
 
 func TestPOD_BIND_08(t *testing.T) {
 	fix := seedAction(t, true)
 	in := fix.input("bind-08")
+	if _, err := env.svc.CreateUploadIntent(env.ctx, in); err != nil {
+		t.Fatal(err)
+	}
 	in.ShipmentTenantID = uuid.New()
 	if _, err := env.svc.CreateUploadIntent(env.ctx, in); codeOf(err) != apperrors.CodeConflict {
-		t.Fatalf("pin: %v", err)
+		t.Fatalf("replay pin: %v", err)
 	}
 }
 
@@ -340,9 +361,30 @@ func TestPOD_BIND_19(t *testing.T) {
 func TestPOD_BIND_20(t *testing.T) {
 	fix := seedAction(t, true)
 	done := finish(t, fix.input("bind-20"))
-	_, err := env.svc.GetEvidence(env.ctx, fix.shipmentTenant, fix.execution, fix.action)
-	if codeOf(err) != apperrors.CodeNotFound || strings.Contains(err.Error(), done.DocumentID.String()) {
-		t.Fatalf("cross-tenant read: %v", err)
+	rows, err := env.svc.GetEvidence(env.ctx, fix.shipmentTenant, fix.execution, fix.action)
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("cross-tenant read %+v %v", rows, err)
+	}
+	for _, row := range rows {
+		if row.DocumentID == done.DocumentID {
+			t.Fatal("cross-tenant read leaked document id")
+		}
+	}
+}
+
+func TestPODEvidenceUpdateImmutable(t *testing.T) {
+	fix := seedAction(t, true)
+	done := finish(t, fix.input("bind-immutable"))
+	_, err := env.pool.Exec(env.ctx, `UPDATE documents.pod_delivery_action_evidence SET shipment_id=$2 WHERE document_id=$1`, done.DocumentID, uuid.New())
+	if err == nil || !strings.Contains(err.Error(), "POD_ACTION_EVIDENCE_IMMUTABLE") {
+		t.Fatalf("evidence update err=%v", err)
+	}
+	var shipment uuid.UUID
+	if err := env.pool.QueryRow(env.ctx, `SELECT shipment_id FROM documents.pod_delivery_action_evidence WHERE document_id=$1`, done.DocumentID).Scan(&shipment); err != nil {
+		t.Fatal(err)
+	}
+	if shipment != fix.shipment {
+		t.Fatal("evidence shipment pin changed")
 	}
 }
 

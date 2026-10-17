@@ -30,8 +30,17 @@ func TestMigration000099Contract(t *testing.T) {
 			t.Fatalf("up migration missing %s", needle)
 		}
 	}
+	fn := up[strings.Index(up, "CREATE FUNCTION documents.reject_pod_delivery_action_evidence_identity_update()"):]
+	fn = fn[:strings.Index(fn, "CREATE TRIGGER")]
+	if strings.Contains(fn, "IS DISTINCT FROM") || !strings.Contains(fn, "RAISE EXCEPTION 'POD_ACTION_EVIDENCE_IMMUTABLE'") {
+		t.Fatal("evidence rows must reject every update")
+	}
 	if strings.Contains(strings.ToLower(up), "insert into documents.pod_delivery_action_evidence") {
 		t.Fatal("migration backfills evidence")
+	}
+	repo := string(mustReadMigration(t, "pod_action_evidence_repository.go"))
+	if strings.Contains(repo, "transport.") || strings.Contains(repo, "'local'") {
+		t.Fatal("action repository reads transport or hardcodes local storage")
 	}
 	if !strings.Contains(down, "DROP TABLE IF EXISTS documents.pod_delivery_action_evidence") {
 		t.Fatal("down migration does not drop the evidence table")

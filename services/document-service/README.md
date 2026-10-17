@@ -19,7 +19,7 @@ Go microservice for managing legal transport documents, versions, files, and moc
 | `DATABASE_URL` | local postgres URL | PostgreSQL connection string |
 | `LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 | `ENVIRONMENT` | `development` | Runtime environment |
-| `INTERNAL_SERVICE_TOKEN` | empty | Shared token for action-bound POD evidence. Empty rejects those routes |
+| `POD_ACTION_EVIDENCE_SHIPMENT_SERVICE_TOKEN` | empty | Dedicated shipment-service token for action-bound POD evidence. Empty rejects those routes. `INTERNAL_SERVICE_TOKEN` does not authorize them |
 
 ## Endpoints
 

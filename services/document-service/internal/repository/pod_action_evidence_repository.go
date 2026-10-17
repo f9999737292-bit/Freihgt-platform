@@ -26,61 +26,6 @@ func (r *PODActionEvidenceRepository) CompanyExists(ctx context.Context, company
 	return NewDocumentRepository(r.pool).CompanyExists(ctx, companyID, tenantID)
 }
 
-func (r *PODActionEvidenceRepository) ShipmentOwnerTenant(ctx context.Context, shipmentID uuid.UUID) (uuid.UUID, bool, error) {
-	var tenantID uuid.UUID
-	err := r.pool.QueryRow(ctx, `
-		SELECT tenant_id
-		FROM transport.shipments
-		WHERE id = $1 AND deleted_at IS NULL`, shipmentID).Scan(&tenantID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return uuid.Nil, false, nil
-	}
-	if err != nil {
-		return uuid.Nil, false, mapDBError(err)
-	}
-	return tenantID, true, nil
-}
-
-func (r *PODActionEvidenceRepository) FindDeliveryAction(ctx context.Context, operatingTenantID, executionID, actionID uuid.UUID) (*domain.DeliveryActionSubject, error) {
-	var subject domain.DeliveryActionSubject
-	err := r.pool.QueryRow(ctx, `
-		SELECT a.action_type,
-		       e.operating_tenant_id,
-		       e.id,
-		       a.id,
-		       a.execution_stop_id,
-		       a.shipment_id,
-		       a.shipment_tenant_id,
-		       a.cargo_id,
-		       e.carrier_company_id
-		FROM transport.transport_execution_actions AS a
-		JOIN transport.transport_execution_stops AS s ON s.id = a.execution_stop_id
-		JOIN transport.transport_executions AS e
-		  ON e.id = s.execution_id
-		 AND e.operating_tenant_id = s.operating_tenant_id
-		WHERE e.operating_tenant_id = $1
-		  AND e.id = $2
-		  AND a.id = $3`,
-		operatingTenantID, executionID, actionID).Scan(
-		&subject.ActionType,
-		&subject.OperatingTenantID,
-		&subject.ExecutionID,
-		&subject.ExecutionActionID,
-		&subject.ExecutionStopID,
-		&subject.ShipmentID,
-		&subject.ShipmentTenantID,
-		&subject.CargoID,
-		&subject.CarrierCompanyID,
-	)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, mapDBError(err)
-	}
-	return &subject, nil
-}
-
 func (r *PODActionEvidenceRepository) FindIntentByIdempotency(ctx context.Context, documentTenantID uuid.UUID, key string) (*domain.PODActionIntent, error) {
 	intent, err := scanActionIntent(r.pool.QueryRow(ctx, actionIntentSelect+`
 		WHERE document_tenant_id = $1 AND idempotency_key = $2`, documentTenantID, key))
@@ -163,6 +108,20 @@ func (r *PODActionEvidenceRepository) InsertIntent(ctx context.Context, in domai
 	return in, nil
 }
 
+func (r *PODActionEvidenceRepository) RotateUploadToken(ctx context.Context, uploadID uuid.UUID, tokenHash string) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE documents.pod_delivery_action_upload_intent
+		SET upload_token_hash = $2
+		WHERE id = $1 AND status <> 'completed'`, uploadID, tokenHash)
+	if err != nil {
+		return mapDBError(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return apperrors.Conflict("completed upload does not rotate its token", nil)
+	}
+	return nil
+}
+
 func (r *PODActionEvidenceRepository) MarkIntentUploaded(ctx context.Context, uploadID uuid.UUID, size int64) error {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE documents.pod_delivery_action_upload_intent
@@ -190,7 +149,7 @@ func (r *PODActionEvidenceRepository) EvidenceByIntent(ctx context.Context, uplo
 
 // CompleteIntent inserts the file row, the immutable evidence binding, and the completed
 // intent status in one database transaction. A completed intent returns the existing binding.
-func (r *PODActionEvidenceRepository) CompleteIntent(ctx context.Context, uploadID uuid.UUID, checksum string) (*domain.PODActionEvidence, error) {
+func (r *PODActionEvidenceRepository) CompleteIntent(ctx context.Context, uploadID uuid.UUID, checksum, storageProvider string, bucketName *string) (*domain.PODActionEvidence, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, mapDBError(err)
@@ -261,13 +220,12 @@ func (r *PODActionEvidenceRepository) CompleteIntent(ctx context.Context, upload
 		size = intent.ByteSize
 	}
 	fileID := uuid.New()
-	bucket := "local"
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO documents.document_files (
 			id, document_id, document_version_id, file_type, storage_provider,
 			bucket_name, object_key, file_name, mime_type, file_size_bytes, checksum_sha256
-		) VALUES ($1,$2,$3,$4,'local',$5,$6,$7,$8,$9,$10)`,
-		fileID, intent.DocumentID, intent.DocumentVersionID, fileType, bucket,
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		fileID, intent.DocumentID, intent.DocumentVersionID, fileType, storageProvider, bucketName,
 		intent.ObjectKey, fileName, intent.MimeType, size, checksumPtr,
 	); err != nil {
 		return nil, mapDBError(err)

@@ -61,10 +61,10 @@ func main() {
 	shipperSvc := service.NewShipperDocumentService(docRepo, attachmentSvc)
 	carrierSvc := service.NewCarrierDocumentService(docRepo, attachmentSvc)
 	podSvc := service.NewPODUploadService(db.Pool, docSvc, store, 10<<20)
-	actionSvc := service.NewPODActionEvidenceService(repository.NewPODActionEvidenceRepository(db.Pool), store, 10<<20)
+	actionSvc := service.NewPODActionEvidenceService(repository.NewPODActionEvidenceRepository(db.Pool), store, 10<<20, service.ActionObjectPlacementFromConfig(objectCfg))
 
 	router := httpserver.NewRouter(log, db.Pool, docSvc, signingSvc, podSvc, attachmentSvc, shipperSvc, carrierSvc, actionSvc, internalauth.Config{
-		Token:       cfg.InternalServiceToken,
+		Token:       cfg.PODActionEvidenceShipmentServiceToken,
 		Environment: cfg.Environment,
 	})
 

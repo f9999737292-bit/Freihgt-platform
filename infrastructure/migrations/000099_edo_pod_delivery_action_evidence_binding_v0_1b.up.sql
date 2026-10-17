@@ -117,13 +117,8 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    IF NEW.execution_action_id IS DISTINCT FROM OLD.execution_action_id
-        OR NEW.document_id IS DISTINCT FROM OLD.document_id
-    THEN
-        RAISE EXCEPTION 'POD_ACTION_EVIDENCE_IDENTITY_IMMUTABLE'
-            USING ERRCODE = '23514';
-    END IF;
-    RETURN NEW;
+    RAISE EXCEPTION 'POD_ACTION_EVIDENCE_IMMUTABLE'
+        USING ERRCODE = '23514';
 END;
 $$;
 

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -50,8 +52,9 @@ type memActionStore struct {
 	deleted      map[uuid.UUID]struct{}
 	inserts      int
 	listErr      error
-	subjectErr   error
 	requirements int
+	provider     string
+	bucket       *string
 }
 
 func newMemActionStore() *memActionStore {
@@ -88,27 +91,6 @@ func (m *memActionStore) CompanyExists(_ context.Context, companyID, tenantID uu
 	defer m.mu.Unlock()
 	_, ok := m.companies[companyID.String()+"|"+tenantID.String()]
 	return ok, nil
-}
-
-func (m *memActionStore) ShipmentOwnerTenant(_ context.Context, shipmentID uuid.UUID) (uuid.UUID, bool, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	tenant, ok := m.shipments[shipmentID]
-	return tenant, ok, nil
-}
-
-func (m *memActionStore) FindDeliveryAction(_ context.Context, operatingTenantID, executionID, actionID uuid.UUID) (*domain.DeliveryActionSubject, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.subjectErr != nil {
-		return nil, m.subjectErr
-	}
-	subject := m.actions[actionKey(operatingTenantID, executionID, actionID)]
-	if subject == nil {
-		return nil, nil
-	}
-	copy := *subject
-	return &copy, nil
 }
 
 func (m *memActionStore) FindIntentByIdempotency(_ context.Context, documentTenantID uuid.UUID, key string) (*domain.PODActionIntent, error) {
@@ -148,6 +130,17 @@ func (m *memActionStore) InsertIntent(_ context.Context, in domain.PODActionInte
 	return stored, nil
 }
 
+func (m *memActionStore) RotateUploadToken(_ context.Context, uploadID uuid.UUID, tokenHash string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	intent := m.byID[uploadID]
+	if intent == nil || intent.Status == "completed" {
+		return apperrors.Conflict("completed upload does not rotate its token", nil)
+	}
+	intent.UploadTokenHash = tokenHash
+	return nil
+}
+
 func (m *memActionStore) MarkIntentUploaded(_ context.Context, uploadID uuid.UUID, size int64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -171,9 +164,11 @@ func (m *memActionStore) EvidenceByIntent(_ context.Context, uploadID uuid.UUID)
 	return &copy, nil
 }
 
-func (m *memActionStore) CompleteIntent(_ context.Context, uploadID uuid.UUID, checksum string) (*domain.PODActionEvidence, error) {
+func (m *memActionStore) CompleteIntent(_ context.Context, uploadID uuid.UUID, checksum, storageProvider string, bucketName *string) (*domain.PODActionEvidence, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.provider = storageProvider
+	m.bucket = bucketName
 	intent := m.byID[uploadID]
 	if intent == nil {
 		return nil, apperrors.NotFound("upload intent not found")
@@ -240,7 +235,7 @@ func testActionService(t *testing.T, store *memActionStore) *PODActionEvidenceSe
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewPODActionEvidenceService(store, objects, 1024)
+	return NewPODActionEvidenceService(store, objects, 1024, ActionObjectPlacement{StorageProvider: "local"})
 }
 
 func codeOf(err error) apperrors.Code {
@@ -287,16 +282,11 @@ func TestPOD_BIND_02(t *testing.T) {
 	store := newMemActionStore()
 	w := newWorld()
 	store.seedDelivery(w)
-	store.actions[actionKey(w.operating, w.execution, w.action)].ActionType = "PICKUP"
 	svc := testActionService(t, store)
 	in := w.input("k2")
 	in.ActionType = "PICKUP"
-	if _, err := svc.CreateUploadIntent(context.Background(), in); codeOf(err) != apperrors.CodeValidation {
-		t.Fatalf("command pickup: %v", err)
-	}
-	in.ActionType = domain.PODActionTypeDelivery
-	if _, err := svc.CreateUploadIntent(context.Background(), in); codeOf(err) != apperrors.CodeNotFound || store.inserts != 0 {
-		t.Fatalf("stored pickup: %v inserts=%d", err, store.inserts)
+	if _, err := svc.CreateUploadIntent(context.Background(), in); codeOf(err) != apperrors.CodeValidation || store.inserts != 0 {
+		t.Fatalf("command pickup: %v inserts=%d", err, store.inserts)
 	}
 }
 
@@ -306,9 +296,14 @@ func TestPOD_BIND_03(t *testing.T) {
 	store.seedDelivery(w)
 	svc := testActionService(t, store)
 	done := completeFlow(t, svc, w.input("k3"))
-	_, err := svc.GetEvidence(context.Background(), w.operating, uuid.New(), uuid.New())
-	if codeOf(err) != apperrors.CodeNotFound || (err != nil && bytes.Contains([]byte(err.Error()), []byte(done.DocumentID.String()))) {
-		t.Fatalf("unknown read leaked or wrong code: %v", err)
+	rows, err := svc.GetEvidence(context.Background(), w.operating, uuid.New(), uuid.New())
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("unknown scope: %+v %v", rows, err)
+	}
+	for _, row := range rows {
+		if row.DocumentID == done.DocumentID {
+			t.Fatal("unknown scope leaked document id")
+		}
 	}
 }
 
@@ -364,16 +359,22 @@ func TestPOD_BIND_07(t *testing.T) {
 	w := newWorld()
 	store.seedDelivery(w)
 	svc := testActionService(t, store)
+	done := completeFlow(t, svc, w.input("k7"))
 	foreign := uuid.New()
-	in := w.input("k7")
+	rows, err := svc.GetEvidence(context.Background(), foreign, w.execution, w.action)
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("foreign read: %+v %v", rows, err)
+	}
+	for _, row := range rows {
+		if row.DocumentID == done.DocumentID {
+			t.Fatal("foreign operating tenant leaked document id")
+		}
+	}
+	in := w.input("k7-missing-company")
 	in.DocumentTenantID = foreign
 	in.OperatingTenantID = foreign
-	if _, err := svc.CreateUploadIntent(context.Background(), in); codeOf(err) != apperrors.CodeNotFound || store.inserts != 0 {
-		t.Fatalf("foreign create: %v inserts=%d", err, store.inserts)
-	}
-	_, err := svc.GetEvidence(context.Background(), foreign, w.execution, w.action)
-	if codeOf(err) != apperrors.CodeNotFound {
-		t.Fatalf("foreign read: %v", err)
+	if _, err := svc.CreateUploadIntent(context.Background(), in); codeOf(err) != apperrors.CodeNotFound {
+		t.Fatalf("company outside document tenant: %v", err)
 	}
 }
 
@@ -383,9 +384,12 @@ func TestPOD_BIND_08(t *testing.T) {
 	store.seedDelivery(w)
 	svc := testActionService(t, store)
 	in := w.input("k8")
+	if _, err := svc.CreateUploadIntent(context.Background(), in); err != nil {
+		t.Fatal(err)
+	}
 	in.ShipmentTenantID = uuid.New()
-	if _, err := svc.CreateUploadIntent(context.Background(), in); codeOf(err) != apperrors.CodeConflict || store.inserts != 0 {
-		t.Fatalf("shipment tenant mismatch: %v", err)
+	if _, err := svc.CreateUploadIntent(context.Background(), in); codeOf(err) != apperrors.CodeConflict || store.inserts != 1 {
+		t.Fatalf("shipment tenant replay: %v inserts=%d", err, store.inserts)
 	}
 }
 
@@ -592,12 +596,6 @@ func TestPOD_BIND_19(t *testing.T) {
 	if err == nil || rows != nil {
 		t.Fatalf("outage returned rows=%v err=%v", rows, err)
 	}
-	store.listErr = nil
-	store.subjectErr = apperrors.Internal("repository unavailable", nil)
-	rows, err = svc.GetEvidence(context.Background(), w.operating, w.execution, w.action)
-	if err == nil || len(rows) == 0 && err == nil {
-		t.Fatalf("subject outage returned rows=%v err=%v", rows, err)
-	}
 }
 
 func TestPOD_BIND_20(t *testing.T) {
@@ -606,12 +604,14 @@ func TestPOD_BIND_20(t *testing.T) {
 	store.seedDelivery(w)
 	svc := testActionService(t, store)
 	done := completeFlow(t, svc, w.input("k20"))
-	_, err := svc.GetEvidence(context.Background(), w.shipmentTenant, w.execution, w.action)
-	if codeOf(err) != apperrors.CodeNotFound {
-		t.Fatalf("cross-tenant read: %v", err)
+	rows, err := svc.GetEvidence(context.Background(), w.shipmentTenant, w.execution, w.action)
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("cross-tenant read: %+v %v", rows, err)
 	}
-	if err != nil && bytes.Contains([]byte(err.Error()), []byte(done.DocumentID.String())) {
-		t.Fatal("cross-tenant read leaked document id")
+	for _, row := range rows {
+		if row.DocumentID == done.DocumentID {
+			t.Fatal("cross-tenant read leaked document id")
+		}
 	}
 }
 
@@ -661,4 +661,151 @@ func TestDeletedDocumentIsNotEvidence(t *testing.T) {
 	if err != nil || len(rows) != 0 {
 		t.Fatalf("deleted document still present: %+v %v", rows, err)
 	}
+}
+
+func TestActionStorageMetadata(t *testing.T) {
+	store := newMemActionStore()
+	w := newWorld()
+	store.seedDelivery(w)
+	objects, err := storage.NewLocalObjectStore(filepath.Join(t.TempDir(), "objects"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	localSvc := NewPODActionEvidenceService(store, objects, 1024, ActionObjectPlacement{StorageProvider: "local"})
+	completeFlow(t, localSvc, w.input("local-meta"))
+	if store.provider != "local" || store.bucket != nil {
+		t.Fatalf("local metadata provider=%s bucket=%v", store.provider, store.bucket)
+	}
+	bucket := "edo-pod-evidence"
+	s3Svc := NewPODActionEvidenceService(store, objects, 1024, ActionObjectPlacement{StorageProvider: "s3", BucketName: &bucket})
+	completeFlow(t, s3Svc, w.input("s3-meta"))
+	if store.provider != "s3" || store.bucket == nil || *store.bucket != bucket {
+		t.Fatalf("s3 metadata provider=%s bucket=%v", store.provider, store.bucket)
+	}
+	fromCfg := ActionObjectPlacementFromConfig(storage.Config{Provider: "s3", Bucket: bucket})
+	if fromCfg.StorageProvider != "s3" || fromCfg.BucketName == nil || *fromCfg.BucketName != bucket {
+		t.Fatalf("config placement %+v", fromCfg)
+	}
+	if got := ActionObjectPlacementFromConfig(storage.Config{Provider: "local"}); got.StorageProvider != "local" || got.BucketName != nil {
+		t.Fatalf("local config placement %+v", got)
+	}
+}
+
+func TestCreateReplayResumesWithRotatedToken(t *testing.T) {
+	store := newMemActionStore()
+	w := newWorld()
+	store.seedDelivery(w)
+	svc := testActionService(t, store)
+	ctx := context.Background()
+	first, err := svc.CreateUploadIntent(ctx, w.input("resume"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := svc.CreateUploadIntent(ctx, w.input("resume"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !second.Replayed || second.UploadID != first.UploadID || second.DocumentID != first.DocumentID || second.UploadToken == "" || second.UploadToken == first.UploadToken || store.inserts != 1 {
+		t.Fatalf("replay first=%s second=%+v inserts=%d", first.UploadToken, second, store.inserts)
+	}
+	if err := svc.UploadContent(ctx, second.UploadID, first.UploadToken, bytes.NewReader([]byte("old")), domain.SubjectConfirmation{}); codeOf(err) != apperrors.CodeValidation {
+		t.Fatalf("old token: %v", err)
+	}
+	if err := svc.UploadContent(ctx, second.UploadID, second.UploadToken, bytes.NewReader([]byte("new")), domain.SubjectConfirmation{}); err != nil {
+		t.Fatal(err)
+	}
+	done := completeFlow(t, svc, w.input("resume-done"))
+	replay, err := svc.CreateUploadIntent(ctx, w.input("resume-done"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay.UploadToken != "" || replay.DocumentID != done.DocumentID || replay.UploadID != done.UploadID || store.inserts != 2 {
+		t.Fatalf("completed replay %+v inserts=%d", replay, store.inserts)
+	}
+}
+
+func TestContentUploadRetryDoesNotOverwrite(t *testing.T) {
+	store := newMemActionStore()
+	w := newWorld()
+	store.seedDelivery(w)
+	root := filepath.Join(t.TempDir(), "objects")
+	inner, err := storage.NewLocalObjectStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guard := &actionCountingStore{inner: inner}
+	svc := NewPODActionEvidenceService(store, guard, 1024, ActionObjectPlacement{StorageProvider: "local"})
+	ctx := context.Background()
+	intent, err := svc.CreateUploadIntent(ctx, w.input("retry-content"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.UploadContent(ctx, intent.UploadID, intent.UploadToken, bytes.NewReader([]byte("original")), domain.SubjectConfirmation{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.UploadContent(ctx, intent.UploadID, intent.UploadToken, bytes.NewReader([]byte("replacement-bytes")), domain.SubjectConfirmation{}); err != nil {
+		t.Fatal(err)
+	}
+	if guard.puts != 1 {
+		t.Fatalf("puts=%d", guard.puts)
+	}
+	body, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(intent.ObjectKey)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "original" {
+		t.Fatalf("object overwritten: %s", body)
+	}
+}
+
+func TestContentRecoveryWhenObjectExistsAndIntentPending(t *testing.T) {
+	store := newMemActionStore()
+	w := newWorld()
+	store.seedDelivery(w)
+	inner, err := storage.NewLocalObjectStore(filepath.Join(t.TempDir(), "objects"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	guard := &actionCountingStore{inner: inner}
+	svc := NewPODActionEvidenceService(store, guard, 1024, ActionObjectPlacement{StorageProvider: "local"})
+	ctx := context.Background()
+	intent, err := svc.CreateUploadIntent(ctx, w.input("recover"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := inner.Put(ctx, intent.ObjectKey, bytes.NewReader([]byte("already")), 1024); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.UploadContent(ctx, intent.UploadID, intent.UploadToken, bytes.NewReader([]byte("ignored")), domain.SubjectConfirmation{}); err != nil {
+		t.Fatal(err)
+	}
+	if guard.puts != 0 {
+		t.Fatalf("recovery called Put %d times", guard.puts)
+	}
+	loaded, err := store.LoadIntent(ctx, intent.UploadID)
+	if err != nil || loaded.Status != "uploaded" || loaded.ByteSize != int64(len("already")) {
+		t.Fatalf("recovered intent %+v %v", loaded, err)
+	}
+}
+
+type actionCountingStore struct {
+	inner storage.ObjectStore
+	puts  int
+}
+
+func (c *actionCountingStore) Put(ctx context.Context, objectKey string, reader io.Reader, maxBytes int64) (int64, error) {
+	c.puts++
+	return c.inner.Put(ctx, objectKey, reader, maxBytes)
+}
+func (c *actionCountingStore) Get(ctx context.Context, objectKey string) (io.ReadCloser, error) {
+	return c.inner.Get(ctx, objectKey)
+}
+func (c *actionCountingStore) Exists(ctx context.Context, objectKey string) (bool, error) {
+	return c.inner.Exists(ctx, objectKey)
+}
+func (c *actionCountingStore) Metadata(ctx context.Context, objectKey string) (storage.ObjectMetadata, error) {
+	return c.inner.Metadata(ctx, objectKey)
+}
+func (c *actionCountingStore) Delete(ctx context.Context, objectKey string) error {
+	return c.inner.Delete(ctx, objectKey)
 }

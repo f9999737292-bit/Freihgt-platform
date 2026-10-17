@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -17,28 +18,45 @@ import (
 // PODActionEvidenceStore is the document-side persistence for action-bound POD evidence.
 type PODActionEvidenceStore interface {
 	CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
-	ShipmentOwnerTenant(ctx context.Context, shipmentID uuid.UUID) (uuid.UUID, bool, error)
-	FindDeliveryAction(ctx context.Context, operatingTenantID, executionID, actionID uuid.UUID) (*domain.DeliveryActionSubject, error)
 	FindIntentByIdempotency(ctx context.Context, documentTenantID uuid.UUID, key string) (*domain.PODActionIntent, error)
 	LoadIntent(ctx context.Context, uploadID uuid.UUID) (*domain.PODActionIntent, error)
 	InsertIntent(ctx context.Context, in domain.PODActionIntent) (domain.PODActionIntent, error)
+	RotateUploadToken(ctx context.Context, uploadID uuid.UUID, tokenHash string) error
 	MarkIntentUploaded(ctx context.Context, uploadID uuid.UUID, size int64) error
 	EvidenceByIntent(ctx context.Context, uploadID uuid.UUID) (*domain.PODActionEvidence, error)
-	CompleteIntent(ctx context.Context, uploadID uuid.UUID, checksum string) (*domain.PODActionEvidence, error)
+	CompleteIntent(ctx context.Context, uploadID uuid.UUID, checksum, storageProvider string, bucketName *string) (*domain.PODActionEvidence, error)
 	ListPresentEvidence(ctx context.Context, operatingTenantID, executionID, actionID uuid.UUID) ([]domain.PODActionEvidence, error)
 }
 
-type PODActionEvidenceService struct {
-	store    PODActionEvidenceStore
-	storage  storage.ObjectStore
-	maxBytes int64
+// ActionObjectPlacement is the server-owned file metadata for the configured object store.
+type ActionObjectPlacement struct {
+	StorageProvider string
+	BucketName      *string
 }
 
-func NewPODActionEvidenceService(store PODActionEvidenceStore, objects storage.ObjectStore, maxBytes int64) *PODActionEvidenceService {
+func ActionObjectPlacementFromConfig(cfg storage.Config) ActionObjectPlacement {
+	if strings.EqualFold(strings.TrimSpace(cfg.Provider), "s3") {
+		bucket := cfg.Bucket
+		return ActionObjectPlacement{StorageProvider: "s3", BucketName: &bucket}
+	}
+	return ActionObjectPlacement{StorageProvider: "local"}
+}
+
+type PODActionEvidenceService struct {
+	store     PODActionEvidenceStore
+	storage   storage.ObjectStore
+	maxBytes  int64
+	placement ActionObjectPlacement
+}
+
+func NewPODActionEvidenceService(store PODActionEvidenceStore, objects storage.ObjectStore, maxBytes int64, placement ActionObjectPlacement) *PODActionEvidenceService {
 	if maxBytes <= 0 {
 		maxBytes = 10 << 20
 	}
-	return &PODActionEvidenceService{store: store, storage: objects, maxBytes: maxBytes}
+	if strings.TrimSpace(placement.StorageProvider) == "" {
+		placement.StorageProvider = "local"
+	}
+	return &PODActionEvidenceService{store: store, storage: objects, maxBytes: maxBytes, placement: placement}
 }
 
 type CreateActionPODIntentInput struct {
@@ -94,29 +112,9 @@ func (s *PODActionEvidenceService) CreateUploadIntent(ctx context.Context, in Cr
 		return nil, err
 	}
 	if existing != nil {
-		if err := sameActionPin(existing, in); err != nil {
-			return nil, err
-		}
-		return intentResult(existing, "", true), nil
+		return s.replayIntent(ctx, existing, in)
 	}
 
-	subject, err := s.store.FindDeliveryAction(ctx, in.OperatingTenantID, in.ExecutionID, in.ExecutionActionID)
-	if err != nil {
-		return nil, err
-	}
-	if subject == nil || subject.ActionType != domain.PODActionTypeDelivery {
-		return nil, apperrors.NotFound("delivery action not found")
-	}
-	if err := commandMatchesSubject(in, subject); err != nil {
-		return nil, err
-	}
-	ownerTenant, found, err := s.store.ShipmentOwnerTenant(ctx, in.ShipmentID)
-	if err != nil {
-		return nil, err
-	}
-	if !found || ownerTenant != in.ShipmentTenantID {
-		return nil, apperrors.Conflict("shipment tenant pin mismatch", nil)
-	}
 	companyOK, err := s.store.CompanyExists(ctx, in.OwnerCompanyID, in.DocumentTenantID)
 	if err != nil {
 		return nil, err
@@ -151,10 +149,7 @@ func (s *PODActionEvidenceService) CreateUploadIntent(ctx context.Context, in Cr
 			if again == nil {
 				return nil, err
 			}
-			if pinErr := sameActionPin(again, in); pinErr != nil {
-				return nil, pinErr
-			}
-			return intentResult(again, "", true), nil
+			return s.replayIntent(ctx, again, in)
 		}
 		return nil, err
 	}
@@ -172,17 +167,44 @@ func (s *PODActionEvidenceService) UploadContent(ctx context.Context, uploadID u
 	if err := verifyToken(token, intent.UploadTokenHash); err != nil {
 		return apperrors.Validation("invalid upload token", nil)
 	}
-	if intent.Status != "pending" && intent.Status != "uploaded" {
+	if intent.Status == "completed" {
+		return apperrors.Conflict("upload intent is not active", map[string]any{"status": intent.Status})
+	}
+	if intent.Status == "uploaded" {
+		if _, err := s.storage.Metadata(ctx, intent.ObjectKey); err != nil {
+			return err
+		}
+		return nil
+	}
+	if intent.Status != "pending" {
 		return apperrors.Conflict("upload intent is not active", map[string]any{"status": intent.Status})
 	}
 	if time.Now().UTC().After(intent.ExpiresAt) {
 		return apperrors.Validation("upload intent expired", nil)
 	}
+	exists, err := s.storage.Exists(ctx, intent.ObjectKey)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return s.recoverUploadedObject(ctx, uploadID, intent.ObjectKey)
+	}
 	size, err := s.storage.Put(ctx, intent.ObjectKey, body, intent.MaxBytes)
+	if errors.Is(err, storage.ErrObjectExists) {
+		return s.recoverUploadedObject(ctx, uploadID, intent.ObjectKey)
+	}
 	if err != nil {
 		return apperrors.Validation("upload failed", map[string]any{"detail": err.Error()})
 	}
 	return s.store.MarkIntentUploaded(ctx, uploadID, size)
+}
+
+func (s *PODActionEvidenceService) recoverUploadedObject(ctx context.Context, uploadID uuid.UUID, objectKey string) error {
+	meta, err := s.storage.Metadata(ctx, objectKey)
+	if err != nil {
+		return err
+	}
+	return s.store.MarkIntentUploaded(ctx, uploadID, meta.SizeBytes)
 }
 
 func (s *PODActionEvidenceService) CompleteUpload(ctx context.Context, uploadID uuid.UUID, checksum string, confirm domain.SubjectConfirmation) (*CompleteActionPODResult, error) {
@@ -211,7 +233,7 @@ func (s *PODActionEvidenceService) CompleteUpload(ctx context.Context, uploadID 
 	if !ok {
 		return nil, apperrors.Validation("stored object missing", nil)
 	}
-	evidence, err := s.store.CompleteIntent(ctx, uploadID, checksum)
+	evidence, err := s.store.CompleteIntent(ctx, uploadID, checksum, s.placement.StorageProvider, s.placement.BucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -221,13 +243,6 @@ func (s *PODActionEvidenceService) CompleteUpload(ctx context.Context, uploadID 
 func (s *PODActionEvidenceService) GetEvidence(ctx context.Context, operatingTenantID, executionID, actionID uuid.UUID) ([]domain.PODActionEvidence, error) {
 	if operatingTenantID == uuid.Nil || executionID == uuid.Nil || actionID == uuid.Nil {
 		return nil, apperrors.Validation("delivery action subject is required", nil)
-	}
-	subject, err := s.store.FindDeliveryAction(ctx, operatingTenantID, executionID, actionID)
-	if err != nil {
-		return nil, err
-	}
-	if subject == nil || subject.ActionType != domain.PODActionTypeDelivery {
-		return nil, apperrors.NotFound("delivery action not found")
 	}
 	rows, err := s.store.ListPresentEvidence(ctx, operatingTenantID, executionID, actionID)
 	if err != nil {
@@ -279,6 +294,23 @@ func validateCreateActionPOD(in CreateActionPODIntentInput) error {
 	return nil
 }
 
+func (s *PODActionEvidenceService) replayIntent(ctx context.Context, existing *domain.PODActionIntent, in CreateActionPODIntentInput) (*ActionPODIntentResult, error) {
+	if err := sameActionPin(existing, in); err != nil {
+		return nil, err
+	}
+	if existing.Status == "completed" {
+		return intentResult(existing, "", true), nil
+	}
+	token, tokenHash, err := newUploadToken()
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.RotateUploadToken(ctx, existing.ID, tokenHash); err != nil {
+		return nil, err
+	}
+	return intentResult(existing, token, true), nil
+}
+
 func sameActionPin(existing *domain.PODActionIntent, in CreateActionPODIntentInput) error {
 	switch {
 	case existing.ExecutionActionID != in.ExecutionActionID:
@@ -298,28 +330,6 @@ func sameActionPin(existing *domain.PODActionIntent, in CreateActionPODIntentInp
 	default:
 		return nil
 	}
-}
-
-func commandMatchesSubject(in CreateActionPODIntentInput, subject *domain.DeliveryActionSubject) error {
-	if subject.ExecutionID != in.ExecutionID || subject.ExecutionActionID != in.ExecutionActionID || subject.ExecutionStopID != in.ExecutionStopID {
-		return apperrors.Conflict("execution pin mismatch", nil)
-	}
-	if subject.ShipmentID != in.ShipmentID {
-		return apperrors.Conflict("shipment pin mismatch", nil)
-	}
-	if subject.ShipmentTenantID != in.ShipmentTenantID {
-		return apperrors.Conflict("shipment tenant pin mismatch", nil)
-	}
-	if subject.CargoID != in.CargoID {
-		return apperrors.Conflict("subject pin mismatch", nil)
-	}
-	if subject.CarrierCompanyID != in.OwnerCompanyID {
-		return apperrors.Conflict("owner company pin mismatch", nil)
-	}
-	if subject.OperatingTenantID != in.OperatingTenantID {
-		return apperrors.Conflict("tenant pin mismatch", nil)
-	}
-	return nil
 }
 
 func confirmMatches(intent *domain.PODActionIntent, c domain.SubjectConfirmation) error {

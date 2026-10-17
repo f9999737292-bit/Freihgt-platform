@@ -12,7 +12,10 @@ POD_EVIDENCE_AUTHOR_COMPANY_SOURCE=transport.drivers.carrier_company_id
 DOCUMENT_TENANT_EQUALS_SHIPMENT_TENANT=NO
 DOCUMENT_TENANT_EQUALS_OPERATING_TENANT=YES
 POD_ACTION_EVIDENCE_INTERNAL_AUTH=REQUIRED
-INTERNAL_CALLER_ALLOWLIST=shipment-service
+POD_ACTION_CALLER_CREDENTIAL_SCOPE=SHIPMENT_SERVICE_ONLY
+DOCUMENT_SERVICE_DIRECT_TRANSPORT_SQL=NO
+TMS_SUBJECT_AUTHORITY=shipment-service
+DOCUMENT_SERVICE_TRUSTED_SUBJECT_ONLY=YES
 DIRECT_BROWSER_TO_DOCUMENT_SERVICE_ALLOWED=NO
 CLIENT_SUPPLIED_TENANT_AUTHORITY=NO
 IDEMPOTENCY_KEY_REQUIRED=YES
@@ -41,13 +44,17 @@ Migration `000099_edo_pod_delivery_action_evidence_binding_v0_1b`.
 
 One document binds to at most one delivery action. One delivery action may have many POD documents. There is no foreign key from `documents` into `transport`. Historical shipment-only POD rows are not backfilled.
 
+`documents.pod_delivery_action_evidence` has no mutable lifecycle columns. A database trigger rejects every `UPDATE` of an evidence row. A correction is a new POD document and a new evidence row.
+
+The file row written at complete stores the server-configured object placement. `storage_provider` is `local` for the local object store and `s3` for the S3 object store. `bucket_name` is the configured S3 bucket, and null for the local store. The provider is not inferred from the object key.
+
 The legacy `documents.document_upload_intent` idempotency scope (`tenant_id + driver_id + idempotency_key`) is unchanged.
 
 Idempotency key is required. The runtime unique key is `(document_tenant_id, idempotency_key)`, which also enforces the freeze triple `(document_tenant_id, execution_action_id, idempotency_key)`. The same key with a different action, or the same action with a different execution, stop, shipment, shipment tenant, cargo, owner company, or author pin, is a conflict and does not insert another intent.
 
 ## Internal API
 
-Authentication is `packages/shared-go/internalauth` (`X-Internal-Service-Token` from `INTERNAL_SERVICE_TOKEN`) plus `X-Internal-Service-Name=shipment-service`. `X-Tenant-ID` is not authentication and is not the tenant source.
+Authentication is `packages/shared-go/internalauth` with the dedicated server token `POD_ACTION_EVIDENCE_SHIPMENT_SERVICE_TOKEN`, plus `X-Internal-Service-Name=shipment-service`. An empty dedicated token fails closed. The shared `INTERNAL_SERVICE_TOKEN` does not authorize these routes. A dedicated token presented with another caller name is rejected. `X-Tenant-ID` is not authentication and is not the tenant source.
 
 | Method | Route |
 | --- | --- |
@@ -56,11 +63,13 @@ Authentication is `packages/shared-go/internalauth` (`X-Internal-Service-Token` 
 | POST | `/internal/v1/pod-action-evidence/upload-intents/{uploadId}/complete` |
 | GET | `/internal/v1/pod-action-evidence/{operatingTenantId}/{executionId}/{executionActionId}` |
 
-Create accepts the trusted shipment-service subject and pins it. Content and complete resolve the intent by upload id and keep that pin. A subject value supplied again is checked against the pin and cannot re-home the intent.
+Create accepts the authenticated shipment-service subject command and pins it. document-service does not read `transport.*` to rediscover execution, action, stop, shipment, shipment tenant, cargo, carrier, driver, or actor provenance. It validates that every required id is present, `actionType` is `DELIVERY`, and `documentTenantId` equals `operatingTenantId`. It checks `CompanyExists(owner_company_id, document_tenant_id)` and the idempotency pin. It does not call `ShipmentExists(shipment_id, document_tenant_id)` and does not change `DocumentService.Create`.
 
-The dedicated create path checks `CompanyExists(owner_company_id, document_tenant_id)` and that the shipment row's tenant equals the pinned `shipment_tenant_id`. It does not call `ShipmentExists(shipment_id, document_tenant_id)` and does not change `DocumentService.Create`.
+Content and complete resolve the intent by upload id and keep that pin. A subject value supplied again is checked against the pin and cannot re-home the intent. The object key stays the server-derived pin. Content upload does not overwrite an existing object. A retry after a successful upload returns success when that object is present. If the object was stored and the intent is still pending, the same intent is marked uploaded from the stored object size.
 
-The read returns a list of present evidence for that delivery action: none, one, or many. An unknown or foreign subject is not found and the body contains no document id. A known delivery action with nothing completed returns an empty list. A repository error is an error, not an empty list.
+A replay of an intent that is not completed returns the same upload and document ids with a fresh upload token. Only `upload_token_hash` changes. A completed replay returns the completed identity and does not create a second document or a new upload token.
+
+The read returns evidence for the scope shipment-service already verified: none, one, or many. A verified action with no evidence is an empty list. Unknown or foreign actions are not found by shipment-service before it calls document-service. A repository error is an error, not an empty list.
 
 ## Evidence presence
 
@@ -76,4 +85,4 @@ The object bytes are stored earlier, at content upload. That object is not evide
 
 ## Remaining boundary
 
-shipment-service still has to verify the driver and the delivery action, then call these routes. The gateway and the driver app do not call document-service for this binding. POD acceptance and POD satisfaction stay unimplemented.
+shipment-service verifies the operating tenant, execution, delivery action, stop, shipment, shipment tenant, cargo, carrier company, driver assignment, and actor provenance, then calls these routes with that trusted subject. The gateway and the driver app do not call document-service for this binding. POD acceptance and POD satisfaction stay unimplemented.

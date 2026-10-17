@@ -94,7 +94,7 @@ func TestMain(m *testing.M) {
 	docRepo := repository.NewDocumentRepository(pool)
 	env = &actionEnv{
 		ctx: ctx, pool: pool, migDir: dir,
-		svc:    service.NewPODActionEvidenceService(repository.NewPODActionEvidenceRepository(pool), store, 1<<20),
+		svc:    service.NewPODActionEvidenceService(repository.NewPODActionEvidenceRepository(pool), store, 1<<20, service.ActionObjectPlacement{StorageProvider: "local"}),
 		legacy: service.NewPODUploadService(pool, service.NewDocumentService(docRepo), store, 1<<20),
 	}
 	code := m.Run()
