@@ -19,6 +19,7 @@ Go microservice for managing legal transport documents, versions, files, and moc
 | `DATABASE_URL` | local postgres URL | PostgreSQL connection string |
 | `LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 | `ENVIRONMENT` | `development` | Runtime environment |
+| `INTERNAL_SERVICE_TOKEN` | empty | Shared token for action-bound POD evidence. Empty rejects those routes |
 
 ## Endpoints
 
@@ -36,6 +37,11 @@ Go microservice for managing legal transport documents, versions, files, and moc
 | POST | `/v1/signing-sessions/{id}/signatures` | Add mock signature |
 | POST | `/v1/documents/{id}/cancel` | Cancel document |
 | POST | `/v1/documents/{id}/archive` | Archive document |
+| POST | `/internal/v1/pod-uploads` | Legacy shipment POD upload intent |
+| POST | `/internal/v1/pod-action-evidence/upload-intents` | Action-bound POD upload intent. Internal token and `X-Internal-Service-Name=shipment-service` |
+| PUT | `/internal/v1/pod-action-evidence/upload-intents/{uploadId}/content` | Upload bytes for a pinned action intent |
+| POST | `/internal/v1/pod-action-evidence/upload-intents/{uploadId}/complete` | Bind the completed file to the delivery action |
+| GET | `/internal/v1/pod-action-evidence/{operatingTenantId}/{executionId}/{executionActionId}` | List present action evidence |
 
 ## Run locally
 

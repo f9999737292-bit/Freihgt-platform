@@ -7,12 +7,13 @@ import (
 )
 
 type Config struct {
-	ServiceName string
-	Environment string
-	HTTPPort    int
-	LogLevel    string
-	DatabaseURL string
-	StorageRoot string
+	ServiceName          string
+	Environment          string
+	HTTPPort             int
+	LogLevel             string
+	DatabaseURL          string
+	StorageRoot          string
+	InternalServiceToken string
 }
 
 func Load() (Config, error) {
@@ -35,12 +36,13 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		ServiceName: "document-service",
-		Environment: getEnv("ENVIRONMENT", "development"),
-		HTTPPort:    port,
-		LogLevel:    getEnv("LOG_LEVEL", "info"),
-		DatabaseURL: databaseURL,
-		StorageRoot: getEnv("DOCUMENT_STORAGE_ROOT", "./data/document-storage"),
+		ServiceName:          "document-service",
+		Environment:          getEnv("ENVIRONMENT", "development"),
+		HTTPPort:             port,
+		LogLevel:             getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:          databaseURL,
+		StorageRoot:          getEnv("DOCUMENT_STORAGE_ROOT", "./data/document-storage"),
+		InternalServiceToken: os.Getenv("INTERNAL_SERVICE_TOKEN"),
 	}, nil
 }
 
