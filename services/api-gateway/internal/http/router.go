@@ -23,6 +23,7 @@ import (
 	"github.com/freight-platform/api-gateway/internal/freightcost"
 	"github.com/freight-platform/api-gateway/internal/freightcostrbac"
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
+	"github.com/freight-platform/api-gateway/internal/identityguard"
 	"github.com/freight-platform/api-gateway/internal/paymentrbac"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
@@ -63,6 +64,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	if proxy != nil {
 		proxy.clientIPResolver = clientIPResolver
 	}
+	r.Use(identityguard.New(cfg.JWTSecret, identityguard.NewHTTPVerifier(cfg.Services.Identity)).Middleware)
 	r.Use(gwmiddleware.AuthWithIntegrationSupport(cfg.AuthEnabled, cfg.JWTSecret, integrationJWT, nil))
 	r.Use(gwmiddleware.IntegrationAuth(gwmiddleware.IntegrationAuthConfig{
 		Enabled:              cfg.IntegrationAuthEnabled,

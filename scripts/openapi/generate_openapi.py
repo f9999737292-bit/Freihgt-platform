@@ -146,13 +146,18 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/integrations/erp/rfx/by-external-id", "get", "Get ERP RFx draft by stable external identity", "RFx", True, True, "erp_get_rfx_by_external_id"),
     ("/api/v1/integrations/erp/analyses/{analysis_id}", "get", "Get ERP import analysis status", "RFx", True, True, "erp_get_import_analysis_status"),
     ("/api/v1/integrations/erp/capabilities", "get", "Get ERP integration capabilities", "RFx", True, True, "erp_get_integration_capabilities"),
-    ("/api/v1/users", "post", "Create user", "Users", False, False, None),
-    ("/api/v1/users", "get", "List users", "Users", True, True, None),
-    ("/api/v1/users/{id}", "get", "Get user by ID", "Users", True, True, None),
-    ("/api/v1/users/{id}", "patch", "Update user", "Users", True, True, None),
-    ("/api/v1/users/{id}", "delete", "Delete user", "Users", True, True, None),
-    ("/api/v1/users/{user_id}/companies", "get", "List companies for user", "Users", True, True, None),
-    ("/api/v1/users/{user_id}/companies/{company_id}/roles", "post", "Assign role to user in company", "Roles", True, True, None),
+    ("/api/v1/users", "post", "Create user", "Users", True, True, "identity_user_authority"),
+    ("/api/v1/users", "get", "List users", "Users", True, True, "identity_user_authority"),
+    ("/api/v1/users/{id}", "get", "Get user by ID", "Users", True, True, "identity_user_authority"),
+    ("/api/v1/users/{id}", "patch", "Update user", "Users", True, True, "identity_user_authority"),
+    ("/api/v1/users/{id}", "delete", "Delete user", "Users", True, True, "identity_user_authority"),
+    ("/api/v1/users/{id}/roles", "get", "List roles assigned to a user", "Roles", True, True, "identity_user_authority"),
+    ("/api/v1/users/{id}/roles", "post", "Assign a tenant role to a user", "Roles", True, True, "identity_user_authority"),
+    ("/api/v1/users/{user_id}/companies", "get", "List companies for user", "Users", True, True, "identity_user_authority"),
+    ("/api/v1/users/{user_id}/companies/{company_id}/roles", "post", "Assign role to user in company", "Roles", True, True, "identity_user_authority"),
+    ("/api/v1/users/{user_id}/companies/{company_id}/roles/{role_id}", "delete", "Remove role from user in company", "Roles", True, True, "identity_user_authority"),
+    ("/api/v1/roles", "get", "List tenant and system roles", "Roles", True, True, "identity_user_authority"),
+    ("/api/v1/roles/{role_id}/permissions", "get", "List permissions for a role", "Roles", True, True, "identity_user_authority"),
     ("/api/v1/companies", "post", "Create company", "Companies", True, True, None),
     ("/api/v1/companies", "get", "List companies", "Companies", True, True, None),
     ("/api/v1/companies/{id}", "get", "Get company by ID", "Companies", True, True, None),
@@ -1396,6 +1401,16 @@ def query_parameter_lines(method: str, path: str, profile: str | None) -> list[s
         lines.extend(_pagination_query_lines())
     elif profile == "bno_list":
         lines.extend(_pagination_query_lines())
+    elif profile == "identity_user_authority":
+        lines.extend([
+            "        - name: tenant_id",
+            "          in: query",
+            "          required: false",
+            "          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.",
+            "          schema:",
+            "            type: string",
+            "            format: uuid",
+        ])
     elif profile == "carrier_invited_event_get":
         lines.extend([
             "        - name: carrier_company_id",
@@ -1759,6 +1774,14 @@ def render_operation(
                 lines.append(f"        {desc_line}")
             else:
                 lines.append("")
+    elif profile == "identity_user_authority":
+        lines.append("      description: |")
+        lines.append("        Bearer authentication is required. Anonymous user creation is not available.")
+        lines.append("        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.")
+        lines.append("        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.")
+        lines.append("        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.")
+        lines.append("        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.")
+        lines.append("        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.")
     elif profile == "driver_delivery_disposition":
         lines.append("      description: |")
         lines.append("        Records accepted and rejected quantity for the authenticated driver.")

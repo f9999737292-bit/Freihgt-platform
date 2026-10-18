@@ -19,6 +19,11 @@ const (
 	CodeInternal                          Code = "INTERNAL_ERROR"
 	CodeRateLimitExceeded                 Code = "RATE_LIMIT_EXCEEDED"
 	CodeRequestBodyTooLarge               Code = "REQUEST_BODY_TOO_LARGE"
+	CodeAuthenticationRequired            Code = "AUTHENTICATION_REQUIRED"
+	CodeAuthorizationDenied               Code = "AUTHORIZATION_DENIED"
+	CodeTenantContextRequired             Code = "TENANT_CONTEXT_REQUIRED"
+	CodeTenantContextConflict             Code = "TENANT_CONTEXT_CONFLICT"
+	CodeResourceNotFound                  Code = "RESOURCE_NOT_FOUND"
 )
 
 type AppError struct {
@@ -47,6 +52,26 @@ func NotFound(message string) *AppError {
 
 func Unauthorized(message string) *AppError {
 	return &AppError{Code: CodeUnauthorized, Message: message, Details: map[string]any{}}
+}
+
+func AuthenticationRequired() *AppError {
+	return &AppError{Code: CodeAuthenticationRequired, Message: "authentication required", Details: map[string]any{}}
+}
+
+func AuthorizationDenied() *AppError {
+	return &AppError{Code: CodeAuthorizationDenied, Message: "authorization denied", Details: map[string]any{}}
+}
+
+func TenantContextRequired() *AppError {
+	return &AppError{Code: CodeTenantContextRequired, Message: "tenant context required", Details: map[string]any{}}
+}
+
+func TenantContextConflict() *AppError {
+	return &AppError{Code: CodeTenantContextConflict, Message: "tenant context conflict", Details: map[string]any{}}
+}
+
+func ResourceNotFound() *AppError {
+	return &AppError{Code: CodeResourceNotFound, Message: "resource not found", Details: map[string]any{}}
 }
 
 func Forbidden(message string) *AppError {

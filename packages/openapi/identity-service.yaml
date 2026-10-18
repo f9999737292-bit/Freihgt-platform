@@ -209,6 +209,26 @@ paths:
       tags: [Users]
       summary: Create user
       operationId: post_create_user
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -216,6 +236,8 @@ paths:
             schema:
               type: object
               additionalProperties: true
+      security:
+        - bearerAuth: []
       responses:
         '201':
           description: Successful response
@@ -265,12 +287,26 @@ paths:
       tags: [Users]
       summary: List users
       operationId: get_list_users
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
         - $ref: '#/components/parameters/XCompanyID'
         - $ref: '#/components/parameters/XLocale'
         - $ref: '#/components/parameters/Authorization'
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
+          schema:
+            type: string
+            format: uuid
       security:
         - bearerAuth: []
       responses:
@@ -323,6 +359,13 @@ paths:
       tags: [Users]
       summary: Get user by ID
       operationId: get_get_user_by_id
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -332,6 +375,13 @@ paths:
         - name: id
           in: path
           required: true
+          schema:
+            type: string
+            format: uuid
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
           schema:
             type: string
             format: uuid
@@ -386,6 +436,13 @@ paths:
       tags: [Users]
       summary: Update user
       operationId: patch_update_user
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -395,6 +452,13 @@ paths:
         - name: id
           in: path
           required: true
+          schema:
+            type: string
+            format: uuid
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
           schema:
             type: string
             format: uuid
@@ -456,6 +520,13 @@ paths:
       tags: [Users]
       summary: Delete user
       operationId: delete_delete_user
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -465,6 +536,13 @@ paths:
         - name: id
           in: path
           required: true
+          schema:
+            type: string
+            format: uuid
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
           schema:
             type: string
             format: uuid
@@ -515,11 +593,180 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/users/{id}/roles:
+    get:
+      tags: [Roles]
+      summary: List roles assigned to a user
+      operationId: get_list_roles_assigned_to_a_user
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Roles]
+      summary: Assign a tenant role to a user
+      operationId: post_assign_a_tenant_role_to_a_user
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/users/{user_id}/companies:
     get:
       tags: [Users]
       summary: List companies for user
       operationId: get_list_companies_for_user
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -529,6 +776,13 @@ paths:
         - name: user_id
           in: path
           required: true
+          schema:
+            type: string
+            format: uuid
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
           schema:
             type: string
             format: uuid
@@ -584,6 +838,13 @@ paths:
       tags: [Roles]
       summary: Assign role to user in company
       operationId: post_assign_role_to_user_in_company
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
       parameters:
         - $ref: '#/components/parameters/XRequestID'
         - $ref: '#/components/parameters/XTenantID'
@@ -602,6 +863,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -613,6 +881,246 @@ paths:
         - bearerAuth: []
       responses:
         '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/users/{user_id}/companies/{company_id}/roles/{role_id}:
+    delete:
+      tags: [Roles]
+      summary: Remove role from user in company
+      operationId: delete_remove_role_from_user_in_company
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: role_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/roles:
+    get:
+      tags: [Roles]
+      summary: List tenant and system roles
+      operationId: get_list_tenant_and_system_roles
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/roles/{role_id}/permissions:
+    get:
+      tags: [Roles]
+      summary: List permissions for a role
+      operationId: get_list_permissions_for_a_role
+      description: |
+        Bearer authentication is required. Anonymous user creation is not available.
+        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.
+        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.
+        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.
+        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.
+        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - $ref: '#/components/parameters/XTenantID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XLocale'
+        - $ref: '#/components/parameters/Authorization'
+        - name: role_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: tenant_id
+          in: query
+          required: false
+          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
           description: Successful response
           content:
             application/json:

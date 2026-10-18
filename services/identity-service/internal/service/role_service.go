@@ -12,6 +12,7 @@ import (
 type RoleStore interface {
 	ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]domain.Role, error)
 	GetByID(ctx context.Context, roleID uuid.UUID) (*domain.Role, error)
+	GetVisibleToTenant(ctx context.Context, roleID, tenantID uuid.UUID) (*domain.Role, error)
 	RoleAvailableForTenant(ctx context.Context, roleID, tenantID uuid.UUID) (bool, error)
 	CompanyExists(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
 	AssignRole(ctx context.Context, in domain.AssignRoleInput) error
@@ -39,11 +40,14 @@ func (s *RoleService) ListRoles(ctx context.Context, tenantID uuid.UUID) ([]doma
 	return s.roles.ListByTenant(ctx, tenantID)
 }
 
-func (s *RoleService) ListRolePermissions(ctx context.Context, roleID uuid.UUID) ([]domain.Permission, error) {
+func (s *RoleService) ListRolePermissions(ctx context.Context, roleID, tenantID uuid.UUID) ([]domain.Permission, error) {
 	if roleID == uuid.Nil {
 		return nil, apperrors.Validation("role_id is required", map[string]any{"field": "role_id"})
 	}
-	if _, err := s.roles.GetByID(ctx, roleID); err != nil {
+	if tenantID == uuid.Nil {
+		return nil, apperrors.TenantContextRequired()
+	}
+	if _, err := s.roles.GetVisibleToTenant(ctx, roleID, tenantID); err != nil {
 		return nil, err
 	}
 	return s.permissions.ListByRoleID(ctx, roleID)
@@ -60,7 +64,7 @@ func (s *RoleService) AssignRole(ctx context.Context, in domain.AssignRoleInput)
 		return apperrors.Validation("role_id is required", map[string]any{"field": "role_id"})
 	}
 
-	if _, err := s.users.GetByID(ctx, in.UserID); err != nil {
+	if _, err := s.users.GetByIDAndTenant(ctx, in.UserID, in.TenantID); err != nil {
 		return err
 	}
 
@@ -69,7 +73,7 @@ func (s *RoleService) AssignRole(ctx context.Context, in domain.AssignRoleInput)
 		return err
 	}
 	if !available {
-		return apperrors.NotFound("role not found")
+		return apperrors.ResourceNotFound()
 	}
 
 	if in.CompanyID != nil {
@@ -78,7 +82,7 @@ func (s *RoleService) AssignRole(ctx context.Context, in domain.AssignRoleInput)
 			return err
 		}
 		if !exists {
-			return apperrors.NotFound("company not found")
+			return apperrors.ResourceNotFound()
 		}
 	}
 
@@ -92,7 +96,7 @@ func (s *RoleService) ListUserRoles(ctx context.Context, userID, tenantID uuid.U
 	if userID == uuid.Nil {
 		return nil, apperrors.Validation("user_id is required", map[string]any{"field": "user_id"})
 	}
-	if _, err := s.users.GetByID(ctx, userID); err != nil {
+	if _, err := s.users.GetByIDAndTenant(ctx, userID, tenantID); err != nil {
 		return nil, err
 	}
 	return s.roles.ListUserRoles(ctx, userID, tenantID)

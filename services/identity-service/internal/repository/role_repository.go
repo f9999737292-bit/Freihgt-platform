@@ -67,6 +67,23 @@ func (r *RoleRepository) GetByID(ctx context.Context, roleID uuid.UUID) (*domain
 	return role, nil
 }
 
+func (r *RoleRepository) GetVisibleToTenant(ctx context.Context, roleID, tenantID uuid.UUID) (*domain.Role, error) {
+	const query = `
+		SELECT id, tenant_id, code, name, description, scope, is_system, created_at, updated_at, version
+		FROM core.roles
+		WHERE id = $1 AND deleted_at IS NULL AND (tenant_id IS NULL OR tenant_id = $2)
+	`
+	row := r.pool.QueryRow(ctx, query, roleID, tenantID)
+	role, err := scanRole(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.ResourceNotFound()
+		}
+		return nil, mapDBError(err)
+	}
+	return role, nil
+}
+
 func (r *RoleRepository) RoleAvailableForTenant(ctx context.Context, roleID, tenantID uuid.UUID) (bool, error) {
 	const query = `
 		SELECT EXISTS (

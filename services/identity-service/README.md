@@ -120,6 +120,10 @@ Requires PostgreSQL from `make dev-up` and applied migrations.
 
 
 
+User and role routes require a bearer access token. `tenant_id` in a query or body is non-authoritative and must match the verified token tenant. A different tenant is accepted only for a server-verified `PLATFORM_ADMIN` override. The examples below are local contract illustrations; call them with `Authorization: Bearer ACCESS_TOKEN`.
+
+
+
 ## Examples
 
 
