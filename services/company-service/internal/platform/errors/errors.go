@@ -5,12 +5,27 @@ import "fmt"
 type Code string
 
 const (
-	CodeValidation    Code = "VALIDATION_ERROR"
-	CodeNotFound      Code = "NOT_FOUND"
-	CodeConflict      Code = "CONFLICT"
-	CodeUnauthorized  Code = "UNAUTHORIZED"
-	CodeForbidden     Code = "FORBIDDEN"
-	CodeInternal      Code = "INTERNAL_ERROR"
+	CodeValidation   Code = "VALIDATION_ERROR"
+	CodeNotFound     Code = "NOT_FOUND"
+	CodeConflict     Code = "CONFLICT"
+	CodeUnauthorized Code = "UNAUTHORIZED"
+	CodeForbidden    Code = "FORBIDDEN"
+	CodeInternal     Code = "INTERNAL_ERROR"
+
+	CodeAuthenticationRequired             Code = "AUTHENTICATION_REQUIRED"
+	CodeTenantContextConflict              Code = "TENANT_CONTEXT_CONFLICT"
+	CodeRelationshipCommandsDisabled       Code = "RELATIONSHIP_COMMANDS_DISABLED"
+	CodeRelationshipRequestForbidden       Code = "RELATIONSHIP_REQUEST_FORBIDDEN"
+	CodeRelationshipAcceptanceForbidden    Code = "RELATIONSHIP_ACCEPTANCE_FORBIDDEN"
+	CodeRelationshipRequestNotFound        Code = "RELATIONSHIP_REQUEST_NOT_FOUND"
+	CodeRelationshipRequestExpired         Code = "RELATIONSHIP_REQUEST_EXPIRED"
+	CodeRelationshipRequestCancelled       Code = "RELATIONSHIP_REQUEST_CANCELLED"
+	CodeRelationshipRequestAlreadyAccepted Code = "RELATIONSHIP_REQUEST_ALREADY_ACCEPTED"
+	CodeRelationshipRequestStaleSource     Code = "RELATIONSHIP_REQUEST_STALE_SOURCE"
+	CodeRelationshipRequestPendingConflict Code = "RELATIONSHIP_REQUEST_PENDING_CONFLICT"
+	CodeRelationshipIdempotencyConflict    Code = "RELATIONSHIP_IDEMPOTENCY_CONFLICT"
+	CodeRelationshipSourceUnavailable      Code = "RELATIONSHIP_SOURCE_UNAVAILABLE"
+	CodeRelationshipStoreUnavailable       Code = "RELATIONSHIP_STORE_UNAVAILABLE"
 )
 
 type AppError struct {
@@ -53,6 +68,31 @@ func Unauthorized(message string) *AppError {
 
 func Forbidden(message string) *AppError {
 	return &AppError{Code: CodeForbidden, Message: message, Details: map[string]any{}}
+}
+
+func New(code Code, message string) *AppError {
+	return &AppError{Code: code, Message: message, Details: map[string]any{}}
+}
+
+func StatusOf(code Code) int {
+	switch code {
+	case CodeValidation:
+		return 400
+	case CodeAuthenticationRequired, CodeUnauthorized:
+		return 401
+	case CodeRelationshipCommandsDisabled, CodeRelationshipRequestForbidden, CodeRelationshipAcceptanceForbidden, CodeForbidden:
+		return 403
+	case CodeNotFound, CodeRelationshipRequestNotFound:
+		return 404
+	case CodeConflict, CodeTenantContextConflict, CodeRelationshipRequestExpired, CodeRelationshipRequestCancelled,
+		CodeRelationshipRequestAlreadyAccepted, CodeRelationshipRequestStaleSource, CodeRelationshipRequestPendingConflict,
+		CodeRelationshipIdempotencyConflict:
+		return 409
+	case CodeRelationshipSourceUnavailable, CodeRelationshipStoreUnavailable:
+		return 503
+	default:
+		return 500
+	}
 }
 
 func detailsOrEmpty(details map[string]any) map[string]any {

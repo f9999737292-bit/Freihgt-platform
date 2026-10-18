@@ -43,7 +43,12 @@ func main() {
 	membershipRepo := repository.NewMembershipRepository(db.Pool)
 	companyService := service.NewCompanyService(repo)
 	membershipService := service.NewMembershipService(repo, membershipRepo)
-	router := httpserver.NewRouter(log, db.Pool, cfg, repo, membershipRepo, companyService, membershipService)
+	relationshipRepo := repository.NewRelationshipRepository(db.Pool)
+	relationshipService := service.NewRelationshipService(relationshipRepo, relationshipRepo, service.RelationshipConfig{
+		CommandsEnabled: cfg.RelationshipCommandsEnabled,
+		TokenPepper:     cfg.RelationshipTokenPepper,
+	}, service.FailClosedSourceRevalidator{})
+	router := httpserver.NewRouter(log, db.Pool, cfg, repo, membershipRepo, companyService, membershipService, relationshipService)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
