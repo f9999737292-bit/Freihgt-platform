@@ -82,7 +82,7 @@ CI точного `main`: `CI_RUN=39070635241`, event `push`, conclusion `succes
 | tracking-service | Локации, ETA, слоты | Tracking | `tracking` (`000026`) | отдельного YAML нет | gateway читает сервис | CI execution-tracking | нет | да, staging overlay | IMPLEMENTED_NOT_DEPLOYED | MEDIUM |
 | control-tower-read-model-service | Проекции, алерты, кейсы, playbooks | Control Tower | `control_tower` | отдельного YAML нет | читает события отправления | CI backend-go-check | да | да | IN_MAIN_RUNTIME | MEDIUM |
 | localization-service | Локализация | Portals | не выделена отдельным CREATE SCHEMA в этом аудите | отдельного YAML нет | за gateway не развёрнут в базовом compose | только матрица `backend-go-check` | нет | нет | PARTIAL | LOW |
-| low-code-service | Настраиваемые поля и шаблоны форм | Platform | `lowcode` (`000011`) | отдельного YAML нет | за gateway | страницы в web-admin | да | да | PARTIAL | MEDIUM |
+| low-code-service | Настраиваемые поля и шаблоны форм | Platform | `lowcode` (`000011`) | отдельного YAML нет | за gateway | страницы в web-admin; сервис не входит в матрицу `backend-go-check` | да | да | PARTIAL | MEDIUM |
 
 Базовый `infrastructure/docker-compose/docker-compose.yml` регистрирует: postgres, identity, company, transport-order, rfx, shipment, document, billing-register, payment, low-code, control-tower, api-gateway, prometheus, grafana, migrate, redpanda.
 
@@ -100,7 +100,7 @@ CI точного `main`: `CI_RUN=39070635241`, event `push`, conclusion `succes
 | web-procurement | Nuxt 3 | тендеры, XLSX, ставки, freight cost, settlement, billing, платежи | `frontend-web-procurement-check` | нет | нет | PARTIAL | MEDIUM |
 | web-consignee | Nuxt 3 | одна страница `pages/index.vue` | нет | нет | нет | NOT_STARTED | HIGH |
 | web-finance | Nuxt 3 | одна страница `pages/index.vue` | нет | нет | нет | NOT_STARTED | HIGH |
-| driver-mobile | Vue + Capacitor | логин, отправления, отчёты о задержке и проблеме | нет native job | нет | нет | PARTIAL | LOW |
+| driver-mobile | Vue + Capacitor | логин, отправления, остановки, загрузка POD, отчёты о задержке и проблеме | нет job в `ci.yml` | нет | нет | PARTIAL | LOW |
 
 Локали `ru-RU`, `en-US`, `zh-CN` видны в ресурсах web-procurement. Это файлы интерфейса, не доказательство промышленной локализации всех кабинетов.
 
@@ -342,12 +342,12 @@ Freight-cost intelligence имеет browser e2e в CI и страницы web-p
 ### 7.17 Кабинет грузоотправителя
 
 PRIMARY_STATE=`PARTIAL`, CONFIDENCE=`MEDIUM`.  
-web-shipper имеет отправления, документы и tracking. CI проверяет приложение, не полный browser suite company-gate. FIRST_BLOCKER: e2e company-gate не входит в `ci.yml`.
+web-shipper имеет отправления, документы и tracking. Job `frontend-web-shipper-check` запускает `pnpm exec playwright test`, и spec офиса проверяет `company-gate`. Этот job не входит в обязательные проверки защиты `main`. FIRST_BLOCKER: нет пилотного образа текущего SHA.
 
 ### 7.18 Кабинет перевозчика
 
 PRIMARY_STATE=`PARTIAL`, CONFIDENCE=`MEDIUM`.  
-web-carrier показывает заказы, тендеры, флот, tracking и документы. Тот же пробел CI для browser company-gate. FIRST_BLOCKER: нет пилотного образа текущего SHA в репозиторном доказательстве.
+web-carrier показывает заказы, тендеры, флот, tracking и документы. Job `frontend-web-carrier-check` так же запускает Playwright офиса, включая `company-gate`, и тоже не входит в обязательные проверки `main`. FIRST_BLOCKER: нет пилотного образа текущего SHA в репозиторном доказательстве.
 
 ### 7.19 Кабинет экспедитора
 
@@ -388,7 +388,7 @@ Wave 1 CI успешен. Межтенантное исполнение не и�
 | FLOW_01 RFx → ответ → оценка → award → заказ → отправление | RFx до award-to-transport-order | один автоматический контур до исполнения перевозчиком | компания покупателя в RFx доказана job-ами | rfx enterprise auth job | CI rfx + `order-execution-integration` | исторический | нет замкнутой передачи в исполнение на текущем релизе | 55 | MEDIUM | NOT_END_TO_END_READY |
 | FLOW_02 отправление → назначение перевозчика → водитель/ТС → исполнение | команды TMS и задачи водителя | пин отношения и проверка оператора | локальная компания перевозчика не равна оператору | company RBAC на gateway | order execution CI | исторический | нет runtime идентичности | 40 | MEDIUM | NOT_END_TO_END_READY |
 | FLOW_03 multi-stop → действия → диспозиция | миграции `000090`–`000093` | полный UI и связь с полнотой документов | tenant исполнения | driver routes отвергают клиентскую execution identity в тесте | частичные integration | не доказан на 099 | диспозиция не закрывает документный контур | 45 | MEDIUM | NOT_END_TO_END_READY |
-| FLOW_04 доставка → POD → решение → полнота → допуск к биллингу | документный evidence и чтение требования | прокси, писатель, политика, satisfaction | документный тенант = тенант оператора, не тенант отправления | отдельный токен shipment-service на document-service | тесты document-service; e2e нет | не развёрнут 099 | нет вызова из shipment-service | 15 | MEDIUM | NOT_END_TO_END_READY |
+| FLOW_04 доставка → POD → решение → полнота → допуск к биллингу | документный evidence, чтение требования, прежняя загрузка POD на отправление | прокси action-evidence, писатель, политика, satisfaction | документный тенант action-evidence = тенант оператора | отдельный токен для action-evidence; legacy upload идёт через gateway | тесты document-service и settlement; e2e action-evidence нет | не развёрнут 099 | action-evidence не вызывается из shipment-service; settlement смотрит только документ POD на shipment | 25 | MEDIUM | NOT_END_TO_END_READY |
 | FLOW_05 NLO → кандидат → accept → activate → TMS | поиск, сохранение, accept/activate одиночного route plan | accept кандидата, материализация, `execution_supported=true` | цепочка пока в тенанте вызывающего | network RBAC на gateway | CI chain persistence | репозиторный compose NLO отсутствует; исторически сервис наблюдался | статусная интеграция и идентичность запрещены freeze | 25 | MEDIUM | NOT_END_TO_END_READY |
 | FLOW_06 tracking → ETA → Control Tower → действие | маршруты ETA и проекции CT | замкнутое действие оператора на текущем релизе | carrier/shipper read gates | company context guards | `execution-tracking-pod-integration` SUCCESS | tracking только в overlay; живой SHA неизвестен | нет живого контура оповещения | 45 | MEDIUM | NOT_END_TO_END_READY |
 | FLOW_07 ставка → freight cost → settlement → реестр → платёж | каждый сервис имеет свой CI | один промышленный rollout и допуск из POD | company-scoped finance guards | public e2e rates и freight cost | соответствующие job SUCCESS | образы исторические, не `3eaa9ef` | rollout PR не слиты, текущий staging не доказан | 50 | MEDIUM | NOT_END_TO_END_READY |
@@ -437,7 +437,7 @@ Wave 1 CI успешен. Межтенантное исполнение не и�
 | DOCUMENT_SERVICE_ACTION_EVIDENCE_RUNTIME | IN_MAIN_RUNTIME | SYMBOL=`PODActionEvidenceService`, миграция `000099`, внутренние маршруты |
 | SHIPMENT_SERVICE_ACTION_VERIFICATION | NOT_STARTED для этого контракта | в shipment-service нет `PODActionEvidence` |
 | SHIPMENT_SERVICE_PROXY | NOT_STARTED | вызовов `/internal/v1/pod-action-evidence` из shipment-service нет |
-| DRIVER_OR_GATEWAY_INTEGRATION | NOT_STARTED | документ прямо запрещает прямой браузерный доступ |
+| DRIVER_OR_GATEWAY_INTEGRATION | PARTIAL | gateway вызывает legacy `CreatePODUpload` на `/internal/v1/pod-uploads`; action-evidence этот путь не вызывает. Прямой браузерный доступ к action-evidence по контракту запрещён |
 | POD_REQUIREMENT_FOUNDATION | IN_MAIN_RUNTIME | миграция `000098`, чтение, состояние `UNKNOWN` без строки |
 | POD_KNOWN_DECISION_WRITER | NOT_STARTED | репозиторий содержит `LoadPODRequirement`, `loadSubject`, `loadLatestDecision`; команды записи нет. Интеграционный тест вставляет строку SQL сам |
 | POD_ACCEPTANCE_POLICY | NOT_STARTED | колонки есть, источника политики нет |
@@ -509,7 +509,7 @@ CI job `execution-tracking-pod-integration` на run `39070635241` успеше�
 | Водитель | 50 | 40 | 45 | 35 | 45 | 20 | 10 | 5 | 33,75 | 35 |
 | Ставки / cost / settlement / billing / платежи | 70 | 70 | 75 | 65 | 55 | 70 | 25 | 15 | 60,25 | 60 |
 | Аналитика | 55 | 50 | 50 | 45 | 50 | 55 | 15 | 10 | 45,00 | 45 |
-| Порталы / админ / экспедитор / локализация | 55 | 35 | 25 | 30 | 55 | 40 | 20 | 10 | 36,25 | 35 |
+| Порталы / админ / экспедитор / локализация | 55 | 35 | 25 | 30 | 55 | 55 | 20 | 10 | 38,50 | 40 |
 | Инфраструктура | 60 | 55 | 80 | 40 | н/п | 65 | 20 | 20 | 43,75 из 85 = 51,47 | 50 |
 
 Инфраструктура: UI не применяется. Сырое 43,75 относится к весу 0,85. Нормированное значение 51,47 округляется до 50.
@@ -527,11 +527,11 @@ CI job `execution-tracking-pod-integration` на run `39070635241` успеше�
 | Водитель | 7 | 35 | 2,45 |
 | Финансы | 10 | 60 | 6,00 |
 | Аналитика | 6 | 45 | 2,70 |
-| Порталы | 6 | 35 | 2,10 |
+| Порталы | 6 | 40 | 2,40 |
 | Инфраструктура | 6 | 50 | 3,00 |
-| Сумма | 100 |  | 50,30 |
+| Сумма | 100 |  | 50,60 |
 
-`FUNCTIONAL_COMPLETENESS_PERCENT=50`.  
+`FUNCTIONAL_COMPLETENESS_PERCENT=50`. Сырая сумма 50,60 округляется до 50. Балл порталов поднят до 40, потому что Playwright офиса shipper и carrier, включая company-gate, входит в CI и успешен на run `39070635241`.
 `FUNCTIONAL_COMPLETENESS_CONFIDENCE=MEDIUM`.
 
 Потолок 50 отражает реальный код и зелёный CI, а не пилот. Слияние PR #281 этот процент не меняет.
@@ -615,7 +615,8 @@ CI job `execution-tracking-pod-integration` на run `39070635241` успеше�
 Отдельные наблюдения:
 
 - Embedded PostgreSQL (`github.com/fergusstrange/embedded-postgres`, V16) используется в harness document-service, tracking-service, network-optimizer и других. CI-интеграции, которые смотрел этот аудит, поднимают сервис `postgres:16` через GitHub service, а не этот downloader. Риск скачивания остаётся у локальных и у тех тестов, которые стартуют embedded binary. Нестабильность на run `39070635241` не проявилась: run зелёный.
-- Browser company-gate покрыт `apps/web-shipper/e2e/shipper-office.spec.ts` и `apps/web-carrier/e2e/carrier-office.spec.ts`. Этих spec нет среди job `ci.yml`. Нестабильность в текущем CI поэтому не наблюдалась и не опровергнута.
+- Browser company-gate покрыт `apps/web-shipper/e2e/shipper-office.spec.ts` и `apps/web-carrier/e2e/carrier-office.spec.ts`. Job `frontend-web-shipper-check` и `frontend-web-carrier-check` выполняют `pnpm exec playwright test`. Оба job успешны на run `39070635241`. В обязательный набор защиты `main` они не входят. Отдельного свидетельства нестабильности company-gate на этом run нет.
+- `low-code-service` отсутствует в матрице `backend-go-check`. Его тесты этим workflow не запускаются.
 - `t.Skip`, если нет `TEST_DATABASE_URL`, есть во многих integration helpers. Профильные CI job выставляют `TEST_DATABASE_URL` и часто `REQUIRE_TEST_DATABASE=1`. Пропуск опасен для локального запуска и для job без этого env. Зелёный exact-head run не доказывает, что ни один невыбранный тест не пропустился по `-run` или `-skip`.
 - `TestFC22G1` включается флагом `PERF_100K`. Job 100k этот флаг ставит.
 - Часть browser-тестов rfx пропускается без `BROWSER_E2E=1`. Именованные browser job CI существуют и на этом run успешны; непросмотренный лог не цитируется как доказательство числа assertions.
@@ -626,7 +627,7 @@ CI job `execution-tracking-pod-integration` на run `39070635241` успеше�
 
 | Граница | Класс | Доказательство |
 | --- | --- | --- |
-| JWT authority | PROVEN | проверка на gateway, CI wave 1 |
+| JWT authority | PARTIAL | gateway проверяет JWT до прокси, CI wave 1 успешен. `identity-service` вешает JWT только на `GET /v1/auth/me`. Группы `/v1/users` и `/v1/roles` middleware не имеют: `tenant_id` берётся из query или body. Это закрыто, только если сервис не опубликован мимо gateway |
 | Снятие недоверенных заголовков | PROVEN | `StripUntrustedIdentityHeaders` |
 | Вывод тенанта | PROVEN | из проверенного JWT в `AuthContext`, не из сырого заголовка клиента |
 | Выбранная компания | PARTIAL | server-side company context есть; browser e2e не в CI |
@@ -722,7 +723,7 @@ PARTIAL_COUNT=16.
 | Интеграция статусов NLO | нельзя проверить допустимость старта из депо | `READY_FOR_NLO_0_9D_STATUS_INTEGRATION=NO` | C | не писать код интеграции | да | да | BLOCKED |
 | FLOW_09 | один оператор не везёт грузы разных тенантов законно | идентичность | A затем C и D | после пинов | да | да | BLOCKED |
 | Сквозной POD | нельзя закрыть доставку документом | прокси, писатель, политика | C затем B | после контракта прокси | да | да | BLOCKED |
-| Допуск биллинга из POD | счёт не связан с доказательством | satisfaction | G ждёт C | не начинать | да | да | BLOCKED |
+| Допуск биллинга из action-evidence | settlement смотрит документ `POD` на shipment, не action-evidence и не satisfaction | писатель и политика action-POD | G ждёт C | не подменять legacy-проверку новым контуром | да | да | BLOCKED |
 | Межгрузоотправительский слот на старте | слот нельзя подтвердить для чужого тенанта | `BLOCKED_BY_IDENTITY_MODEL` | C | после идентичности | да | да | BLOCKED |
 | Контролируемый пилот текущего SHA | нет среды, равной main | неизвестное развёртывание и миграции 96–99 | A | только по отдельному разрешению на staging | да | да | BLOCKED |
 | Промышленный старт | нет операционного контура | backup/restore/on-call/SLO | A | после пилота | нет | да | BLOCKED |
@@ -738,6 +739,7 @@ BLOCKED_COUNT=8.
 | Исторические имена в старых доказательствах | LOW | DOCUMENTATION_DRIFT |
 | Staging-наблюдение 2026-10-04 против main `3eaa9ef` / DB 99 | CRITICAL | OPERATIONAL_GAP |
 | Общий internal token у части сервисов | HIGH | SECURITY_RISK |
+| `/v1/users` и `/v1/roles` identity-service без JWT middleware | HIGH | SECURITY_RISK |
 | Embedded PostgreSQL и `t.Skip` без БД | MEDIUM | TECHNICAL_DEBT |
 | Freeze 0.1A, 0.9D и POD 0.1B без разрешённой реализации следующих звеньев | HIGH | TECHNICAL_DEBT |
 | Временная модель: локальный UUID перевозчика не является оператором | CRITICAL | SECURITY_RISK |
@@ -747,7 +749,7 @@ BLOCKED_COUNT=8.
 | Нет владельца on-call в main | CRITICAL | OPERATIONAL_GAP |
 | Нет промышленного доказательства | CRITICAL | OPERATIONAL_GAP |
 | Защита `main` не требует полного CI и не требует review | MEDIUM | DELIVERY_PROCESS_RISK |
-| Company-gate browser spec вне CI | MEDIUM | TECHNICAL_DEBT |
+| Company-gate есть в Playwright shipper/carrier, но эти job не обязательны для `main` | MEDIUM | DELIVERY_PROCESS_RISK |
 
 LEGACY_NAMING: активное имя продукта — BINTRANS. Старые имена в истории и в контроле `scripts/test/check-active-bintrans-naming.sh` не переписываются этим отчётом и не объявляются текущим названием.
 
@@ -766,7 +768,7 @@ LEGACY_NAMING: активное имя продукта — BINTRANS. Стары
 | R09 | HIGH | MEDIUM | DB 95 против кода 99 | релиз | манифест version 95 | не выводить текущую версию из манифеста | A | пилот |
 | R10 | HIGH | MEDIUM | биллинг без доказательства доставки | FLOW_07 | satisfaction NOT_STARTED | не связывать счёт с POD до writer | G | пром |
 | R11 | MEDIUM | MEDIUM | ложнозелёный локальный тест | CI | `t.Skip` без `TEST_DATABASE_URL` | не считать локальный прогон без БД доказательством | все | качество |
-| R12 | MEDIUM | MEDIUM | company-gate вне CI | FLOW_02 | spec есть, job нет | отдельное решение, включать ли spec в CI | F | пилот кабинетов |
+| R12 | MEDIUM | MEDIUM | company-gate не в required checks | FLOW_02 | Playwright есть в shipper/carrier job, защиты ветки для них нет | решить, делать ли эти job обязательными | F | пилот кабинетов |
 | R13 | MEDIUM | LOW | скачивание embedded Postgres | CI | harness V16 | CI-сервис Postgres уже используется профильными job | все | качество |
 | R14 | MEDIUM | HIGH | экспедитор без кабинета | порталы | каталога нет | не создавать app молча | F | пром UX |
 | R15 | LOW | HIGH | PR #281 ошибочно засчитают как код | идентичность | два markdown-файла | держать COUNTED_IN_MAIN_SCORE=NO | контролёр | управление |
