@@ -35,8 +35,8 @@ func (m *mockMembershipStore) RemoveCompanyRoleFromUser(ctx context.Context, ten
 }
 
 type mockRoleStoreForMembership struct {
-	companyExistsFn     func(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
-	roleAvailableForFn  func(ctx context.Context, roleID, tenantID uuid.UUID) (bool, error)
+	companyExistsFn    func(ctx context.Context, companyID, tenantID uuid.UUID) (bool, error)
+	roleAvailableForFn func(ctx context.Context, roleID, tenantID uuid.UUID) (bool, error)
 }
 
 func (m *mockRoleStoreForMembership) ListByTenant(context.Context, uuid.UUID) ([]domain.Role, error) {
@@ -44,6 +44,10 @@ func (m *mockRoleStoreForMembership) ListByTenant(context.Context, uuid.UUID) ([
 }
 
 func (m *mockRoleStoreForMembership) GetByID(context.Context, uuid.UUID) (*domain.Role, error) {
+	return nil, nil
+}
+
+func (m *mockRoleStoreForMembership) GetVisibleToTenant(context.Context, uuid.UUID, uuid.UUID) (*domain.Role, error) {
 	return nil, nil
 }
 
@@ -75,6 +79,20 @@ func (m *mockUserStoreForMembership) GetByID(ctx context.Context, id uuid.UUID) 
 	return m.getByIDFn(ctx, id)
 }
 
+func (m *mockUserStoreForMembership) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.User, error) {
+	user, err := m.GetByID(ctx, id)
+	if err != nil || user == nil {
+		if err == nil {
+			return nil, apperrors.ResourceNotFound()
+		}
+		return nil, err
+	}
+	if user.TenantID != tenantID {
+		return nil, apperrors.ResourceNotFound()
+	}
+	return user, nil
+}
+
 func (m *mockUserStoreForMembership) List(context.Context, domain.ListUsersFilter) ([]domain.User, int, error) {
 	return nil, 0, nil
 }
@@ -83,7 +101,15 @@ func (m *mockUserStoreForMembership) Update(context.Context, uuid.UUID, domain.U
 	return nil, nil
 }
 
+func (m *mockUserStoreForMembership) UpdateInTenant(context.Context, uuid.UUID, uuid.UUID, domain.UpdateUserInput) (*domain.User, error) {
+	return nil, nil
+}
+
 func (m *mockUserStoreForMembership) SoftDelete(context.Context, uuid.UUID) error {
+	return nil
+}
+
+func (m *mockUserStoreForMembership) SoftDeleteInTenant(context.Context, uuid.UUID, uuid.UUID) error {
 	return nil
 }
 

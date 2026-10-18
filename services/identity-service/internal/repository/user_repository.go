@@ -80,6 +80,30 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 	return result, err
 }
 
+func (r *UserRepository) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.User, error) {
+	var result *domain.User
+	err := measureDB("user_repository", "get_user_in_tenant", func() error {
+		const query = `
+		SELECT
+			id, tenant_id, email, phone, password_hash, full_name, preferred_locale, status,
+			last_login_at, created_at, updated_at, deleted_at, version
+		FROM core.users
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+	`
+		row := r.pool.QueryRow(ctx, query, id, tenantID)
+		user, err := scanUser(row)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return apperrors.ResourceNotFound()
+			}
+			return mapDBError(err)
+		}
+		result = user
+		return nil
+	})
+	return result, err
+}
+
 func (r *UserRepository) GetByTenantAndEmail(ctx context.Context, tenantID uuid.UUID, email string) (*domain.User, error) {
 	var result *domain.User
 	err := measureDB("user_repository", "find_user_by_email", func() error {
@@ -225,6 +249,66 @@ func (r *UserRepository) Update(ctx context.Context, id uuid.UUID, in domain.Upd
 	return result, err
 }
 
+func (r *UserRepository) UpdateInTenant(ctx context.Context, id, tenantID uuid.UUID, in domain.UpdateUserInput) (*domain.User, error) {
+	var result *domain.User
+	err := measureDB("user_repository", "update_user_in_tenant", func() error {
+		current, err := r.GetByIDAndTenant(ctx, id, tenantID)
+		if err != nil {
+			return err
+		}
+
+		phone := current.Phone
+		if in.Phone != nil {
+			phone = stringPtr(strings.TrimSpace(*in.Phone))
+		}
+		fullName := current.FullName
+		if in.FullName != nil {
+			fullName = strings.TrimSpace(*in.FullName)
+		}
+		preferredLocale := current.PreferredLocale
+		if in.PreferredLocale != nil {
+			preferredLocale = domain.NormalizePreferredLocale(*in.PreferredLocale)
+		}
+		status := current.Status
+		if in.Status != nil {
+			status = strings.TrimSpace(*in.Status)
+		}
+
+		const query = `
+		UPDATE core.users SET
+			phone = $2,
+			full_name = $3,
+			preferred_locale = $4,
+			status = $5,
+			updated_at = now(),
+			version = version + 1
+		WHERE id = $1 AND tenant_id = $7 AND deleted_at IS NULL AND version = $6
+		RETURNING
+			id, tenant_id, email, phone, password_hash, full_name, preferred_locale, status,
+			last_login_at, created_at, updated_at, deleted_at, version
+	`
+		row := r.pool.QueryRow(ctx, query,
+			id,
+			nullableString(phone),
+			fullName,
+			preferredLocale,
+			status,
+			current.Version,
+			tenantID,
+		)
+		user, err := scanUser(row)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return apperrors.ResourceNotFound()
+			}
+			return mapDBError(err)
+		}
+		result = user
+		return nil
+	})
+	return result, err
+}
+
 func (r *UserRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	return measureDB("user_repository", "delete_user", func() error {
 		const query = `
@@ -239,6 +323,24 @@ func (r *UserRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 		}
 		if tag.RowsAffected() == 0 {
 			return apperrors.NotFound("user not found")
+		}
+		return nil
+	})
+}
+
+func (r *UserRepository) SoftDeleteInTenant(ctx context.Context, id, tenantID uuid.UUID) error {
+	return measureDB("user_repository", "delete_user_in_tenant", func() error {
+		const query = `
+		UPDATE core.users
+		SET deleted_at = now(), status = $2, updated_at = now(), version = version + 1
+		WHERE id = $1 AND tenant_id = $3 AND deleted_at IS NULL
+	`
+		tag, err := r.pool.Exec(ctx, query, id, domain.UserStatusDeleted, tenantID)
+		if err != nil {
+			return mapDBError(err)
+		}
+		if tag.RowsAffected() == 0 {
+			return apperrors.ResourceNotFound()
 		}
 		return nil
 	})

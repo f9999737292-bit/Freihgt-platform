@@ -32,13 +32,18 @@ var endpoints = []endpoint{
 	{"/docs", "get", "Swagger UI", "Gateway", false, false, ""},
 	{"/api/v1/auth/login", "post", "Login and obtain JWT access token", "Auth", false, false, ""},
 	{"/api/v1/auth/me", "get", "Get current authenticated user", "Auth", true, true, ""},
-	{"/api/v1/users", "post", "Create user", "Users", false, false, ""},
-	{"/api/v1/users", "get", "List users", "Users", true, true, ""},
-	{"/api/v1/users/{id}", "get", "Get user by ID", "Users", true, true, ""},
-	{"/api/v1/users/{id}", "patch", "Update user", "Users", true, true, ""},
-	{"/api/v1/users/{id}", "delete", "Delete user", "Users", true, true, ""},
-	{"/api/v1/users/{user_id}/companies", "get", "List companies for user", "Users", true, true, ""},
-	{"/api/v1/users/{user_id}/companies/{company_id}/roles", "post", "Assign role to user in company", "Roles", true, true, ""},
+	{"/api/v1/users", "post", "Create user", "Users", true, true, "identity_user_authority"},
+	{"/api/v1/users", "get", "List users", "Users", true, true, "identity_user_authority"},
+	{"/api/v1/users/{id}", "get", "Get user by ID", "Users", true, true, "identity_user_authority"},
+	{"/api/v1/users/{id}", "patch", "Update user", "Users", true, true, "identity_user_authority"},
+	{"/api/v1/users/{id}", "delete", "Delete user", "Users", true, true, "identity_user_authority"},
+	{"/api/v1/users/{id}/roles", "get", "List roles assigned to a user", "Roles", true, true, "identity_user_authority"},
+	{"/api/v1/users/{id}/roles", "post", "Assign a tenant role to a user", "Roles", true, true, "identity_user_authority"},
+	{"/api/v1/users/{user_id}/companies", "get", "List companies for user", "Users", true, true, "identity_user_authority"},
+	{"/api/v1/users/{user_id}/companies/{company_id}/roles", "post", "Assign role to user in company", "Roles", true, true, "identity_user_authority"},
+	{"/api/v1/users/{user_id}/companies/{company_id}/roles/{role_id}", "delete", "Remove role from user in company", "Roles", true, true, "identity_user_authority"},
+	{"/api/v1/roles", "get", "List tenant and system roles", "Roles", true, true, "identity_user_authority"},
+	{"/api/v1/roles/{role_id}/permissions", "get", "List permissions for a role", "Roles", true, true, "identity_user_authority"},
 	{"/api/v1/companies", "post", "Create company", "Companies", true, true, ""},
 	{"/api/v1/companies", "get", "List companies", "Companies", true, true, ""},
 	{"/api/v1/companies/{id}", "get", "Get company by ID", "Companies", true, true, ""},
@@ -153,32 +158,32 @@ var noRequestBodyProfiles = map[string]struct{}{
 }
 
 var readResponseSchemas = map[string]string{
-	"payment_list":                       "PaymentListResponse",
-	"payment_detail":                     "PaymentRecord",
-	"payment_allocations_list":           "PaymentAllocationListResponse",
-	"payment_audit_list":                 "PaymentAuditEventListResponse",
+	"payment_list":                      "PaymentListResponse",
+	"payment_detail":                    "PaymentRecord",
+	"payment_allocations_list":          "PaymentAllocationListResponse",
+	"payment_audit_list":                "PaymentAuditEventListResponse",
 	"payment_eligible_obligations_list": "EligiblePaymentObligationListResponse",
 }
 
 var paymentGuardOperations = map[string]struct{}{
-	"get /api/v1/payment-obligations":                      {},
-	"get /api/v1/payment-obligations/{id}":                 {},
-	"patch /api/v1/payment-obligations/{id}/due-date":      {},
-	"post /api/v1/payments":                                {},
-	"get /api/v1/payments":                                 {},
-	"get /api/v1/payments/{id}":                            {},
-	"get /api/v1/payments/{id}/allocations":                {},
-	"get /api/v1/payments/{id}/audit-events":               {},
-	"get /api/v1/payments/{id}/eligible-obligations":       {},
-	"post /api/v1/payments/{id}/allocations":               {},
-	"post /api/v1/payments/{id}/reconcile":                 {},
-	"post /api/v1/payment-allocations/{id}/void":           {},
-	"post /api/v1/payments/{id}/void":                      {},
+	"get /api/v1/payment-obligations":                 {},
+	"get /api/v1/payment-obligations/{id}":            {},
+	"patch /api/v1/payment-obligations/{id}/due-date": {},
+	"post /api/v1/payments":                           {},
+	"get /api/v1/payments":                            {},
+	"get /api/v1/payments/{id}":                       {},
+	"get /api/v1/payments/{id}/allocations":           {},
+	"get /api/v1/payments/{id}/audit-events":          {},
+	"get /api/v1/payments/{id}/eligible-obligations":  {},
+	"post /api/v1/payments/{id}/allocations":          {},
+	"post /api/v1/payments/{id}/reconcile":            {},
+	"post /api/v1/payment-allocations/{id}/void":      {},
+	"post /api/v1/payments/{id}/void":                 {},
 }
 
 var paymentDetailListQueryProfiles = map[string]struct{}{
-	"payment_allocations_list":           {},
-	"payment_audit_list":                 {},
+	"payment_allocations_list":          {},
+	"payment_audit_list":                {},
 	"payment_eligible_obligations_list": {},
 }
 
@@ -363,6 +368,16 @@ func queryParameterLines(method, path, profile string) []string {
 	case "payment_list":
 		lines = append(lines, paymentListFilterQueryLines()...)
 		lines = append(lines, paginationQueryLines()...)
+	case "identity_user_authority":
+		lines = append(lines,
+			"        - name: tenant_id",
+			"          in: query",
+			"          required: false",
+			"          description: NON_AUTHORITATIVE. MUST_MATCH_VERIFIED_CONTEXT. Omitted uses the verified JWT tenant. A different value is rejected unless a server-verified PLATFORM_ADMIN override targets an existing tenant.",
+			"          schema:",
+			"            type: string",
+			"            format: uuid",
+		)
 	default:
 		if _, ok := paymentDetailListQueryProfiles[profile]; ok {
 			lines = append(lines, paginationQueryLines()...)
@@ -432,7 +447,15 @@ func renderOperation(path string, e endpoint) string {
 	sb.WriteString(fmt.Sprintf("      tags: [%s]\n", e.tag))
 	sb.WriteString(fmt.Sprintf("      summary: %s\n", e.summary))
 	sb.WriteString(fmt.Sprintf("      operationId: %s_%s\n", e.method, pathToID(e.summary)))
-	if e.profile != "" {
+	if e.profile == "identity_user_authority" {
+		sb.WriteString("      description: |\n")
+		sb.WriteString("        Bearer authentication is required. Anonymous user creation is not available.\n")
+		sb.WriteString("        Verified user, tenant, and platform-admin state come from the JWT and a server-side role lookup.\n")
+		sb.WriteString("        X-Tenant-ID, X-User-ID, X-User-Roles, and X-Platform-Admin are not authority.\n")
+		sb.WriteString("        A body or query tenant_id is NON_AUTHORITATIVE and MUST_MATCH_VERIFIED_CONTEXT.\n")
+		sb.WriteString("        A verified PLATFORM_ADMIN may name an existing target tenant. That override is audited and is not granted by a client header.\n")
+		sb.WriteString("        Management mutations require server-verified PLATFORM_ADMIN. Self read does not grant administrative mutation.\n")
+	} else if e.profile != "" {
 		var desc string
 		var ok bool
 		if desc, ok = voidDescriptions[e.profile]; !ok {

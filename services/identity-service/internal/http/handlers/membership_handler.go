@@ -7,7 +7,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/google/uuid"
+
 	"github.com/freight-platform/identity-service/internal/domain"
+	"github.com/freight-platform/identity-service/internal/http/authority"
+	"github.com/freight-platform/identity-service/internal/http/middleware"
 	apperrors "github.com/freight-platform/identity-service/internal/platform/errors"
 	"github.com/freight-platform/identity-service/internal/platform/respond"
 	"github.com/freight-platform/identity-service/internal/service"
@@ -15,10 +19,12 @@ import (
 
 type MembershipHandler struct {
 	service *service.MembershipService
+	lookup  authority.Lookup
+	auditor authority.Auditor
 }
 
-func NewMembershipHandler(svc *service.MembershipService) *MembershipHandler {
-	return &MembershipHandler{service: svc}
+func NewMembershipHandler(svc *service.MembershipService, lookup authority.Lookup, auditor authority.Auditor) *MembershipHandler {
+	return &MembershipHandler{service: svc, lookup: lookup, auditor: auditor}
 }
 
 type assignCompanyRoleRequest struct {
@@ -32,9 +38,8 @@ func (h *MembershipHandler) ListUserCompanies(w http.ResponseWriter, r *http.Req
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
+	_, tenantID, ok := h.authorize(w, r, authority.ActionCompanyMembershipRead, r.URL.Query().Get("tenant_id"), userID)
+	if !ok {
 		return
 	}
 
@@ -95,9 +100,8 @@ func (h *MembershipHandler) AssignCompanyRole(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
+	_, tenantID, ok := h.authorize(w, r, authority.ActionCompanyRoleAssign, req.TenantID, userID)
+	if !ok {
 		return
 	}
 	roleID, err := domain.ParseUUID(req.RoleID, "role_id")
@@ -135,9 +139,8 @@ func (h *MembershipHandler) RemoveCompanyRole(w http.ResponseWriter, r *http.Req
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
+	_, tenantID, ok := h.authorize(w, r, authority.ActionCompanyRoleRemove, r.URL.Query().Get("tenant_id"), userID)
+	if !ok {
 		return
 	}
 
@@ -147,4 +150,22 @@ func (h *MembershipHandler) RemoveCompanyRole(w http.ResponseWriter, r *http.Req
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *MembershipHandler) authorize(w http.ResponseWriter, r *http.Request, action authority.Action, supplied string, targetUser uuid.UUID) (authority.Principal, uuid.UUID, bool) {
+	principal, err := middleware.PrincipalFromContext(r.Context())
+	if err != nil {
+		respond.Error(w, err)
+		return authority.Principal{}, uuid.Nil, false
+	}
+	tenantID, err := authority.ResolveTenant(r.Context(), principal, supplied, action, h.lookup, h.auditor)
+	if err != nil {
+		respond.Error(w, err)
+		return authority.Principal{}, uuid.Nil, false
+	}
+	if err := authority.Allow(principal, action, targetUser); err != nil {
+		respond.Error(w, err)
+		return authority.Principal{}, uuid.Nil, false
+	}
+	return principal, tenantID, true
 }

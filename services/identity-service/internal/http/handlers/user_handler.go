@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/identity-service/internal/domain"
+	"github.com/freight-platform/identity-service/internal/http/authority"
+	"github.com/freight-platform/identity-service/internal/http/middleware"
 	apperrors "github.com/freight-platform/identity-service/internal/platform/errors"
 	"github.com/freight-platform/identity-service/internal/platform/respond"
 	"github.com/freight-platform/identity-service/internal/service"
@@ -18,10 +20,12 @@ import (
 type UserHandler struct {
 	userService *service.UserService
 	roleService *service.RoleService
+	lookup      authority.Lookup
+	auditor     authority.Auditor
 }
 
-func NewUserHandler(userService *service.UserService, roleService *service.RoleService) *UserHandler {
-	return &UserHandler{userService: userService, roleService: roleService}
+func NewUserHandler(userService *service.UserService, roleService *service.RoleService, lookup authority.Lookup, auditor authority.Auditor) *UserHandler {
+	return &UserHandler{userService: userService, roleService: roleService, lookup: lookup, auditor: auditor}
 }
 
 type createUserRequest struct {
@@ -92,11 +96,11 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
+	principal, tenantID, ok := h.authorize(w, r, authority.ActionUserCreate, req.TenantID, uuid.Nil)
+	if !ok {
 		return
 	}
+	_ = principal
 
 	user, err := h.userService.Create(r.Context(), domain.CreateUserInput{
 		TenantID:        tenantID,
@@ -120,10 +124,18 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	principal, tenantID, ok := h.authorize(w, r, authority.ActionUserRead, r.URL.Query().Get("tenant_id"), id)
+	if !ok {
+		return
+	}
 
-	user, err := h.userService.GetByID(r.Context(), id)
+	user, err := h.userService.GetByIDAndTenant(r.Context(), id, tenantID)
 	if err != nil {
 		respond.Error(w, err)
+		return
+	}
+	if user.TenantID != tenantID || (!principal.PlatformAdmin && user.ID != principal.UserID) {
+		respond.Error(w, apperrors.ResourceNotFound())
 		return
 	}
 
@@ -131,9 +143,8 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
+	_, tenantID, ok := h.authorize(w, r, authority.ActionTenantUserList, r.URL.Query().Get("tenant_id"), uuid.Nil)
+	if !ok {
 		return
 	}
 
@@ -191,8 +202,12 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
+	_, tenantID, ok := h.authorize(w, r, authority.ActionUserUpdate, r.URL.Query().Get("tenant_id"), id)
+	if !ok {
+		return
+	}
 
-	user, err := h.userService.Update(r.Context(), id, domain.UpdateUserInput{
+	user, err := h.userService.UpdateInTenant(r.Context(), id, tenantID, domain.UpdateUserInput{
 		Phone:           req.Phone,
 		FullName:        req.FullName,
 		PreferredLocale: req.PreferredLocale,
@@ -212,8 +227,12 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	_, tenantID, ok := h.authorize(w, r, authority.ActionUserDelete, r.URL.Query().Get("tenant_id"), id)
+	if !ok {
+		return
+	}
 
-	if err := h.userService.Delete(r.Context(), id); err != nil {
+	if err := h.userService.DeleteInTenant(r.Context(), id, tenantID); err != nil {
 		respond.Error(w, err)
 		return
 	}
@@ -234,9 +253,8 @@ func (h *UserHandler) AssignRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID, err := domain.ParseUUID(req.TenantID, "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
+	_, tenantID, ok := h.authorize(w, r, authority.ActionUserRoleAssign, req.TenantID, userID)
+	if !ok {
 		return
 	}
 	roleID, err := domain.ParseUUID(req.RoleID, "role_id")
@@ -274,9 +292,8 @@ func (h *UserHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
+	_, tenantID, ok := h.authorize(w, r, authority.ActionUserRoleList, r.URL.Query().Get("tenant_id"), userID)
+	if !ok {
 		return
 	}
 
@@ -287,6 +304,24 @@ func (h *UserHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond.JSON(w, http.StatusOK, map[string]any{"items": toUserRoleItems(items)})
+}
+
+func (h *UserHandler) authorize(w http.ResponseWriter, r *http.Request, action authority.Action, supplied string, targetUser uuid.UUID) (authority.Principal, uuid.UUID, bool) {
+	principal, err := middleware.PrincipalFromContext(r.Context())
+	if err != nil {
+		respond.Error(w, err)
+		return authority.Principal{}, uuid.Nil, false
+	}
+	tenantID, err := authority.ResolveTenant(r.Context(), principal, supplied, action, h.lookup, h.auditor)
+	if err != nil {
+		respond.Error(w, err)
+		return authority.Principal{}, uuid.Nil, false
+	}
+	if err := authority.Allow(principal, action, targetUser); err != nil {
+		respond.Error(w, err)
+		return authority.Principal{}, uuid.Nil, false
+	}
+	return principal, tenantID, true
 }
 
 func toUserResponse(user *domain.User) userResponse {

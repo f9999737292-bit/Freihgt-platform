@@ -19,6 +19,9 @@ func (m *mockUserStore) Create(ctx context.Context, in domain.CreateUserInput, p
 }
 
 func (m *mockUserStore) GetByID(context.Context, uuid.UUID) (*domain.User, error) { return nil, nil }
+func (m *mockUserStore) GetByIDAndTenant(context.Context, uuid.UUID, uuid.UUID) (*domain.User, error) {
+	return nil, nil
+}
 func (m *mockUserStore) GetByTenantAndEmail(context.Context, uuid.UUID, string) (*domain.User, error) {
 	return nil, nil
 }
@@ -28,7 +31,13 @@ func (m *mockUserStore) List(context.Context, domain.ListUsersFilter) ([]domain.
 func (m *mockUserStore) Update(context.Context, uuid.UUID, domain.UpdateUserInput) (*domain.User, error) {
 	return nil, nil
 }
+func (m *mockUserStore) UpdateInTenant(context.Context, uuid.UUID, uuid.UUID, domain.UpdateUserInput) (*domain.User, error) {
+	return nil, nil
+}
 func (m *mockUserStore) SoftDelete(context.Context, uuid.UUID) error { return nil }
+func (m *mockUserStore) SoftDeleteInTenant(context.Context, uuid.UUID, uuid.UUID) error {
+	return nil
+}
 func (m *mockUserStore) UpdateLastLogin(context.Context, uuid.UUID) error { return nil }
 
 func TestUserServiceCreate(t *testing.T) {

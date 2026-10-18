@@ -6,16 +6,19 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/identity-service/internal/domain"
-	"github.com/freight-platform/identity-service/internal/platform/security"
 	apperrors "github.com/freight-platform/identity-service/internal/platform/errors"
+	"github.com/freight-platform/identity-service/internal/platform/security"
 )
 
 type UserStore interface {
 	Create(ctx context.Context, in domain.CreateUserInput, passwordHash string) (*domain.User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.User, error)
 	List(ctx context.Context, filter domain.ListUsersFilter) ([]domain.User, int, error)
 	Update(ctx context.Context, id uuid.UUID, in domain.UpdateUserInput) (*domain.User, error)
+	UpdateInTenant(ctx context.Context, id, tenantID uuid.UUID, in domain.UpdateUserInput) (*domain.User, error)
 	SoftDelete(ctx context.Context, id uuid.UUID) error
+	SoftDeleteInTenant(ctx context.Context, id, tenantID uuid.UUID) error
 }
 
 type UserService struct {
@@ -49,6 +52,16 @@ func (s *UserService) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, 
 	return s.repo.GetByID(ctx, id)
 }
 
+func (s *UserService) GetByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.User, error) {
+	if id == uuid.Nil {
+		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if tenantID == uuid.Nil {
+		return nil, apperrors.TenantContextRequired()
+	}
+	return s.repo.GetByIDAndTenant(ctx, id, tenantID)
+}
+
 func (s *UserService) List(ctx context.Context, filter domain.ListUsersFilter) ([]domain.User, int, error) {
 	if filter.Limit == 0 {
 		filter.Limit = 20
@@ -69,9 +82,32 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, in domain.Update
 	return s.repo.Update(ctx, id, in)
 }
 
+func (s *UserService) UpdateInTenant(ctx context.Context, id, tenantID uuid.UUID, in domain.UpdateUserInput) (*domain.User, error) {
+	if id == uuid.Nil {
+		return nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if tenantID == uuid.Nil {
+		return nil, apperrors.TenantContextRequired()
+	}
+	if err := domain.ValidateUpdateUserInput(in); err != nil {
+		return nil, err
+	}
+	return s.repo.UpdateInTenant(ctx, id, tenantID, in)
+}
+
 func (s *UserService) Delete(ctx context.Context, id uuid.UUID) error {
 	if id == uuid.Nil {
 		return apperrors.Validation("id is required", map[string]any{"field": "id"})
 	}
 	return s.repo.SoftDelete(ctx, id)
+}
+
+func (s *UserService) DeleteInTenant(ctx context.Context, id, tenantID uuid.UUID) error {
+	if id == uuid.Nil {
+		return apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if tenantID == uuid.Nil {
+		return apperrors.TenantContextRequired()
+	}
+	return s.repo.SoftDeleteInTenant(ctx, id, tenantID)
 }

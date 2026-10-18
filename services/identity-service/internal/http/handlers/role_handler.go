@@ -6,22 +6,27 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/freight-platform/identity-service/internal/domain"
+	"github.com/freight-platform/identity-service/internal/http/authority"
+	"github.com/freight-platform/identity-service/internal/http/middleware"
 	"github.com/freight-platform/identity-service/internal/platform/respond"
 	"github.com/freight-platform/identity-service/internal/service"
+
+	"github.com/google/uuid"
 )
 
 type RoleHandler struct {
 	roleService *service.RoleService
+	lookup      authority.Lookup
+	auditor     authority.Auditor
 }
 
-func NewRoleHandler(roleService *service.RoleService) *RoleHandler {
-	return &RoleHandler{roleService: roleService}
+func NewRoleHandler(roleService *service.RoleService, lookup authority.Lookup, auditor authority.Auditor) *RoleHandler {
+	return &RoleHandler{roleService: roleService, lookup: lookup, auditor: auditor}
 }
 
 func (h *RoleHandler) List(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := domain.ParseUUID(r.URL.Query().Get("tenant_id"), "tenant_id")
-	if err != nil {
-		respond.Error(w, err)
+	_, tenantID, ok := h.authorize(w, r, authority.ActionTenantRoleList, r.URL.Query().Get("tenant_id"))
+	if !ok {
 		return
 	}
 
@@ -34,11 +39,11 @@ func (h *RoleHandler) List(w http.ResponseWriter, r *http.Request) {
 	items := make([]map[string]any, 0, len(roles))
 	for _, role := range roles {
 		item := map[string]any{
-			"id":         role.ID.String(),
-			"code":       role.Code,
-			"name":       role.Name,
-			"scope":      role.Scope,
-			"is_system":  role.IsSystem,
+			"id":        role.ID.String(),
+			"code":      role.Code,
+			"name":      role.Name,
+			"scope":     role.Scope,
+			"is_system": role.IsSystem,
 		}
 		if role.TenantID != nil {
 			item["tenant_id"] = role.TenantID.String()
@@ -58,8 +63,12 @@ func (h *RoleHandler) ListPermissions(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
+	_, tenantID, ok := h.authorize(w, r, authority.ActionRolePermissionRead, r.URL.Query().Get("tenant_id"))
+	if !ok {
+		return
+	}
 
-	permissions, err := h.roleService.ListRolePermissions(r.Context(), roleID)
+	permissions, err := h.roleService.ListRolePermissions(r.Context(), roleID, tenantID)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -80,4 +89,22 @@ func (h *RoleHandler) ListPermissions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond.JSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (h *RoleHandler) authorize(w http.ResponseWriter, r *http.Request, action authority.Action, supplied string) (authority.Principal, uuid.UUID, bool) {
+	principal, err := middleware.PrincipalFromContext(r.Context())
+	if err != nil {
+		respond.Error(w, err)
+		return authority.Principal{}, uuid.Nil, false
+	}
+	tenantID, err := authority.ResolveTenant(r.Context(), principal, supplied, action, h.lookup, h.auditor)
+	if err != nil {
+		respond.Error(w, err)
+		return authority.Principal{}, uuid.Nil, false
+	}
+	if err := authority.Allow(principal, action, uuid.Nil); err != nil {
+		respond.Error(w, err)
+		return authority.Principal{}, uuid.Nil, false
+	}
+	return principal, tenantID, true
 }

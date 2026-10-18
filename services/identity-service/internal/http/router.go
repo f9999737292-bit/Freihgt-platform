@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/freight-platform/identity-service/internal/http/authority"
 	"github.com/freight-platform/identity-service/internal/http/handlers"
 	authmiddleware "github.com/freight-platform/identity-service/internal/http/middleware"
 	"github.com/freight-platform/identity-service/internal/platform/security"
@@ -29,11 +30,17 @@ func NewRouter(
 	integrationOAuthHandler *handlers.IntegrationOAuthHandler,
 	integrationVerifyHandler *handlers.IntegrationVerifyHandler,
 	internalServiceToken string,
+	lookup authority.Lookup,
+	auditor authority.Auditor,
 ) http.Handler {
+	if auditor == nil {
+		auditor = authority.LogAuditor{Log: log}
+	}
 	authHandler := handlers.NewAuthHandler(authService, roleService)
-	userHandler := handlers.NewUserHandler(userService, roleService)
-	roleHandler := handlers.NewRoleHandler(roleService)
-	membershipHandler := handlers.NewMembershipHandler(membershipService)
+	userHandler := handlers.NewUserHandler(userService, roleService, lookup, auditor)
+	roleHandler := handlers.NewRoleHandler(roleService, lookup, auditor)
+	membershipHandler := handlers.NewMembershipHandler(membershipService, lookup, auditor)
+	verified := authmiddleware.RequireVerifiedPrincipal(jwtService, lookup)
 
 	r := chi.NewRouter()
 	r.Use(clientip.CapturePeerMiddleware)
@@ -58,6 +65,7 @@ func NewRouter(
 	}
 
 	r.Route("/v1/users", func(r chi.Router) {
+		r.Use(verified)
 		r.Post("/", userHandler.Create)
 		r.Get("/", userHandler.List)
 		r.Get("/{user_id}/companies", membershipHandler.ListUserCompanies)
@@ -71,6 +79,7 @@ func NewRouter(
 	})
 
 	r.Route("/v1/roles", func(r chi.Router) {
+		r.Use(verified)
 		r.Get("/", roleHandler.List)
 		r.Get("/{role_id}/permissions", roleHandler.ListPermissions)
 	})

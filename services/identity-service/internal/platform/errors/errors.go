@@ -5,12 +5,17 @@ import "fmt"
 type Code string
 
 const (
-	CodeValidation  Code = "VALIDATION_ERROR"
-	CodeUnauthorized Code = "UNAUTHORIZED"
-	CodeForbidden   Code = "FORBIDDEN"
-	CodeNotFound    Code = "NOT_FOUND"
-	CodeConflict    Code = "CONFLICT"
-	CodeInternal    Code = "INTERNAL_ERROR"
+	CodeValidation             Code = "VALIDATION_ERROR"
+	CodeUnauthorized           Code = "UNAUTHORIZED"
+	CodeForbidden              Code = "FORBIDDEN"
+	CodeNotFound               Code = "NOT_FOUND"
+	CodeConflict               Code = "CONFLICT"
+	CodeInternal               Code = "INTERNAL_ERROR"
+	CodeAuthenticationRequired Code = "AUTHENTICATION_REQUIRED"
+	CodeAuthorizationDenied    Code = "AUTHORIZATION_DENIED"
+	CodeTenantContextRequired  Code = "TENANT_CONTEXT_REQUIRED"
+	CodeTenantContextConflict  Code = "TENANT_CONTEXT_CONFLICT"
+	CodeResourceNotFound       Code = "RESOURCE_NOT_FOUND"
 )
 
 type AppError struct {
@@ -53,6 +58,26 @@ func Conflict(message string, details map[string]any) *AppError {
 
 func Internal(message string, err error) *AppError {
 	return &AppError{Code: CodeInternal, Message: message, Details: map[string]any{}, Err: err}
+}
+
+func AuthenticationRequired() *AppError {
+	return &AppError{Code: CodeAuthenticationRequired, Message: "authentication required", Details: map[string]any{}}
+}
+
+func AuthorizationDenied() *AppError {
+	return &AppError{Code: CodeAuthorizationDenied, Message: "authorization denied", Details: map[string]any{}}
+}
+
+func TenantContextRequired() *AppError {
+	return &AppError{Code: CodeTenantContextRequired, Message: "tenant context required", Details: map[string]any{}}
+}
+
+func TenantContextConflict() *AppError {
+	return &AppError{Code: CodeTenantContextConflict, Message: "tenant context conflict", Details: map[string]any{}}
+}
+
+func ResourceNotFound() *AppError {
+	return &AppError{Code: CodeResourceNotFound, Message: "resource not found", Details: map[string]any{}}
 }
 
 func detailsOrEmpty(details map[string]any) map[string]any {

@@ -30,7 +30,7 @@ func (s *MembershipService) GetUserCompanies(ctx context.Context, filter domain.
 	if err := domain.ValidateListUserCompaniesFilter(filter); err != nil {
 		return nil, err
 	}
-	if _, err := s.users.GetByID(ctx, filter.UserID); err != nil {
+	if _, err := s.users.GetByIDAndTenant(ctx, filter.UserID, filter.TenantID); err != nil {
 		return nil, err
 	}
 	return s.memberships.GetUserCompanies(ctx, filter)
@@ -41,7 +41,7 @@ func (s *MembershipService) AddCompanyRoleToUser(ctx context.Context, in domain.
 		return err
 	}
 
-	if _, err := s.users.GetByID(ctx, in.UserID); err != nil {
+	if _, err := s.users.GetByIDAndTenant(ctx, in.UserID, in.TenantID); err != nil {
 		return err
 	}
 
@@ -50,7 +50,7 @@ func (s *MembershipService) AddCompanyRoleToUser(ctx context.Context, in domain.
 		return err
 	}
 	if !companyExists {
-		return apperrors.NotFound("company not found")
+		return apperrors.ResourceNotFound()
 	}
 
 	active, err := s.memberships.ActiveMembershipExists(ctx, in.TenantID, in.UserID, in.CompanyID)
@@ -66,7 +66,7 @@ func (s *MembershipService) AddCompanyRoleToUser(ctx context.Context, in domain.
 		return err
 	}
 	if !available {
-		return apperrors.NotFound("role not found")
+		return apperrors.ResourceNotFound()
 	}
 
 	return s.memberships.AddCompanyRoleToUser(ctx, in)
@@ -86,7 +86,7 @@ func (s *MembershipService) RemoveCompanyRoleFromUser(ctx context.Context, tenan
 		return apperrors.Validation("role_id is required", map[string]any{"field": "role_id"})
 	}
 
-	if _, err := s.users.GetByID(ctx, userID); err != nil {
+	if _, err := s.users.GetByIDAndTenant(ctx, userID, tenantID); err != nil {
 		return err
 	}
 
