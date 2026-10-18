@@ -11,15 +11,16 @@ import (
 )
 
 type Config struct {
-	ServiceName          string
-	Environment          string
-	HTTPPort             int
-	LogLevel             string
-	DatabaseURL          string
-	Outbox               OutboxConfig
-	InternalServiceToken string
-	Notification         NotificationConfig
-	FCM                  FCMConfig
+	ServiceName                          string
+	Environment                          string
+	HTTPPort                             int
+	LogLevel                             string
+	DatabaseURL                          string
+	Outbox                               OutboxConfig
+	InternalServiceToken                 string
+	CompanyRelationshipRevalidationToken string
+	Notification                         NotificationConfig
+	FCM                                  FCMConfig
 }
 
 type NotificationConfig struct {
@@ -78,14 +79,15 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		ServiceName:          "shipment-service",
-		Environment:          getEnv("ENVIRONMENT", "development"),
-		HTTPPort:             port,
-		LogLevel:             getEnv("LOG_LEVEL", "info"),
-		DatabaseURL:          databaseURL,
-		Outbox:               outbox,
-		InternalServiceToken: strings.TrimSpace(os.Getenv("INTERNAL_SERVICE_TOKEN")),
-		Notification:         notification,
+		ServiceName:                          "shipment-service",
+		Environment:                          getEnv("ENVIRONMENT", "development"),
+		HTTPPort:                             port,
+		LogLevel:                             getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:                          databaseURL,
+		Outbox:                               outbox,
+		InternalServiceToken:                 strings.TrimSpace(os.Getenv("INTERNAL_SERVICE_TOKEN")),
+		CompanyRelationshipRevalidationToken: strings.TrimSpace(os.Getenv("COMPANY_RELATIONSHIP_REVALIDATION_TOKEN")),
+		Notification:                         notification,
 		FCM: FCMConfig{
 			ProjectID:   strings.TrimSpace(os.Getenv("FCM_PROJECT_ID")),
 			AccessToken: strings.TrimSpace(os.Getenv("FCM_ACCESS_TOKEN")),

@@ -105,7 +105,11 @@ func main() {
 
 	executionRepo := repository.NewTransportExecutionRepository(db.Pool)
 	driverStopSvc.BindDeliveryDisposition(executionRepo)
-	router := httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, driverStopSvc, evidenceSvc, cfg.InternalServiceToken, executionRepo)
+	router := httpserver.WithShipmentSourceAuthority(
+		httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, driverStopSvc, evidenceSvc, cfg.InternalServiceToken, executionRepo),
+		cfg.CompanyRelationshipRevalidationToken,
+		service.NewShipmentSourceAuthority(repository.NewShipmentSourceAuthorityRepository(db.Pool)),
+	)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),

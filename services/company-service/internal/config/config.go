@@ -8,17 +8,19 @@ import (
 )
 
 type Config struct {
-	ServiceName                      string
-	Environment                      string
-	HTTPPort                         int
-	LogLevel                         string
-	DatabaseURL                      string
-	InternalServiceToken             string
-	JWTSecret                        string
-	RelationshipTokenPepper          string
-	RelationshipCommandsEnabled      bool
-	ShipmentRelationshipServiceToken string
-	RfxRelationshipServiceToken      string
+	ServiceName                          string
+	Environment                          string
+	HTTPPort                             int
+	LogLevel                             string
+	DatabaseURL                          string
+	InternalServiceToken                 string
+	JWTSecret                            string
+	RelationshipTokenPepper              string
+	RelationshipCommandsEnabled          bool
+	ShipmentRelationshipServiceToken     string
+	RfxRelationshipServiceToken          string
+	ShipmentSourceAuthorityBaseURL       string
+	CompanyRelationshipRevalidationToken string
 }
 
 func Load() (Config, error) {
@@ -41,17 +43,19 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		ServiceName:                      "company-service",
-		Environment:                      getEnv("ENVIRONMENT", "development"),
-		HTTPPort:                         port,
-		LogLevel:                         getEnv("LOG_LEVEL", "info"),
-		DatabaseURL:                      databaseURL,
-		InternalServiceToken:             os.Getenv("INTERNAL_SERVICE_TOKEN"),
-		JWTSecret:                        os.Getenv("JWT_SECRET"),
-		RelationshipTokenPepper:          os.Getenv("RELATIONSHIP_TOKEN_PEPPER"),
-		RelationshipCommandsEnabled:      relationshipCommandsEnabled(),
-		ShipmentRelationshipServiceToken: os.Getenv("SHIPMENT_RELATIONSHIP_SERVICE_TOKEN"),
-		RfxRelationshipServiceToken:      os.Getenv("RFX_RELATIONSHIP_SERVICE_TOKEN"),
+		ServiceName:                          "company-service",
+		Environment:                          getEnv("ENVIRONMENT", "development"),
+		HTTPPort:                             port,
+		LogLevel:                             getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:                          databaseURL,
+		InternalServiceToken:                 os.Getenv("INTERNAL_SERVICE_TOKEN"),
+		JWTSecret:                            os.Getenv("JWT_SECRET"),
+		RelationshipTokenPepper:              os.Getenv("RELATIONSHIP_TOKEN_PEPPER"),
+		RelationshipCommandsEnabled:          relationshipCommandsEnabled(),
+		ShipmentRelationshipServiceToken:     os.Getenv("SHIPMENT_RELATIONSHIP_SERVICE_TOKEN"),
+		RfxRelationshipServiceToken:          os.Getenv("RFX_RELATIONSHIP_SERVICE_TOKEN"),
+		ShipmentSourceAuthorityBaseURL:       strings.TrimSpace(os.Getenv("SHIPMENT_SOURCE_AUTHORITY_BASE_URL")),
+		CompanyRelationshipRevalidationToken: strings.TrimSpace(os.Getenv("COMPANY_RELATIONSHIP_REVALIDATION_TOKEN")),
 	}, nil
 }
 
