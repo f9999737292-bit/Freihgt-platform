@@ -44,14 +44,16 @@ func Error(w http.ResponseWriter, err error) {
 	switch appErr.Code {
 	case apperrors.CodeRouteNotFound, apperrors.CodeNotFound:
 		status = http.StatusNotFound
-	case apperrors.CodeUnauthorized:
+	case apperrors.CodeUnauthorized, apperrors.CodeAuthenticationRequired, apperrors.CodeTenantContextRequired:
 		status = http.StatusUnauthorized
-	case apperrors.CodeForbidden:
+	case apperrors.CodeForbidden, apperrors.CodeAuthorizationDenied:
 		status = http.StatusForbidden
 	case apperrors.CodeValidation:
 		status = http.StatusBadRequest
-	case apperrors.CodeConflict:
+	case apperrors.CodeConflict, apperrors.CodeTenantContextConflict:
 		status = http.StatusConflict
+	case apperrors.CodeResourceNotFound:
+		status = http.StatusNotFound
 	case apperrors.CodeServiceUnavailable:
 		status = http.StatusBadGateway
 	case apperrors.CodeControlTowerShipmentsUnavailable, apperrors.CodeShipmentEventsShipmentUnavailable, apperrors.CodeAuthDependencyUnavailable, apperrors.CodeControlTowerReadModelUnavailable:

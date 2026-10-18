@@ -12,6 +12,7 @@ import (
 
 	"github.com/freight-platform/identity-service/internal/config"
 	identityhttp "github.com/freight-platform/identity-service/internal/http"
+	"github.com/freight-platform/identity-service/internal/http/authority"
 	"github.com/freight-platform/identity-service/internal/http/handlers"
 	"github.com/freight-platform/identity-service/internal/platform/database"
 	"github.com/freight-platform/identity-service/internal/platform/logger"
@@ -68,7 +69,8 @@ func main() {
 		Environment: cfg.Environment,
 	}, clientIPResolver)
 
-	router := identityhttp.NewRouter(log, db.Pool, jwtService, authService, userService, roleService, membershipService, integrationOAuthHandler, integrationVerifyHandler, cfg.InternalServiceToken)
+	authorityLookup := repository.NewAuthorityRepository(db.Pool)
+	router := identityhttp.NewRouter(log, db.Pool, jwtService, authService, userService, roleService, membershipService, integrationOAuthHandler, integrationVerifyHandler, cfg.InternalServiceToken, authorityLookup, authority.LogAuditor{Log: log})
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
