@@ -33,14 +33,15 @@ func (s *scriptedAuthority) ActiveCompanyInTenant(context.Context, uuid.UUID, uu
 }
 
 type scriptedStore struct {
-	mu       sync.Mutex
-	creates  int
-	accepts  int
-	gets     int
-	rows     map[string]domain.PersistCreateResult
-	hashes   map[string][]byte
-	pending  map[string]struct{}
-	lastHash []byte
+	mu         sync.Mutex
+	creates    int
+	accepts    int
+	gets       int
+	rows       map[string]domain.PersistCreateResult
+	hashes     map[string][]byte
+	pending    map[string]struct{}
+	lastHash   []byte
+	lastCaller string
 }
 
 func newScriptedStore() *scriptedStore {
@@ -51,6 +52,7 @@ func (s *scriptedStore) CreateRelationshipRequest(_ context.Context, in domain.P
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.creates++
+	s.lastCaller = in.CallerService
 	s.lastHash = append([]byte(nil), in.TokenHash...)
 	key := in.IdempotencyKey
 	pendingKey := in.SourceID.String() + in.ShipperCarrierCompanyID.String()
@@ -90,7 +92,7 @@ func (s *scriptedStore) GetVisibleRelationshipRequest(context.Context, uuid.UUID
 func TestCreateRefusesBeforePersistence(t *testing.T) {
 	store := newScriptedStore()
 	authority := &scriptedAuthority{actor: domain.ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleShipperLogist}}, carrier: true}
-	svc := NewRelationshipService(store, authority, RelationshipConfig{}, nil)
+	svc := NewRelationshipService(store, authority, RelationshipConfig{}, nil, nil)
 	principal := domain.Principal{UserID: uuid.New(), TenantID: uuid.New()}
 	companyID := uuid.New()
 	_, err := svc.Create(context.Background(), validCreate(principal, companyID))
@@ -105,6 +107,8 @@ func TestCreateRefusesBeforePersistence(t *testing.T) {
 	}
 
 	svc.cfg.TokenPepper = "pepper"
+	svc.cfg.ShipmentServiceToken = shipmentTestToken
+	svc.cfg.RfxServiceToken = rfxTestToken
 	authority.actor.Active = false
 	_, err = svc.Create(context.Background(), validCreate(principal, companyID))
 	if codeOf(t, err) != apperrors.CodeRelationshipRequestForbidden || store.creates != 0 {
@@ -127,7 +131,7 @@ func TestCreateRefusesBeforePersistence(t *testing.T) {
 func TestCreateIdempotencyAndTenantSelector(t *testing.T) {
 	store := newScriptedStore()
 	authority := &scriptedAuthority{actor: domain.ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleShipperAdmin}}, carrier: true}
-	svc := NewRelationshipService(store, authority, RelationshipConfig{CommandsEnabled: true, TokenPepper: "pepper"}, nil)
+	svc := NewRelationshipService(store, authority, testRelationshipConfig(), nil, confirmingSource{})
 	principal := domain.Principal{UserID: uuid.New(), TenantID: uuid.New()}
 	companyID := uuid.New()
 	firstIn := validCreate(principal, companyID)
@@ -169,12 +173,15 @@ func TestCreateIdempotencyAndTenantSelector(t *testing.T) {
 	if authority.userID != principal.UserID {
 		t.Fatal("authority used a user other than the verified principal")
 	}
+	if store.lastCaller != domain.CallerShipmentService {
+		t.Fatalf("caller stored as %s", store.lastCaller)
+	}
 }
 
 func TestAcceptUsesFailClosedSourceAfterRoleCheck(t *testing.T) {
 	store := newScriptedStore()
 	authority := &scriptedAuthority{actor: domain.ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleCarrierAdmin}}}
-	svc := NewRelationshipService(store, authority, RelationshipConfig{CommandsEnabled: true, TokenPepper: "pepper"}, nil)
+	svc := NewRelationshipService(store, authority, testRelationshipConfig(), nil, nil)
 	raw, err := domain.NewAcceptanceToken()
 	if err != nil {
 		t.Fatal(err)
@@ -188,10 +195,117 @@ func TestAcceptUsesFailClosedSourceAfterRoleCheck(t *testing.T) {
 	}
 }
 
+const (
+	shipmentTestToken = "shipment-relationship-test-token"
+	rfxTestToken      = "rfx-relationship-test-token"
+)
+
+func testRelationshipConfig() RelationshipConfig {
+	return RelationshipConfig{CommandsEnabled: true, TokenPepper: "pepper", ShipmentServiceToken: shipmentTestToken, RfxServiceToken: rfxTestToken}
+}
+
+type confirmingSource struct{}
+
+func (confirmingSource) ConfirmCreate(context.Context, domain.SourceCreateSubject) (domain.SourceCreateDecision, error) {
+	return domain.SourceCreateConfirmed, nil
+}
+
+type scriptedSource struct {
+	decision domain.SourceCreateDecision
+	calls    int
+	last     domain.SourceCreateSubject
+}
+
+func (s *scriptedSource) ConfirmCreate(_ context.Context, subject domain.SourceCreateSubject) (domain.SourceCreateDecision, error) {
+	s.calls++
+	s.last = subject
+	return s.decision, nil
+}
+
 func validCreate(principal domain.Principal, companyID uuid.UUID) CreateRelationshipInput {
 	return CreateRelationshipInput{
-		Principal: principal, SelectedCompanyID: companyID, SourceType: domain.SourceTypeShipment,
+		ServiceToken: shipmentTestToken, Principal: principal, SelectedCompanyID: companyID, SourceType: domain.SourceTypeShipment,
 		SourceID: uuid.New(), Fingerprint: "version-1", ShipperCarrierCompanyID: uuid.New(), IdempotencyKey: "same-key",
+	}
+}
+
+func TestCreateSourceAuthorityDeniesBeforePersistence(t *testing.T) {
+	store := newScriptedStore()
+	authority := &scriptedAuthority{actor: domain.ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleShipperAdmin}}, carrier: true}
+	source := &scriptedSource{decision: domain.SourceCreateConfirmed}
+	svc := NewRelationshipService(store, authority, testRelationshipConfig(), nil, source)
+	principal := domain.Principal{UserID: uuid.New(), TenantID: uuid.New()}
+	companyID := uuid.New()
+
+	missing := validCreate(principal, companyID)
+	missing.ServiceToken = ""
+	_, err := svc.Create(context.Background(), missing)
+	if codeOf(t, err) != apperrors.CodeAuthenticationRequired || store.creates != 0 || source.calls != 0 {
+		t.Fatalf("missing credential code=%s creates=%d calls=%d", codeOf(t, err), store.creates, source.calls)
+	}
+	wrong := validCreate(principal, companyID)
+	wrong.ServiceToken = "shared-internal-token"
+	_, err = svc.Create(context.Background(), wrong)
+	if codeOf(t, err) != apperrors.CodeAuthenticationRequired || store.creates != 0 {
+		t.Fatalf("wrong credential code=%s creates=%d", codeOf(t, err), store.creates)
+	}
+
+	rfxWithShipment := validCreate(principal, companyID)
+	rfxWithShipment.SourceType = domain.SourceTypeRfxAward
+	_, err = svc.Create(context.Background(), rfxWithShipment)
+	if codeOf(t, err) != apperrors.CodeRelationshipRequestForbidden || store.creates != 0 || source.calls != 0 {
+		t.Fatalf("shipment credential for rfx code=%s creates=%d calls=%d", codeOf(t, err), store.creates, source.calls)
+	}
+	shipmentWithRfx := validCreate(principal, companyID)
+	shipmentWithRfx.ServiceToken = rfxTestToken
+	_, err = svc.Create(context.Background(), shipmentWithRfx)
+	if codeOf(t, err) != apperrors.CodeRelationshipRequestForbidden || store.creates != 0 || source.calls != 0 {
+		t.Fatalf("rfx credential for shipment code=%s creates=%d calls=%d", codeOf(t, err), store.creates, source.calls)
+	}
+
+	for _, decision := range []domain.SourceCreateDecision{domain.SourceCreateNotFound, domain.SourceCreateTenantMismatch, domain.SourceCreateStale, domain.SourceCreateActorMismatch} {
+		source.decision = decision
+		_, err = svc.Create(context.Background(), validCreate(principal, companyID))
+		if codeOf(t, err) != apperrors.CodeRelationshipRequestForbidden || store.creates != 0 {
+			t.Fatalf("decision %s code=%s creates=%d", decision, codeOf(t, err), store.creates)
+		}
+	}
+	if source.last.CallerService != domain.CallerShipmentService {
+		t.Fatal("source confirmation saw a caller other than the credential identity")
+	}
+
+	source.decision = domain.SourceCreateUnavailable
+	_, err = svc.Create(context.Background(), validCreate(principal, companyID))
+	if codeOf(t, err) != apperrors.CodeRelationshipSourceUnavailable || store.creates != 0 {
+		t.Fatalf("unavailable code=%s creates=%d", codeOf(t, err), store.creates)
+	}
+
+	source.decision = domain.SourceCreateConfirmed
+	created, err := svc.Create(context.Background(), validCreate(principal, companyID))
+	if err != nil || !created.Created || created.AcceptanceToken == "" || store.lastCaller != domain.CallerShipmentService {
+		t.Fatalf("confirmed create: %v %+v caller=%s", err, created, store.lastCaller)
+	}
+}
+
+func TestUnconfirmedSourceDoesNotReservePendingSlot(t *testing.T) {
+	store := newScriptedStore()
+	authority := &scriptedAuthority{actor: domain.ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleShipperAdmin}}, carrier: true}
+	source := &scriptedSource{decision: domain.SourceCreateNotFound}
+	svc := NewRelationshipService(store, authority, testRelationshipConfig(), nil, source)
+	principal := domain.Principal{UserID: uuid.New(), TenantID: uuid.New()}
+	companyID := uuid.New()
+	in := validCreate(principal, companyID)
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = svc.Create(context.Background(), in)
+		}()
+	}
+	wg.Wait()
+	if store.creates != 0 || len(store.pending) != 0 || len(store.rows) != 0 {
+		t.Fatalf("unconfirmed concurrency reserved state creates=%d pending=%d rows=%d", store.creates, len(store.pending), len(store.rows))
 	}
 }
 

@@ -42,6 +42,15 @@ func TestRelationshipAuthorizationMatrix(t *testing.T) {
 	if !CanAcceptRelationship(carrierAdmin) || CanCreateRelationshipRequest(carrierAdmin, SourceTypeAwardLink) {
 		t.Fatal("carrier admin accepts and does not create")
 	}
+	if !CallerAllowsSource(CallerShipmentService, SourceTypeShipment) || CallerAllowsSource(CallerShipmentService, SourceTypeRfxAward) || CallerAllowsSource(CallerShipmentService, SourceTypeAwardLink) {
+		t.Fatal("shipment identity is bound to shipment sources")
+	}
+	if CallerAllowsSource(CallerRfxService, SourceTypeShipment) || !CallerAllowsSource(CallerRfxService, SourceTypeRfxAward) || !CallerAllowsSource(CallerRfxService, SourceTypeAwardLink) {
+		t.Fatal("rfx identity is bound to rfx sources")
+	}
+	if CallerAllowsSource("company-service", SourceTypeShipment) || CallerAllowsSource("", SourceTypeShipment) {
+		t.Fatal("company-service is not a source owner")
+	}
 }
 
 func TestAcceptanceTokenFingerprintDoesNotKeepTheRawToken(t *testing.T) {

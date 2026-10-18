@@ -33,15 +33,25 @@ const (
 	RoleProcurementManager = "PROCUREMENT_MANAGER"
 	RoleCarrierAdmin       = "CARRIER_ADMIN"
 
-	FoundationCallerService = "company-service"
+	CallerShipmentService = "shipment-service"
+	CallerRfxService      = "rfx-service"
 
 	SourceMatch       SourceDecision = "MATCH"
 	SourceNotFound    SourceDecision = "NOT_FOUND"
 	SourceChanged     SourceDecision = "CHANGED"
 	SourceUnavailable SourceDecision = "UNAVAILABLE"
+
+	SourceCreateConfirmed      SourceCreateDecision = "CONFIRMED"
+	SourceCreateNotFound       SourceCreateDecision = "NOT_FOUND"
+	SourceCreateTenantMismatch SourceCreateDecision = "TENANT_MISMATCH"
+	SourceCreateStale          SourceCreateDecision = "STALE"
+	SourceCreateActorMismatch  SourceCreateDecision = "ACTOR_MISMATCH"
+	SourceCreateUnavailable    SourceCreateDecision = "UNAVAILABLE"
 )
 
 type SourceDecision string
+
+type SourceCreateDecision string
 
 type ActorAuthority struct {
 	Active                    bool
@@ -65,6 +75,21 @@ type SourceSnapshot struct {
 
 type SourceRevalidator interface {
 	Revalidate(ctx context.Context, source SourceSnapshot) (SourceDecision, error)
+}
+
+type SourceCreateSubject struct {
+	CallerService           string
+	SourceType              string
+	SourceID                uuid.UUID
+	SourceTenantID          uuid.UUID
+	Fingerprint             string
+	ShipperCarrierCompanyID uuid.UUID
+	RequestingCompanyID     uuid.UUID
+	RequestingUserID        uuid.UUID
+}
+
+type SourceCreateAuthority interface {
+	ConfirmCreate(ctx context.Context, subject SourceCreateSubject) (SourceCreateDecision, error)
 }
 
 type PersistCreate struct {
@@ -173,6 +198,17 @@ func ValidSourceType(sourceType string) bool {
 	switch sourceType {
 	case SourceTypeShipment, SourceTypeRfxAward, SourceTypeAwardLink:
 		return true
+	default:
+		return false
+	}
+}
+
+func CallerAllowsSource(callerService, sourceType string) bool {
+	switch callerService {
+	case CallerShipmentService:
+		return sourceType == SourceTypeShipment
+	case CallerRfxService:
+		return sourceType == SourceTypeRfxAward || sourceType == SourceTypeAwardLink
 	default:
 		return false
 	}

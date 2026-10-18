@@ -58,17 +58,23 @@ func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 
 	fix := seedFixture(t, pool)
 	repo := repository.NewRelationshipRepository(pool)
-	match := service.NewRelationshipService(repo, repo, service.RelationshipConfig{CommandsEnabled: true, TokenPepper: "postgres-pepper"}, matchSource{})
-	closed := service.NewRelationshipService(repo, repo, service.RelationshipConfig{CommandsEnabled: true, TokenPepper: "postgres-pepper"}, nil)
+	cat := newCatalog()
+	match := service.NewRelationshipService(repo, repo, postgresRelationshipConfig(), matchSource{}, cat)
+	closed := service.NewRelationshipService(repo, repo, postgresRelationshipConfig(), nil, nil)
 
-	created := createOK(t, match, fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, "create-key", "v1")
+	created := createOK(t, match, cat, fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, "create-key", "v1")
+	var storedCaller string
+	if err := pool.QueryRow(ctx, `SELECT caller_service FROM company.carrier_relationship_request_idempotency WHERE relationship_request_id = $1`, created.RequestID).Scan(&storedCaller); err != nil || storedCaller != domain.CallerShipmentService {
+		t.Fatalf("caller_service=%s err=%v", storedCaller, err)
+	}
 	replay, err := match.Create(ctx, createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, created.SourceID, "create-key", "v1"))
 	if err != nil || replay.Created || replay.AcceptanceToken != "" || replay.RequestID != created.RequestID {
 		t.Fatalf("replay: %v %+v", err, replay)
 	}
+	cat.setFingerprint(created.SourceID, "v2")
 	_, err = match.Create(ctx, createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, created.SourceID, "create-key", "v2"))
 	assertCode(t, err, apperrors.CodeRelationshipIdempotencyConflict)
-	_, err = match.Create(ctx, createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, created.SourceID, "other-key", "v1"))
+	_, err = match.Create(ctx, createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, created.SourceID, "other-key", "v2"))
 	assertCode(t, err, apperrors.CodeRelationshipRequestPendingConflict)
 
 	_, err = match.Create(ctx, createInput(fix.BlockedUser, fix.TenantA, fix.ShipperA, fix.CarrierA, uuid.New(), "blocked", "v1"))
@@ -79,9 +85,7 @@ func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
 	_, err = match.Create(ctx, createInput(fix.CompanyScopedPlatformAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, uuid.New(), "scoped-platform", "v1"))
 	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
-	if _, err := match.Create(ctx, createInput(fix.PlatformWithMembership, fix.TenantA, fix.ShipperA, fix.CarrierA, uuid.New(), "global-platform", "v1")); err != nil {
-		t.Fatalf("tenant-global platform admin with membership: %v", err)
-	}
+	createOK(t, match, cat, fix.PlatformWithMembership, fix.TenantA, fix.ShipperA, fix.CarrierA, "global-platform", "v1")
 	_, err = match.Create(ctx, createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierB, uuid.New(), "cross", "v1"))
 	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
 	_, err = match.Accept(ctx, service.AcceptRelationshipInput{
@@ -138,11 +142,12 @@ func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 		t.Fatalf("accepting company get: %v %+v", err, operatingView)
 	}
 
+	assertSourceAuthority(t, pool, match, closed, cat, fix)
 	assertTokenStoredOnlyAsHMAC(t, pool, created.RequestID, created.Token)
 	assertDirectTenantGuards(t, pool, fix)
 	assertDatabaseConstraints(t, pool, fix)
 	assertRollbackIsAtomic(t, pool, fix)
-	assertConcurrentCreate(t, match, fix)
+	assertConcurrentCreate(t, match, cat, fix)
 	t.Log("POSTGRES_INTEGRATION=PASS")
 }
 
@@ -158,9 +163,68 @@ type createdRequest struct {
 	Token     string
 }
 
-func createOK(t *testing.T, svc *service.RelationshipService, user, tenant, company, carrier uuid.UUID, key, fingerprint string) createdRequest {
+const (
+	shipmentRelationshipToken = "shipment-relationship-test-token"
+	rfxRelationshipToken      = "rfx-relationship-test-token"
+)
+
+func postgresRelationshipConfig() service.RelationshipConfig {
+	return service.RelationshipConfig{
+		CommandsEnabled: true, TokenPepper: "postgres-pepper",
+		ShipmentServiceToken: shipmentRelationshipToken, RfxServiceToken: rfxRelationshipToken,
+	}
+}
+
+type catalogSource struct {
+	mu   sync.Mutex
+	rows map[uuid.UUID]domain.SourceCreateSubject
+	last domain.SourceCreateDecision
+}
+
+func newCatalog() *catalogSource {
+	return &catalogSource{rows: map[uuid.UUID]domain.SourceCreateSubject{}}
+}
+
+func (c *catalogSource) allow(subject domain.SourceCreateSubject) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.rows[subject.SourceID] = subject
+}
+
+func (c *catalogSource) setFingerprint(id uuid.UUID, fingerprint string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	row := c.rows[id]
+	row.Fingerprint = fingerprint
+	c.rows[id] = row
+}
+
+func (c *catalogSource) ConfirmCreate(_ context.Context, subject domain.SourceCreateSubject) (domain.SourceCreateDecision, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	row, ok := c.rows[subject.SourceID]
+	decision := domain.SourceCreateConfirmed
+	switch {
+	case !ok:
+		decision = domain.SourceCreateNotFound
+	case row.SourceTenantID != subject.SourceTenantID:
+		decision = domain.SourceCreateTenantMismatch
+	case row.Fingerprint != subject.Fingerprint:
+		decision = domain.SourceCreateStale
+	case row.SourceType != subject.SourceType || row.RequestingUserID != subject.RequestingUserID || row.RequestingCompanyID != subject.RequestingCompanyID || row.ShipperCarrierCompanyID != subject.ShipperCarrierCompanyID:
+		decision = domain.SourceCreateActorMismatch
+	}
+	c.last = decision
+	return decision, nil
+}
+
+func createOK(t *testing.T, svc *service.RelationshipService, cat *catalogSource, user, tenant, company, carrier uuid.UUID, key, fingerprint string) createdRequest {
 	t.Helper()
 	sourceID := uuid.New()
+	cat.allow(domain.SourceCreateSubject{
+		SourceType: domain.SourceTypeShipment, SourceID: sourceID, SourceTenantID: tenant, Fingerprint: fingerprint,
+		ShipperCarrierCompanyID: carrier, RequestingCompanyID: company, RequestingUserID: user,
+	})
 	out, err := svc.Create(context.Background(), createInput(user, tenant, company, carrier, sourceID, key, fingerprint))
 	if err != nil || !out.Created || out.AcceptanceToken == "" {
 		t.Fatalf("create: %v %+v", err, out)
@@ -170,9 +234,122 @@ func createOK(t *testing.T, svc *service.RelationshipService, user, tenant, comp
 
 func createInput(user, tenant, company, carrier, source uuid.UUID, key, fingerprint string) service.CreateRelationshipInput {
 	return service.CreateRelationshipInput{
-		Principal: domain.Principal{UserID: user, TenantID: tenant}, SelectedCompanyID: company,
+		ServiceToken: shipmentRelationshipToken, Principal: domain.Principal{UserID: user, TenantID: tenant}, SelectedCompanyID: company,
 		SourceType: domain.SourceTypeShipment, SourceID: source, Fingerprint: fingerprint,
 		ShipperCarrierCompanyID: carrier, IdempotencyKey: key,
+	}
+}
+
+type writeCounts struct {
+	requests, events, idempotency, audit, outbox int
+}
+
+func relationshipWriteCounts(t *testing.T, pool *pgxpool.Pool) writeCounts {
+	t.Helper()
+	var counts writeCounts
+	err := pool.QueryRow(context.Background(), `
+		SELECT
+			(SELECT count(*) FROM company.carrier_relationship_requests),
+			(SELECT count(*) FROM company.carrier_relationship_request_events),
+			(SELECT count(*) FROM company.carrier_relationship_request_idempotency),
+			(SELECT count(*) FROM company.carrier_relationship_audit),
+			(SELECT count(*) FROM company.carrier_relationship_outbox)
+	`).Scan(&counts.requests, &counts.events, &counts.idempotency, &counts.audit, &counts.outbox)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return counts
+}
+
+func assertSourceAuthority(t *testing.T, pool *pgxpool.Pool, match, closed *service.RelationshipService, cat *catalogSource, fix fixture) {
+	t.Helper()
+	ctx := context.Background()
+	rfxSource := uuid.New()
+	cat.allow(domain.SourceCreateSubject{
+		SourceType: domain.SourceTypeRfxAward, SourceID: rfxSource, SourceTenantID: fix.TenantA, Fingerprint: "v1",
+		ShipperCarrierCompanyID: fix.CarrierA, RequestingCompanyID: fix.ShipperA, RequestingUserID: fix.ShipperAdmin,
+	})
+	rfxInput := createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, rfxSource, "rfx-create", "v1")
+	rfxInput.SourceType = domain.SourceTypeRfxAward
+	rfxInput.ServiceToken = rfxRelationshipToken
+	rfxCreated, err := match.Create(ctx, rfxInput)
+	if err != nil || !rfxCreated.Created || rfxCreated.AcceptanceToken == "" {
+		t.Fatalf("rfx identity create: %v %+v", err, rfxCreated)
+	}
+	var rfxCaller string
+	if err := pool.QueryRow(ctx, `SELECT caller_service FROM company.carrier_relationship_request_idempotency WHERE relationship_request_id = $1`, rfxCreated.RequestID).Scan(&rfxCaller); err != nil || rfxCaller != domain.CallerRfxService {
+		t.Fatalf("rfx caller_service=%s err=%v", rfxCaller, err)
+	}
+
+	before := relationshipWriteCounts(t, pool)
+	missing := createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, uuid.New(), "missing-credential", "v1")
+	missing.ServiceToken = ""
+	_, err = match.Create(ctx, missing)
+	assertCode(t, err, apperrors.CodeAuthenticationRequired)
+	wrong := missing
+	wrong.ServiceToken = "shared-internal-token"
+	_, err = match.Create(ctx, wrong)
+	assertCode(t, err, apperrors.CodeAuthenticationRequired)
+
+	shipmentForRfx := createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, rfxSource, "shipment-for-rfx", "v1")
+	shipmentForRfx.SourceType = domain.SourceTypeRfxAward
+	_, err = match.Create(ctx, shipmentForRfx)
+	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
+	rfxForShipment := createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, uuid.New(), "rfx-for-shipment", "v1")
+	rfxForShipment.ServiceToken = rfxRelationshipToken
+	_, err = match.Create(ctx, rfxForShipment)
+	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
+
+	_, err = match.Create(ctx, createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, uuid.New(), "missing-source", "v1"))
+	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
+	if cat.last != domain.SourceCreateNotFound {
+		t.Fatalf("missing source decision %s", cat.last)
+	}
+	foreignSource := uuid.New()
+	cat.allow(domain.SourceCreateSubject{
+		SourceType: domain.SourceTypeShipment, SourceID: foreignSource, SourceTenantID: fix.TenantB, Fingerprint: "v1",
+		ShipperCarrierCompanyID: fix.CarrierA, RequestingCompanyID: fix.ShipperA, RequestingUserID: fix.ShipperAdmin,
+	})
+	_, err = match.Create(ctx, createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, foreignSource, "foreign-source", "v1"))
+	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
+	if cat.last != domain.SourceCreateTenantMismatch {
+		t.Fatalf("cross-tenant source decision %s", cat.last)
+	}
+	staleSource := uuid.New()
+	cat.allow(domain.SourceCreateSubject{
+		SourceType: domain.SourceTypeShipment, SourceID: staleSource, SourceTenantID: fix.TenantA, Fingerprint: "current",
+		ShipperCarrierCompanyID: fix.CarrierA, RequestingCompanyID: fix.ShipperA, RequestingUserID: fix.ShipperAdmin,
+	})
+	_, err = match.Create(ctx, createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, staleSource, "stale-source", "old"))
+	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
+	if cat.last != domain.SourceCreateStale {
+		t.Fatalf("stale source decision %s", cat.last)
+	}
+	_, err = closed.Create(ctx, createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, staleSource, "fail-closed-create", "current"))
+	assertCode(t, err, apperrors.CodeRelationshipSourceUnavailable)
+	assertConcurrentUnconfirmed(t, match, fix)
+	if relationshipWriteCounts(t, pool) != before {
+		t.Fatal("source denial wrote request, event, idempotency, audit, or outbox rows")
+	}
+	t.Log("SOURCE_AUTHORITY=PASS")
+}
+
+func assertConcurrentUnconfirmed(t *testing.T, svc *service.RelationshipService, fix fixture) {
+	t.Helper()
+	in := createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, uuid.New(), "unconfirmed-concurrent", "v1")
+	const n = 8
+	var wg sync.WaitGroup
+	errs := make([]error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			_, errs[i] = svc.Create(context.Background(), in)
+		}(i)
+	}
+	wg.Wait()
+	for i := 0; i < n; i++ {
+		assertCode(t, errs[i], apperrors.CodeRelationshipRequestForbidden)
 	}
 }
 
@@ -251,9 +428,13 @@ func assertDirectTenantGuards(t *testing.T, pool *pgxpool.Pool, fix fixture) {
 	}
 }
 
-func assertConcurrentCreate(t *testing.T, svc *service.RelationshipService, fix fixture) {
+func assertConcurrentCreate(t *testing.T, svc *service.RelationshipService, cat *catalogSource, fix fixture) {
 	t.Helper()
 	sourceID := uuid.New()
+	cat.allow(domain.SourceCreateSubject{
+		SourceType: domain.SourceTypeShipment, SourceID: sourceID, SourceTenantID: fix.TenantA, Fingerprint: "v9",
+		ShipperCarrierCompanyID: fix.CarrierA, RequestingCompanyID: fix.ShipperA, RequestingUserID: fix.ShipperAdmin,
+	})
 	const n = 8
 	var wg sync.WaitGroup
 	start := make(chan struct{})

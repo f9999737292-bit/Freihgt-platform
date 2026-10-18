@@ -45,9 +45,11 @@ func main() {
 	membershipService := service.NewMembershipService(repo, membershipRepo)
 	relationshipRepo := repository.NewRelationshipRepository(db.Pool)
 	relationshipService := service.NewRelationshipService(relationshipRepo, relationshipRepo, service.RelationshipConfig{
-		CommandsEnabled: cfg.RelationshipCommandsEnabled,
-		TokenPepper:     cfg.RelationshipTokenPepper,
-	}, service.FailClosedSourceRevalidator{})
+		CommandsEnabled:      cfg.RelationshipCommandsEnabled,
+		TokenPepper:          cfg.RelationshipTokenPepper,
+		ShipmentServiceToken: cfg.ShipmentRelationshipServiceToken,
+		RfxServiceToken:      cfg.RfxRelationshipServiceToken,
+	}, service.FailClosedSourceRevalidator{}, service.FailClosedSourceAuthority{})
 	router := httpserver.NewRouter(log, db.Pool, cfg, repo, membershipRepo, companyService, membershipService, relationshipService)
 
 	server := &http.Server{

@@ -23,8 +23,10 @@ import (
 )
 
 const (
-	testSecret = "relationship-test-secret"
-	testPepper = "relationship-test-pepper"
+	testSecret        = "relationship-test-secret"
+	testPepper        = "relationship-test-pepper"
+	shipmentTestToken = "shipment-relationship-test-token"
+	rfxTestToken      = "rfx-relationship-test-token"
 )
 
 type recordingAuthority struct {
@@ -54,14 +56,16 @@ func TestRelationshipHTTPSecurity(t *testing.T) {
 		userID: {Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleShipperAdmin, domain.RoleCarrierAdmin}},
 	}}
 	store := &recordingStore{carrier: true}
-	svc := service.NewRelationshipService(store, authority, service.RelationshipConfig{CommandsEnabled: true, TokenPepper: testPepper}, nil)
+	svc := service.NewRelationshipService(store, authority, service.RelationshipConfig{
+		CommandsEnabled: true, TokenPepper: testPepper, ShipmentServiceToken: shipmentTestToken, RfxServiceToken: rfxTestToken,
+	}, nil, allowSource{sourceID: sourceID, tenantID: tenantID, userID: userID, companyID: companyID, carrierID: carrierID, fingerprint: "v1"})
 	router := httpserver.NewRouter(slog.New(slog.NewJSONHandler(logBuf, nil)), nil, config.Config{
 		JWTSecret: testSecret, RelationshipTokenPepper: testPepper, RelationshipCommandsEnabled: true, InternalServiceToken: "shared-token",
 	}, nil, nil, nil, nil, svc)
 
 	token := sign(t, userID, tenantID)
-	body := createBody(sourceID, carrierID, "same-key", "v1")
-	first := doJSON(t, router, http.MethodPost, "/v1/carrier-relationship-requests", token, companyID, body, otherUser)
+	body := createBody(userID, tenantID, companyID, sourceID, carrierID, domain.SourceTypeShipment, "same-key", "v1")
+	first := doCreate(t, router, shipmentTestToken, token, companyID, body, otherUser)
 	if first.Code != http.StatusCreated || authority.seen != userID {
 		t.Fatalf("create status=%d seen=%s body=%s", first.Code, authority.seen, first.Body.String())
 	}
@@ -72,17 +76,40 @@ func TestRelationshipHTTPSecurity(t *testing.T) {
 	if err := json.Unmarshal(first.Body.Bytes(), &created); err != nil || created.AcceptanceToken == "" {
 		t.Fatalf("token missing: %v %s", err, first.Body.String())
 	}
-	replay := doJSON(t, router, http.MethodPost, "/v1/carrier-relationship-requests", token, companyID, body, uuid.Nil)
+	replay := doCreate(t, router, shipmentTestToken, token, companyID, body, uuid.Nil)
 	if replay.Code != http.StatusOK || strings.Contains(replay.Body.String(), created.AcceptanceToken) {
 		t.Fatalf("replay status=%d body=%s", replay.Code, replay.Body.String())
 	}
-	if strings.Contains(logBuf.String(), created.AcceptanceToken) || strings.Contains(logBuf.String(), testPepper) {
-		t.Fatal("token or pepper leaked into logs")
+	if store.lastCaller != domain.CallerShipmentService {
+		t.Fatalf("stored caller %s", store.lastCaller)
+	}
+	if strings.Contains(logBuf.String(), created.AcceptanceToken) || strings.Contains(logBuf.String(), testPepper) || strings.Contains(logBuf.String(), shipmentTestToken) {
+		t.Fatal("token, pepper, or service credential leaked into logs")
 	}
 
-	missing := doJSON(t, router, http.MethodPost, "/v1/carrier-relationship-requests", "", companyID, body, uuid.Nil)
-	if missing.Code != http.StatusUnauthorized || !strings.Contains(missing.Body.String(), "AUTHENTICATION_REQUIRED") {
-		t.Fatalf("missing credential: %d %s", missing.Code, missing.Body.String())
+	userOnly := doJSON(t, router, http.MethodPost, "/v1/carrier-relationship-requests", token, companyID, body, otherUser)
+	if userOnly.Code != http.StatusUnauthorized || !strings.Contains(userOnly.Body.String(), "AUTHENTICATION_REQUIRED") || strings.Contains(userOnly.Body.String(), "acceptance_token") {
+		t.Fatalf("user jwt without service credential: %d %s", userOnly.Code, userOnly.Body.String())
+	}
+	spoofName := httptest.NewRequest(http.MethodPost, "/v1/carrier-relationship-requests", bytes.NewReader(body))
+	spoofName.Header.Set("Authorization", "Bearer "+token)
+	spoofName.Header.Set("X-Company-ID", companyID.String())
+	spoofName.Header.Set("X-Internal-Service-Token", "shared-token")
+	spoofName.Header.Set("X-Internal-Service-Name", domain.CallerShipmentService)
+	persisted := store.creates
+	spoofed := doRaw(t, router, spoofName)
+	if spoofed.Code != http.StatusUnauthorized || store.creates != persisted {
+		t.Fatalf("shared token and service name were accepted: %d creates=%d", spoofed.Code, store.creates)
+	}
+	rfxBody := createBody(userID, tenantID, companyID, sourceID, carrierID, domain.SourceTypeRfxAward, "rfx-key", "v1")
+	cross := doCreate(t, router, shipmentTestToken, token, companyID, rfxBody, uuid.Nil)
+	if cross.Code != http.StatusForbidden || store.creates != persisted {
+		t.Fatalf("shipment credential created an rfx request: %d creates=%d", cross.Code, store.creates)
+	}
+	reverseBody := createBody(userID, tenantID, companyID, sourceID, carrierID, domain.SourceTypeShipment, "rfx-on-shipment", "v1")
+	reverse := doCreate(t, router, rfxTestToken, token, companyID, reverseBody, uuid.Nil)
+	if reverse.Code != http.StatusForbidden || store.creates != persisted {
+		t.Fatalf("rfx credential created a shipment request: %d creates=%d", reverse.Code, store.creates)
 	}
 	req := httptest.NewRequest(http.MethodPost, "/v1/carrier-operating-relationship-acceptances", bytes.NewReader([]byte(`{"idempotency_key":"k"}`)))
 	req.Header.Set("X-Company-ID", companyID.String())
@@ -96,7 +123,7 @@ func TestRelationshipHTTPSecurity(t *testing.T) {
 
 	denied := &recordingAuthority{byUser: map[uuid.UUID]domain.ActorAuthority{userID: {Active: true, ActiveMembership: true}}}
 	deniedStore := &recordingStore{carrier: true}
-	deniedSvc := service.NewRelationshipService(deniedStore, denied, service.RelationshipConfig{CommandsEnabled: true, TokenPepper: testPepper}, nil)
+	deniedSvc := service.NewRelationshipService(deniedStore, denied, service.RelationshipConfig{CommandsEnabled: true, TokenPepper: testPepper}, nil, nil)
 	deniedRouter := httpserver.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, config.Config{
 		JWTSecret: testSecret, RelationshipCommandsEnabled: true, RelationshipTokenPepper: testPepper,
 	}, nil, nil, nil, nil, deniedSvc)
@@ -136,13 +163,33 @@ func sign(t *testing.T, userID, tenantID uuid.UUID) string {
 	return token
 }
 
-func createBody(sourceID, carrierID uuid.UUID, key, fingerprint string) []byte {
+func createBody(userID, tenantID, companyID, sourceID, carrierID uuid.UUID, sourceType, key, fingerprint string) []byte {
 	raw, _ := json.Marshal(map[string]string{
-		"source_type": domain.SourceTypeShipment, "source_id": sourceID.String(),
+		"source_type": sourceType, "source_id": sourceID.String(), "source_tenant_id": tenantID.String(),
 		"source_version_or_fingerprint": fingerprint, "shipper_carrier_company_id": carrierID.String(),
-		"idempotency_key": key,
+		"requesting_user_id": userID.String(), "requesting_company_id": companyID.String(), "idempotency_key": key,
 	})
 	return raw
+}
+
+func doCreate(t *testing.T, router http.Handler, serviceToken, userToken string, companyID uuid.UUID, body []byte, spoofUser uuid.UUID) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/v1/carrier-relationship-requests", bytes.NewReader(body))
+	req.Header.Set(service.RelationshipServiceTokenHeader, serviceToken)
+	if userToken != "" {
+		req.Header.Set("Authorization", "Bearer "+userToken)
+	}
+	if companyID != uuid.Nil {
+		req.Header.Set("X-Company-ID", companyID.String())
+	}
+	if spoofUser != uuid.Nil {
+		req.Header.Set("X-User-ID", spoofUser.String())
+		req.Header.Set("X-Tenant-ID", uuid.NewString())
+		req.Header.Set("X-User-Roles", domain.RolePlatformAdmin)
+		req.Header.Set("X-Platform-Admin", "true")
+		req.Header.Set("X-Internal-Service-Name", domain.CallerRfxService)
+	}
+	return doRaw(t, router, req)
 }
 
 func doJSON(t *testing.T, router http.Handler, method, path, token string, companyID uuid.UUID, body []byte, spoofUser uuid.UUID) *httptest.ResponseRecorder {
@@ -174,15 +221,31 @@ func doRaw(t *testing.T, router http.Handler, req *http.Request) *httptest.Respo
 	return rec
 }
 
+type allowSource struct {
+	sourceID, tenantID, userID, companyID, carrierID uuid.UUID
+	fingerprint                                      string
+}
+
+func (a allowSource) ConfirmCreate(_ context.Context, subject domain.SourceCreateSubject) (domain.SourceCreateDecision, error) {
+	if subject.SourceID != a.sourceID || subject.SourceTenantID != a.tenantID || subject.RequestingUserID != a.userID || subject.RequestingCompanyID != a.companyID || subject.ShipperCarrierCompanyID != a.carrierID || subject.Fingerprint != a.fingerprint || subject.CallerService != domain.CallerShipmentService {
+		return domain.SourceCreateNotFound, nil
+	}
+	return domain.SourceCreateConfirmed, nil
+}
+
 type recordingStore struct {
-	carrier bool
-	accepts int
-	rows    map[string]domain.PersistCreateResult
-	hashes  map[string][]byte
-	pending map[string]struct{}
+	carrier    bool
+	accepts    int
+	creates    int
+	lastCaller string
+	rows       map[string]domain.PersistCreateResult
+	hashes     map[string][]byte
+	pending    map[string]struct{}
 }
 
 func (s *recordingStore) CreateRelationshipRequest(_ context.Context, in domain.PersistCreate) (domain.PersistCreateResult, error) {
+	s.creates++
+	s.lastCaller = in.CallerService
 	if s.rows == nil {
 		s.rows = map[string]domain.PersistCreateResult{}
 		s.hashes = map[string][]byte{}

@@ -22,8 +22,10 @@ type AuthorityReader interface {
 }
 
 type RelationshipConfig struct {
-	CommandsEnabled bool
-	TokenPepper     string
+	CommandsEnabled      bool
+	TokenPepper          string
+	ShipmentServiceToken string
+	RfxServiceToken      string
 }
 
 type RelationshipService struct {
@@ -31,13 +33,17 @@ type RelationshipService struct {
 	authority AuthorityReader
 	cfg       RelationshipConfig
 	sources   domain.SourceRevalidator
+	source    domain.SourceCreateAuthority
 }
 
-func NewRelationshipService(store RelationshipStore, authority AuthorityReader, cfg RelationshipConfig, sources domain.SourceRevalidator) *RelationshipService {
+func NewRelationshipService(store RelationshipStore, authority AuthorityReader, cfg RelationshipConfig, sources domain.SourceRevalidator, source domain.SourceCreateAuthority) *RelationshipService {
 	if sources == nil {
 		sources = FailClosedSourceRevalidator{}
 	}
-	return &RelationshipService{store: store, authority: authority, cfg: cfg, sources: sources}
+	if source == nil {
+		source = FailClosedSourceAuthority{}
+	}
+	return &RelationshipService{store: store, authority: authority, cfg: cfg, sources: sources, source: source}
 }
 
 type FailClosedSourceRevalidator struct{}
@@ -47,6 +53,7 @@ func (FailClosedSourceRevalidator) Revalidate(context.Context, domain.SourceSnap
 }
 
 type CreateRelationshipInput struct {
+	ServiceToken            string
 	Principal               domain.Principal
 	SelectedCompanyID       uuid.UUID
 	SourceType              string
@@ -92,6 +99,13 @@ func (s *RelationshipService) Create(ctx context.Context, in CreateRelationshipI
 	if strings.TrimSpace(s.cfg.TokenPepper) == "" {
 		return CreateRelationshipOutput{}, apperrors.New(apperrors.CodeRelationshipStoreUnavailable, "relationship store unavailable")
 	}
+	caller, ok := identifyRelationshipCaller(s.cfg.ShipmentServiceToken, s.cfg.RfxServiceToken, in.ServiceToken)
+	if !ok {
+		return CreateRelationshipOutput{}, apperrors.New(apperrors.CodeAuthenticationRequired, "authentication required")
+	}
+	if !domain.CallerAllowsSource(caller, strings.TrimSpace(in.SourceType)) {
+		return CreateRelationshipOutput{}, refuseCreate()
+	}
 	if in.BodyTenantID != nil && *in.BodyTenantID != in.Principal.TenantID {
 		return CreateRelationshipOutput{}, apperrors.New(apperrors.CodeTenantContextConflict, "tenant context conflict")
 	}
@@ -113,12 +127,23 @@ func (s *RelationshipService) Create(ctx context.Context, in CreateRelationshipI
 	if !carrierInTenant {
 		return CreateRelationshipOutput{}, refuseCreate()
 	}
+	decision, err := s.source.ConfirmCreate(ctx, domain.SourceCreateSubject{
+		CallerService: caller, SourceType: in.SourceType, SourceID: in.SourceID, SourceTenantID: in.Principal.TenantID,
+		Fingerprint: fingerprint, ShipperCarrierCompanyID: in.ShipperCarrierCompanyID,
+		RequestingCompanyID: in.SelectedCompanyID, RequestingUserID: in.Principal.UserID,
+	})
+	if err != nil || decision == domain.SourceCreateUnavailable {
+		return CreateRelationshipOutput{}, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+	}
+	if decision != domain.SourceCreateConfirmed {
+		return CreateRelationshipOutput{}, refuseCreate()
+	}
 	rawToken, err := domain.NewAcceptanceToken()
 	if err != nil {
 		return CreateRelationshipOutput{}, apperrors.New(apperrors.CodeRelationshipStoreUnavailable, "relationship store unavailable")
 	}
 	stored, err := s.store.CreateRelationshipRequest(ctx, domain.PersistCreate{
-		CallerService:           domain.FoundationCallerService,
+		CallerService:           caller,
 		SourceType:              in.SourceType,
 		SourceID:                in.SourceID,
 		SourceTenantID:          in.Principal.TenantID,

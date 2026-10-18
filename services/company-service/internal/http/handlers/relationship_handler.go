@@ -27,8 +27,10 @@ func NewRelationshipHandler(svc *service.RelationshipService) *RelationshipHandl
 type relationshipWriteBody struct {
 	SourceType              string  `json:"source_type"`
 	SourceID                string  `json:"source_id"`
+	SourceTenantID          *string `json:"source_tenant_id"`
 	Fingerprint             string  `json:"source_version_or_fingerprint"`
 	ShipperCarrierCompanyID string  `json:"shipper_carrier_company_id"`
+	RequestingUserID        *string `json:"requesting_user_id"`
 	IdempotencyKey          string  `json:"idempotency_key"`
 	AcceptanceToken         string  `json:"acceptance_token"`
 	RelationshipRequestID   string  `json:"relationship_request_id"`
@@ -38,10 +40,6 @@ type relationshipWriteBody struct {
 }
 
 func (h *RelationshipHandler) Create(w http.ResponseWriter, r *http.Request) {
-	principal, companyID, ok := relationshipActor(w, r)
-	if !ok {
-		return
-	}
 	var body relationshipWriteBody
 	if !decodeRelationshipBody(w, r, &body) {
 		return
@@ -56,18 +54,30 @@ func (h *RelationshipHandler) Create(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, apperrors.Validation("relationship request is invalid", nil))
 		return
 	}
+	requestingUser, userOK := optionalUUID(body.RequestingUserID)
+	sourceTenant, sourceTenantOK := optionalUUID(body.SourceTenantID)
+	if !userOK || requestingUser == nil || !sourceTenantOK || sourceTenant == nil {
+		respond.Error(w, apperrors.Validation("relationship request is invalid", nil))
+		return
+	}
 	tenantID, tenantOK := optionalUUID(body.TenantID)
 	if !tenantOK {
 		respond.Error(w, apperrors.New(apperrors.CodeTenantContextConflict, "tenant context conflict"))
 		return
 	}
 	bodyCompany, companyOK := optionalCompany(body.CompanyID, body.RequestingCompanyID)
-	if !companyOK {
+	if !companyOK || bodyCompany == nil {
+		respond.Error(w, apperrors.New(apperrors.CodeRelationshipRequestForbidden, "relationship command refused"))
+		return
+	}
+	if headerCompany := strings.TrimSpace(r.Header.Get("X-Company-ID")); headerCompany != "" && headerCompany != bodyCompany.String() {
 		respond.Error(w, apperrors.New(apperrors.CodeRelationshipRequestForbidden, "relationship command refused"))
 		return
 	}
 	out, err := h.service.Create(r.Context(), service.CreateRelationshipInput{
-		Principal: principal, SelectedCompanyID: companyID, SourceType: strings.TrimSpace(body.SourceType),
+		ServiceToken:      r.Header.Get(service.RelationshipServiceTokenHeader),
+		Principal:         domain.Principal{UserID: *requestingUser, TenantID: *sourceTenant},
+		SelectedCompanyID: *bodyCompany, SourceType: strings.TrimSpace(body.SourceType),
 		SourceID: sourceID, Fingerprint: body.Fingerprint, ShipperCarrierCompanyID: carrierID,
 		IdempotencyKey: body.IdempotencyKey, BodyTenantID: tenantID, BodyCompanyID: bodyCompany,
 		CorrelationID: sharedmiddleware.RequestIDFromContext(r.Context()),
