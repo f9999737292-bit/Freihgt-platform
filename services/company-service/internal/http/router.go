@@ -9,6 +9,7 @@ import (
 	"github.com/freight-platform/company-service/internal/config"
 	"github.com/freight-platform/company-service/internal/http/authcontext"
 	"github.com/freight-platform/company-service/internal/http/handlers"
+	"github.com/freight-platform/company-service/internal/http/relationshipauth"
 	"github.com/freight-platform/company-service/internal/repository"
 	"github.com/freight-platform/company-service/internal/service"
 	"github.com/freight-platform/shared-go/internalauth"
@@ -27,6 +28,7 @@ func NewRouter(
 	membershipRepo *repository.MembershipRepository,
 	companyService *service.CompanyService,
 	membershipService *service.MembershipService,
+	relationshipService *service.RelationshipService,
 ) http.Handler {
 	authorizer := service.NewCompanyAuthorizer(membershipRepo)
 	companyHandler := handlers.NewCompanyHandler(companyService, authorizer)
@@ -59,6 +61,14 @@ func NewRouter(
 	r.Route("/internal/v1/companies", func(r chi.Router) {
 		r.Use(internalAuth.Middleware)
 		r.Post("/batch-get", companyInternalHandler.BatchGet)
+	})
+
+	relationshipHandler := handlers.NewRelationshipHandler(relationshipService)
+	r.Post("/v1/carrier-relationship-requests", relationshipHandler.Create)
+	r.Group(func(r chi.Router) {
+		r.Use(relationshipauth.RequireJWT(cfg.JWTSecret))
+		r.Get("/v1/carrier-relationship-requests/{relationship_request_id}", relationshipHandler.Get)
+		r.Post("/v1/carrier-operating-relationship-acceptances", relationshipHandler.Accept)
 	})
 
 	return r

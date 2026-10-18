@@ -33,19 +33,7 @@ func Error(w http.ResponseWriter, err error) {
 		appErr = apperrors.Internal("unexpected error", err)
 	}
 
-	status := http.StatusInternalServerError
-	switch appErr.Code {
-	case apperrors.CodeValidation:
-		status = http.StatusBadRequest
-	case apperrors.CodeNotFound:
-		status = http.StatusNotFound
-	case apperrors.CodeConflict:
-		status = http.StatusConflict
-	case apperrors.CodeUnauthorized:
-		status = http.StatusUnauthorized
-	case apperrors.CodeForbidden:
-		status = http.StatusForbidden
-	}
+	status := apperrors.StatusOf(appErr.Code)
 
 	JSON(w, status, errorBody{
 		Error: errorPayload{
