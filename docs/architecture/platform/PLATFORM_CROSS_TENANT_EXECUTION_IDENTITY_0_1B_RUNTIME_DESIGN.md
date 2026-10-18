@@ -65,7 +65,16 @@ COMPANY_SERVICE_DIRECT_RFX_AUTHORITY=NO
 
 ## 1. Current runtime audit
 
-Observed at `3eaa9ef621406730e3d6335a322271abde37b269`. Migration head is `000099_edo_pod_delivery_action_evidence_binding_v0_1b.up.sql`.
+First observed at `3eaa9ef621406730e3d6335a322271abde37b269`. Reconciled with `origin/main` `e19a118c5fda7a2afe5794f33e5caf8e83b481a0` after merged PR #283. Migration head is still `000099_edo_pod_delivery_action_evidence_binding_v0_1b.up.sql`. PR #283 did not add a migration.
+
+PR #283 is the identity authority that later stages must follow:
+
+- Every identity user route and role route requires a verified bearer JWT. Anonymous user creation is not available. No environment flag opens those routes.
+- Verified user id and verified tenant id come from that JWT. `X-Tenant-ID`, `X-User-ID`, `X-User-Roles`, `X-Platform-Admin`, query `tenant_id`, and body `tenant_id` are not authority.
+- A supplied tenant that differs from the verified tenant is `TENANT_CONTEXT_CONFLICT` unless a server-verified platform admin names an existing target tenant. That override is audited.
+- `LookupPrincipal` returns tenant-global roles only: `core.user_roles.company_id IS NULL`, the user row exists in the verified tenant, `users.deleted_at IS NULL`, and `users.status = ACTIVE`. A surviving role does not grant authority for a blocked or soft-deleted user.
+- `LookupPrincipal` is not proof of a company-scoped role. `CARRIER_ADMIN` on a company is invisible to that lookup.
+- Gateway company-context membership lookup forwards the caller bearer. The requested user id must be the authenticated subject unless the caller is a verified platform admin. A generic internal token and `X-Internal-Service-Name` are not that lookup's credential.
 
 Company persistence is `core.companies`, one `tenant_id` per row. Membership is `core.company_memberships` with active status and `deleted_at`. Company-scoped roles are `core.user_roles.company_id`. Tenant-global `PLATFORM_ADMIN` is the row set where `company_id IS NULL`, read by `ListUserGlobalRoleCodes`. `CARRIER_ADMIN` is a seeded system role. `CompanyAdminRoles` also contains `SHIPPER_ADMIN` and `FORWARDER_MANAGER`. Those are not acceptance authority. Company-service has no relationship tables and no outbox.
 
@@ -128,6 +137,11 @@ The logical fields required by 0.1A are the union of the root and the latest eve
 ```text
 TOKEN_HASH_ALGORITHM=HMAC-SHA-256
 TOKEN_SERVER_PEPPER_REQUIRED=YES
+TOKEN_PEPPER_OWNER=COMPANY_SERVICE
+TOKEN_PEPPER_STORAGE=OUTSIDE_DATABASE_SECRET_STORE
+TOKEN_PEPPER_IN_AUDIT_LOGS_OUTBOX=NO
+TOKEN_PEPPER_ROTATION_POLICY=INVALIDATE_UNACCEPTED_TOKENS
+TOKEN_SILENT_REHASH_ALLOWED=NO
 TOKEN_PRESENTATION_CHANNEL=HTTPS_JSON_BODY_ONLY
 TOKEN_TTL=72H
 TOKEN_ROTATION_ALLOWED=NO
@@ -141,7 +155,7 @@ TOKEN_MISSING_POLICY=REFUSE_NO_RELATIONSHIP
 TOKEN_REQUEST_ID_MISMATCH_POLICY=REFUSE_NO_RELATIONSHIP
 ```
 
-The token is 32 bytes from a cryptographic random source, 256 bits, returned once in the create-request response to the source-owning service. Only `HMAC-SHA-256(server_pepper, token)` is stored. Comparison uses a constant-time compare of the computed HMAC and the stored HMAC. The pepper lives outside the database. The raw token is absent from logs, traces, audit, outbox, query strings, and error details.
+The token is 32 bytes from a cryptographic random source, 256 bits, returned once in the create-request response to the source-owning service. Only `HMAC-SHA-256(server_pepper, token)` is stored. Comparison uses a constant-time compare of the computed HMAC and the stored HMAC. Company-service owns the pepper. The pepper lives in a secret store outside the database. It is absent from logs, traces, audit, outbox, query strings, error details, and source control. Rotation invalidates every not-yet-accepted token: those presentations fail as the generic not-found response. Stored hashes are not silently recomputed with the new pepper. A replacement for an invalidated pending request is cancel plus a new request and a new token. Replay of an already accepted request continues to use the acceptance idempotency record and does not require the old pepper to match.
 
 Invalid attempts are counted per authenticated user and operating tenant. The response stays the generic not-found response. The counter does not lock or reveal the request. A missing token, a bad token, a mismatched locator, and an unknown request share that response.
 
@@ -166,12 +180,16 @@ idempotency_key
 `requesting_company_id` is authoritative only when the source owner proved an active membership and the company-scoped role on that company, or a tenant-global `PLATFORM_ADMIN` binding (`core.user_roles.company_id IS NULL`) in the source tenant. A body company id is not authority.
 
 ```text
-SHIPMENT_REQUEST_CREATOR_AUTHORIZATION=SHIPMENT_TENANT_ACTOR+ACTIVE_MEMBERSHIP_ON_SHIPMENT_SHIPPER_COMPANY+COMPANY_SCOPED_ROLE(SHIPPER_ADMIN|SHIPPER_LOGIST|FORWARDER_MANAGER)|TENANT_GLOBAL_PLATFORM_ADMIN+NON_NULL_SHIPMENT_CARRIER_IN_SAME_TENANT
-RFX_AWARD_REQUEST_CREATOR_AUTHORIZATION=BUYER_EVENT_ACCESS+ACTIVE_MEMBERSHIP_ON_EVENT_OWNER_COMPANY+COMPANY_SCOPED_ROLE(PROCUREMENT_MANAGER|SHIPPER_ADMIN|SHIPPER_LOGIST|FORWARDER_MANAGER)|TENANT_GLOBAL_PLATFORM_ADMIN+AWARD_CARRIER_IN_SAME_TENANT
-AWARD_LINK_REQUEST_CREATOR_AUTHORIZATION=BUYER_EVENT_ACCESS+ACTIVE_MEMBERSHIP_ON_EVENT_OWNER_COMPANY+COMPANY_SCOPED_ROLE(PROCUREMENT_MANAGER|SHIPPER_ADMIN|SHIPPER_LOGIST|FORWARDER_MANAGER)|TENANT_GLOBAL_PLATFORM_ADMIN+LINK_CARRIER_IN_SAME_TENANT
+SHIPMENT_REQUEST_CREATOR_AUTHORIZATION=VERIFIED_ACTIVE_USER AND SHIPMENT_TENANT_ACTOR AND ACTIVE_MEMBERSHIP_ON_SHIPMENT_SHIPPER_COMPANY AND (COMPANY_SCOPED_ROLE(SHIPPER_ADMIN OR SHIPPER_LOGIST OR FORWARDER_MANAGER) OR TENANT_GLOBAL_PLATFORM_ADMIN) AND NON_NULL_SHIPMENT_CARRIER_IN_SAME_TENANT
+RFX_AWARD_REQUEST_CREATOR_AUTHORIZATION=VERIFIED_ACTIVE_USER AND BUYER_EVENT_ACCESS AND ACTIVE_MEMBERSHIP_ON_EVENT_OWNER_COMPANY AND (COMPANY_SCOPED_ROLE(PROCUREMENT_MANAGER OR SHIPPER_ADMIN OR SHIPPER_LOGIST OR FORWARDER_MANAGER) OR TENANT_GLOBAL_PLATFORM_ADMIN) AND AWARD_CARRIER_IN_SAME_TENANT
+AWARD_LINK_REQUEST_CREATOR_AUTHORIZATION=VERIFIED_ACTIVE_USER AND BUYER_EVENT_ACCESS AND ACTIVE_MEMBERSHIP_ON_EVENT_OWNER_COMPANY AND (COMPANY_SCOPED_ROLE(PROCUREMENT_MANAGER OR SHIPPER_ADMIN OR SHIPPER_LOGIST OR FORWARDER_MANAGER) OR TENANT_GLOBAL_PLATFORM_ADMIN) AND LINK_CARRIER_IN_SAME_TENANT
 ```
 
-Those role codes are the codes already seeded and already accepted by shipment create policy and `HasBuyerRole`. The new command binds them to the source company. The current rfx-service role query is tenant-wide. That broader query is not the future request-creator proof. A role on another company does not create a request. No new role code is introduced. `CARRIER_ADMIN` and `CARRIER_DISPATCHER` do not create the shipper-side request.
+Those role codes are the codes already seeded and already accepted by shipment create policy and `HasBuyerRole`. The new command binds them to the source company. No new role code is introduced. `CARRIER_ADMIN` and `CARRIER_DISPATCHER` do not create the shipper-side request.
+
+Every create, accept, cancel, and revoke decision uses the same user predicate. The user row exists in `core.users`. Its `tenant_id` equals the verified tenant. `deleted_at IS NULL`. `status = ACTIVE`. The role row is not deleted. A company-scoped role counts only when `core.user_roles.company_id` is the selected or source company being proved. Tenant-global `PLATFORM_ADMIN` counts only when `company_id IS NULL`. `PLATFORM_ADMIN` replaces the role check only. It does not replace membership, the selected company, or the user predicate.
+
+`rfx-service` `ListUserRoleCodes` is tenant-wide and does not filter `company_id`. That query is not company-scoped proof. Identity `LookupPrincipal` is not company-scoped proof either, because it returns only tenant-global roles. A future implementation must not call either one to decide `CARRIER_ADMIN`, `SHIPPER_ADMIN`, `SHIPPER_LOGIST`, `FORWARDER_MANAGER`, or `PROCUREMENT_MANAGER`.
 
 ```text
 SOURCE_VERSION_SOURCE_BY_TYPE=SHIPMENT:transport.shipments.version|RFX_AWARD:rfx.rfx_awards.version|AWARD_TRANSPORT_ORDER_LINK:rfx.rfx_award_transport_orders.version
@@ -209,32 +227,49 @@ SHIPMENT_SERVICE_CREDENTIAL_SCOPE=CREATE_AND_VALIDATE_SHIPMENT_REQUESTS+CALL_ACT
 RFX_SERVICE_CREDENTIAL_SCOPE=CREATE_AND_VALIDATE_RFX_AWARD_AND_AWARD_TRANSPORT_ORDER_LINK_REQUESTS
 RELATIONSHIP_RESOLVER_CREDENTIAL_SCOPE=SHIPMENT_SERVICE_DATABASE_ROLE_EXECUTE_ON_AUTHORIZE_FUNCTION_ONLY
 EMPTY_CREDENTIAL_POLICY=FAIL_CLOSED
+INVALID_SERVICE_CREDENTIAL_POLICY=FAIL_CLOSED
+DIRECT_COMPANY_SERVICE_CALL_WITHOUT_VERIFIED_CREDENTIAL=FAIL_CLOSED
 COMPANY_SERVICE_REVALIDATION_CREDENTIAL_SCOPE=READ_SOURCE_FINGERPRINT_FROM_OWNING_SERVICE_ONLY
 ```
 
-The presented token maps to exactly one caller. `X-Internal-Service-Name` is ignored. A shipment credential cannot create an RFx request. An RFx credential cannot resolve an activation. An empty or unknown token fails closed.
+The presented token maps to exactly one caller. `X-Internal-Service-Name` is ignored. A shipment credential cannot create an RFx request. An RFx credential cannot resolve an activation. An empty, unknown, or invalid service credential fails closed. A direct company-service call without a verified credential fails closed. The internal create route does not accept a caller JWT or `X-Company-ID` as authority. It accepts only the dedicated caller credential, and the source owner must already have applied the user predicate before sending `requesting_user_id`.
 
 ## 8. Public acceptance contract
 
 ```text
 ACCEPTANCE_PUBLIC_ROUTE=/api/v1/carrier-operating-relationship-acceptances
 ACCEPTANCE_HTTP_METHOD=POST
-SELECTED_COMPANY_CONTEXT_SOURCE=GATEWAY_VERIFIED_X_COMPANY_ID_AFTER_MEMBERSHIP_MATCH
+SELECTED_COMPANY_CONTEXT_SOURCE=SERVER_VERIFIED_MEMBERSHIP_FOR_JWT_USER
+PUBLIC_ACCEPTANCE_IDENTITY_SOURCE=VERIFIED_JWT
+PUBLIC_ACCEPTANCE_TENANT_SOURCE=VERIFIED_JWT
+MEMBERSHIP_AND_AUTHORITY_SERVER_CHECKED=YES
+X_COMPANY_ID_ROLE=NON_AUTHORITATIVE_SELECTOR
+X_COMPANY_ID_MISMATCH_POLICY=REFUSE
 CLIENT_COMPANY_HEADER_AUTHORITY=NO
 ACCEPTANCE_REQUEST_BODY=acceptance_token+idempotency_key+optional_relationship_request_id
 ACCEPTANCE_SUCCESS_RESPONSE=201_relationship_id+relationship_version+request_status_ACCEPTED
 ACCEPTANCE_REPLAY_RESPONSE=200_SAME_relationship_id+relationship_version
 ```
 
-The gateway strips client company headers, authenticates the operating tenant from the JWT, and sets `X-Company-ID` only after the selected company has an active membership. Several memberships and no selected company refuse. Company-service reads that gateway-set company. It does not read a body company id.
+Public acceptance is a direct company-service operation only when the caller presents a verified credential. For this route the credential is the user bearer JWT. Company-service derives the user id and the operating tenant from that JWT. It does not derive them from `X-User-ID`, `X-Tenant-ID`, `X-User-Roles`, or `X-Platform-Admin`.
 
-Acceptance also requires an active membership on that company, company-scoped `CARRIER_ADMIN` on that company, or tenant-global `PLATFORM_ADMIN` in the operating tenant. The request is `PENDING`, unexpired by the database clock, not cancelled, and the source fingerprint still matches.
+`X-Company-ID` is a non-authoritative selector. Company-service loads membership and roles from the server. The selector may be used only when it equals an active membership of the verified user in the verified tenant. A missing selector when several memberships exist, a selector for a company without that membership, or a selector that disagrees with the verified membership is a refusal. A body company id is not authority. An empty or invalid service credential on any internal company-service route is a refusal.
+
+Operating acceptance uses one predicate, all parts required:
 
 ```text
-ACCEPTANCE_ERROR_MATRIX=MISSING_OR_BAD_OR_MISMATCHED_TOKEN:404_GENERIC|FORBIDDEN_ROLE:403|EXPIRED_OR_CANCELLED_OR_STALE_OR_OTHER_COMPANY_OR_IDEMPOTENCY_CONFLICT:409|STORE_OR_SOURCE_UNAVAILABLE:503
+OPERATING_ACCEPTANCE_PREDICATE=VERIFIED_ACTIVE_USER AND ACTIVE_MEMBERSHIP_IN_SELECTED_OPERATING_COMPANY AND (COMPANY_SCOPED_CARRIER_ADMIN OR OPERATING_TENANT_GLOBAL_PLATFORM_ADMIN)
 ```
 
-Exact replay of the same request, selected company, and idempotency key is the 200 replay, including when the token is already consumed. The idempotency record is read before token reuse is decided.
+`VERIFIED_ACTIVE_USER` is the user predicate in section 5. The membership is active on the selected operating company. The role is company-scoped `CARRIER_ADMIN` on that same company, or tenant-global `PLATFORM_ADMIN` in the operating tenant. `PLATFORM_ADMIN` replaces only the role alternative. It does not replace the active user predicate or the active membership. Ordinary active membership does not accept a relationship. The request is `PENDING`, unexpired by the database clock, not cancelled, and the source fingerprint still matches.
+
+```text
+ACCEPTANCE_ERROR_MATRIX=MISSING_OR_BAD_OR_MISMATCHED_TOKEN:IDENTICAL_404_GENERIC|FORBIDDEN_ROLE:403|EXPIRED_OR_CANCELLED_OR_STALE:409|DIFFERENT_KEY_AFTER_ACCEPT:RELATIONSHIP_REQUEST_ALREADY_ACCEPTED:409|SAME_KEY_DIFFERENT_BODY_OR_COMPANY:RELATIONSHIP_IDEMPOTENCY_CONFLICT:409|STORE_OR_SOURCE_UNAVAILABLE:503
+ACCEPTED_REQUEST_CONFLICT_CODE=RETIRED_USE_RELATIONSHIP_REQUEST_ALREADY_ACCEPTED
+TOKEN_MISSING_BAD_AND_MISMATCH_PUBLIC_BODY=IDENTICAL_404
+```
+
+Exact replay of the same request, selected company, and idempotency key is the 200 replay, including when the token is already consumed. The idempotency record is read before token reuse is decided. The 0.1A name `ACCEPTED_REQUEST_CONFLICT` means `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` in this design. A missing token, a token that does not verify, and a token whose optional `relationship_request_id` does not match produce one identical generic 404 body. Those three responses do not reveal whether a request exists.
 
 This stage does not add the gateway route or the OpenAPI operation.
 
@@ -268,13 +303,13 @@ The transaction contains the idempotency check, token verification, pending and 
 
 Concurrency:
 
-- Two admins, same request: one transaction holds the head lock. One accepts. The other sees `ACCEPTED` and, for the same company and key, replays. A different key is `ACCEPTED_REQUEST_CONFLICT`.
-- Two operating companies: the first commit wins. The second finds the request accepted for a different company and refuses.
-- Accept versus cancel: the head lock serializes them. One event commits. The other sees the terminal status and refuses.
-- Accept versus expiry: the database clock and the head lock decide. An expired head gets `EXPIRED` or the accept refuses. It does not accept.
-- Lost response: the same key replays the stored relationship.
-- Consumed token and a different key: `ACCEPTED_REQUEST_CONFLICT`.
-- Same key and a different request or company: conflict or refuse, as frozen in 0.1A.
+- Two admins, same request: one transaction holds the head lock. One accepts. The other, for the same company and the same idempotency key, receives the 200 replay. A different idempotency key after acceptance is `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` (409). The name `ACCEPTED_REQUEST_CONFLICT` is not a code.
+- Two operating companies: the first commit wins. The second finds the request accepted for a different company and receives `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` (409) without a foreign company id.
+- Accept versus cancel: the head lock serializes them. One event commits. The other sees the terminal status and refuses with `RELATIONSHIP_REQUEST_CANCELLED` (409) when the winner cancelled.
+- Accept versus expiry: the database clock and the head lock decide. An expired head gets `EXPIRED` or the accept refuses with `RELATIONSHIP_REQUEST_EXPIRED` (409). It does not accept.
+- Lost response: the same key replays the stored relationship as 200.
+- Consumed token and a different key: `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` (409).
+- Same key and a different request, body hash, or company: `RELATIONSHIP_IDEMPOTENCY_CONFLICT` (409).
 
 ## 11. Relationship version storage
 
@@ -322,7 +357,7 @@ REACTIVATION_POLICY=NEW_ACTIVE_VERSION_AFTER_NEW_TWO_SIDED_ACCEPTANCE
 REVOKED_RELATIONSHIP_REUSE_POLICY=REUSE_SAME_ROOT_INSERT_NEXT_VERSION
 ```
 
-Company-scoped revoke and cancel require the gateway-verified selected company to be the endpoint company the actor represents. Tenant-global `PLATFORM_ADMIN` replaces only that role check, in the actor's own tenant. `GOV_INSPECTOR` is not a mutation role. No hard delete. Expiry is a database-clock event, not an actor command.
+Company-scoped revoke and cancel require the server-verified selected company to be the endpoint company the actor represents. The actor still passes the user predicate in section 5. Tenant-global `PLATFORM_ADMIN` replaces only that role check, in the actor's own tenant. It does not replace membership or the selected company. `GOV_INSPECTOR` is not a mutation role. No hard delete. Expiry is a database-clock event, not an actor command.
 
 ## 14. Activation consistency
 
@@ -342,16 +377,26 @@ ACTIVATION_AUTHORIZATION_POINT=INSIDE_TMS_PROJECTION_TRANSACTION_BEFORE_EXECUTIO
 ACTIVE_CHECK_AND_PIN_GUARANTEE=LOCK_RELATIONSHIP_HEADS_CHECK_ACTIVE_INSERT_AUTHORIZATION_IN_SAME_TRANSACTION
 ACTIVATION_AUTHORIZATION_ID=company.carrier_relationship_activation_authorizations.id
 ACTIVATION_AUTHORIZATION_TTL=TRANSACTION_SCOPE
-ACTIVATION_AUTHORIZATION_IDEMPOTENCY_SCOPE=source_activation_id+operating_tenant_id+operating_carrier_company_id
+ACTIVATION_AUTHORIZATION_LOOKUP_KEY=source_activation_id+operating_tenant_id+operating_carrier_company_id
+ACTIVATION_STORED_PIN_SET_FINGERPRINT=REQUIRED
+ACTIVATION_RETRY_SAME_FINGERPRINT=RETURN_EXISTING_EXECUTION
+ACTIVATION_RETRY_DIFFERENT_FINGERPRINT=HTTP_409_RELATIONSHIP_ACTIVATION_FINGERPRINT_CONFLICT
+ACTIVATION_FINGERPRINT_CONFLICT_SECOND_EXECUTION=NO
+ACTIVATION_FINGERPRINT_CONFLICT_PIN_MUTATION=NO
+ACTIVATION_ATOMICITY_DATABASE=freight_platform
+SPLIT_DATABASE_PLACEMENT=UNSUPPORTED_THIS_VERSION
+SPLIT_DATABASE_ACTIVATION_POLICY=FAIL_CLOSED_NO_HTTP_READ_THEN_COMMIT
 REVOCATION_DURING_PREPARED_ACTIVATION_POLICY=NO_DURABLE_PREPARED_ROW_REVOCATION_WAITS_ON_HEAD_LOCK
 ACTIVATION_CRASH_RECOVERY_POLICY=ROLLBACK_LEAVES_NO_AUTHORIZATION_RETRY_WHOLE_ACTIVATION
-ACTIVATION_RETRY_POLICY=COMMITTED_ACTIVATION_ID_RETURNS_EXISTING_EXECUTION
+ACTIVATION_RETRY_POLICY=SAME_LOOKUP_KEY_AND_SAME_FINGERPRINT_RETURNS_EXISTING_EXECUTION
 HTTP_READ_THEN_COMMIT_ALLOWED=NO
 ```
 
-`company.authorize_carrier_relationship_activation` is `SECURITY DEFINER` and writes only `company.*`. The shipment-service database role receives `EXECUTE` on that function and no insert privilege on relationship tables. The function locks heads in business-key order, requires one `ACTIVE` head per subject, requires one operating company across the set, and inserts the authorization row keyed by `source_activation_id`. Shipment-service then inserts the execution, the revision, the participants, and the pin rows. One commit covers all of it.
+`company.authorize_carrier_relationship_activation` is `SECURITY DEFINER` and writes only `company.*`. The shipment-service database role receives `EXECUTE` on that function and no insert privilege on relationship tables. The function locks heads in business-key order, requires one `ACTIVE` head per subject, requires one operating company across the set, and inserts the authorization row keyed by `source_activation_id` together with `pin_set_fingerprint`. Shipment-service then inserts the execution, the revision, the participants, and the pin rows. One commit covers all of it. That commit exists only because company-service and shipment-service use the same PostgreSQL database, `freight_platform`. A split-database placement is unsupported in this version. Activation then fails closed. An HTTP read of relationship state followed by a later commit is still forbidden.
 
-There is no durable prepared row. A crash before commit rolls the authorization back, so revocation is not blocked. A committed execution keeps its pins. Revocation after commit inserts a new relationship version and does not update those pins. Reuse of an authorization id for another execution conflicts.
+There is no durable prepared row. A crash before commit rolls the authorization back, so revocation is not blocked. A committed execution keeps its pins. Revocation after commit inserts a new relationship version and does not update those pins.
+
+Replay looks up `source_activation_id + operating_tenant_id + operating_carrier_company_id`. The same key and the same `pin_set_fingerprint` returns the existing execution and does not insert another one. The same key with a different `pin_set_fingerprint` returns `RELATIONSHIP_ACTIVATION_FINGERPRINT_CONFLICT` (409). That conflict does not create a second execution and does not change the stored pins. The fingerprint is defined in section 15.
 
 ## 15. Multi-shipment pin cardinality
 
@@ -368,7 +413,9 @@ DUPLICATE_SHIPMENT_PIN_POLICY=UNIQUE_CONFLICT_FAIL_CLOSED
 PIN_SET_FINGERPRINT_REQUIRED=YES
 ```
 
-Future `transport.transport_execution_carrier_relationship_pins` columns: `execution_revision_id`, `shipment_id`, `shipment_tenant_id`, `shipment_carrier_company_id`, `relationship_id`, `relationship_version`, `operating_tenant_id`, `operating_carrier_company_id`, `created_at`. Unique `(execution_revision_id, shipment_tenant_id, shipment_id)`. The revision stores `pin_set_fingerprint` over the sorted pin set. All subjects are authorized before any execution insert. One failure rolls back the batch.
+Future `transport.transport_execution_carrier_relationship_pins` columns: `execution_revision_id`, `shipment_id`, `shipment_tenant_id`, `shipment_carrier_company_id`, `relationship_id`, `relationship_version`, `operating_tenant_id`, `operating_carrier_company_id`, `created_at`. Unique `(execution_revision_id, shipment_tenant_id, shipment_id)`. The revision and the activation authorization store the same `pin_set_fingerprint`. All subjects are authorized before any execution insert. One failure rolls back the batch.
+
+`pin_set_fingerprint` is lowercase hex SHA-256 of a canonical UTF-8 JSON document with no insignificant whitespace. Top-level keys, in order, are `operating_tenant_id`, `operating_carrier_company_id`, and `subjects`. Each subject object uses keys `shipment_tenant_id`, `shipment_id`, and `shipment_carrier_company_id`, in that order. Subjects are sorted by lowercase `shipment_tenant_id`, then lowercase `shipment_id`. UUID values are lowercase. The fingerprint covers the requested participant set and the operating company. It does not include server-assigned `relationship_id` or `relationship_version`, so a retry of the same participants compares equal without learning new versions. Relationship identity stays on the pin rows.
 
 ## 16. Operating driver and vehicle validation
 
@@ -384,6 +431,8 @@ NULL_VEHICLE_IDENTITY_POLICY=NULL_IS_NO_ASSIGNMENT
 ```
 
 A non-null driver must match `id`, `tenant_id = operating_tenant_id`, `carrier_company_id` of the operating company, `status = ACTIVE`, and `deleted_at IS NULL` under a row lock in that transaction. A non-null vehicle uses the same five predicates on `transport.vehicles`. A miss fails the transaction and stores no assignment. Null stores null. Null is not operational readiness. `PICKUP_SLOT_BOOKED` stays `BLOCKED_BY_IDENTITY_MODEL` until the later TMS status stage. This design does not change the shipment FSM and does not compare shipment-local driver or vehicle ids with the execution columns.
+
+The internal TMS row may store operating `driver_id` and `vehicle_id`. A shipper-scoped API projection must not return those identifiers. Enumeration of carrier drivers or vehicles remains forbidden. The public projection and the internal TMS model are different shapes. A shipper tenant learns that an execution exists only through its own shipment participation, without the operating driver or vehicle id.
 
 ## 17. Internal resolution API
 
@@ -412,14 +461,15 @@ Public acceptance responses do not include a foreign tenant id, a foreign compan
 | `RELATIONSHIP_REQUEST_TOKEN_MISMATCH` | 404 | Public generic, same body as not-found | No | No |
 | `RELATIONSHIP_REQUEST_EXPIRED` | 409 | Public after a valid token and admin context | Token already proved | No |
 | `RELATIONSHIP_REQUEST_CANCELLED` | 409 | Public after a valid token and admin context | Token already proved | No |
-| `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` | 409 | Public after a valid token and admin context | No foreign company id | No |
+| `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` | 409 | Public after a valid token and admin context. This is the only code for a different idempotency key after the request is `ACCEPTED`, including a second operating company. `ACCEPTED_REQUEST_CONFLICT` is not a code | No foreign company id | No |
 | `RELATIONSHIP_REQUEST_STALE_SOURCE` | 409 | Public after a valid token and admin context | No | No |
 | `RELATIONSHIP_ACCEPTANCE_FORBIDDEN` | 403 | Public | No request lookup before the role check | No |
-| `RELATIONSHIP_IDEMPOTENCY_CONFLICT` | 409 | Public | No token | No |
+| `RELATIONSHIP_IDEMPOTENCY_CONFLICT` | 409 | Public. Same idempotency key with a different request, body hash, or company. Not used for a different key after acceptance | No token | No |
 | `RELATIONSHIP_NOT_FOUND` | 404 | Internal activation | No cross-shipper list | No |
 | `RELATIONSHIP_AMBIGUOUS` | 409 | Internal activation | No | No |
 | `RELATIONSHIP_REVOKED` | 409 | Internal activation | No | No |
 | `RELATIONSHIP_AUTHORIZATION_EXPIRED` | 409 | Unused while TTL is transaction scope | No | Retry whole activation only if nothing committed |
+| `RELATIONSHIP_ACTIVATION_FINGERPRINT_CONFLICT` | 409 | Internal TMS. Same activation lookup key, different `pin_set_fingerprint` | No | No. No second execution. Stored pins stay unchanged |
 | `RELATIONSHIP_SOURCE_UNAVAILABLE` | 503 | Public acceptance | No | Yes |
 | `RELATIONSHIP_STORE_UNAVAILABLE` | 503 | Public and internal | Must not become not-found | Yes |
 | `OPERATING_DRIVER_NOT_VALID` | 409 | Internal TMS | No | No |
@@ -449,7 +499,7 @@ There is no public list of every relationship. A caller sees a relationship only
 
 No migration is created. No number is reserved.
 
-Future migration classes, in order: company request tables, relationship root and version and head tables, idempotency tables, audit and outbox, the authorization function, then TMS pin rows and the revision fingerprint. Driver and vehicle checks are code in the existing TMS transaction, not a new identity table.
+Future migration classes, in order: company request tables, relationship root and version and head tables, idempotency tables, audit and outbox, the authorization function, then TMS pin rows and the revision fingerprint. Driver and vehicle checks are code in the existing TMS transaction, not a new identity table. The authorization function and the TMS insert share one PostgreSQL database, `freight_platform`. Split placement of those databases is unsupported in this version and must fail closed rather than fall back to an HTTP read followed by a commit.
 
 ```text
 HISTORICAL_AUTO_MATCH_ALLOWED=NO
@@ -487,16 +537,16 @@ XTI_01 through XTI_54, XTI_DRIVER_01 through XTI_DRIVER_03, and XTI_VEHICLE_01 t
 
 | Case | Result |
 | --- | --- |
-| XTI_RT_01 two admins accept one request | One commit. The other replays or conflicts on the key |
-| XTI_RT_02 two operating companies accept | First company commits. The other refuses |
+| XTI_RT_01 two admins accept one request | One commit. The same idempotency key receives 200. A different key is `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` (409) |
+| XTI_RT_02 two operating companies accept | First company commits. The other is `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` (409) without a foreign company id |
 | XTI_RT_03 accept races cancel | Head lock. One terminal event. The loser refuses |
 | XTI_RT_04 accept races expiry | Database clock under the head lock. Expired does not accept |
 | XTI_RT_05 source changes before accept | `STALE_NO_ACCEPTANCE` |
 | XTI_RT_06 revoked between route-plan accept and activate | `REFUSE_NO_EXECUTION` |
 | XTI_RT_07 revoked during the TMS transaction | Head lock. Revoke waits or activate sees `REVOKED` and rolls back |
 | XTI_RT_08 crash after authorization work and before commit | Rollback. No authorization row remains. Retry the activation |
-| XTI_RT_09 TMS commit and the ACK is lost | Same activation id returns the existing execution |
-| XTI_RT_10 authorization reused for another execution | Conflict. No second execution |
+| XTI_RT_09 TMS commit and the ACK is lost | Same activation lookup key and same `pin_set_fingerprint` return the existing execution |
+| XTI_RT_10 same activation id with a different `pin_set_fingerprint` | `RELATIONSHIP_ACTIVATION_FINGERPRINT_CONFLICT` (409). No second execution. Stored pins unchanged |
 | XTI_RT_11 one of three relationships missing | Whole batch rolls back |
 | XTI_RT_12 two relationships, two operating companies | Whole batch rolls back |
 | XTI_RT_13 driver inactive before commit | Transaction rolls back. No execution |
@@ -507,6 +557,9 @@ XTI_01 through XTI_54, XTI_DRIVER_01 through XTI_DRIVER_03, and XTI_VEHICLE_01 t
 | XTI_RT_18 historical read after revoke | Pinned revision unchanged |
 | XTI_RT_19 feature flag off | New commands refuse. No activation call |
 | XTI_RT_20 partial deploy rollback | Flag off. Committed rows remain. No backfill and no hard delete |
+| XTI_RT_21 acceptance token missing | Generic 404. Body identical to XTI_RT_22 and XTI_RT_23 |
+| XTI_RT_22 acceptance token present and not valid | Same generic 404 body as XTI_RT_21. No existence distinction |
+| XTI_RT_23 token present and `relationship_request_id` does not match | Same generic 404 body as XTI_RT_21. No existence distinction |
 
 ## 24. Critical blockers
 
