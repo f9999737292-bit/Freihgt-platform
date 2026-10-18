@@ -5,6 +5,7 @@ package relationship
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
 	"fmt"
 	"net/url"
 	"os"
@@ -19,7 +20,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/freight-platform/company-service/internal/config"
 	"github.com/freight-platform/company-service/internal/domain"
 	apperrors "github.com/freight-platform/company-service/internal/platform/errors"
 	"github.com/freight-platform/company-service/internal/repository"
@@ -29,17 +29,32 @@ import (
 func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 	pool := setupPostgres(t)
 	ctx := context.Background()
+	var pgVersion, dbName string
+	if err := pool.QueryRow(ctx, `SELECT current_setting('server_version'), current_database()`).Scan(&pgVersion, &dbName); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(dbName, "rel_found_") {
+		t.Fatalf("refusing non-isolated database %s", dbName)
+	}
+	t.Logf("POSTGRES_VERSION=%s", pgVersion)
+	t.Logf("TEST_DATABASE_ISOLATED=%s", dbName)
 	marker := uuid.New()
 	if _, err := pool.Exec(ctx, `INSERT INTO core.tenants (id, code, name) VALUES ($1, $2, 'historical')`, marker, "hist-"+marker.String()[:8]); err != nil {
 		t.Fatal(err)
 	}
+	before := coreSnapshot(t, pool)
 	if err := cycleFoundationMigration(ctx, pool); err != nil {
 		t.Fatal(err)
+	}
+	after := coreSnapshot(t, pool)
+	if before != after {
+		t.Fatalf("historical tables changed during 000100 rollback: before=%s after=%s", before, after)
 	}
 	var remaining int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM core.tenants WHERE id = $1`, marker).Scan(&remaining); err != nil || remaining != 1 {
 		t.Fatalf("historical tenant after up/down/up remaining=%d err=%v", remaining, err)
 	}
+	t.Log("MIGRATION_UP_DOWN_UP=PASS")
 
 	fix := seedFixture(t, pool)
 	repo := repository.NewRelationshipRepository(pool)
@@ -62,6 +77,11 @@ func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
 	_, err = match.Create(ctx, createInput(fix.PlatformNoMembership, fix.TenantA, fix.ShipperA, fix.CarrierA, uuid.New(), "platform", "v1"))
 	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
+	_, err = match.Create(ctx, createInput(fix.CompanyScopedPlatformAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, uuid.New(), "scoped-platform", "v1"))
+	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
+	if _, err := match.Create(ctx, createInput(fix.PlatformWithMembership, fix.TenantA, fix.ShipperA, fix.CarrierA, uuid.New(), "global-platform", "v1")); err != nil {
+		t.Fatalf("tenant-global platform admin with membership: %v", err)
+	}
 	_, err = match.Create(ctx, createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierB, uuid.New(), "cross", "v1"))
 	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
 	_, err = match.Accept(ctx, service.AcceptRelationshipInput{
@@ -111,10 +131,19 @@ func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 	if err != nil || ownView.Status != domain.RequestStatusAccepted {
 		t.Fatalf("owner get: %v %+v", err, ownView)
 	}
+	_, err = match.Get(ctx, domain.Principal{UserID: fix.CarrierAdmin, TenantID: fix.TenantB}, fix.OperatingB2, created.RequestID)
+	assertCode(t, err, apperrors.CodeRelationshipRequestNotFound)
+	operatingView, err := match.Get(ctx, domain.Principal{UserID: fix.CarrierAdmin, TenantID: fix.TenantB}, fix.OperatingB, created.RequestID)
+	if err != nil || operatingView.RequestID != created.RequestID {
+		t.Fatalf("accepting company get: %v %+v", err, operatingView)
+	}
 
-	assertTokenStoredOnlyAsHMAC(t, pool, created.Token)
+	assertTokenStoredOnlyAsHMAC(t, pool, created.RequestID, created.Token)
 	assertDirectTenantGuards(t, pool, fix)
+	assertDatabaseConstraints(t, pool, fix)
+	assertRollbackIsAtomic(t, pool, fix)
 	assertConcurrentCreate(t, match, fix)
+	t.Log("POSTGRES_INTEGRATION=PASS")
 }
 
 type matchSource struct{}
@@ -147,7 +176,7 @@ func createInput(user, tenant, company, carrier, source uuid.UUID, key, fingerpr
 	}
 }
 
-func assertTokenStoredOnlyAsHMAC(t *testing.T, pool *pgxpool.Pool, encoded string) {
+func assertTokenStoredOnlyAsHMAC(t *testing.T, pool *pgxpool.Pool, requestID uuid.UUID, encoded string) {
 	t.Helper()
 	raw, err := domain.DecodeAcceptanceToken(encoded)
 	if err != nil {
@@ -155,7 +184,7 @@ func assertTokenStoredOnlyAsHMAC(t *testing.T, pool *pgxpool.Pool, encoded strin
 	}
 	want := domain.FingerprintAcceptanceToken("postgres-pepper", raw)
 	var stored []byte
-	if err := pool.QueryRow(context.Background(), `SELECT acceptance_token_hash FROM company.carrier_relationship_requests`).Scan(&stored); err != nil {
+	if err := pool.QueryRow(context.Background(), `SELECT acceptance_token_hash FROM company.carrier_relationship_requests WHERE relationship_request_id = $1`, requestID).Scan(&stored); err != nil {
 		t.Fatal(err)
 	}
 	if !hmac.Equal(stored, want) || hmac.Equal(stored, raw) {
@@ -207,6 +236,18 @@ func assertDirectTenantGuards(t *testing.T, pool *pgxpool.Pool, fix fixture) {
 	`, uuid.New(), uuid.New(), fix.TenantA, fix.CarrierA, fix.ShipperA, fix.BlockedUser, domain.FingerprintAcceptanceToken("postgres-pepper", bytes32(t)))
 	if err == nil {
 		t.Fatal("blocked user insert was accepted")
+	}
+	_, err = pool.Exec(ctx, `
+		INSERT INTO company.carrier_relationship_requests (
+			relationship_request_id, source_type, source_id, source_tenant_id, source_version_or_fingerprint,
+			shipper_carrier_company_id, requesting_company_id, requesting_user_id, acceptance_token_hash,
+			token_created_at, token_expires_at, created_by
+		)
+		SELECT $1, 'SHIPMENT', $2, $3, 'x', $4, $5, $6, $7, ts.t, ts.t + interval '72 hours', $6
+		FROM (SELECT clock_timestamp() AS t) ts
+	`, uuid.New(), uuid.New(), fix.TenantA, fix.CarrierA, fix.ShipperA, fix.DeletedUser, domain.FingerprintAcceptanceToken("postgres-pepper", bytes32(t)))
+	if err == nil {
+		t.Fatal("deleted user insert was accepted")
 	}
 }
 
@@ -260,11 +301,21 @@ func bytes32(t *testing.T) []byte {
 	return raw
 }
 
+func uniqueTokenHash(t *testing.T) []byte {
+	t.Helper()
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		t.Fatal(err)
+	}
+	return domain.FingerprintAcceptanceToken("postgres-pepper", raw)
+}
+
 type fixture struct {
-	TenantA, TenantB                                      uuid.UUID
-	ShipperA, CarrierA, CarrierB, OperatingB, OperatingB2 uuid.UUID
-	ShipperAdmin, BlockedUser, DeletedUser                uuid.UUID
-	PlatformNoMembership, CarrierAdmin, OrdinaryMember    uuid.UUID
+	TenantA, TenantB                                         uuid.UUID
+	ShipperA, CarrierA, CarrierB, OperatingB, OperatingB2    uuid.UUID
+	ShipperAdmin, BlockedUser, DeletedUser                   uuid.UUID
+	PlatformNoMembership, PlatformWithMembership             uuid.UUID
+	CompanyScopedPlatformAdmin, CarrierAdmin, OrdinaryMember uuid.UUID
 }
 
 func seedFixture(t *testing.T, pool *pgxpool.Pool) fixture {
@@ -273,7 +324,8 @@ func seedFixture(t *testing.T, pool *pgxpool.Pool) fixture {
 	fix := fixture{
 		TenantA: uuid.New(), TenantB: uuid.New(), ShipperA: uuid.New(), CarrierA: uuid.New(), CarrierB: uuid.New(),
 		OperatingB: uuid.New(), OperatingB2: uuid.New(), ShipperAdmin: uuid.New(), BlockedUser: uuid.New(), DeletedUser: uuid.New(),
-		PlatformNoMembership: uuid.New(), CarrierAdmin: uuid.New(), OrdinaryMember: uuid.New(),
+		PlatformNoMembership: uuid.New(), PlatformWithMembership: uuid.New(), CompanyScopedPlatformAdmin: uuid.New(),
+		CarrierAdmin: uuid.New(), OrdinaryMember: uuid.New(),
 	}
 	for _, row := range []struct {
 		id   uuid.UUID
@@ -299,15 +351,21 @@ func seedFixture(t *testing.T, pool *pgxpool.Pool) fixture {
 	now := time.Now().UTC()
 	insertUser(t, pool, fix.DeletedUser, fix.TenantA, "ACTIVE", &now)
 	insertUser(t, pool, fix.PlatformNoMembership, fix.TenantA, "ACTIVE", nil)
+	insertUser(t, pool, fix.PlatformWithMembership, fix.TenantA, "ACTIVE", nil)
+	insertUser(t, pool, fix.CompanyScopedPlatformAdmin, fix.TenantA, "ACTIVE", nil)
 	insertUser(t, pool, fix.CarrierAdmin, fix.TenantB, "ACTIVE", nil)
 	insertUser(t, pool, fix.OrdinaryMember, fix.TenantB, "ACTIVE", nil)
 	insertMembership(t, pool, fix.TenantA, fix.ShipperA, fix.ShipperAdmin)
 	insertMembership(t, pool, fix.TenantA, fix.ShipperA, fix.BlockedUser)
+	insertMembership(t, pool, fix.TenantA, fix.ShipperA, fix.PlatformWithMembership)
+	insertMembership(t, pool, fix.TenantA, fix.ShipperA, fix.CompanyScopedPlatformAdmin)
 	insertMembership(t, pool, fix.TenantB, fix.OperatingB, fix.CarrierAdmin)
 	insertMembership(t, pool, fix.TenantB, fix.OperatingB2, fix.CarrierAdmin)
 	insertMembership(t, pool, fix.TenantB, fix.OperatingB, fix.OrdinaryMember)
 	grantRole(t, pool, fix.TenantA, fix.ShipperAdmin, &fix.ShipperA, "SHIPPER_ADMIN")
 	grantRole(t, pool, fix.TenantA, fix.PlatformNoMembership, nil, "PLATFORM_ADMIN")
+	grantRole(t, pool, fix.TenantA, fix.PlatformWithMembership, nil, "PLATFORM_ADMIN")
+	grantRole(t, pool, fix.TenantA, fix.CompanyScopedPlatformAdmin, &fix.ShipperA, "PLATFORM_ADMIN")
 	grantRole(t, pool, fix.TenantB, fix.CarrierAdmin, &fix.OperatingB, "CARRIER_ADMIN")
 	grantRole(t, pool, fix.TenantB, fix.CarrierAdmin, &fix.OperatingB2, "CARRIER_ADMIN")
 	return fix
@@ -368,28 +426,222 @@ func asError(err error, target **apperrors.AppError) bool {
 	return ok
 }
 
+func coreSnapshot(t *testing.T, pool *pgxpool.Pool) string {
+	t.Helper()
+	var tenants, companies, users, roles, memberships int
+	err := pool.QueryRow(context.Background(), `
+		SELECT
+			(SELECT count(*) FROM core.tenants),
+			(SELECT count(*) FROM core.companies),
+			(SELECT count(*) FROM core.users),
+			(SELECT count(*) FROM core.roles),
+			(SELECT count(*) FROM core.company_memberships)
+	`).Scan(&tenants, &companies, &users, &roles, &memberships)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fmt.Sprintf("tenants=%d companies=%d users=%d roles=%d memberships=%d", tenants, companies, users, roles, memberships)
+}
+
+func expectCompanySchema(ctx context.Context, pool *pgxpool.Pool, present bool) error {
+	var exists bool
+	if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'company')`).Scan(&exists); err != nil {
+		return err
+	}
+	if exists != present {
+		return fmt.Errorf("company schema present=%v want=%v", exists, present)
+	}
+	return nil
+}
+
+func assertDatabaseConstraints(t *testing.T, pool *pgxpool.Pool, fix fixture) {
+	t.Helper()
+	ctx := context.Background()
+	names := map[string]bool{}
+	rows, err := pool.Query(ctx, `
+		SELECT c.conname
+		FROM pg_constraint c
+		JOIN pg_namespace n ON n.oid = c.connamespace
+		WHERE n.nspname = 'company'
+		UNION
+		SELECT indexname FROM pg_indexes WHERE schemaname = 'company'
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		names[name] = true
+	}
+	rows.Close()
+	for _, name := range []string{
+		"chk_crr_token_hash_len", "chk_crr_source_type", "chk_crr_event_type", "uq_cr_business_key",
+		"uq_crr_one_pending_source_carrier", "uq_crr_acceptance_token_hash", "uq_crr_event_accepted",
+		"carrier_relationship_requests_source_tenant_id_fkey",
+	} {
+		if !names[name] {
+			t.Fatalf("missing company constraint or index %s", name)
+		}
+	}
+	mustFail(t, pool, `UPDATE company.carrier_relationship_request_events SET request_status = 'CANCELLED'`)
+	mustFail(t, pool, `DELETE FROM company.carrier_relationship_request_events`)
+	mustFail(t, pool, `UPDATE company.carrier_relationship_versions SET status = 'REVOKED'`)
+	mustFail(t, pool, `DELETE FROM company.carrier_relationships`)
+	shortHash := []byte{1, 2, 3}
+	mustFail(t, pool, `
+		INSERT INTO company.carrier_relationship_requests (
+			relationship_request_id, source_type, source_id, source_tenant_id, source_version_or_fingerprint,
+			shipper_carrier_company_id, requesting_company_id, requesting_user_id, acceptance_token_hash,
+			token_created_at, token_expires_at, created_by
+		)
+		SELECT $1, 'SHIPMENT', $2, $3, 'x', $4, $5, $6, $7, ts.t, ts.t + interval '72 hours', $6
+		FROM (SELECT clock_timestamp() AS t) ts
+	`, uuid.New(), uuid.New(), fix.TenantA, fix.CarrierA, fix.ShipperA, fix.ShipperAdmin, shortHash)
+	mustFail(t, pool, `
+		INSERT INTO company.carrier_relationship_requests (
+			relationship_request_id, source_type, source_id, source_tenant_id, source_version_or_fingerprint,
+			shipper_carrier_company_id, requesting_company_id, requesting_user_id, acceptance_token_hash,
+			token_created_at, token_expires_at, created_by
+		)
+		SELECT $1, 'NOT_A_SOURCE', $2, $3, 'x', $4, $5, $6, $7, ts.t, ts.t + interval '72 hours', $6
+		FROM (SELECT clock_timestamp() AS t) ts
+	`, uuid.New(), uuid.New(), fix.TenantA, fix.CarrierA, fix.ShipperA, fix.ShipperAdmin, domain.FingerprintAcceptanceToken("postgres-pepper", bytes32(t)))
+	requestID := uuid.New()
+	sourceID := uuid.New()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO company.carrier_relationship_requests (
+			relationship_request_id, source_type, source_id, source_tenant_id, source_version_or_fingerprint,
+			shipper_carrier_company_id, requesting_company_id, requesting_user_id, acceptance_token_hash,
+			token_created_at, token_expires_at, created_by
+		)
+		SELECT $1, 'SHIPMENT', $2, $3, 'pending-a', $4, $5, $6, $7, ts.t, ts.t + interval '72 hours', $6
+		FROM (SELECT clock_timestamp() AS t) ts
+	`, requestID, sourceID, fix.TenantA, fix.CarrierA, fix.ShipperA, fix.ShipperAdmin, uniqueTokenHash(t)); err != nil {
+		t.Fatal(err)
+	}
+	eventID := uuid.New()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO company.carrier_relationship_request_events (
+			event_id, relationship_request_id, request_version, event_type, request_status, actor_user_id
+		) VALUES ($1, $2, 1, 'CREATED', 'PENDING', $3)
+	`, eventID, requestID, fix.ShipperAdmin); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO company.carrier_relationship_request_heads (
+			relationship_request_id, source_type, source_id, shipper_carrier_company_id, current_event_id, current_version, request_status
+		) VALUES ($1, 'SHIPMENT', $2, $3, $4, 1, 'PENDING')
+	`, requestID, sourceID, fix.CarrierA, eventID); err != nil {
+		t.Fatal(err)
+	}
+	secondRequest := uuid.New()
+	secondEvent := uuid.New()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO company.carrier_relationship_requests (
+			relationship_request_id, source_type, source_id, source_tenant_id, source_version_or_fingerprint,
+			shipper_carrier_company_id, requesting_company_id, requesting_user_id, acceptance_token_hash,
+			token_created_at, token_expires_at, created_by
+		)
+		SELECT $1, 'SHIPMENT', $2, $3, 'pending-b', $4, $5, $6, $7, ts.t, ts.t + interval '72 hours', $6
+		FROM (SELECT clock_timestamp() AS t) ts
+	`, secondRequest, sourceID, fix.TenantA, fix.CarrierA, fix.ShipperA, fix.ShipperAdmin, uniqueTokenHash(t)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO company.carrier_relationship_request_events (
+			event_id, relationship_request_id, request_version, event_type, request_status, actor_user_id
+		) VALUES ($1, $2, 1, 'CREATED', 'PENDING', $3)
+	`, secondEvent, secondRequest, fix.ShipperAdmin); err != nil {
+		t.Fatal(err)
+	}
+	mustFail(t, pool, `
+		INSERT INTO company.carrier_relationship_request_heads (
+			relationship_request_id, source_type, source_id, shipper_carrier_company_id, current_event_id, current_version, request_status
+		) VALUES ($1, 'SHIPMENT', $2, $3, $4, 1, 'PENDING')
+	`, secondRequest, sourceID, fix.CarrierA, secondEvent)
+	mustFail(t, pool, `
+		INSERT INTO company.carrier_relationships (
+			relationship_id, shipper_tenant_id, shipper_carrier_company_id, operating_tenant_id, operating_carrier_company_id
+		) VALUES ($1, $2, $3, $4, $5)
+	`, uuid.New(), fix.TenantA, fix.CarrierA, fix.TenantB, fix.OperatingB2)
+}
+
+func assertRollbackIsAtomic(t *testing.T, pool *pgxpool.Pool, fix fixture) {
+	t.Helper()
+	ctx := context.Background()
+	before := companySnapshot(t, pool)
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requestID := uuid.New()
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO company.carrier_relationship_requests (
+			relationship_request_id, source_type, source_id, source_tenant_id, source_version_or_fingerprint,
+			shipper_carrier_company_id, requesting_company_id, requesting_user_id, acceptance_token_hash,
+			token_created_at, token_expires_at, created_by
+		)
+		SELECT $1, 'SHIPMENT', $2, $3, 'rollback', $4, $5, $6, $7, ts.t, ts.t + interval '72 hours', $6
+		FROM (SELECT clock_timestamp() AS t) ts
+	`, requestID, uuid.New(), fix.TenantA, fix.CarrierA, fix.ShipperA, fix.ShipperAdmin, uniqueTokenHash(t)); err != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO company.carrier_relationship_outbox (outbox_id, event_type, aggregate_id, payload)
+		VALUES ($1, 'not-an-event', $2, '{}'::jsonb)
+	`, uuid.New(), requestID); err == nil {
+		_ = tx.Rollback(ctx)
+		t.Fatal("invalid outbox event was accepted")
+	}
+	if err := tx.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if after := companySnapshot(t, pool); after != before {
+		t.Fatalf("failed outbox insert left partial rows: before=%s after=%s", before, after)
+	}
+}
+
+func companySnapshot(t *testing.T, pool *pgxpool.Pool) string {
+	t.Helper()
+	var requests, events, outbox, relationships int
+	err := pool.QueryRow(context.Background(), `
+		SELECT
+			(SELECT count(*) FROM company.carrier_relationship_requests),
+			(SELECT count(*) FROM company.carrier_relationship_request_events),
+			(SELECT count(*) FROM company.carrier_relationship_outbox),
+			(SELECT count(*) FROM company.carrier_relationships)
+	`).Scan(&requests, &events, &outbox, &relationships)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fmt.Sprintf("requests=%d events=%d outbox=%d relationships=%d", requests, events, outbox, relationships)
+}
+
+func mustFail(t *testing.T, pool *pgxpool.Pool, query string, args ...any) {
+	t.Helper()
+	tag, err := pool.Exec(context.Background(), query, args...)
+	if err == nil {
+		t.Fatalf("expected database rejection, affected=%d query=%s", tag.RowsAffected(), query)
+	}
+}
+
 func setupPostgres(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	adminURL := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
-	fallback := false
 	if adminURL == "" {
 		if os.Getenv("REQUIRE_TEST_DATABASE") == "1" || strings.EqualFold(strings.TrimSpace(os.Getenv("CI")), "true") {
-			t.Fatal("TEST_DATABASE_URL is required in CI")
+			t.Fatal("TEST_DATABASE_URL is required for the PostgreSQL gate")
 		}
-		loaded, err := config.Load()
-		if err != nil || strings.TrimSpace(loaded.DatabaseURL) == "" {
-			t.Skip("TEST_DATABASE_URL is not set")
-		}
-		adminURL = loaded.DatabaseURL
-		fallback = true
+		t.Skip("TEST_DATABASE_URL is not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	t.Cleanup(cancel)
 	dbName, testURL, dropDB, err := createTempDatabase(ctx, adminURL)
 	if err != nil {
-		if fallback {
-			t.Skip("local postgres is not usable for an isolated database")
-		}
 		t.Fatalf("isolated postgres: %v", err)
 	}
 	pool, err := pgxpool.New(ctx, testURL)
@@ -405,6 +657,7 @@ func setupPostgres(t *testing.T) *pgxpool.Pool {
 		t.Fatalf("migrations: %v", err)
 	}
 	t.Logf("isolated database=%s", dbName)
+	t.Log("MIGRATION_UP=PASS")
 	return pool
 }
 
@@ -421,8 +674,18 @@ func cycleFoundationMigration(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	for _, script := range [][]byte{down, up, down, up} {
+	if err := expectCompanySchema(ctx, pool, true); err != nil {
+		return err
+	}
+	for _, present := range []bool{false, true, false, true} {
+		script := down
+		if present {
+			script = up
+		}
 		if _, err := pool.Exec(ctx, string(script)); err != nil {
+			return err
+		}
+		if err := expectCompanySchema(ctx, pool, present); err != nil {
 			return err
 		}
 	}
