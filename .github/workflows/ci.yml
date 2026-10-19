@@ -211,13 +211,14 @@ jobs:
           go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
+            services/company-service/go.sum
             services/rfx-service/go.sum
 
       - name: Run RFx source authority PostgreSQL gate
         working-directory: services/rfx-service
         run: |
           set -o pipefail
-          go test -tags=integration -count=1 -timeout 20m -v ./internal/integration/sourceauthority -run TestRfxSourceAuthorityPostgres | tee "$RUNNER_TEMP/rfx-source-postgres.txt"
+          go test -tags=integration -count=1 -timeout 20m -v ./internal/integration/sourceauthority -run 'TestRfxSourceAuthorityPostgres|TestRfxRelationshipCreatePostgres' | tee "$RUNNER_TEMP/rfx-source-postgres.txt"
           if grep -q -- '--- SKIP:' "$RUNNER_TEMP/rfx-source-postgres.txt"; then
             echo "required PostgreSQL integration test was skipped"
             exit 1

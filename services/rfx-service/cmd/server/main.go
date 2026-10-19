@@ -87,10 +87,19 @@ func main() {
 	deadlineMetrics := worker.NewMetrics(cfg.ServiceName)
 	deadlineWorker := worker.NewDeadlineWorker(cfg.DeadlineWorker, rfxSvc, worker.RealClock(), log, deadlineMetrics)
 
-	router := httpserver.WithRfxSourceAuthority(
-		httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, versionSvc, templateSvc, templateQSvc, templateCloneSvc, crSvc, lateSvc, excelExchangeSvc, erpIntegrationSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc),
-		cfg.CompanyRelationshipRevalidationToken,
-		service.NewRfxSourceAuthority(repository.NewRfxSourceAuthorityRepository(db.Pool)),
+	sourceRepo := repository.NewRfxSourceAuthorityRepository(db.Pool)
+	relationshipToken := cfg.RfxRelationshipServiceToken
+	if relationshipToken == "" || relationshipToken == cfg.InternalServiceToken {
+		relationshipToken = ""
+	}
+	router := httpserver.WithRfxRelationshipCreate(
+		httpserver.WithRfxSourceAuthority(
+			httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, versionSvc, templateSvc, templateQSvc, templateCloneSvc, crSvc, lateSvc, excelExchangeSvc, erpIntegrationSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc),
+			cfg.CompanyRelationshipRevalidationToken,
+			service.NewRfxSourceAuthority(sourceRepo),
+		),
+		cfg.JWTSecret,
+		service.NewRfxRelationshipCreateInitiator(sourceRepo, service.NewCompanyRelationshipCreateClient(cfg.CompanyRelationshipBaseURL, relationshipToken, nil)),
 	)
 
 	server := &http.Server{
