@@ -16,6 +16,9 @@ type Config struct {
 	DatabaseURL                          string
 	InternalServiceToken                 string
 	TransportOrderServiceURL             string
+	JWTSecret                            string
+	CompanyRelationshipBaseURL           string
+	RfxRelationshipServiceToken          string
 	CompanyRelationshipRevalidationToken string
 	RfxVersioningV3Enabled               bool
 	RfxLateSubmissionEnabled             bool
@@ -62,6 +65,9 @@ func Load() (Config, error) {
 		DatabaseURL:                          databaseURL,
 		InternalServiceToken:                 os.Getenv("INTERNAL_SERVICE_TOKEN"),
 		TransportOrderServiceURL:             os.Getenv("TRANSPORT_ORDER_SERVICE_URL"),
+		JWTSecret:                            strings.TrimSpace(os.Getenv("JWT_SECRET")),
+		CompanyRelationshipBaseURL:           strings.TrimRight(strings.TrimSpace(os.Getenv("COMPANY_RELATIONSHIP_BASE_URL")), "/"),
+		RfxRelationshipServiceToken:          strings.TrimSpace(os.Getenv("RFX_RELATIONSHIP_SERVICE_TOKEN")),
 		CompanyRelationshipRevalidationToken: strings.TrimSpace(os.Getenv("COMPANY_RELATIONSHIP_REVALIDATION_TOKEN")),
 		RfxVersioningV3Enabled:               parseBool(getEnv("RFX_VERSIONING_V3_ENABLED", "false")),
 		RfxLateSubmissionEnabled:             parseBool(getEnv("RFX_LATE_SUBMISSION_ENABLED", "false")),

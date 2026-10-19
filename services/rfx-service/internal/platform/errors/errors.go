@@ -14,6 +14,15 @@ const (
 	CodeForbidden           Code = "FORBIDDEN"
 	CodeUnprocessable       Code = "UNPROCESSABLE_ENTITY"
 	CodeRequestBodyTooLarge Code = "REQUEST_BODY_TOO_LARGE"
+
+	CodeAuthenticationRequired             Code = "AUTHENTICATION_REQUIRED"
+	CodeRelationshipCommandsDisabled       Code = "RELATIONSHIP_COMMANDS_DISABLED"
+	CodeRelationshipRequestForbidden       Code = "RELATIONSHIP_REQUEST_FORBIDDEN"
+	CodeRelationshipIdempotencyConflict    Code = "RELATIONSHIP_IDEMPOTENCY_CONFLICT"
+	CodeRelationshipRequestPendingConflict Code = "RELATIONSHIP_REQUEST_PENDING_CONFLICT"
+	CodeRelationshipRequestStale           Code = "RELATIONSHIP_REQUEST_STALE_SOURCE"
+	CodeRelationshipSourceUnavailable      Code = "RELATIONSHIP_SOURCE_UNAVAILABLE"
+	CodeRelationshipStoreUnavailable       Code = "RELATIONSHIP_STORE_UNAVAILABLE"
 )
 
 type ValidationErrorItem struct {
@@ -84,6 +93,10 @@ func Unprocessable(message string, details map[string]any) *AppError {
 
 func RequestBodyTooLarge(message string) *AppError {
 	return &AppError{Code: CodeRequestBodyTooLarge, Message: message, Details: map[string]any{}}
+}
+
+func New(code Code, message string) *AppError {
+	return &AppError{Code: code, Message: message, Details: map[string]any{}}
 }
 
 func detailsOrEmpty(details map[string]any) map[string]any {
