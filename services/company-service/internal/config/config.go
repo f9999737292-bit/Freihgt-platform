@@ -20,6 +20,7 @@ type Config struct {
 	ShipmentRelationshipServiceToken     string
 	RfxRelationshipServiceToken          string
 	ShipmentSourceAuthorityBaseURL       string
+	RfxSourceAuthorityBaseURL            string
 	CompanyRelationshipRevalidationToken string
 }
 
@@ -55,6 +56,7 @@ func Load() (Config, error) {
 		ShipmentRelationshipServiceToken:     os.Getenv("SHIPMENT_RELATIONSHIP_SERVICE_TOKEN"),
 		RfxRelationshipServiceToken:          os.Getenv("RFX_RELATIONSHIP_SERVICE_TOKEN"),
 		ShipmentSourceAuthorityBaseURL:       strings.TrimSpace(os.Getenv("SHIPMENT_SOURCE_AUTHORITY_BASE_URL")),
+		RfxSourceAuthorityBaseURL:            strings.TrimSpace(os.Getenv("RFX_SOURCE_AUTHORITY_BASE_URL")),
 		CompanyRelationshipRevalidationToken: strings.TrimSpace(os.Getenv("COMPANY_RELATIONSHIP_REVALIDATION_TOKEN")),
 	}, nil
 }

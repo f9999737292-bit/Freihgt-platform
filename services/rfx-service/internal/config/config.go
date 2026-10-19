@@ -9,18 +9,19 @@ import (
 )
 
 type Config struct {
-	ServiceName              string
-	Environment              string
-	HTTPPort                 int
-	LogLevel                 string
-	DatabaseURL              string
-	InternalServiceToken     string
-	TransportOrderServiceURL string
-	RfxVersioningV3Enabled   bool
-	RfxLateSubmissionEnabled bool
-	RfxExcelExchangeEnabled  bool
-	RfxErpIntegrationEnabled bool
-	DeadlineWorker           DeadlineWorkerConfig
+	ServiceName                          string
+	Environment                          string
+	HTTPPort                             int
+	LogLevel                             string
+	DatabaseURL                          string
+	InternalServiceToken                 string
+	TransportOrderServiceURL             string
+	CompanyRelationshipRevalidationToken string
+	RfxVersioningV3Enabled               bool
+	RfxLateSubmissionEnabled             bool
+	RfxExcelExchangeEnabled              bool
+	RfxErpIntegrationEnabled             bool
+	DeadlineWorker                       DeadlineWorkerConfig
 }
 
 type DeadlineWorkerConfig struct {
@@ -54,18 +55,19 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		ServiceName:              "rfx-service",
-		Environment:              getEnv("ENVIRONMENT", "development"),
-		HTTPPort:                 port,
-		LogLevel:                 getEnv("LOG_LEVEL", "info"),
-		DatabaseURL:              databaseURL,
-		InternalServiceToken:     os.Getenv("INTERNAL_SERVICE_TOKEN"),
-		TransportOrderServiceURL: os.Getenv("TRANSPORT_ORDER_SERVICE_URL"),
-		RfxVersioningV3Enabled:   parseBool(getEnv("RFX_VERSIONING_V3_ENABLED", "false")),
-		RfxLateSubmissionEnabled: parseBool(getEnv("RFX_LATE_SUBMISSION_ENABLED", "false")),
-		RfxExcelExchangeEnabled:  parseBool(getEnv("RFX_EXCEL_EXCHANGE_ENABLED", "false")),
-		RfxErpIntegrationEnabled: parseBool(getEnv("RFX_ERP_INTEGRATION_ENABLED", "false")),
-		DeadlineWorker:           deadlineWorker,
+		ServiceName:                          "rfx-service",
+		Environment:                          getEnv("ENVIRONMENT", "development"),
+		HTTPPort:                             port,
+		LogLevel:                             getEnv("LOG_LEVEL", "info"),
+		DatabaseURL:                          databaseURL,
+		InternalServiceToken:                 os.Getenv("INTERNAL_SERVICE_TOKEN"),
+		TransportOrderServiceURL:             os.Getenv("TRANSPORT_ORDER_SERVICE_URL"),
+		CompanyRelationshipRevalidationToken: strings.TrimSpace(os.Getenv("COMPANY_RELATIONSHIP_REVALIDATION_TOKEN")),
+		RfxVersioningV3Enabled:               parseBool(getEnv("RFX_VERSIONING_V3_ENABLED", "false")),
+		RfxLateSubmissionEnabled:             parseBool(getEnv("RFX_LATE_SUBMISSION_ENABLED", "false")),
+		RfxExcelExchangeEnabled:              parseBool(getEnv("RFX_EXCEL_EXCHANGE_ENABLED", "false")),
+		RfxErpIntegrationEnabled:             parseBool(getEnv("RFX_ERP_INTEGRATION_ENABLED", "false")),
+		DeadlineWorker:                       deadlineWorker,
 	}, nil
 }
 

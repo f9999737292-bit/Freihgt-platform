@@ -20,7 +20,7 @@ const (
 )
 
 // ShipmentSourceAuthorityClient is the company-service caller for the shipment owner callback.
-// RFx sources stay unavailable until their own adapter exists. An empty URL or token is not a client.
+// RFx sources are not this client's authority. An empty URL or token is not a client.
 // The call is not retried: acceptance revalidation runs inside the company transaction.
 type ShipmentSourceAuthorityClient struct {
 	baseURL string
