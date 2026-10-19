@@ -35,9 +35,9 @@ func Error(w http.ResponseWriter, err error) {
 	switch appErr.Code {
 	case apperrors.CodeValidation:
 		status = http.StatusBadRequest
-	case apperrors.CodeNotFound:
+	case apperrors.CodeNotFound, apperrors.CodeRelationshipRequestNotFound:
 		status = http.StatusNotFound
-	case apperrors.CodeConflict, apperrors.CodeRelationshipIdempotencyConflict, apperrors.CodeRelationshipRequestPendingConflict, apperrors.CodeRelationshipRequestStale:
+	case apperrors.CodeConflict, apperrors.CodeRelationshipIdempotencyConflict, apperrors.CodeRelationshipRequestPendingConflict, apperrors.CodeRelationshipRequestStale, apperrors.CodeRelationshipRequestAlreadyAccepted:
 		status = http.StatusConflict
 	case apperrors.CodeUnauthorized, apperrors.CodeAuthenticationRequired:
 		status = http.StatusUnauthorized

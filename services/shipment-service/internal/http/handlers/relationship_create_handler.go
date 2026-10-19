@@ -20,9 +20,11 @@ const (
 	relationshipCreateSuffix = "/carrier-relationship-requests"
 )
 
-// RelationshipCreator is the shipment relationship create command.
+// RelationshipCreator is the shipment relationship create, status, and cancel command.
 type RelationshipCreator interface {
 	Create(ctx context.Context, actor service.RelationshipActor, shipmentID uuid.UUID, idempotencyKey string) (service.RelationshipCreateResult, error)
+	Status(ctx context.Context, actor service.RelationshipActor, shipmentID uuid.UUID) ([]service.RelationshipStatusItem, error)
+	Cancel(ctx context.Context, actor service.RelationshipActor, shipmentID, requestID uuid.UUID, idempotencyKey, reason string) (service.RelationshipCancelResult, error)
 }
 
 // RelationshipCreateHandler is the authenticated shipper command.
@@ -70,6 +72,8 @@ func (h *RelationshipCreateHandler) Create(w http.ResponseWriter, r *http.Reques
 	if out.Created {
 		status = http.StatusCreated
 		payload["acceptance_token"] = out.AcceptanceToken
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Pragma", "no-cache")
 	}
 	respond.JSON(w, status, payload)
 }

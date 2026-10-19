@@ -18,9 +18,11 @@ import (
 
 const relationshipCreateSuffix = "/carrier-relationship-requests"
 
-// RfxRelationshipCreator is the RFx relationship create command.
+// RfxRelationshipCreator is the RFx relationship create, status, and cancel command.
 type RfxRelationshipCreator interface {
 	Create(ctx context.Context, actor service.RfxRelationshipActor, sourceType string, sourceID uuid.UUID, idempotencyKey string) (service.RfxRelationshipCreateResult, error)
+	Status(ctx context.Context, actor service.RfxRelationshipActor, sourceType string, sourceID uuid.UUID) ([]service.RfxRelationshipStatusItem, error)
+	Cancel(ctx context.Context, actor service.RfxRelationshipActor, sourceType string, sourceID, requestID uuid.UUID, idempotencyKey, reason string) (service.RfxRelationshipCancelResult, error)
 }
 
 // RfxRelationshipCreateHandler is the authenticated buyer command.

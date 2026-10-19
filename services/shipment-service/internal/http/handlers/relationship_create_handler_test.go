@@ -50,8 +50,8 @@ func TestRelationshipCreateRouteRequiresJWTAndReturnsTokenOnce(t *testing.T) {
 	ok.Header.Set("X-Internal-Service-Name", "rfx-service")
 	rec = httptest.NewRecorder()
 	routeWith(stub, "test-secret").ServeHTTP(rec, ok)
-	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"acceptance_token":"once"`) {
-		t.Fatalf("create %d %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"acceptance_token":"once"`) || rec.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("create %d cache=%s %s", rec.Code, rec.Header().Get("Cache-Control"), rec.Body.String())
 	}
 	if stub.actor.TenantID != tenantID || stub.actor.UserID != userID || stub.shipmentID != shipmentID || stub.key != "key-1" {
 		t.Fatalf("actor %+v shipment %s key %s", stub.actor, stub.shipmentID, stub.key)
@@ -64,8 +64,8 @@ func TestRelationshipCreateRouteRequiresJWTAndReturnsTokenOnce(t *testing.T) {
 	replay.Header.Set("Idempotency-Key", "key-1")
 	rec = httptest.NewRecorder()
 	routeWith(stub, "test-secret").ServeHTTP(rec, replay)
-	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "acceptance_token") || strings.Contains(rec.Body.String(), "hidden") {
-		t.Fatalf("replay %d %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "acceptance_token") || strings.Contains(rec.Body.String(), "hidden") || rec.Header().Get("Cache-Control") == "no-store" {
+		t.Fatalf("replay %d cache=%s %s", rec.Code, rec.Header().Get("Cache-Control"), rec.Body.String())
 	}
 
 	closed := httptest.NewRequest(http.MethodPost, path, nil)
@@ -84,6 +84,14 @@ type stubCreator struct {
 	shipmentID uuid.UUID
 	key        string
 	calls      int
+}
+
+func (s *stubCreator) Status(context.Context, service.RelationshipActor, uuid.UUID) ([]service.RelationshipStatusItem, error) {
+	return []service.RelationshipStatusItem{}, nil
+}
+
+func (s *stubCreator) Cancel(context.Context, service.RelationshipActor, uuid.UUID, uuid.UUID, string, string) (service.RelationshipCancelResult, error) {
+	return service.RelationshipCancelResult{}, nil
 }
 
 func (s *stubCreator) Create(_ context.Context, actor service.RelationshipActor, shipmentID uuid.UUID, key string) (service.RelationshipCreateResult, error) {

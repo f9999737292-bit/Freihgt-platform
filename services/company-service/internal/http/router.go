@@ -65,6 +65,8 @@ func NewRouter(
 
 	relationshipHandler := handlers.NewRelationshipHandler(relationshipService)
 	r.Post("/v1/carrier-relationship-requests", relationshipHandler.Create)
+	r.Post("/v1/carrier-relationship-request-statuses", relationshipHandler.Status)
+	r.Post("/v1/carrier-relationship-requests/{relationship_request_id}/cancellations", relationshipHandler.Cancel)
 	r.Group(func(r chi.Router) {
 		r.Use(relationshipauth.RequireJWT(cfg.JWTSecret))
 		r.Get("/v1/carrier-relationship-requests/{relationship_request_id}", relationshipHandler.Get)

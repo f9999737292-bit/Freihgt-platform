@@ -11,11 +11,24 @@ import (
 // Other routes keep the handler passed in. The route fails closed when the JWT secret is empty.
 func WithRfxRelationshipCreate(next http.Handler, jwtSecret string, creator handlers.RfxRelationshipCreator) http.Handler {
 	handler := handlers.NewRfxRelationshipCreateHandler(creator)
-	protected := userauth.RequireJWT(jwtSecret)(http.HandlerFunc(handler.Create))
+	jwt := userauth.RequireJWT(jwtSecret)
+	protectedCreate := jwt(http.HandlerFunc(handler.Create))
+	protectedStatus := jwt(http.HandlerFunc(handler.Status))
+	protectedCancel := jwt(http.HandlerFunc(handler.Cancel))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
+		switch r.Method {
+		case http.MethodPost:
+			if _, _, _, ok := handlers.RfxRelationshipCancelTarget(r.URL.Path); ok {
+				protectedCancel.ServeHTTP(w, r)
+				return
+			}
 			if _, _, ok := handlers.RfxRelationshipCreateTarget(r.URL.Path); ok {
-				protected.ServeHTTP(w, r)
+				protectedCreate.ServeHTTP(w, r)
+				return
+			}
+		case http.MethodGet:
+			if _, _, ok := handlers.RfxRelationshipCreateTarget(r.URL.Path); ok {
+				protectedStatus.ServeHTTP(w, r)
 				return
 			}
 		}

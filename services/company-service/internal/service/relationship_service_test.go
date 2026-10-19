@@ -82,6 +82,14 @@ func (s *scriptedStore) AcceptRelationshipRequest(_ context.Context, _ domain.Pe
 	return domain.PersistAcceptResult{}, apperrors.New(apperrors.CodeRelationshipRequestNotFound, "relationship request not found")
 }
 
+func (s *scriptedStore) ListSourceRelationshipRequests(context.Context, string, uuid.UUID, uuid.UUID) ([]domain.SourceRequestHead, error) {
+	return []domain.SourceRequestHead{}, nil
+}
+
+func (s *scriptedStore) CancelRelationshipRequest(context.Context, domain.PersistCancel) (domain.PersistCancelResult, error) {
+	return domain.PersistCancelResult{}, apperrors.New(apperrors.CodeRelationshipRequestNotFound, "relationship request not found")
+}
+
 func (s *scriptedStore) GetVisibleRelationshipRequest(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.VisibleRequest, error) {
 	s.mu.Lock()
 	s.gets++
