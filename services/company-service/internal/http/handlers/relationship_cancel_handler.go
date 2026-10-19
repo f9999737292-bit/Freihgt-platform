@@ -17,10 +17,11 @@ import (
 )
 
 type relationshipStatusBody struct {
-	SourceType       string `json:"source_type"`
-	SourceID         string `json:"source_id"`
-	SourceTenantID   string `json:"source_tenant_id"`
-	RequestingUserID string `json:"requesting_user_id"`
+	SourceType          string `json:"source_type"`
+	SourceID            string `json:"source_id"`
+	SourceTenantID      string `json:"source_tenant_id"`
+	RequestingUserID    string `json:"requesting_user_id"`
+	RequestingCompanyID string `json:"requesting_company_id"`
 }
 
 type relationshipCancelBody struct {
@@ -56,9 +57,14 @@ func (h *RelationshipHandler) Status(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, apperrors.Validation("relationship request is invalid", nil))
 		return
 	}
+	companyID, err := uuid.Parse(strings.TrimSpace(body.RequestingCompanyID))
+	if err != nil {
+		respond.Error(w, apperrors.Validation("relationship request is invalid", nil))
+		return
+	}
 	rows, err := h.service.ListSourceRequests(r.Context(), service.ListSourceRequestsInput{
 		ServiceToken: r.Header.Get(service.RelationshipServiceTokenHeader), SourceType: body.SourceType,
-		SourceID: sourceID, SourceTenantID: sourceTenant, RequestingUserID: userID,
+		SourceID: sourceID, SourceTenantID: sourceTenant, RequestingUserID: userID, RequestingCompanyID: companyID,
 	})
 	if err != nil {
 		respond.Error(w, err)

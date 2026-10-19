@@ -23,7 +23,7 @@ var (
 
 var errTerminalEventConflict = errors.New("terminal relationship event conflict")
 
-func (r *RelationshipRepository) ListSourceRelationshipRequests(ctx context.Context, sourceType string, sourceID, sourceTenantID uuid.UUID) ([]domain.SourceRequestHead, error) {
+func (r *RelationshipRepository) ListSourceRelationshipRequests(ctx context.Context, sourceType string, sourceID, sourceTenantID, requestingCompanyID uuid.UUID) ([]domain.SourceRequestHead, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT r.relationship_request_id, h.request_status, r.shipper_carrier_company_id,
 		       r.requesting_company_id, r.token_expires_at
@@ -31,8 +31,9 @@ func (r *RelationshipRepository) ListSourceRelationshipRequests(ctx context.Cont
 		JOIN company.carrier_relationship_request_heads h
 		  ON h.relationship_request_id = r.relationship_request_id
 		WHERE r.source_type = $1 AND r.source_id = $2 AND r.source_tenant_id = $3
+		  AND r.requesting_company_id = $4
 		ORDER BY r.created_at, r.relationship_request_id
-	`, sourceType, sourceID, sourceTenantID)
+	`, sourceType, sourceID, sourceTenantID, requestingCompanyID)
 	if err != nil {
 		return nil, relationshipStoreError(err)
 	}

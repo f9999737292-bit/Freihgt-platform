@@ -168,6 +168,7 @@ func TestShipmentRelationshipCreatePostgres(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT caller_service FROM company.carrier_relationship_request_idempotency WHERE idempotency_key = 'same-key'`).Scan(&caller); err != nil || caller != "shipment-service" {
 		t.Fatalf("caller_service=%s err=%v", caller, err)
 	}
+	assertShipmentStatusOracle(t, pool, router, jwtSecret, fix)
 	lostID := requestIDFromBody(t, lostReplay.Body.String())
 	foreignStatus := postStatus(t, router, jwtSecret, fix.ShipperAdmin, fix.TenantB, lostShipment)
 	if foreignStatus.Code != http.StatusNotFound || strings.Contains(foreignStatus.Body.String(), lostID.String()) || strings.Contains(foreignStatus.Body.String(), "acceptance_token") {
@@ -281,6 +282,67 @@ func postCreate(t *testing.T, handler http.Handler, secret string, userID, tenan
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	return rec
+}
+
+func assertShipmentStatusOracle(t *testing.T, pool *pgxpool.Pool, handler http.Handler, secret string, fix sourceFix) {
+	t.Helper()
+	nonMember := uuid.New()
+	insertUser(t, pool, nonMember, fix.TenantA, "ACTIVE", false)
+	shipmentID := cloneShipment(t, pool, fix.ShipmentID)
+	req := httptest.NewRequest(http.MethodGet, "/v1/shipments/"+shipmentID.String()+"/carrier-relationship-requests", nil)
+	token, err := security.SignHS256(secret, nonMember, fix.TenantA, time.Now().UTC().Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-User-Roles", "SHIPPER_ADMIN,PLATFORM_ADMIN")
+	req.Header.Set("X-Platform-Admin", "true")
+	spoofed := httptest.NewRecorder()
+	handler.ServeHTTP(spoofed, req)
+	if spoofed.Code != http.StatusNotFound {
+		t.Fatalf("spoofed role status %d %s", spoofed.Code, spoofed.Body.String())
+	}
+	before := map[string]*httptest.ResponseRecorder{
+		"non-member":    postStatus(t, handler, secret, nonMember, fix.TenantA, shipmentID),
+		"member":        postStatus(t, handler, secret, fix.MemberNoRole, fix.TenantA, shipmentID),
+		"blocked":       postStatus(t, handler, secret, fix.BlockedUser, fix.TenantA, shipmentID),
+		"platform-none": postStatus(t, handler, secret, fix.PlatformNoMembership, fix.TenantA, shipmentID),
+		"foreign":       postStatus(t, handler, secret, fix.ShipperAdmin, fix.TenantB, shipmentID),
+	}
+	creatorBefore := postStatus(t, handler, secret, fix.ShipperAdmin, fix.TenantA, shipmentID)
+	platformBefore := postStatus(t, handler, secret, fix.PlatformWithMembership, fix.TenantA, shipmentID)
+	if creatorBefore.Code != http.StatusOK || platformBefore.Code != http.StatusOK || strings.Contains(creatorBefore.Body.String(), "acceptance_token") || !strings.Contains(creatorBefore.Body.String(), `"requests":[]`) {
+		t.Fatalf("creator before create %d %s platform %d %s", creatorBefore.Code, creatorBefore.Body.String(), platformBefore.Code, platformBefore.Body.String())
+	}
+	if countRequests(t, pool, shipmentID) != 0 {
+		t.Fatal("status read created a request")
+	}
+	created := postCreate(t, handler, secret, fix.ShipperAdmin, fix.TenantA, shipmentID, "status-oracle")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("oracle create %d %s", created.Code, created.Body.String())
+	}
+	requestID := requestIDFromBody(t, created.Body.String())
+	after := map[string]*httptest.ResponseRecorder{
+		"non-member":    postStatus(t, handler, secret, nonMember, fix.TenantA, shipmentID),
+		"member":        postStatus(t, handler, secret, fix.MemberNoRole, fix.TenantA, shipmentID),
+		"blocked":       postStatus(t, handler, secret, fix.BlockedUser, fix.TenantA, shipmentID),
+		"platform-none": postStatus(t, handler, secret, fix.PlatformNoMembership, fix.TenantA, shipmentID),
+		"foreign":       postStatus(t, handler, secret, fix.ShipperAdmin, fix.TenantB, shipmentID),
+	}
+	want := map[string]int{
+		"non-member": http.StatusNotFound, "member": http.StatusForbidden, "blocked": http.StatusForbidden,
+		"platform-none": http.StatusNotFound, "foreign": http.StatusNotFound,
+	}
+	for name, rec := range before {
+		if rec.Code != want[name] || after[name].Code != want[name] || rec.Body.String() != after[name].Body.String() || strings.Contains(rec.Body.String(), requestID.String()) || strings.Contains(after[name].Body.String(), requestID.String()) || strings.Contains(after[name].Body.String(), "acceptance_token") {
+			t.Fatalf("%s before %d %s after %d %s", name, rec.Code, rec.Body.String(), after[name].Code, after[name].Body.String())
+		}
+	}
+	creatorAfter := postStatus(t, handler, secret, fix.ShipperAdmin, fix.TenantA, shipmentID)
+	platformAfter := postStatus(t, handler, secret, fix.PlatformWithMembership, fix.TenantA, shipmentID)
+	if creatorAfter.Code != http.StatusOK || creatorAfter.Header().Get("Cache-Control") != "no-store" || !strings.Contains(creatorAfter.Body.String(), requestID.String()) || strings.Contains(creatorAfter.Body.String(), "acceptance_token") || platformAfter.Code != http.StatusOK || !strings.Contains(platformAfter.Body.String(), requestID.String()) {
+		t.Fatalf("creator after %d %s platform %d %s", creatorAfter.Code, creatorAfter.Body.String(), platformAfter.Code, platformAfter.Body.String())
+	}
 }
 
 func postStatus(t *testing.T, handler http.Handler, secret string, userID, tenantID, shipmentID uuid.UUID) *httptest.ResponseRecorder {

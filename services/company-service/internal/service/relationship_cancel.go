@@ -12,13 +12,14 @@ import (
 )
 
 // ListSourceRequestsInput is the trusted source-owner status read.
-// Tenant and user come from the source owner, which proved them from the JWT and the source row.
+// Tenant, user, and requesting company come from the source owner, which proved them from the JWT and the source row.
 type ListSourceRequestsInput struct {
-	ServiceToken     string
-	SourceType       string
-	SourceID         uuid.UUID
-	SourceTenantID   uuid.UUID
-	RequestingUserID uuid.UUID
+	ServiceToken        string
+	SourceType          string
+	SourceID            uuid.UUID
+	SourceTenantID      uuid.UUID
+	RequestingUserID    uuid.UUID
+	RequestingCompanyID uuid.UUID
 }
 
 // SourceRequestStatus is one status-list row. It has no acceptance token.
@@ -59,46 +60,50 @@ func (s *RelationshipService) ListSourceRequests(ctx context.Context, in ListSou
 		return nil, apperrors.New(apperrors.CodeAuthenticationRequired, "authentication required")
 	}
 	sourceType := strings.TrimSpace(in.SourceType)
-	if !domain.ValidSourceType(sourceType) || in.SourceID == uuid.Nil || in.SourceTenantID == uuid.Nil || in.RequestingUserID == uuid.Nil {
+	if !domain.ValidSourceType(sourceType) || in.SourceID == uuid.Nil || in.SourceTenantID == uuid.Nil || in.RequestingUserID == uuid.Nil || in.RequestingCompanyID == uuid.Nil {
 		return nil, apperrors.Validation("relationship request is invalid", nil)
 	}
 	if !domain.CallerAllowsSource(caller, sourceType) {
 		return nil, refuseCreate()
 	}
-	rows, err := s.store.ListSourceRelationshipRequests(ctx, sourceType, in.SourceID, in.SourceTenantID)
+	activeUser, err := s.authority.ActiveUserInTenant(ctx, in.SourceTenantID, in.RequestingUserID)
 	if err != nil {
 		return nil, err
 	}
-	if len(rows) == 0 {
-		return []SourceRequestStatus{}, nil
-	}
-	visible := make([]SourceRequestStatus, 0, len(rows))
-	memberWithoutRole := false
-	active := false
-	for _, row := range rows {
-		actor, err := s.authority.LoadRelationshipActor(ctx, in.SourceTenantID, in.RequestingUserID, row.RequestingCompanyID)
-		if err != nil {
-			return nil, err
-		}
-		if actor.Active {
-			active = true
-		}
-		if actor.Active && actor.ActiveMembership && !domain.CanCreateRelationshipRequest(actor, sourceType) {
-			memberWithoutRole = true
-		}
-		if domain.CanCreateRelationshipRequest(actor, sourceType) {
-			visible = append(visible, SourceRequestStatus{
-				RequestID: row.RequestID, Status: row.Status, CarrierCompanyID: row.CarrierCompanyID, TokenExpiresAt: row.TokenExpiresAt,
-			})
-		}
-	}
-	if len(visible) > 0 {
-		return visible, nil
-	}
-	if memberWithoutRole || !active {
+	if !activeUser {
 		return nil, refuseCreate()
 	}
-	return nil, relationshipNotFound()
+	companyActive, err := s.authority.ActiveCompanyInTenant(ctx, in.SourceTenantID, in.RequestingCompanyID)
+	if err != nil {
+		return nil, err
+	}
+	if !companyActive {
+		return nil, relationshipNotFound()
+	}
+	actor, err := s.authority.LoadRelationshipActor(ctx, in.SourceTenantID, in.RequestingUserID, in.RequestingCompanyID)
+	if err != nil {
+		return nil, err
+	}
+	if !actor.ActiveMembership {
+		return nil, relationshipNotFound()
+	}
+	if !domain.CanCreateRelationshipRequest(actor, sourceType) {
+		return nil, refuseCreate()
+	}
+	rows, err := s.store.ListSourceRelationshipRequests(ctx, sourceType, in.SourceID, in.SourceTenantID, in.RequestingCompanyID)
+	if err != nil {
+		return nil, err
+	}
+	visible := make([]SourceRequestStatus, 0, len(rows))
+	for _, row := range rows {
+		if row.RequestingCompanyID != in.RequestingCompanyID {
+			continue
+		}
+		visible = append(visible, SourceRequestStatus{
+			RequestID: row.RequestID, Status: row.Status, CarrierCompanyID: row.CarrierCompanyID, TokenExpiresAt: row.TokenExpiresAt,
+		})
+	}
+	return visible, nil
 }
 
 func (s *RelationshipService) Cancel(ctx context.Context, in CancelRelationshipInput) (CancelRelationshipOutput, error) {

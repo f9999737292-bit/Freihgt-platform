@@ -175,15 +175,16 @@ type RelationshipCancelResult struct {
 	Status    string
 }
 
-func (c *CompanyRelationshipCreateClient) ListStatus(ctx context.Context, sourceID, sourceTenantID, userID uuid.UUID) ([]RelationshipStatusItem, error) {
-	if c == nil || c.client == nil || c.baseURL == "" || c.token == "" || ctx == nil {
+func (c *CompanyRelationshipCreateClient) ListStatus(ctx context.Context, sourceID, sourceTenantID, userID, requestingCompanyID uuid.UUID) ([]RelationshipStatusItem, error) {
+	if c == nil || c.client == nil || c.baseURL == "" || c.token == "" || ctx == nil || requestingCompanyID == uuid.Nil {
 		return nil, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
 	}
 	payload := map[string]string{
-		"source_type":        domain.ShipmentSourceType,
-		"source_id":          sourceID.String(),
-		"source_tenant_id":   sourceTenantID.String(),
-		"requesting_user_id": userID.String(),
+		"source_type":           domain.ShipmentSourceType,
+		"source_id":             sourceID.String(),
+		"source_tenant_id":      sourceTenantID.String(),
+		"requesting_user_id":    userID.String(),
+		"requesting_company_id": requestingCompanyID.String(),
 	}
 	raw, status, err := c.postCompany(ctx, "/v1/carrier-relationship-request-statuses", payload)
 	if err != nil {

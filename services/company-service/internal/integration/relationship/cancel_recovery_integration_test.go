@@ -79,9 +79,10 @@ func assertCancelRecovery(t *testing.T, pool *pgxpool.Pool, svc *service.Relatio
 		repository.CancelTerminalInsertHook = nil
 		repository.CancelTerminalConflictHook = nil
 	}()
+	assertStatusOracle(t, pool, svc, cat, fix)
 
 	own := createOK(t, svc, cat, fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, "status-key", "status")
-	rows, err := svc.ListSourceRequests(ctx, listInput(fix.ShipperAdmin, fix.TenantA, own.SourceID))
+	rows, err := svc.ListSourceRequests(ctx, listInput(fix.ShipperAdmin, fix.TenantA, own.SourceID, fix.ShipperA))
 	if err != nil || len(rows) != 1 || rows[0].RequestID != own.RequestID || rows[0].Status != domain.RequestStatusPending || rows[0].CarrierCompanyID != fix.CarrierA || rows[0].TokenExpiresAt.IsZero() {
 		t.Fatalf("own status: %v %+v", err, rows)
 	}
@@ -89,21 +90,22 @@ func assertCancelRecovery(t *testing.T, pool *pgxpool.Pool, svc *service.Relatio
 	if strings.Contains(string(encoded), "acceptance") || strings.Contains(string(encoded), own.Token) {
 		t.Fatalf("status disclosed a token: %s", encoded)
 	}
-	foreignRows, err := svc.ListSourceRequests(ctx, listInput(fix.ShipperAdmin, fix.TenantB, own.SourceID))
-	if err != nil || len(foreignRows) != 0 {
-		t.Fatalf("foreign tenant status: %v %+v", err, foreignRows)
-	}
-	_, err = svc.ListSourceRequests(ctx, listInput(fix.PlatformNoMembership, fix.TenantA, own.SourceID))
-	assertCode(t, err, apperrors.CodeRelationshipRequestNotFound)
-	_, err = svc.ListSourceRequests(ctx, listInput(fix.CompanyScopedPlatformAdmin, fix.TenantA, own.SourceID))
+	_, err = svc.ListSourceRequests(ctx, listInput(fix.ShipperAdmin, fix.TenantB, own.SourceID, fix.ShipperA))
 	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
-	_, err = svc.ListSourceRequests(ctx, listInput(fix.BlockedUser, fix.TenantA, own.SourceID))
+	if strings.Contains(err.Error(), own.RequestID.String()) || strings.Contains(err.Error(), own.Token) {
+		t.Fatalf("foreign tenant status disclosed the request: %v", err)
+	}
+	_, err = svc.ListSourceRequests(ctx, listInput(fix.PlatformNoMembership, fix.TenantA, own.SourceID, fix.ShipperA))
+	assertCode(t, err, apperrors.CodeRelationshipRequestNotFound)
+	_, err = svc.ListSourceRequests(ctx, listInput(fix.CompanyScopedPlatformAdmin, fix.TenantA, own.SourceID, fix.ShipperA))
+	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
+	_, err = svc.ListSourceRequests(ctx, listInput(fix.BlockedUser, fix.TenantA, own.SourceID, fix.ShipperA))
 	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
 
 	ordinary := uuid.New()
 	insertUser(t, pool, ordinary, fix.TenantA, "ACTIVE", nil)
 	insertMembership(t, pool, fix.TenantA, fix.ShipperA, ordinary)
-	_, err = svc.ListSourceRequests(ctx, listInput(ordinary, fix.TenantA, own.SourceID))
+	_, err = svc.ListSourceRequests(ctx, listInput(ordinary, fix.TenantA, own.SourceID, fix.ShipperA))
 	assertCode(t, err, apperrors.CodeRelationshipRequestForbidden)
 
 	cfg := postgresRelationshipConfig()
@@ -184,7 +186,7 @@ func assertCancelRecovery(t *testing.T, pool *pgxpool.Pool, svc *service.Relatio
 	assertCode(t, err, apperrors.CodeRelationshipRequestCancelled)
 
 	lost := createOK(t, svc, cat, fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, "lost-create", "lost")
-	found, err := svc.ListSourceRequests(ctx, listInput(fix.ShipperAdmin, fix.TenantA, lost.SourceID))
+	found, err := svc.ListSourceRequests(ctx, listInput(fix.ShipperAdmin, fix.TenantA, lost.SourceID, fix.ShipperA))
 	if err != nil || len(found) != 1 || found[0].RequestID != lost.RequestID || strings.Contains(mustJSON(found), lost.Token) {
 		t.Fatalf("lost status: %v %+v", err, found)
 	}
@@ -455,10 +457,132 @@ func assertTerminalReread(t *testing.T, pool *pgxpool.Pool, svc *service.Relatio
 	}
 }
 
-func listInput(user, tenant, source uuid.UUID) service.ListSourceRequestsInput {
+func assertStatusOracle(t *testing.T, pool *pgxpool.Pool, svc *service.RelationshipService, cat *catalogSource, fix fixture) {
+	t.Helper()
+	nonMember := uuid.New()
+	member := uuid.New()
+	insertUser(t, pool, nonMember, fix.TenantA, "ACTIVE", nil)
+	insertUser(t, pool, member, fix.TenantA, "ACTIVE", nil)
+	insertMembership(t, pool, fix.TenantA, fix.ShipperA, member)
+	sources := []struct {
+		sourceType string
+		token      string
+	}{
+		{domain.SourceTypeShipment, shipmentRelationshipToken},
+		{domain.SourceTypeRfxAward, rfxRelationshipToken},
+		{domain.SourceTypeAwardLink, rfxRelationshipToken},
+	}
+	for _, source := range sources {
+		sourceID := uuid.New()
+		read := func(user, tenant, company uuid.UUID, token, sourceType string) service.ListSourceRequestsInput {
+			return service.ListSourceRequestsInput{
+				ServiceToken: token, SourceType: sourceType, SourceID: sourceID, SourceTenantID: tenant,
+				RequestingUserID: user, RequestingCompanyID: company,
+			}
+		}
+		own := read(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, source.token, source.sourceType)
+		denials := []struct {
+			name string
+			in   service.ListSourceRequestsInput
+			code apperrors.Code
+		}{
+			{"non-member", read(nonMember, fix.TenantA, fix.ShipperA, source.token, source.sourceType), apperrors.CodeRelationshipRequestNotFound},
+			{"member", read(member, fix.TenantA, fix.ShipperA, source.token, source.sourceType), apperrors.CodeRelationshipRequestForbidden},
+			{"blocked", read(fix.BlockedUser, fix.TenantA, fix.ShipperA, source.token, source.sourceType), apperrors.CodeRelationshipRequestForbidden},
+			{"deleted", read(fix.DeletedUser, fix.TenantA, fix.ShipperA, source.token, source.sourceType), apperrors.CodeRelationshipRequestForbidden},
+			{"platform-none", read(fix.PlatformNoMembership, fix.TenantA, fix.ShipperA, source.token, source.sourceType), apperrors.CodeRelationshipRequestNotFound},
+			{"platform-scoped", read(fix.CompanyScopedPlatformAdmin, fix.TenantA, fix.ShipperA, source.token, source.sourceType), apperrors.CodeRelationshipRequestForbidden},
+			{"foreign-tenant", read(fix.ShipperAdmin, fix.TenantB, fix.ShipperA, source.token, source.sourceType), apperrors.CodeRelationshipRequestForbidden},
+			{"other-company", read(fix.ShipperAdmin, fix.TenantA, fix.CarrierA, source.token, source.sourceType), apperrors.CodeRelationshipRequestNotFound},
+		}
+		otherToken := rfxRelationshipToken
+		otherType := domain.SourceTypeShipment
+		if source.sourceType == domain.SourceTypeShipment {
+			otherType = domain.SourceTypeRfxAward
+		} else {
+			otherToken = shipmentRelationshipToken
+		}
+		denials = append(denials, struct {
+			name string
+			in   service.ListSourceRequestsInput
+			code apperrors.Code
+		}{"other-credential", read(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, otherToken, source.sourceType), apperrors.CodeRelationshipRequestForbidden})
+
+		assertStatusDenials(t, pool, svc, denials, "")
+		empty, err := svc.ListSourceRequests(context.Background(), own)
+		if err != nil || len(empty) != 0 {
+			t.Fatalf("%s creator before create: %v %+v", source.sourceType, err, empty)
+		}
+		platform, err := svc.ListSourceRequests(context.Background(), read(fix.PlatformWithMembership, fix.TenantA, fix.ShipperA, source.token, source.sourceType))
+		if err != nil || len(platform) != 0 {
+			t.Fatalf("%s platform admin before create: %v %+v", source.sourceType, err, platform)
+		}
+
+		cat.allow(domain.SourceCreateSubject{
+			SourceType: source.sourceType, SourceID: sourceID, SourceTenantID: fix.TenantA, Fingerprint: "oracle",
+			ShipperCarrierCompanyID: fix.CarrierA, RequestingCompanyID: fix.ShipperA, RequestingUserID: fix.ShipperAdmin,
+		})
+		input := createInput(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, fix.CarrierA, sourceID, "oracle-"+source.sourceType, "oracle")
+		input.SourceType = source.sourceType
+		input.ServiceToken = source.token
+		created, err := svc.Create(context.Background(), input)
+		if err != nil || !created.Created || created.AcceptanceToken == "" {
+			t.Fatalf("%s create: %v %+v", source.sourceType, err, created)
+		}
+		assertStatusDenials(t, pool, svc, denials, created.RequestID.String()+" "+created.AcceptanceToken)
+		rows, err := svc.ListSourceRequests(context.Background(), own)
+		encoded := mustJSON(rows)
+		if err != nil || len(rows) != 1 || rows[0].RequestID != created.RequestID || strings.Contains(encoded, created.AcceptanceToken) || strings.Contains(encoded, "acceptance") {
+			t.Fatalf("%s creator after create: %v %s", source.sourceType, err, encoded)
+		}
+		platformRows, err := svc.ListSourceRequests(context.Background(), read(fix.PlatformWithMembership, fix.TenantA, fix.ShipperA, source.token, source.sourceType))
+		if err != nil || len(platformRows) != 1 || platformRows[0].RequestID != created.RequestID || strings.Contains(mustJSON(platformRows), created.AcceptanceToken) {
+			t.Fatalf("%s platform admin after create: %v %+v", source.sourceType, err, platformRows)
+		}
+		cross, err := svc.ListSourceRequests(context.Background(), read(fix.ShipperAdmin, fix.TenantA, fix.ShipperA, otherToken, otherType))
+		if err != nil || len(cross) != 0 || strings.Contains(mustJSON(cross), created.RequestID.String()) {
+			t.Fatalf("%s other credential opened the request: %v %+v", source.sourceType, err, cross)
+		}
+	}
+}
+
+func assertStatusDenials(t *testing.T, pool *pgxpool.Pool, svc *service.RelationshipService, denials []struct {
+	name string
+	in   service.ListSourceRequestsInput
+	code apperrors.Code
+}, secret string) {
+	t.Helper()
+	for _, denial := range denials {
+		before := companySnapshot(t, pool)
+		audits := auditCount(t, pool)
+		_, err := svc.ListSourceRequests(context.Background(), denial.in)
+		assertCode(t, err, denial.code)
+		if secret != "" {
+			for _, part := range strings.Fields(secret) {
+				if strings.Contains(err.Error(), part) {
+					t.Fatalf("%s disclosed %s: %v", denial.name, part, err)
+				}
+			}
+		}
+		if companySnapshot(t, pool) != before || auditCount(t, pool) != audits {
+			t.Fatalf("%s status read wrote rows", denial.name)
+		}
+	}
+}
+
+func auditCount(t *testing.T, pool *pgxpool.Pool) int {
+	t.Helper()
+	var count int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM company.carrier_relationship_audit`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	return count
+}
+
+func listInput(user, tenant, source, company uuid.UUID) service.ListSourceRequestsInput {
 	return service.ListSourceRequestsInput{
 		ServiceToken: shipmentRelationshipToken, SourceType: domain.SourceTypeShipment,
-		SourceID: source, SourceTenantID: tenant, RequestingUserID: user,
+		SourceID: source, SourceTenantID: tenant, RequestingUserID: user, RequestingCompanyID: company,
 	}
 }
 

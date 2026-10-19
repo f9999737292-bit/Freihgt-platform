@@ -81,6 +81,20 @@ func (r *RelationshipRepository) LoadRelationshipActor(ctx context.Context, tena
 	return actor, nil
 }
 
+func (r *RelationshipRepository) ActiveUserInTenant(ctx context.Context, tenantID, userID uuid.UUID) (bool, error) {
+	const query = `
+		SELECT EXISTS (
+			SELECT 1 FROM core.users
+			WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL AND status = 'ACTIVE'
+		)
+	`
+	var active bool
+	if err := r.pool.QueryRow(ctx, query, userID, tenantID).Scan(&active); err != nil {
+		return false, relationshipStoreError(err)
+	}
+	return active, nil
+}
+
 func (r *RelationshipRepository) ActiveCompanyInTenant(ctx context.Context, tenantID, companyID uuid.UUID) (bool, error) {
 	const query = `
 		SELECT EXISTS (

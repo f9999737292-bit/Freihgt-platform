@@ -174,15 +174,16 @@ type RfxRelationshipCancelResult struct {
 	Status    string
 }
 
-func (c *CompanyRelationshipCreateClient) ListStatus(ctx context.Context, sourceType string, sourceID, sourceTenantID, userID uuid.UUID) ([]RfxRelationshipStatusItem, error) {
+func (c *CompanyRelationshipCreateClient) ListStatus(ctx context.Context, sourceType string, sourceID, sourceTenantID, userID, requestingCompanyID uuid.UUID) ([]RfxRelationshipStatusItem, error) {
 	if sourceType != domain.RfxSourceTypeAward && sourceType != domain.RfxSourceTypeAwardLink {
 		return nil, apperrors.New(apperrors.CodeRelationshipRequestForbidden, "relationship command refused")
 	}
-	if c == nil || c.client == nil || c.baseURL == "" || c.token == "" || ctx == nil {
+	if c == nil || c.client == nil || c.baseURL == "" || c.token == "" || ctx == nil || requestingCompanyID == uuid.Nil {
 		return nil, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
 	}
 	raw, status, err := c.postCompany(ctx, "/v1/carrier-relationship-request-statuses", map[string]string{
-		"source_type": sourceType, "source_id": sourceID.String(), "source_tenant_id": sourceTenantID.String(), "requesting_user_id": userID.String(),
+		"source_type": sourceType, "source_id": sourceID.String(), "source_tenant_id": sourceTenantID.String(),
+		"requesting_user_id": userID.String(), "requesting_company_id": requestingCompanyID.String(),
 	})
 	if err != nil {
 		return nil, err

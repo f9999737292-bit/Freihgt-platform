@@ -136,10 +136,11 @@ func (s *RfxRelationshipCreateInitiator) Status(ctx context.Context, actor RfxRe
 	if actor.UserID == uuid.Nil || actor.TenantID == uuid.Nil || sourceID == uuid.Nil {
 		return nil, apperrors.Validation("relationship request is invalid", nil)
 	}
-	if err := s.requireVisibleSource(ctx, actor, sourceType, sourceID); err != nil {
+	companyID, err := s.requireVisibleSource(ctx, actor, sourceType, sourceID)
+	if err != nil {
 		return nil, err
 	}
-	return s.client.ListStatus(ctx, sourceType, sourceID, actor.TenantID, actor.UserID)
+	return s.client.ListStatus(ctx, sourceType, sourceID, actor.TenantID, actor.UserID, companyID)
 }
 
 func (s *RfxRelationshipCreateInitiator) Cancel(ctx context.Context, actor RfxRelationshipActor, sourceType string, sourceID, requestID uuid.UUID, idempotencyKey, reason string) (RfxRelationshipCancelResult, error) {
@@ -150,40 +151,41 @@ func (s *RfxRelationshipCreateInitiator) Cancel(ctx context.Context, actor RfxRe
 	if actor.UserID == uuid.Nil || actor.TenantID == uuid.Nil || sourceID == uuid.Nil || requestID == uuid.Nil || key == "" || len(key) > 200 || len(strings.TrimSpace(reason)) > 500 {
 		return RfxRelationshipCancelResult{}, apperrors.Validation("relationship request is invalid", nil)
 	}
-	if err := s.requireVisibleSource(ctx, actor, sourceType, sourceID); err != nil {
+	if _, err := s.requireVisibleSource(ctx, actor, sourceType, sourceID); err != nil {
 		return RfxRelationshipCancelResult{}, err
 	}
 	return s.client.Cancel(ctx, sourceType, sourceID, actor.TenantID, actor.UserID, requestID, key, strings.TrimSpace(reason))
 }
 
-func (s *RfxRelationshipCreateInitiator) requireVisibleSource(ctx context.Context, actor RfxRelationshipActor, sourceType string, sourceID uuid.UUID) error {
+func (s *RfxRelationshipCreateInitiator) requireVisibleSource(ctx context.Context, actor RfxRelationshipActor, sourceType string, sourceID uuid.UUID) (uuid.UUID, error) {
 	switch sourceType {
 	case domain.RfxSourceTypeAward:
 		row, err := s.reader.ReadAwardSource(ctx, sourceID)
 		if err != nil {
 			if errors.Is(err, domain.ErrRfxSourceMissing) {
-				return apperrors.NotFound("rfx award not found")
+				return uuid.Nil, apperrors.NotFound("rfx award not found")
 			}
-			return apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+			return uuid.Nil, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
 		}
-		if row.ID != sourceID || row.TenantID != actor.TenantID {
-			return apperrors.NotFound("rfx award not found")
+		if row.ID != sourceID || row.TenantID != actor.TenantID || row.OwnerCompanyID == uuid.Nil {
+			return uuid.Nil, apperrors.NotFound("rfx award not found")
 		}
+		return row.OwnerCompanyID, nil
 	case domain.RfxSourceTypeAwardLink:
 		row, err := s.reader.ReadAwardLinkSource(ctx, sourceID)
 		if err != nil {
 			if errors.Is(err, domain.ErrRfxSourceMissing) {
-				return apperrors.NotFound("rfx award link not found")
+				return uuid.Nil, apperrors.NotFound("rfx award link not found")
 			}
-			return apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+			return uuid.Nil, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
 		}
-		if row.ID != sourceID || row.TenantID != actor.TenantID {
-			return apperrors.NotFound("rfx award link not found")
+		if row.ID != sourceID || row.TenantID != actor.TenantID || row.OwnerCompanyID == uuid.Nil {
+			return uuid.Nil, apperrors.NotFound("rfx award link not found")
 		}
+		return row.OwnerCompanyID, nil
 	default:
-		return apperrors.New(apperrors.CodeRelationshipRequestForbidden, "relationship command refused")
+		return uuid.Nil, apperrors.New(apperrors.CodeRelationshipRequestForbidden, "relationship command refused")
 	}
-	return nil
 }
 
 func rfxRelationshipDecisionError(decision string) error {

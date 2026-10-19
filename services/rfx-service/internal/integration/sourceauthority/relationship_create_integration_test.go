@@ -206,6 +206,7 @@ func TestRfxRelationshipCreatePostgres(t *testing.T) {
 		t.Fatalf("caller_service=%s err=%v", caller, err)
 	}
 	lostID := rfxRequestID(t, lostReplay.Body.String())
+	assertRfxStatusOracle(t, pool, router, jwtSecret, fix)
 	foreignStatus := postRfxStatus(t, router, jwtSecret, fix.TenantBProcurement, fix.TenantB, domain.RfxSourceTypeAward, lostAward)
 	if foreignStatus.Code != http.StatusNotFound || strings.Contains(foreignStatus.Body.String(), lostID.String()) || strings.Contains(foreignStatus.Body.String(), "acceptance_token") {
 		t.Fatalf("foreign status %d %s", foreignStatus.Code, foreignStatus.Body.String())
@@ -304,6 +305,57 @@ func postRfxCreate(t *testing.T, handler http.Handler, secret string, userID, te
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	return rec
+}
+
+func assertRfxStatusOracle(t *testing.T, pool *pgxpool.Pool, handler http.Handler, secret string, fix sourceFix) {
+	t.Helper()
+	nonMember := uuid.New()
+	insertUser(t, pool, nonMember, fix.TenantA, "ACTIVE", false)
+	for _, source := range []struct {
+		sourceType string
+		sourceID   uuid.UUID
+	}{
+		{domain.RfxSourceTypeAward, insertAward(t, pool, fix.TenantA, fix.OwnerID, fix.CarrierID, "AWARDED")},
+		{domain.RfxSourceTypeAwardLink, insertLink(t, pool, fix.TenantA, fix.OwnerID, fix.CarrierID, uuid.Nil)},
+	} {
+		status := func(user, tenant uuid.UUID) *httptest.ResponseRecorder {
+			return postRfxStatus(t, handler, secret, user, tenant, source.sourceType, source.sourceID)
+		}
+		before := map[string]*httptest.ResponseRecorder{
+			"non-member": status(nonMember, fix.TenantA), "member": status(fix.CarrierAdmin, fix.TenantA),
+			"blocked": status(fix.BlockedUser, fix.TenantA), "platform-none": status(fix.PlatformNoMembership, fix.TenantA),
+			"platform-scoped": status(fix.CompanyScopedPlatformAdmin, fix.TenantA), "foreign": status(fix.TenantBProcurement, fix.TenantB),
+		}
+		creatorBefore := status(fix.Procurement, fix.TenantA)
+		platformBefore := status(fix.PlatformWithMembership, fix.TenantA)
+		if creatorBefore.Code != http.StatusOK || platformBefore.Code != http.StatusOK || !strings.Contains(creatorBefore.Body.String(), `"requests":[]`) || strings.Contains(creatorBefore.Body.String(), "acceptance_token") {
+			t.Fatalf("%s before create %d %s", source.sourceType, creatorBefore.Code, creatorBefore.Body.String())
+		}
+		created := postRfxCreate(t, handler, secret, fix.Procurement, fix.TenantA, source.sourceType, source.sourceID, "status-oracle-"+source.sourceType)
+		if created.Code != http.StatusCreated {
+			t.Fatalf("%s oracle create %d %s", source.sourceType, created.Code, created.Body.String())
+		}
+		requestID := rfxRequestID(t, created.Body.String())
+		after := map[string]*httptest.ResponseRecorder{
+			"non-member": status(nonMember, fix.TenantA), "member": status(fix.CarrierAdmin, fix.TenantA),
+			"blocked": status(fix.BlockedUser, fix.TenantA), "platform-none": status(fix.PlatformNoMembership, fix.TenantA),
+			"platform-scoped": status(fix.CompanyScopedPlatformAdmin, fix.TenantA), "foreign": status(fix.TenantBProcurement, fix.TenantB),
+		}
+		want := map[string]int{
+			"non-member": http.StatusNotFound, "member": http.StatusForbidden, "blocked": http.StatusForbidden,
+			"platform-none": http.StatusNotFound, "platform-scoped": http.StatusForbidden, "foreign": http.StatusNotFound,
+		}
+		for name, rec := range before {
+			if rec.Code != want[name] || after[name].Code != want[name] || rec.Body.String() != after[name].Body.String() || strings.Contains(after[name].Body.String(), requestID.String()) || strings.Contains(after[name].Body.String(), "acceptance_token") {
+				t.Fatalf("%s %s before %d %s after %d %s", source.sourceType, name, rec.Code, rec.Body.String(), after[name].Code, after[name].Body.String())
+			}
+		}
+		creatorAfter := status(fix.Procurement, fix.TenantA)
+		if creatorAfter.Code != http.StatusOK || creatorAfter.Header().Get("Cache-Control") != "no-store" || !strings.Contains(creatorAfter.Body.String(), requestID.String()) || strings.Contains(creatorAfter.Body.String(), "acceptance_token") {
+			t.Fatalf("%s creator after %d %s", source.sourceType, creatorAfter.Code, creatorAfter.Body.String())
+		}
+		_ = pool
+	}
 }
 
 func postRfxStatus(t *testing.T, handler http.Handler, secret string, userID, tenantID uuid.UUID, sourceType string, sourceID uuid.UUID) *httptest.ResponseRecorder {

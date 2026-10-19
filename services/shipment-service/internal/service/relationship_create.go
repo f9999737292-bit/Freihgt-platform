@@ -106,10 +106,11 @@ func (s *RelationshipCreateInitiator) Status(ctx context.Context, actor Relation
 	if actor.UserID == uuid.Nil || actor.TenantID == uuid.Nil || shipmentID == uuid.Nil {
 		return nil, apperrors.Validation("relationship request is invalid", nil)
 	}
-	if err := s.requireVisibleShipment(ctx, actor, shipmentID); err != nil {
+	row, err := s.requireVisibleShipment(ctx, actor, shipmentID)
+	if err != nil {
 		return nil, err
 	}
-	return s.client.ListStatus(ctx, shipmentID, actor.TenantID, actor.UserID)
+	return s.client.ListStatus(ctx, shipmentID, row.TenantID, actor.UserID, row.ShipperCompanyID)
 }
 
 func (s *RelationshipCreateInitiator) Cancel(ctx context.Context, actor RelationshipActor, shipmentID, requestID uuid.UUID, idempotencyKey, reason string) (RelationshipCancelResult, error) {
@@ -120,24 +121,24 @@ func (s *RelationshipCreateInitiator) Cancel(ctx context.Context, actor Relation
 	if actor.UserID == uuid.Nil || actor.TenantID == uuid.Nil || shipmentID == uuid.Nil || requestID == uuid.Nil || key == "" || len(key) > 200 || len(strings.TrimSpace(reason)) > 500 {
 		return RelationshipCancelResult{}, apperrors.Validation("relationship request is invalid", nil)
 	}
-	if err := s.requireVisibleShipment(ctx, actor, shipmentID); err != nil {
+	if _, err := s.requireVisibleShipment(ctx, actor, shipmentID); err != nil {
 		return RelationshipCancelResult{}, err
 	}
 	return s.client.Cancel(ctx, shipmentID, actor.TenantID, actor.UserID, requestID, key, strings.TrimSpace(reason))
 }
 
-func (s *RelationshipCreateInitiator) requireVisibleShipment(ctx context.Context, actor RelationshipActor, shipmentID uuid.UUID) error {
+func (s *RelationshipCreateInitiator) requireVisibleShipment(ctx context.Context, actor RelationshipActor, shipmentID uuid.UUID) (domain.ShipmentSourceRecord, error) {
 	row, err := s.reader.ReadShipmentSource(ctx, shipmentID)
 	if err != nil {
 		if errors.Is(err, domain.ErrShipmentSourceMissing) {
-			return apperrors.NotFound("shipment not found")
+			return domain.ShipmentSourceRecord{}, apperrors.NotFound("shipment not found")
 		}
-		return apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+		return domain.ShipmentSourceRecord{}, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
 	}
 	if row.ID != shipmentID || row.TenantID != actor.TenantID {
-		return apperrors.NotFound("shipment not found")
+		return domain.ShipmentSourceRecord{}, apperrors.NotFound("shipment not found")
 	}
-	return nil
+	return row, nil
 }
 
 func relationshipDecisionError(decision string) error {
