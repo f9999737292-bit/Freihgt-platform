@@ -44,7 +44,7 @@ func main() {
 	companyService := service.NewCompanyService(repo)
 	membershipService := service.NewMembershipService(repo, membershipRepo)
 	relationshipRepo := repository.NewRelationshipRepository(db.Pool)
-	sourceRevalidator, sourceAuthority := service.WireShipmentSourceAuthority(cfg.ShipmentSourceAuthorityBaseURL, cfg.CompanyRelationshipRevalidationToken)
+	sourceRevalidator, sourceAuthority := service.WireRelationshipSources(cfg.ShipmentSourceAuthorityBaseURL, cfg.RfxSourceAuthorityBaseURL, cfg.CompanyRelationshipRevalidationToken)
 	relationshipService := service.NewRelationshipService(relationshipRepo, relationshipRepo, service.RelationshipConfig{
 		CommandsEnabled:      cfg.RelationshipCommandsEnabled,
 		TokenPepper:          cfg.RelationshipTokenPepper,

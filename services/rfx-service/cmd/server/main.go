@@ -87,7 +87,11 @@ func main() {
 	deadlineMetrics := worker.NewMetrics(cfg.ServiceName)
 	deadlineWorker := worker.NewDeadlineWorker(cfg.DeadlineWorker, rfxSvc, worker.RealClock(), log, deadlineMetrics)
 
-	router := httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, versionSvc, templateSvc, templateQSvc, templateCloneSvc, crSvc, lateSvc, excelExchangeSvc, erpIntegrationSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc)
+	router := httpserver.WithRfxSourceAuthority(
+		httpserver.NewRouter(log, db.Pool, cfg, rfxSvc, qSvc, versionSvc, templateSvc, templateQSvc, templateCloneSvc, crSvc, lateSvc, excelExchangeSvc, erpIntegrationSvc, scoreModelSvc, scoringSvc, frSvc, bidSvc, pricingSvc),
+		cfg.CompanyRelationshipRevalidationToken,
+		service.NewRfxSourceAuthority(repository.NewRfxSourceAuthorityRepository(db.Pool)),
+	)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
