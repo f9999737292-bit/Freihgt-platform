@@ -18,6 +18,9 @@ type Config struct {
 	DatabaseURL                          string
 	Outbox                               OutboxConfig
 	InternalServiceToken                 string
+	JWTSecret                            string
+	CompanyRelationshipBaseURL           string
+	ShipmentRelationshipServiceToken     string
 	CompanyRelationshipRevalidationToken string
 	Notification                         NotificationConfig
 	FCM                                  FCMConfig
@@ -86,6 +89,9 @@ func Load() (Config, error) {
 		DatabaseURL:                          databaseURL,
 		Outbox:                               outbox,
 		InternalServiceToken:                 strings.TrimSpace(os.Getenv("INTERNAL_SERVICE_TOKEN")),
+		JWTSecret:                            strings.TrimSpace(os.Getenv("JWT_SECRET")),
+		CompanyRelationshipBaseURL:           strings.TrimRight(strings.TrimSpace(os.Getenv("COMPANY_RELATIONSHIP_BASE_URL")), "/"),
+		ShipmentRelationshipServiceToken:     strings.TrimSpace(os.Getenv("SHIPMENT_RELATIONSHIP_SERVICE_TOKEN")),
 		CompanyRelationshipRevalidationToken: strings.TrimSpace(os.Getenv("COMPANY_RELATIONSHIP_REVALIDATION_TOKEN")),
 		Notification:                         notification,
 		FCM: FCMConfig{
