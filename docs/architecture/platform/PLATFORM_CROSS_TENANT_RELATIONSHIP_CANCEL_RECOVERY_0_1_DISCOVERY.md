@@ -17,6 +17,8 @@ TMS_ACTIVATION_AUTHORIZED=NO
 NLO_RUNTIME_AUTHORIZED=NO
 DEPLOYMENT_AUTHORIZED=NO
 TOKEN_REISSUE_POLICY=NO_REISSUE_CANCEL_AND_CREATE_NEW_REQUEST
+R1_STAGE=TMS-CROSS-TENANT-RELATIONSHIP-CANCEL-RECOVERY-0.1-R1-REMEDIATION
+R1_FINDINGS=CR-01,CR-02,CR-03
 ```
 
 This document defines the cancel and lost-ACK recovery contract for a carrier relationship request. It does not authorize runtime code, a migration, a gateway change, revocation, TMS activation, or deployment.
@@ -99,22 +101,40 @@ Observed sequence on main:
 Recovery contract:
 
 ```text
-LOST_ACK_STATUS_SOURCE=ORIGINAL_CREATE_KEY_REPLAY_OR_SOURCE_SCOPED_STATUS
-LOST_ACK_STATUS_BODY=relationship_request_id+request_status+shipper_carrier_company_id+token_expires_at
-LOST_ACK_STATUS_TOKEN=ABSENT
+LOST_ACK_RESPONSE_A=CREATE_REPLAY
+LOST_ACK_RESPONSE_A_HTTP=200
+LOST_ACK_RESPONSE_A_BODY=relationship_request_id+request_status
+LOST_ACK_RESPONSE_A_TOKEN=ABSENT
+LOST_ACK_RESPONSE_B=SOURCE_SCOPED_STATUS_LIST
+LOST_ACK_RESPONSE_B_BODY=relationship_request_id+request_status+shipper_carrier_company_id+token_expires_at
+LOST_ACK_RESPONSE_B_AUTHZ=VERIFIED_TENANT_AND_CREATOR_ACTOR
+LOST_ACK_RESPONSE_B_TOKEN=ABSENT
+LOST_ACK_RESPONSE_C=CREATE_FINGERPRINT_MISMATCH
+LOST_ACK_RESPONSE_C_HTTP=409
+LOST_ACK_RESPONSE_C_CODE=RELATIONSHIP_IDEMPOTENCY_CONFLICT
+LOST_ACK_RESPONSE_C_BODY=ERROR_ONLY
+LOST_ACK_RESPONSE_C_REQUEST_ID=ABSENT
+LOST_ACK_RESPONSE_C_TOKEN=ABSENT
 LOST_ACK_BEFORE_EXPIRY=AUTHORIZED_CANCEL_THEN_NEW_CREATE
 LOST_ACK_AFTER_EXPIRY=AUTHORIZED_CANCEL_COMMITS_EXPIRED_THEN_NEW_CREATE
 NEW_TOKEN_SOURCE=NEW_CREATE_WITH_A_NEW_CREATE_IDEMPOTENCY_KEY_ONLY
 AUTOMATIC_TOKEN_REISSUE=NO
 AUTOMATIC_EXPIRE_INSIDE_CREATE=NO
 SAME_CREATE_KEY_AFTER_CANCEL=REPLAYS_STORED_REQUEST_WITHOUT_A_TOKEN
+CREATE_ENDPOINT_RESPONSE_EXTENDED=NO
 ```
 
-The safe status is not a token lookup. It is either the existing create replay of the original key, or a source-scoped status read defined below. Both return the request id and the head status. Neither returns the raw token or the token hash.
+The lost acknowledgement has three different responses. They are not one combined status body, and this discovery does not add fields to the existing create endpoint.
 
-The original create key remains bound to the stored request. After a confirmed `CANCELLED` or `EXPIRED` head, that same key still replays that request and still omits the token. A new token exists only on a create whose company-service result has `Created=true`. That create uses a new key in the create idempotency namespace. Reusing the lost key does not satisfy this step.
+A. Idempotent create replay. The same create key and the same request hash return HTTP 200. The body is `relationship_request_id` and `request_status`. It has no `acceptance_token`. That is the replay shipment-service and rfx-service already return. It does not include `shipper_carrier_company_id` or `token_expires_at`.
 
-A changed source fingerprint does not block cancel. Create replay of the original key becomes `RELATIONSHIP_IDEMPOTENCY_CONFLICT` once the fingerprint in the hash no longer matches, which the shipment integration test already shows. The actor then uses the source-scoped status read, which does not require the old fingerprint, and cancels by `relationship_request_id`.
+B. Source-scoped status list. The routes in section 4 return one item per visible head. Each item is `relationship_request_id`, `request_status`, `shipper_carrier_company_id`, and `token_expires_at`. The caller must present the verified JWT tenant and pass the creator predicate on the requesting company. A foreign tenant receives the source not-found result and does not learn that a request exists. The list has no `acceptance_token` and no token hash.
+
+C. Fingerprint mismatch on the old create key. The same key with a different hash returns HTTP 409 `RELATIONSHIP_IDEMPOTENCY_CONFLICT`. The body is the current error body. It has no `acceptance_token` and no `relationship_request_id`. The shipment integration test already treats that response as a conflict without a token. The actor finds the stored request only through response B, then cancels by `relationship_request_id`.
+
+The original create key remains bound to the stored request. After a confirmed `CANCELLED` or `EXPIRED` head, response A still replays that request and still omits the token. A new token exists only on a create whose company-service result has `Created=true`. That create uses a new key in the create idempotency namespace. Reusing the lost key does not satisfy this step.
+
+A changed source fingerprint does not block cancel. It produces response C on the old create key. Response B does not require the old fingerprint.
 
 Cancel and the following create are separate commands. Create does not cancel or expire a blocking head as a side effect. A new create is legal only after the blocking head for that source and carrier is no longer `PENDING`.
 
@@ -186,7 +206,20 @@ Existing reads stay token-free. `GET /v1/carrier-relationship-requests/{id}` con
 | Create with the original key after cancel | 200 | none, status of the stored request | No |
 | Create with a new key after the head left `PENDING` | 201 | none | Yes, once, `Cache-Control: no-store` |
 
-RFx create already sets `Cache-Control: no-store` on the `201` that contains the token. Shipment create on this SHA does not set that header. The next runtime stage does not need to change shipment create to make cancel correct. Any response that contains a raw token, including the new create after recovery, must send `Cache-Control: no-store`. Cancel and status responses also send `no-store` so they are not reused as if they were a token response.
+RFx create already sets `Cache-Control: no-store` on the HTTP 201 that contains the raw token. Shipment create on this SHA does not. The later runtime stage must set `Cache-Control: no-store` on that shipment HTTP 201. This docs-only pull request does not change the shipment create handler.
+
+```text
+SHIPMENT_CREATE_201_CACHE_CONTROL=no-store
+SHIPMENT_CREATE_TOKEN_ISSUANCE=ONCE_WHEN_CREATED
+SHIPMENT_CREATE_REPLAY_HTTP=200
+SHIPMENT_CREATE_REPLAY_TOKEN=ABSENT
+SHIPMENT_CREATE_REPLAY_MINTS_TOKEN=NO
+SHIPMENT_CREATE_TOKEN_IN_URL_LOGS_AUDIT_OUTBOX=NO
+SHIPMENT_CREATE_HANDLER_CHANGE_IN_THIS_PR=NO
+SHIPMENT_CREATE_HANDLER_CHANGE_IN_RUNTIME_STAGE=YES
+```
+
+The one-time rule stays the current rule. The raw token is present only when create inserts the request. HTTP 200 replay does not contain it and does not insert another token. The raw token is absent from the URL, logs, audit, and outbox. Cancel and the source-scoped status list also send `Cache-Control: no-store` and do not carry a token. The create that follows a confirmed cancel uses a new create key, returns the new token once on HTTP 201 with `Cache-Control: no-store`, and returns no token on a later replay of that new key.
 
 ## 5. Authorization matrix
 
@@ -230,7 +263,7 @@ The first committed cancel stores the idempotency row in the same transaction as
 
 A second cancel key for a request that is already `CANCELLED` or `EXPIRED` returns `200` and the current status. It inserts no event. It stores its own idempotency row when that key is new, so a later use of that key for another request is `RELATIONSHIP_IDEMPOTENCY_CONFLICT`. A key that already names another request is that conflict even when the target request is already terminal.
 
-A cancel that loses the race to accept does not store a success row. The response is `409` `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED`. Retrying the same key observes the accepted head and returns the same `409`.
+A cancel that loses the race to accept does not store a success row. The response is `409` `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED`, including the single reread in section 7. That reread does not return HTTP 200. Retrying the same key, or a different key in the same authorized scope, observes the accepted head and returns the same `409`. A foreign tenant receives `404` and not the accepted status.
 
 Create after cancel uses the existing create rule. The original create key replays the cancelled or expired request without a token. A new create key inserts a new root and returns a new token once. The cancel key string may be reused as a create key because the tables differ. That reuse is not the recovery step. The recovery step is a create key that has no create idempotency row.
 
@@ -238,12 +271,38 @@ Create after cancel uses the existing create rule. The original create key repla
 
 Every cancel takes `SELECT ... FOR UPDATE` on the request head and holds it until commit. The lock order is the cancel idempotency advisory lock, then the head row. Accept already locks the head after its own idempotency lock. Create locks the pending scope and then reads the pending head `FOR UPDATE`.
 
-A terminal event insert uses `current_version + 1`. `uq_crr_event_version` rejects two events with the same version. The head lock is what stops two transactions from choosing that version. If the unique index still fires, the transaction rolls back. The caller receives `503` `RELATIONSHIP_STORE_UNAVAILABLE`, or retries the command once inside the service and then returns the winner's status. That unique violation must not be mapped to `RELATIONSHIP_IDEMPOTENCY_CONFLICT`. The current repository maps every `23505` except `uq_crr_one_pending_source_carrier` to the idempotency conflict. The runtime stage must keep the terminal-event violation out of that branch.
+A terminal event insert uses `current_version + 1`. `uq_crr_event_version` rejects two events with the same version. The later one-terminal-event index rejects a second `ACCEPTED`, `EXPIRED`, or `CANCELLED` event. The head lock is what stops two transactions from choosing that version. When a uniqueness conflict still fires, the runtime follows one procedure:
+
+```text
+TERMINAL_EVENT_UNIQUENESS_PROCEDURE=ROLLBACK_THEN_ONE_LOCKED_REREAD
+TERMINAL_EVENT_UNIQUENESS_TO_IDEMPOTENCY_CONFLICT=NO
+CANCEL_200_AFTER_ACCEPT_WON=NO
+UNIQUENESS_RETRY_LIMIT=1
+```
+
+1. Roll back the current transaction. No event, head update, cancel idempotency row, audit row, or outbox row from that attempt remains.
+2. Open one new transaction and read that request head with `FOR UPDATE`.
+3. If the head is `CANCELLED` or `EXPIRED`, return the idempotent cancel result for that status. Write no further event and no further outbox row.
+4. If the head is `ACCEPTED`, return HTTP 409 `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED`. Write no event. Do not return HTTP 200.
+5. If the head is still `PENDING`, or the locked read does not resolve the conflict, return HTTP 503 `RELATIONSHIP_STORE_UNAVAILABLE`. Do not retry again.
+6. Do not map this uniqueness violation to `RELATIONSHIP_IDEMPOTENCY_CONFLICT`. The current repository maps every `23505` except `uq_crr_one_pending_source_carrier` to that conflict. The runtime mapper must keep the terminal-event violation out of that branch.
+
+The same cancel key and a different cancel key use that reread only when the actor's tenant is the source tenant and the actor passes the creator predicate on the requesting company:
+
+| Head after the locked reread | Same cancel key | Different cancel key |
+| --- | --- | --- |
+| `CANCELLED` or `EXPIRED` | 200, that status, no new event, no token | 200, that status, no new event, no token |
+| `ACCEPTED` | 409 `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED`, no new event | 409 `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED`, no new event |
+| `PENDING` | 503 `RELATIONSHIP_STORE_UNAVAILABLE` | 503 `RELATIONSHIP_STORE_UNAVAILABLE` |
+
+A caller whose tenant is not `source_tenant_id`, or whose proved company is not the requesting company, receives HTTP 404 `RELATIONSHIP_REQUEST_NOT_FOUND` for either key. The body does not include the head status, so it does not reveal whether cancel or accept won. An unknown request id uses that same 404.
+
+The idempotency row for a key is stored only by the transaction that commits the terminal event, or by a later authorized observation of an already `CANCELLED` or `EXPIRED` head as in section 6. The reread does not store a success row for an `ACCEPTED` head.
 
 | Case | Final head | HTTP | New event | New outbox | Pending slot |
 | --- | --- | --- | --- | --- | --- |
 | Cancel and accept, cancel commits first | `CANCELLED` | Cancel `200`. Accept `409` `RELATIONSHIP_REQUEST_CANCELLED` | One `CANCELLED` | One `carrier_relationship.cancelled` | Released |
-| Cancel and accept, accept commits first | `ACCEPTED` | Accept `201` or replay `200`. Cancel `409` `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` | One `ACCEPTED` | One `carrier_relationship.accepted` | Released by accept, not by cancel |
+| Cancel and accept, accept commits first, including the one locked reread after a unique violation | `ACCEPTED` | Accept `201` or replay `200`. Cancel `409` `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED`. Not HTTP 200 | One `ACCEPTED` | One `carrier_relationship.accepted` | Released by accept, not by cancel |
 | Cancel and clock expiry, cancel sees an unexpired clock | `CANCELLED` | Cancel `200` | One `CANCELLED` | One cancelled | Released |
 | Cancel and clock expiry, clock is due while the head is `PENDING` | `EXPIRED` | Cancel `200` with status `EXPIRED`. A concurrent accept also observes `EXPIRED` or waits and then sees it | One `EXPIRED` | One `carrier_relationship.expired` | Released |
 | Two cancels, same key | `CANCELLED` or `EXPIRED`, once | Both `200` with the same status | One | One | Released once |
@@ -321,20 +380,21 @@ PostgreSQL tests, not store fakes alone:
 1. Same create key after a lost acknowledgement returns `200` without a token, one request row, and one `requested` outbox row.
 2. A different create key while that head is `PENDING` returns `409` `RELATIONSHIP_REQUEST_PENDING_CONFLICT` and does not insert a second request.
 3. An authorized creator cancels that pending request. The head is `CANCELLED`, the `CREATED` event remains, one `CANCELLED` event and one cancel outbox row exist, and the response has no token.
-4. The original create key then returns `200` with `CANCELLED` and no token. A new create key returns `201`, a different request id, and a different token, once.
-5. Cancel replay with the same key does not add an event or an outbox row. A second key also adds no event.
+4. The original create key then returns `200` with `relationship_request_id`, `CANCELLED`, and no token. A new create key returns `201`, a different request id, and a different token, once, with `Cache-Control: no-store`. Replay of that new key is `200` and contains no token. The database holds one new token hash and not the raw token.
+5. Cancel replay with the same key does not add an event or an outbox row. A second key also adds no event. A foreign tenant using either key receives `404` and not the terminal status.
 6. The same cancel key used for another request id returns `409` `RELATIONSHIP_IDEMPOTENCY_CONFLICT`.
 7. A carrier admin, a user without membership, an inactive user, a foreign tenant, and the other service credential do not cancel and do not write an event.
 8. Spoofed `X-User-ID`, `X-Tenant-ID`, `X-User-Roles`, and `X-Platform-Admin` do not change the actor.
-9. Concurrent cancel and accept produce one terminal event. The loser receives the code in the concurrency table.
+9. Concurrent cancel and accept leave exactly one terminal event. When cancel loses the unique insert, its single locked reread returns `409` `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` if the head is `ACCEPTED`, and `200` without a second event if the head is `CANCELLED` or `EXPIRED`. The response is not HTTP 200 after accept wins. A foreign-tenant retry is `404` and does not reveal the winner. Two simultaneous cancels also leave one terminal event and one outbox row. Both authorized callers receive `200`. The loser writes no second event. If the reread still sees `PENDING`, the response is `503`.
 10. Cancel at or after `token_expires_at` commits `EXPIRED`, releases the pending index, and still returns no token.
 11. Cancel after accept returns `409` `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` and does not change the relationship version.
 12. A rolled-back cancel leaves the head `PENDING` and leaves the event, idempotency, audit, and outbox counts unchanged.
 13. Status and cancel responses, and a create `201`, do not contain `acceptance_token` except the single `201`. Database rows contain the hash and not the raw token.
-14. A changed source fingerprint still allows cancel by request id.
+14. A changed source fingerprint on the original create key returns `409` `RELATIONSHIP_IDEMPOTENCY_CONFLICT` with no `acceptance_token` and no `relationship_request_id`. The authorized status list still returns that request. Cancel by that request id succeeds. A foreign tenant does not receive the list.
 15. Shipment, RFx award, and award-link each refuse the other caller's credential.
 16. Commands disabled refuses cancel with no write.
-17. An in-place update or delete of the new cancel event fails. A second terminal event for one request fails the new unique index. A head update from `CANCELLED` back to `PENDING` fails the transition guard.
+17. An in-place update or delete of the new cancel event fails. A second terminal event for one request fails the new unique index. A head update from `CANCELLED` back to `PENDING` fails the transition guard. The uniqueness failure is not returned as `RELATIONSHIP_IDEMPOTENCY_CONFLICT`.
+18. The shipment HTTP 201 that returns a raw token after cancel, and the first shipment HTTP 201, send `Cache-Control: no-store`. Replay sends no token. The token is absent from the URL, logs, audit, and outbox.
 
 ## 12. Next runtime stage
 
@@ -343,10 +403,11 @@ The next stage may implement only this contract:
 - source-owner status and cancel commands for shipment, RFx award, and award-link
 - the company-service cancellation command behind the existing dedicated credentials
 - the three migration objects, numbered at that stage
-- the PostgreSQL tests above
+- `Cache-Control: no-store` on the shipment HTTP 201 that returns the raw acceptance token, with one-time issuance, HTTP 200 replay without a token, and no token in the URL, logs, audit, or outbox
+- the PostgreSQL tests above, including cancel against accept, two simultaneous cancels, and the refusal of a second terminal event
 - the same commands flag, still defaulting off
 
-It must not implement revoke, a relationship version transition, TMS activation, the authorization function's runtime use, NLO, gateway changes, OpenAPI publication beyond the source-owner routes it adds, token reissue, or an expiry sweeper. Deployment and merge of that runtime stage need their own authorization.
+The shipment create handler change is part of that runtime stage. This docs-only pull request does not change it. The runtime stage must not implement revoke, a relationship version transition, TMS activation, the authorization function's runtime use, NLO, gateway changes, OpenAPI publication beyond the source-owner routes it adds, token reissue, or an expiry sweeper. Replay must not mint a token. Deployment and merge of that runtime stage need their own authorization.
 
 ```text
 NEXT_STAGE=TMS-CROSS-TENANT-RELATIONSHIP-CANCEL-RECOVERY-0.1-IMPLEMENTATION
