@@ -12,6 +12,15 @@ const (
 	CodeForbidden    Code = "FORBIDDEN"
 	CodeUnavailable  Code = "UNAVAILABLE"
 	CodeInternal     Code = "INTERNAL_ERROR"
+
+	CodeAuthenticationRequired             Code = "AUTHENTICATION_REQUIRED"
+	CodeRelationshipCommandsDisabled       Code = "RELATIONSHIP_COMMANDS_DISABLED"
+	CodeRelationshipRequestForbidden       Code = "RELATIONSHIP_REQUEST_FORBIDDEN"
+	CodeRelationshipIdempotencyConflict    Code = "RELATIONSHIP_IDEMPOTENCY_CONFLICT"
+	CodeRelationshipRequestPendingConflict Code = "RELATIONSHIP_REQUEST_PENDING_CONFLICT"
+	CodeRelationshipRequestStale           Code = "RELATIONSHIP_REQUEST_STALE_SOURCE"
+	CodeRelationshipSourceUnavailable      Code = "RELATIONSHIP_SOURCE_UNAVAILABLE"
+	CodeRelationshipStoreUnavailable       Code = "RELATIONSHIP_STORE_UNAVAILABLE"
 )
 
 type AppError struct {
@@ -56,6 +65,10 @@ func Internal(message string, err error) *AppError {
 
 func Unavailable(message string, err error) *AppError {
 	return &AppError{Code: CodeUnavailable, Message: message, Details: map[string]any{}, Err: err}
+}
+
+func New(code Code, message string) *AppError {
+	return &AppError{Code: code, Message: message, Details: map[string]any{}}
 }
 
 func detailsOrEmpty(details map[string]any) map[string]any {

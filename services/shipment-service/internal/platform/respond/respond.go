@@ -37,13 +37,13 @@ func Error(w http.ResponseWriter, err error) {
 		status = http.StatusBadRequest
 	case apperrors.CodeNotFound:
 		status = http.StatusNotFound
-	case apperrors.CodeConflict:
+	case apperrors.CodeConflict, apperrors.CodeRelationshipIdempotencyConflict, apperrors.CodeRelationshipRequestPendingConflict, apperrors.CodeRelationshipRequestStale:
 		status = http.StatusConflict
-	case apperrors.CodeUnauthorized:
+	case apperrors.CodeUnauthorized, apperrors.CodeAuthenticationRequired:
 		status = http.StatusUnauthorized
-	case apperrors.CodeForbidden:
+	case apperrors.CodeForbidden, apperrors.CodeRelationshipRequestForbidden, apperrors.CodeRelationshipCommandsDisabled:
 		status = http.StatusForbidden
-	case apperrors.CodeUnavailable:
+	case apperrors.CodeUnavailable, apperrors.CodeRelationshipSourceUnavailable, apperrors.CodeRelationshipStoreUnavailable:
 		status = http.StatusServiceUnavailable
 	}
 	JSON(w, status, errorBody{Error: errorPayload{

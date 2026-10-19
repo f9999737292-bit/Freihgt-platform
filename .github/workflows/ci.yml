@@ -167,13 +167,14 @@ jobs:
           go-version: "1.25"
           cache-dependency-path: |
             packages/shared-go/go.sum
+            services/company-service/go.sum
             services/shipment-service/go.sum
 
       - name: Run shipment source authority PostgreSQL gate
         working-directory: services/shipment-service
         run: |
           set -o pipefail
-          go test -tags=integration -count=1 -timeout 20m -v ./internal/integration/sourceauthority -run TestShipmentSourceAuthorityPostgres | tee "$RUNNER_TEMP/shipment-source-postgres.txt"
+          go test -tags=integration -count=1 -timeout 20m -v ./internal/integration/sourceauthority -run 'TestShipmentSourceAuthorityPostgres|TestShipmentRelationshipCreatePostgres' | tee "$RUNNER_TEMP/shipment-source-postgres.txt"
           if grep -q -- '--- SKIP:' "$RUNNER_TEMP/shipment-source-postgres.txt"; then
             echo "required PostgreSQL integration test was skipped"
             exit 1

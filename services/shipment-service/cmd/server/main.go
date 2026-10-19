@@ -105,10 +105,19 @@ func main() {
 
 	executionRepo := repository.NewTransportExecutionRepository(db.Pool)
 	driverStopSvc.BindDeliveryDisposition(executionRepo)
-	router := httpserver.WithShipmentSourceAuthority(
-		httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, driverStopSvc, evidenceSvc, cfg.InternalServiceToken, executionRepo),
-		cfg.CompanyRelationshipRevalidationToken,
-		service.NewShipmentSourceAuthority(repository.NewShipmentSourceAuthorityRepository(db.Pool)),
+	sourceRepo := repository.NewShipmentSourceAuthorityRepository(db.Pool)
+	relationshipToken := cfg.ShipmentRelationshipServiceToken
+	if relationshipToken == "" || relationshipToken == cfg.InternalServiceToken {
+		relationshipToken = ""
+	}
+	router := httpserver.WithShipmentRelationshipCreate(
+		httpserver.WithShipmentSourceAuthority(
+			httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, driverStopSvc, evidenceSvc, cfg.InternalServiceToken, executionRepo),
+			cfg.CompanyRelationshipRevalidationToken,
+			service.NewShipmentSourceAuthority(sourceRepo),
+		),
+		cfg.JWTSecret,
+		service.NewRelationshipCreateInitiator(sourceRepo, service.NewCompanyRelationshipCreateClient(cfg.CompanyRelationshipBaseURL, relationshipToken, nil)),
 	)
 
 	server := &http.Server{
