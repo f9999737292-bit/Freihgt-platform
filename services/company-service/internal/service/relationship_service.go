@@ -16,6 +16,7 @@ type RelationshipStore interface {
 	GetVisibleRelationshipRequest(ctx context.Context, tenantID, companyID, requestID uuid.UUID) (domain.VisibleRequest, error)
 	ListSourceRelationshipRequests(ctx context.Context, sourceType string, sourceID, sourceTenantID, requestingCompanyID uuid.UUID) ([]domain.SourceRequestHead, error)
 	CancelRelationshipRequest(ctx context.Context, in domain.PersistCancel) (domain.PersistCancelResult, error)
+	RevokeRelationship(ctx context.Context, in domain.PersistRevoke) (domain.PersistRevokeResult, error)
 }
 
 type AuthorityReader interface {

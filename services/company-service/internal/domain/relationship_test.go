@@ -42,6 +42,18 @@ func TestRelationshipAuthorizationMatrix(t *testing.T) {
 	if !CanAcceptRelationship(carrierAdmin) || CanCreateRelationshipRequest(carrierAdmin, SourceTypeAwardLink) {
 		t.Fatal("carrier admin accepts and does not create")
 	}
+	inspector := ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{"GOV_INSPECTOR"}}
+	dispatcher := ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{"CARRIER_DISPATCHER"}}
+	scopedPlatform := ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{"PLATFORM_ADMIN"}}
+	if !CanRevokeOperating(carrierAdmin) || !CanRevokeOperating(platformWithMembership) || CanRevokeOperating(platformWithoutMembership) || CanRevokeOperating(scopedPlatform) {
+		t.Fatal("operating revoke requires carrier admin or tenant-global platform admin with membership")
+	}
+	if !CanRevokeShipper(shipperLogist, SourceTypeShipment) || CanRevokeShipper(carrierAdmin, SourceTypeShipment) || CanRevokeShipper(scopedPlatform, SourceTypeShipment) || CanRevokeShipper(procurement, SourceTypeShipment) {
+		t.Fatal("shipper revoke uses the source creator role")
+	}
+	if CanRevokeOperating(inspector) || CanRevokeOperating(dispatcher) || CanRevokeShipper(inspector, SourceTypeShipment) || CanRevokeShipper(dispatcher, SourceTypeRfxAward) {
+		t.Fatal("inspector and dispatcher must not revoke")
+	}
 	if !CallerAllowsSource(CallerShipmentService, SourceTypeShipment) || CallerAllowsSource(CallerShipmentService, SourceTypeRfxAward) || CallerAllowsSource(CallerShipmentService, SourceTypeAwardLink) {
 		t.Fatal("shipment identity is bound to shipment sources")
 	}
@@ -86,5 +98,10 @@ func TestCreateRequestHashChangesWithPayload(t *testing.T) {
 	again := CreateRequestHash(SourceTypeShipment, sourceID, "v1", carrierID)
 	if !bytes.Equal(left, again) {
 		t.Fatal("request hash is not stable")
+	}
+	relationshipID := uuid.New()
+	revokeHash := RevokeBodyHash(relationshipID)
+	if len(revokeHash) != 32 || bytes.Equal(revokeHash, RevokeBodyHash(uuid.New())) || !bytes.Equal(revokeHash, RevokeBodyHash(relationshipID)) {
+		t.Fatal("revoke hash must be a stable 32-byte digest of the relationship id")
 	}
 }

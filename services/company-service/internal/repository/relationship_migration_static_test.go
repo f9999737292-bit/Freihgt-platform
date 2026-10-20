@@ -44,6 +44,28 @@ func TestRelationshipMigrationDoesNotRewriteHistoricalData(t *testing.T) {
 	}
 }
 
+func TestRevokeMigrationDoesNotTouchHistoricalSchemas(t *testing.T) {
+	up := readMigration(t, "000102_company_carrier_relationship_revoke_v0_2.up.sql")
+	down := readMigration(t, "000102_company_carrier_relationship_revoke_v0_2.down.sql")
+	command, err := os.ReadFile("relationship_revoke.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, text := range []string{up, down, string(command)} {
+		for _, forbidden := range []string{"transport.", "billing.", "documents.", "control_tower."} {
+			if strings.Contains(text, forbidden) {
+				t.Fatalf("revoke artifact names %s", forbidden)
+			}
+		}
+	}
+	if strings.Contains(strings.ToLower(up), "delete from") || strings.Contains(strings.ToLower(down), "delete from") {
+		t.Fatal("revoke migration deletes rows")
+	}
+	if !strings.Contains(down, "btrim(revoke_reason)") || !strings.Contains(up, "carrier_relationship_revoke_idempotency") {
+		t.Fatal("revoke migration is missing the idempotency table or the down guard")
+	}
+}
+
 func readMigration(t *testing.T, name string) string {
 	t.Helper()
 	path := filepath.Join("..", "..", "..", "..", "infrastructure", "migrations", name)
