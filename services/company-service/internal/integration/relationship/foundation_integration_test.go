@@ -43,6 +43,9 @@ func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := coreSnapshot(t, pool)
+	if err := applyRevokeDown(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
 	if err := applyCancelDown(ctx, pool); err != nil {
 		t.Fatal(err)
 	}
@@ -159,6 +162,11 @@ func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 	assertConcurrentCreate(t, match, cat, fix)
 	assertCancelRecovery(t, pool, match, cat, fix)
 	runPublicAcceptScenarios(t, pool)
+	if err := applyRevokeUp(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	runRevokeScenarios(t, pool)
+	assertRevokeMigrationCycle(t)
 	t.Log("POSTGRES_INTEGRATION=PASS")
 }
 

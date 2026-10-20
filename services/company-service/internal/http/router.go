@@ -71,6 +71,7 @@ func NewRouter(
 		r.Use(relationshipauth.RequireJWT(cfg.JWTSecret))
 		r.Get("/v1/carrier-relationship-requests/{relationship_request_id}", relationshipHandler.Get)
 		r.Post("/v1/carrier-operating-relationship-acceptances", relationshipHandler.Accept)
+		r.Post("/v1/carrier-operating-relationships/{relationship_id}/revocations", relationshipHandler.Revoke)
 	})
 
 	return r

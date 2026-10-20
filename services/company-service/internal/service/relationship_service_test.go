@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"testing"
 
@@ -48,6 +49,7 @@ type scriptedStore struct {
 	lastHash   []byte
 	lastCaller string
 	lists      int
+	revokes    int
 }
 
 func newScriptedStore() *scriptedStore {
@@ -100,6 +102,13 @@ func (s *scriptedStore) ListSourceRelationshipRequests(context.Context, string, 
 
 func (s *scriptedStore) CancelRelationshipRequest(context.Context, domain.PersistCancel) (domain.PersistCancelResult, error) {
 	return domain.PersistCancelResult{}, apperrors.New(apperrors.CodeRelationshipRequestNotFound, "relationship request not found")
+}
+
+func (s *scriptedStore) RevokeRelationship(context.Context, domain.PersistRevoke) (domain.PersistRevokeResult, error) {
+	s.mu.Lock()
+	s.revokes++
+	s.mu.Unlock()
+	return domain.PersistRevokeResult{}, apperrors.New(apperrors.CodeRelationshipNotFound, "relationship not found")
 }
 
 func (s *scriptedStore) GetVisibleRelationshipRequest(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.VisibleRequest, error) {
@@ -414,6 +423,52 @@ func TestListAuthorizesBeforeReadingRequests(t *testing.T) {
 	rows, err := svc.ListSourceRequests(context.Background(), base)
 	if err != nil || len(rows) != 1 || store.lists != 1 || rows[0].RequestID.String() == "" {
 		t.Fatalf("creator list err=%v rows=%d lists=%d", err, len(rows), store.lists)
+	}
+}
+
+func TestRevokeRefusesBeforePersistence(t *testing.T) {
+	store := newScriptedStore()
+	authority := &scriptedAuthority{actor: domain.ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleShipperAdmin}}}
+	svc := NewRelationshipService(store, authority, RelationshipConfig{}, nil, nil)
+	principal := domain.Principal{UserID: uuid.New(), TenantID: uuid.New()}
+	companyID := uuid.New()
+	relationshipID := uuid.New()
+	base := RevokeRelationshipInput{Principal: principal, SelectedCompanyID: companyID, RelationshipID: relationshipID, IdempotencyKey: "revoke-key"}
+	_, err := svc.Revoke(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeRelationshipCommandsDisabled || store.revokes != 0 || authority.calls != 0 {
+		t.Fatalf("flag off code=%s revokes=%d calls=%d", codeOf(t, err), store.revokes, authority.calls)
+	}
+	svc.cfg.CommandsEnabled = true
+	base.AcceptanceToken = "present"
+	_, err = svc.Revoke(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeValidation || store.revokes != 0 {
+		t.Fatalf("token code=%s revokes=%d", codeOf(t, err), store.revokes)
+	}
+	base.AcceptanceToken = ""
+	base.Reason = strings.Repeat("я", 501)
+	_, err = svc.Revoke(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeValidation || store.revokes != 0 {
+		t.Fatalf("reason code=%s revokes=%d", codeOf(t, err), store.revokes)
+	}
+	base.Reason = ""
+	otherTenant := uuid.New()
+	base.BodyTenantID = &otherTenant
+	_, err = svc.Revoke(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeTenantContextConflict || store.revokes != 0 {
+		t.Fatalf("tenant code=%s revokes=%d", codeOf(t, err), store.revokes)
+	}
+	base.BodyTenantID = nil
+	otherCompany := uuid.New()
+	base.BodyCompanyID = &otherCompany
+	_, err = svc.Revoke(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeRelationshipRevokeForbidden || store.revokes != 0 {
+		t.Fatalf("company code=%s revokes=%d", codeOf(t, err), store.revokes)
+	}
+	base.BodyCompanyID = nil
+	base.RelationshipID = uuid.Nil
+	_, err = svc.Revoke(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeRelationshipNotFound || store.revokes != 0 {
+		t.Fatalf("missing id code=%s revokes=%d", codeOf(t, err), store.revokes)
 	}
 }
 

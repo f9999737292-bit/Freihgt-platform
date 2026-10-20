@@ -168,6 +168,14 @@ func CanAcceptRelationship(actor ActorAuthority) bool {
 	return false
 }
 
+func CanRevokeOperating(actor ActorAuthority) bool {
+	return CanAcceptRelationship(actor)
+}
+
+func CanRevokeShipper(actor ActorAuthority, sourceType string) bool {
+	return CanCreateRelationshipRequest(actor, sourceType)
+}
+
 func CanReadRelationshipRequest(actor ActorAuthority) bool {
 	if !actor.Active || !actor.ActiveMembership {
 		return false
@@ -272,6 +280,32 @@ func FingerprintAcceptanceToken(pepper string, raw []byte) []byte {
 func CancelBodyHash(requestID uuid.UUID) []byte {
 	sum := sha256.Sum256([]byte(requestID.String()))
 	return sum[:]
+}
+
+// RevokeBodyHash covers only the relationship id.
+// reason and expected_relationship_version are stored outside the hash.
+func RevokeBodyHash(relationshipID uuid.UUID) []byte {
+	sum := sha256.Sum256([]byte(relationshipID.String()))
+	return sum[:]
+}
+
+// PersistRevoke is the company-owned revoke command for an accepted relationship.
+type PersistRevoke struct {
+	ActorTenantID               uuid.UUID
+	ActorUserID                 uuid.UUID
+	SelectedCompanyID           uuid.UUID
+	RelationshipID              uuid.UUID
+	IdempotencyKey              string
+	Reason                      string
+	ExpectedRelationshipVersion *int
+	CorrelationID               string
+}
+
+// PersistRevokeResult is HTTP 200 for the first transition, a replay, and a later observation.
+type PersistRevokeResult struct {
+	RelationshipID      uuid.UUID
+	RelationshipVersion int
+	Status              string
 }
 
 // PersistCancel is the company-owned cancel command.

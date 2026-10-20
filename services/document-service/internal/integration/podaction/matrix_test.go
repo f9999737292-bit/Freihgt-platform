@@ -407,8 +407,8 @@ func TestMigration000099UpDownUp(t *testing.T) {
 	if !tableExists(t, pool, "documents.pod_delivery_action_evidence") {
 		t.Fatal("up did not create evidence table")
 	}
-	if !chainHeadIs(t, 101) {
-		t.Fatal("migration chain is not contiguous through 000101")
+	if !chainHeadIs(t, 102) {
+		t.Fatal("migration chain is not contiguous through 000102")
 	}
 	down, err := os.ReadFile(filepath.Join(env.migDir, "000099_edo_pod_delivery_action_evidence_binding_v0_1b.down.sql"))
 	if err != nil {

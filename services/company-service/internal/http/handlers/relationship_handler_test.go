@@ -241,6 +241,8 @@ type recordingStore struct {
 	carrier    bool
 	accepts    int
 	creates    int
+	revokes    int
+	revokeUser uuid.UUID
 	lists      int
 	lastCaller string
 	rows       map[string]domain.PersistCreateResult
@@ -280,6 +282,12 @@ func (s *recordingStore) ListSourceRelationshipRequests(context.Context, string,
 
 func (s *recordingStore) CancelRelationshipRequest(context.Context, domain.PersistCancel) (domain.PersistCancelResult, error) {
 	return domain.PersistCancelResult{}, apperrors.New(apperrors.CodeRelationshipRequestNotFound, "relationship request not found")
+}
+
+func (s *recordingStore) RevokeRelationship(_ context.Context, in domain.PersistRevoke) (domain.PersistRevokeResult, error) {
+	s.revokeUser = in.ActorUserID
+	s.revokes++
+	return domain.PersistRevokeResult{}, apperrors.New(apperrors.CodeRelationshipNotFound, "relationship not found")
 }
 
 func TestStatusRejectsDirectBypassBeforeList(t *testing.T) {
@@ -379,4 +387,61 @@ func TestAcceptSuccessSetsNoStoreAndOmitsToken(t *testing.T) {
 	if store.accepts != 1 || authority.seen != userID {
 		t.Fatalf("accept calls=%d seen=%s", store.accepts, authority.seen)
 	}
+}
+
+func TestRevokeHTTPDoesNotTrustSpoofedIdentity(t *testing.T) {
+	userID := uuid.New()
+	tenantID := uuid.New()
+	companyID := uuid.New()
+	relationshipID := uuid.New()
+	foreignCompany := uuid.New()
+	authority := &recordingAuthority{byUser: map[uuid.UUID]domain.ActorAuthority{
+		userID: {Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleCarrierAdmin}},
+	}}
+	store := &fixedRevokeStore{result: domain.PersistRevokeResult{
+		RelationshipID: relationshipID, RelationshipVersion: 2, Status: domain.RelationshipStatusRevoked,
+	}}
+	disabled := service.NewRelationshipService(store, authority, service.RelationshipConfig{}, nil, nil)
+	disabledRouter := httpserver.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, config.Config{JWTSecret: testSecret}, nil, nil, nil, nil, disabled)
+	token := sign(t, userID, tenantID)
+	path := "/v1/carrier-operating-relationships/" + relationshipID.String() + "/revocations"
+	off := doJSON(t, disabledRouter, http.MethodPost, path, token, companyID, []byte(`{"idempotency_key":"k"}`), uuid.New())
+	if off.Code != http.StatusForbidden || !strings.Contains(off.Body.String(), string(apperrors.CodeRelationshipCommandsDisabled)) || store.revokes != 0 {
+		t.Fatalf("flag off status=%d revokes=%d body=%s", off.Code, store.revokes, off.Body.String())
+	}
+	svc := service.NewRelationshipService(store, authority, service.RelationshipConfig{CommandsEnabled: true}, nil, nil)
+	router := httpserver.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, config.Config{
+		JWTSecret: testSecret, RelationshipCommandsEnabled: true,
+	}, nil, nil, nil, nil, svc)
+	missingJWT := doJSON(t, router, http.MethodPost, path, "", companyID, []byte(`{"idempotency_key":"k"}`), uuid.Nil)
+	if missingJWT.Code != http.StatusUnauthorized || store.revokes != 0 {
+		t.Fatalf("jwt status=%d body=%s", missingJWT.Code, missingJWT.Body.String())
+	}
+	missingCompany := doJSON(t, router, http.MethodPost, path, token, uuid.Nil, []byte(`{"idempotency_key":"k"}`), uuid.Nil)
+	if missingCompany.Code != http.StatusForbidden || !strings.Contains(missingCompany.Body.String(), string(apperrors.CodeRelationshipRevokeForbidden)) || store.revokes != 0 {
+		t.Fatalf("company status=%d body=%s", missingCompany.Code, missingCompany.Body.String())
+	}
+	spoof := uuid.New()
+	rec := doJSON(t, router, http.MethodPost, path, token, companyID, []byte(`{"idempotency_key":"k","reason":"ended"}`), spoof)
+	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "no-store" || store.revokes != 1 || store.revokeUser != userID {
+		t.Fatalf("revoke status=%d revokes=%d user=%s body=%s", rec.Code, store.revokes, store.revokeUser, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), foreignCompany.String()) || strings.Contains(rec.Body.String(), spoof.String()) || strings.Contains(rec.Body.String(), "acceptance_token") || strings.Contains(rec.Body.String(), tenantID.String()) {
+		t.Fatalf("revoke body leaked identity: %s", rec.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil || len(payload) != 3 || payload["status"] != domain.RelationshipStatusRevoked {
+		t.Fatalf("revoke payload=%v err=%v", payload, err)
+	}
+}
+
+type fixedRevokeStore struct {
+	recordingStore
+	result domain.PersistRevokeResult
+}
+
+func (s *fixedRevokeStore) RevokeRelationship(_ context.Context, in domain.PersistRevoke) (domain.PersistRevokeResult, error) {
+	s.revokeUser = in.ActorUserID
+	s.revokes++
+	return s.result, nil
 }

@@ -17,6 +17,9 @@ const (
 	CodeRelationshipCommandsDisabled       Code = "RELATIONSHIP_COMMANDS_DISABLED"
 	CodeRelationshipRequestForbidden       Code = "RELATIONSHIP_REQUEST_FORBIDDEN"
 	CodeRelationshipAcceptanceForbidden    Code = "RELATIONSHIP_ACCEPTANCE_FORBIDDEN"
+	CodeRelationshipRevokeForbidden        Code = "RELATIONSHIP_REVOKE_FORBIDDEN"
+	CodeRelationshipNotFound               Code = "RELATIONSHIP_NOT_FOUND"
+	CodeRelationshipVersionConflict        Code = "RELATIONSHIP_VERSION_CONFLICT"
 	CodeRelationshipRequestNotFound        Code = "RELATIONSHIP_REQUEST_NOT_FOUND"
 	CodeRelationshipRequestExpired         Code = "RELATIONSHIP_REQUEST_EXPIRED"
 	CodeRelationshipRequestCancelled       Code = "RELATIONSHIP_REQUEST_CANCELLED"
@@ -80,13 +83,13 @@ func StatusOf(code Code) int {
 		return 400
 	case CodeAuthenticationRequired, CodeUnauthorized:
 		return 401
-	case CodeRelationshipCommandsDisabled, CodeRelationshipRequestForbidden, CodeRelationshipAcceptanceForbidden, CodeForbidden:
+	case CodeRelationshipCommandsDisabled, CodeRelationshipRequestForbidden, CodeRelationshipAcceptanceForbidden, CodeRelationshipRevokeForbidden, CodeForbidden:
 		return 403
-	case CodeNotFound, CodeRelationshipRequestNotFound:
+	case CodeNotFound, CodeRelationshipRequestNotFound, CodeRelationshipNotFound:
 		return 404
 	case CodeConflict, CodeTenantContextConflict, CodeRelationshipRequestExpired, CodeRelationshipRequestCancelled,
 		CodeRelationshipRequestAlreadyAccepted, CodeRelationshipRequestStaleSource, CodeRelationshipRequestPendingConflict,
-		CodeRelationshipIdempotencyConflict:
+		CodeRelationshipIdempotencyConflict, CodeRelationshipVersionConflict:
 		return 409
 	case CodeRelationshipSourceUnavailable, CodeRelationshipStoreUnavailable:
 		return 503
