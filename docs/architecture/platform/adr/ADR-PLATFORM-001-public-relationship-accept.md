@@ -9,6 +9,10 @@ AGENT=A
 STAGE=PLATFORM-CROSS-TENANT-RELATIONSHIP-PUBLIC-ACCEPT-0.1-DISCOVERY
 BASE_SHA=3551b960585f58d7a86c29d3b12fb4677caa6f88
 PR290_PRESENT=YES
+R1_STAGE=PUBLIC-ACCEPT-0.1-R1-REMEDIATION
+R1_FINDINGS=PAR-01,PAR-02,PAR-03,PAR-04
+PR292_IN_MAIN=YES
+PR292_MERGE=92ad5e01d97748f7895aaa83ff2463894ad4aa87
 DOCS_ONLY=YES
 IMPLEMENTATION_AUTHORIZED=NO
 MIGRATION_AUTHORIZED=NO
@@ -51,7 +55,13 @@ MIGRATION_REQUIRED=NO
 
 The operating company is the company the caller selects inside the operating tenant. It is not `shipper_carrier_company_id`. That id is the shipper tenant's carrier record. The relationship root binds the two endpoints and is unique on `(shipper_tenant_id, shipper_carrier_company_id, operating_tenant_id)`.
 
-When that root already exists, the selected company must equal the immutable `operating_carrier_company_id`. A sibling company in the same operating tenant must not consume the token, must not append `ACCEPTED`, and must not reactivate a `REVOKED` root. The current repository links or reactivates without that comparison. The implementation stage adds the comparison inside the existing transaction. It does not add a table or a migration.
+When that root already exists, the selected company must equal the immutable `operating_carrier_company_id`. A sibling company in the same operating tenant must not consume the token, must not append `ACCEPTED`, and must not insert a version on a `REVOKED` head. The current repository links or reactivates without that comparison. The implementation stage adds the comparison inside the existing transaction, after the relationship advisory lock and before `Revalidate`. A mismatch rolls back without calling the source callback. It does not add a table or a migration.
+
+Two sibling companies racing the first insert both take that lock. Under `READ COMMITTED` the loser sees the committed root and receives the same generic 403. Its request stays `PENDING`, and one root is stored. `RELATIONSHIP_IDEMPOTENCY_CONFLICT` (409) remains the unique-index result only when that lock is not held.
+
+An expired token is observed under the request-head lock before the comparison. The command commits one `EXPIRED` event and returns `RELATIONSHIP_REQUEST_EXPIRED` (409). The request does not stay `PENDING`. That exception applies to a sibling and to the endpoint company.
+
+The company equal to `operating_carrier_company_id` that accepts a new pending request while the head is `REVOKED` inserts the next `ACTIVE` version and leaves the revoked version in place. That insert is test 14 of the revoke contract merged in PR #292. A sibling receives 403, the head stays `REVOKED`, and no version row is rewritten.
 
 Gateway publication must use a route prefix longer than `/api/v1/carrier`, restore the captured `X-Company-ID` only as a selector, forward the bearer token, and stay off the anonymous route list. Company-service keeps ignoring `X-User-ID`, `X-Tenant-ID`, `X-User-Roles`, and `X-Platform-Admin`.
 
@@ -63,9 +73,10 @@ The binding HTTP contract, access matrix, transaction order, tests, and implemen
 - Create, cancel, status, and get stay off this public operation.
 - `COMPANY_RELATIONSHIP_COMMANDS_ENABLED` stays default off. Publishing the route does not turn the command on.
 - Replay of the same tenant idempotency key and the same selected company returns the stored acceptance and does not return the token.
-- A sibling operating company receives a generic refusal and the request stays `PENDING`.
+- A sibling operating company with a still-valid token receives a generic 403, and that request stays `PENDING`. An expired token is the exception: one `EXPIRED` event and 409 `RELATIONSHIP_REQUEST_EXPIRED`.
+- The matching operating company, and only that company, inserts the next `ACTIVE` version after `REVOKED`. The locked first-insert race uses the same 403. The unique-index 409 applies only when the relationship advisory lock is not held.
 - No schema change is required for this decision. The acceptance idempotency primary key stays `(actor_tenant_id, idempotency_key)`.
 
 ## Non-goals
 
-This ADR does not authorize runtime code, a migration, a gateway edit, an OpenAPI file edit, revocation, TMS activation, or deployment.
+This ADR does not authorize runtime code, a migration, a gateway edit, an OpenAPI file edit, a revoke command, TMS activation, or deployment. The merged revoke contract remains the owner of the revoke command. This decision only binds a later accept of a new pending request to that contract's reactivation rule.

@@ -8,6 +8,11 @@ STAGE=PLATFORM-CROSS-TENANT-RELATIONSHIP-PUBLIC-ACCEPT-0.1-DISCOVERY
 BASE_SHA=3551b960585f58d7a86c29d3b12fb4677caa6f88
 PR290_MERGE=3551b960
 BRANCH=docs/bintrans-relationship-public-accept-v0.1
+R1_STAGE=PUBLIC-ACCEPT-0.1-R1-REMEDIATION
+R1_FINDINGS=PAR-01,PAR-02,PAR-03,PAR-04
+PR292_IN_MAIN=YES
+PR292_MERGE=92ad5e01d97748f7895aaa83ff2463894ad4aa87
+ORIGIN_MAIN_AT_R1=92ad5e01d97748f7895aaa83ff2463894ad4aa87
 DOCS_ONLY=YES
 IMPLEMENTATION_AUTHORIZED=NO
 MIGRATION_AUTHORIZED=NO
@@ -30,7 +35,14 @@ Authoritative inputs read at `3551b960585f58d7a86c29d3b12fb4677caa6f88`:
 - `services/api-gateway` route table and identity-header strip
 - `packages/openapi/openapi.yaml` company paths
 
-PR #290 is the merge commit at this SHA. Cancel and lost-ACK recovery are in the base. Accept was already present before that merge.
+R1 also reads the revoke contract merged by PR #292 at `92ad5e01d97748f7895aaa83ff2463894ad4aa87`:
+
+- `docs/architecture/platform/PLATFORM_CROSS_TENANT_RELATIONSHIP_REVOKE_0_1_ARCHITECTURE.md`
+- `docs/architecture/platform/adr/ADR-PLATFORM-002-relationship-revoke.md`
+
+That merge is on `origin/main`. It is not the base of this pull request. The files in this pull request do not overlap that merge.
+
+PR #290 is the merge commit at the base SHA. Cancel and lost-ACK recovery are in the base. Accept was already present before that merge. PR #292 adds the revoke command contract and leaves `ensureActiveRelationship` as the reactivation path.
 
 ## 1. Command owner
 
@@ -103,7 +115,7 @@ ROOT_OPERATING_COMPANY_IMMUTABLE=YES
 
 0.1B reuses one root for later sources in the same business key. The current `ensureActiveRelationship` does that without comparing the selected company to `operating_carrier_company_id`. A `CARRIER_ADMIN` of a sibling company in the same operating tenant can therefore consume a new pending token and attach an `ACCEPTED` event to a root whose endpoint is the other company. The same path reactivates a `REVOKED` head.
 
-This contract keeps the business key and adds one predicate before any accept write:
+This contract keeps the business key and adds one predicate. The predicate runs after the relationship advisory lock in section 6 and before `Revalidate`. A mismatch ends the transaction there. The source callback is not called.
 
 ```text
 OPERATING_ENDPOINT_MATCH=REQUIRED_WHEN_ROOT_EXISTS
@@ -115,11 +127,23 @@ MISMATCH_FOREIGN_COMPANY_ID=ABSENT
 MISMATCH_TOKEN_CONSUMED=NO
 MISMATCH_EVENT=NONE
 MISMATCH_APPLIES_TO=ACTIVE_AND_REVOKED
+MISMATCH_BEFORE_REVALIDATE=YES
+MISMATCH_CALLS_REVALIDATE=NO
+MISMATCH_REQUEST_STATUS_WHEN_TOKEN_VALID=PENDING
+EXPIRED_TOKEN_BEFORE_MATCH=ONE_EXPIRED_EVENT
+FIRST_INSERT_RACE_WITH_RELATIONSHIP_LOCK=403_PENDING_ONE_ROOT
+UNIQUE_VIOLATION_WITHOUT_RELATIONSHIP_LOCK=409_RELATIONSHIP_IDEMPOTENCY_CONFLICT
+REVOKED_MATCHING_COMPANY=INSERT_NEXT_ACTIVE_VERSION
+REVOKED_SIBLING=403_HEAD_STAYS_REVOKED
 ```
 
-No root means the selected company becomes the endpoint, subject to the membership predicate and the tenant trigger. A matching company links to the current `ACTIVE` version, or inserts the next `ACTIVE` version when the head is `REVOKED`. A mismatch rolls the transaction back. The request stays `PENDING`. The rightful company can still accept.
+No root means the selected company becomes the endpoint, subject to the membership predicate and the tenant trigger. A matching company links to the current `ACTIVE` version. When the head is `REVOKED`, the company equal to `operating_carrier_company_id` inserts the next `ACTIVE` version on the same root and leaves the `REVOKED` version in place. That insert is the reactivation already required by the merged revoke contract, section 1 and test 14. A sibling does not insert that version. The head stays `REVOKED`, and no version row is rewritten.
 
-Two sibling companies racing the first insert still collide on `uq_cr_business_key`. The loser rolls back. Today's unique-violation mapping for that constraint is `RELATIONSHIP_IDEMPOTENCY_CONFLICT` (409). That status is acceptable for the race only: the token is not consumed and the body has no foreign company id. The visible-root case uses 403.
+A mismatch of a still-valid token rolls the transaction back. The request stays `PENDING`. The endpoint company can still accept. This 403 is the only sibling result for a valid token, including the first-insert race below.
+
+Expiry is the exception to that `PENDING` result. Section 6 step 6 observes an expired token under the request-head lock, before the endpoint comparison. It appends one `EXPIRED` event, commits, and returns `RELATIONSHIP_REQUEST_EXPIRED` (409). The request does not stay `PENDING`. The same outcome applies to the endpoint company and to a sibling. A head that is already `EXPIRED` returns the same code and does not append another event.
+
+Two sibling companies, one business key, and no root yet both take the section 6 lock `relationship:{source_tenant_id}:{shipper_carrier_company_id}:{actor_tenant_id}` before insert. Under `READ COMMITTED` the loser runs after the winner commits, sees the root, and takes the mismatch path: HTTP 403 `RELATIONSHIP_ACCEPTANCE_FORBIDDEN`, its own request stays `PENDING`, and the database contains one root. `RELATIONSHIP_IDEMPOTENCY_CONFLICT` (409) remains the mapping when `uq_cr_business_key` fires without that lock. It is not the result of the locked race. The token is not consumed and the body has no foreign company id in either outcome.
 
 The same-request case is already implemented. A second accept of a request that is already `ACCEPTED`, including from `OperatingB2` in the foundation test, returns `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` (409) and the error text does not contain the winning company id.
 
@@ -140,6 +164,9 @@ The same-request case is already implemented. A second accept of a request that 
 | Body `company_id` present and different from `X-Company-ID` | Spoof | 403 | `RELATIONSHIP_ACCEPTANCE_FORBIDDEN` |
 | Missing or unparsable `X-Company-ID` | No selection | 403 | `RELATIONSHIP_ACCEPTANCE_FORBIDDEN` |
 | Valid token, request `PENDING`, source matches, endpoint matches or no root | First commit | 201 | body below |
+| Valid token, root exists or was just committed by the other sibling, selected company differs | Mismatch before `Revalidate` | 403 | `RELATIONSHIP_ACCEPTANCE_FORBIDDEN` |
+| Expired token before the endpoint comparison, sibling or endpoint company | One `EXPIRED` event | 409 | `RELATIONSHIP_REQUEST_EXPIRED` |
+| Matching operating company, head `REVOKED`, new pending token, source matches | Next `ACTIVE` version | 201 | body below |
 | Same tenant idempotency key, same company, same locator | Replay | 200 | stored ids, no token |
 
 `X-User-ID`, `X-Tenant-ID`, `X-User-Roles`, and `X-Platform-Admin` are not read by `RelationshipHandler.Accept`. The handler tests that set those headers still authenticate from the bearer token. A body `requesting_user_id` is not an accept input. Create uses that field on the internal credential path. Accept does not.
@@ -167,11 +194,13 @@ ANONYMOUS_ROUTE_LIST=MUST_NOT_INCLUDE_ACCEPT
 
 ## 6. Transaction sequence
 
-One company-schema transaction. Lock order stays the 0.1B order, with the endpoint comparison after the relationship key is locked and before the source callback.
+One company-schema transaction. Lock order stays the 0.1B order. The endpoint comparison runs after the relationship key is locked. When the companies differ, that comparison finishes the transaction before the source callback.
 
 ```text
 ACCEPTANCE_TRANSACTION_BOUNDARY=ONE_COMPANY_SCHEMA_DATABASE_TRANSACTION
-ACCEPTANCE_LOCK_ORDER=IDEMPOTENCY_ADVISORY_THEN_TOKEN_HASH_THEN_REQUEST_HEAD_THEN_RELATIONSHIP_ADVISORY_THEN_ENDPOINT_MATCH_THEN_SOURCE_CALLBACK
+ACCEPTANCE_LOCK_ORDER=IDEMPOTENCY_ADVISORY_THEN_TOKEN_HASH_THEN_REQUEST_HEAD_THEN_RELATIONSHIP_ADVISORY_THEN_ENDPOINT_MATCH_THEN_SOURCE_CALLBACK_ONLY_ON_MATCH
+FIRST_INSERT_RACE_WITH_LOCK=403_RELATIONSHIP_ACCEPTANCE_FORBIDDEN
+UNIQUE_INDEX_WITHOUT_LOCK=409_RELATIONSHIP_IDEMPOTENCY_CONFLICT
 ```
 
 1. `pg_advisory_xact_lock` on `accept:{actor_tenant_id}:{idempotency_key}`.
@@ -179,12 +208,12 @@ ACCEPTANCE_LOCK_ORDER=IDEMPOTENCY_ADVISORY_THEN_TOKEN_HASH_THEN_REQUEST_HEAD_THE
 3. Require a decoded token. Otherwise generic 404.
 4. Load the request by `acceptance_token_hash`. Compare with `hmac.Equal`. Compare the optional locator.
 5. `SELECT ... FROM company.carrier_relationship_request_heads WHERE relationship_request_id = $1 FOR UPDATE`.
-6. If the token is expired and the head is still `PENDING`, append `EXPIRED`, commit that terminal event, and return `RELATIONSHIP_REQUEST_EXPIRED` (409). If the head is already `EXPIRED`, return the same code and do not append another event.
+6. If the token is expired and the head is still `PENDING`, append `EXPIRED`, commit that terminal event, and return `RELATIONSHIP_REQUEST_EXPIRED` (409). This step runs before the endpoint comparison. It is the exception to the sibling `PENDING` rule in section 3: an expired token becomes one `EXPIRED` event whether or not the selected company matches the stored endpoint. If the head is already `EXPIRED`, return the same code and do not append another event.
 7. `ACCEPTED` returns `RELATIONSHIP_REQUEST_ALREADY_ACCEPTED` (409). `CANCELLED` returns `RELATIONSHIP_REQUEST_CANCELLED` (409). Neither writes a relationship.
 8. Lock `relationship:{source_tenant_id}:{shipper_carrier_company_id}:{actor_tenant_id}`.
-9. If a root exists and `operating_carrier_company_id` is not the selected company, roll back and return `RELATIONSHIP_ACCEPTANCE_FORBIDDEN` (403). No `ACCEPTED` event.
-10. Revalidate the source with the existing fail-closed callback. `UNAVAILABLE` or an error is `RELATIONSHIP_SOURCE_UNAVAILABLE` (503) and no relationship row. `CHANGED`, `NOT_FOUND`, or any value other than `MATCH` is `RELATIONSHIP_REQUEST_STALE_SOURCE` (409).
-11. Insert the root and version 1, or link the current `ACTIVE` version, or insert the next `ACTIVE` version after `REVOKED` when the endpoint matches.
+9. If a root exists and `operating_carrier_company_id` is not the selected company, roll back before `Revalidate` and return `RELATIONSHIP_ACCEPTANCE_FORBIDDEN` (403). Do not call the source callback. No `ACCEPTED` event. A still-valid token leaves the request `PENDING`. After this lock, the loser of a first-insert race is this step, not the unique-index 409.
+10. Revalidate only when no root exists or the selected company equals `operating_carrier_company_id`. `UNAVAILABLE` or an error is `RELATIONSHIP_SOURCE_UNAVAILABLE` (503) and no relationship row. `CHANGED`, `NOT_FOUND`, or any value other than `MATCH` is `RELATIONSHIP_REQUEST_STALE_SOURCE` (409). A sibling mismatch never reaches this callback, so an unavailable source does not turn that call into 503.
+11. Insert the root and version 1, or link the current `ACTIVE` version, or, when the selected company equals `operating_carrier_company_id` and the head is `REVOKED`, insert the next `ACTIVE` version. That last insert closes revoke test 14. A sibling does not take it. The previous `REVOKED` version stays. No version row is rewritten.
 12. Append request event `ACCEPTED` at `current_version + 1`, including `accepted_operating_tenant_id` and `accepted_operating_carrier_company_id`.
 13. Insert the idempotency row, audit action `relationship_request_accepted`, and outbox `carrier_relationship.accepted`.
 14. Commit. `Created=true` becomes HTTP 201. Replay becomes HTTP 200.
@@ -206,7 +235,7 @@ Accept and cancel do not share an advisory lock. They both take `FOR UPDATE` on 
 | Cancel of an already expired token, writing `EXPIRED` | Accept | `RELATIONSHIP_REQUEST_EXPIRED` (409) | No |
 | Accept observes expiry first | Cancel | Head is `EXPIRED` | Accept wrote the only `EXPIRED` event |
 
-`assertCancelAcceptRace` in the cancel-recovery integration test covers the same-request accept/cancel race. A pending request does not return to `PENDING` after either command. Revoke of an `ACTIVE` relationship is not this stage and does not change an `ACCEPTED` request back to `PENDING`.
+`assertCancelAcceptRace` in the cancel-recovery integration test covers the same-request accept/cancel race. A pending request does not return to `PENDING` after either command. Revoke of an `ACTIVE` relationship does not change an `ACCEPTED` request back to `PENDING`. The sibling first-insert race is not an accept/cancel race: both callers hold the relationship advisory lock from step 8, one commit creates the root, and the other receives 403 while its own request stays `PENDING`. One root is stored. The unique-index 409 is not that outcome. A later accept of a new pending request on a `REVOKED` head follows section 3.
 
 There is no deadlock between the two commands: cancel waits on the head row; accept does not wait on the cancel advisory lock.
 
@@ -230,7 +259,7 @@ SAME_KEY_DIFFERENT_BODY=409_RELATIONSHIP_IDEMPOTENCY_CONFLICT
 IDEMPOTENCY_MIGRATION=NO
 ```
 
-Replay returns the request status stored with the acceptance (`ACCEPTED`) and the relationship version written at accept time. It does not re-read a later relationship head. Revocation is outside this stage.
+Replay returns the request status stored with the acceptance (`ACCEPTED`) and the relationship version written at accept time. It does not re-read a later relationship head. A later revoke of that relationship is the merged PR #292 contract. A new accept after that revoke follows section 3: the matching operating company inserts the next `ACTIVE` version, and a sibling receives 403 with the head left `REVOKED`.
 
 ## 9. Gateway route and public OpenAPI
 
@@ -287,7 +316,7 @@ Normative operation, to be added to `packages/openapi` only in the implementatio
       "404":
         description: Generic token or locator failure.
       "409":
-        description: Expired, cancelled, already accepted, stale source, tenant conflict, or idempotency conflict.
+        description: Expired, cancelled, already accepted, stale source, tenant conflict, or a unique-index idempotency conflict when the relationship advisory lock is not held. The locked sibling race is 403.
       "503":
         description: Store or source unavailable.
 ```
@@ -339,7 +368,7 @@ Not on `main`, and required before the route is published:
 | No gateway route, and `/api/v1/carrier` would capture the path | Longer prefix to company-service | No |
 | Gateway deletes `X-Company-ID` | Restore the captured selector after the strip | No |
 | Accept responses omit `Cache-Control: no-store` | Set it on success and error | No |
-| Reuse and reactivation ignore the stored operating company | Endpoint match in section 3, before the source callback | No |
+| Reuse and reactivation ignore the stored operating company | Endpoint match in section 3, before `Revalidate`. The matching company reactivates `REVOKED` by inserting the next `ACTIVE` version. A sibling does not | No |
 | OpenAPI has no operation | Add the operation in section 9 after the route tests pass | No |
 
 ```text
@@ -373,16 +402,20 @@ These tests are not added in this discovery.
 | PA-18 | Source unavailable and stale source | 503 and 409, no relationship |
 | PA-19 | Response header | `Cache-Control: no-store` |
 | PA-20 | Route is not in `isPublicRoute` | Missing bearer is 401 at the gateway |
+| PA-21 | Two sibling companies, no root, one business key, two valid tokens | One 201. The other is 403 `RELATIONSHIP_ACCEPTANCE_FORBIDDEN`. The loser's request stays `PENDING`. One root is stored |
+| PA-22 | Root belongs to another company in the same tenant, and the source would return `UNAVAILABLE` | 403, zero `Revalidate` calls, request stays `PENDING`. The matching company with an unavailable source still receives 503 |
+| PA-23 | Sibling, root of another company, token expired | 409 `RELATIONSHIP_REQUEST_EXPIRED` and one `EXPIRED` event. The same sibling with a valid token receives 403 and the request stays `PENDING` |
+| PA-24 | After revoke, two accepts of new tokens | Matching `operating_carrier_company_id`: 201 and the next `ACTIVE` version; the previous `REVOKED` version remains. Sibling: 403, head stays `REVOKED`, no second `ACTIVE` version |
 
 ## 12. Implementation sequence
 
 The next stage, after architecture review, is one implementation pull request. It is not authorized by this document.
 
-1. Add the endpoint comparison and `Cache-Control: no-store` in company-service. Cover PA-05 through PA-19. Do not change the idempotency primary key.
+1. Add the endpoint comparison before `Revalidate`, and `Cache-Control: no-store`, in company-service. A mismatch returns 403 without calling the callback. Cover PA-05 through PA-24. Do not change the idempotency primary key. Do not map the locked first-insert race to 409.
 2. Add the gateway route with the longer prefix, restore only the captured company selector, and cover PA-01 through PA-04 and PA-20. Do not register an anonymous route. Do not move `/api/v1/carrier`.
 3. Add the OpenAPI operation from section 9 only after those tests pass. Do not generate a second accept path.
 4. Leave `COMPANY_RELATIONSHIP_COMMANDS_ENABLED` default off. Do not revoke, do not activate TMS, and do not deploy.
 
 ## 13. Non-goals
 
-Anonymous accept, a second token, token reissue, cancel, revoke, relationship pins, and activation authorization are outside this contract. Cancel recovery remains the PR #290 contract. Create still returns the raw token once to the source-owning service. This public route never returns it.
+Anonymous accept, a second token, token reissue, cancel, the revoke command, relationship pins, and activation authorization are outside this contract. Cancel recovery remains the PR #290 contract. The merged PR #292 revoke contract is an input for a `REVOKED` head: a later accept by the stored operating company inserts the next `ACTIVE` version, and a sibling does not. This document does not add a revoke command. Create still returns the raw token once to the source-owning service. This public route never returns it.
