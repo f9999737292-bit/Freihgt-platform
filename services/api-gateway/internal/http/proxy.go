@@ -10,11 +10,14 @@ import (
 	"time"
 
 	"github.com/freight-platform/api-gateway/internal/config"
+	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/shared-go/clientip"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 )
+
+const PublicAcceptRoute = "/api/v1/carrier-operating-relationship-acceptances"
 
 type Route struct {
 	Prefix  string
@@ -47,6 +50,7 @@ func NewProxyHandler(cfg config.Config) (*ProxyHandler, error) {
 		{"/api/v1/carrier/transport-orders", "shipment-service", cfg.Services.Shipment},
 		{"/api/v1/rfx-events", "rfx-service", cfg.Services.RFX},
 		{"/api/v1/rfx-templates", "rfx-service", cfg.Services.RFX},
+		{PublicAcceptRoute, "company-service", cfg.Services.Company},
 		{"/api/v1/carrier", "rfx-service", cfg.Services.RFX},
 		{"/api/v1/rfx-lots", "rfx-service", cfg.Services.RFX},
 		{"/api/v1/rfx-responses", "rfx-service", cfg.Services.RFX},
@@ -138,6 +142,7 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				clientIP = ""
 			}
 			clientip.SetTrustedForwardedClientIP(pr.Out.Header, clientIP)
+			restorePublicAcceptCompanySelector(r, pr.Out)
 		},
 	}
 
@@ -171,6 +176,21 @@ func RewritePath(path string) (string, bool) {
 		rewritten = "/"
 	}
 	return rewritten, true
+}
+
+func restorePublicAcceptCompanySelector(in *http.Request, out *http.Request) {
+	if in.Method != http.MethodPost || in.URL.Path != PublicAcceptRoute {
+		return
+	}
+	ac, ok := gwmiddleware.AuthContextFromContext(in.Context())
+	if !ok {
+		return
+	}
+	companyID := strings.TrimSpace(ac.RequestedCompanyID)
+	if companyID == "" {
+		return
+	}
+	out.Header.Set("X-Company-ID", companyID)
 }
 
 func RouteTarget(route Route) string {

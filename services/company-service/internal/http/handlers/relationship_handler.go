@@ -99,6 +99,7 @@ func (h *RelationshipHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RelationshipHandler) Accept(w http.ResponseWriter, r *http.Request) {
+	noStore(w)
 	principal, companyID, ok := relationshipActor(w, r)
 	if !ok {
 		return

@@ -215,6 +215,46 @@ func TestAcceptUsesFailClosedSourceAfterRoleCheck(t *testing.T) {
 	}
 }
 
+func TestAcceptBodySelectorAndRoleStopBeforePersistence(t *testing.T) {
+	store := newScriptedStore()
+	authority := &scriptedAuthority{actor: domain.ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleCarrierAdmin}}}
+	svc := NewRelationshipService(store, authority, testRelationshipConfig(), nil, nil)
+	principal := domain.Principal{UserID: uuid.New(), TenantID: uuid.New()}
+	companyID := uuid.New()
+	otherCompany := uuid.New()
+	otherTenant := uuid.New()
+	base := AcceptRelationshipInput{
+		Principal: principal, SelectedCompanyID: companyID, IdempotencyKey: "accept-key",
+	}
+	foreignCompany := base
+	foreignCompany.BodyCompanyID = &otherCompany
+	_, err := svc.Accept(context.Background(), foreignCompany)
+	if codeOf(t, err) != apperrors.CodeRelationshipAcceptanceForbidden || store.accepts != 0 {
+		t.Fatalf("body company code=%s calls=%d", codeOf(t, err), store.accepts)
+	}
+	foreignTenant := base
+	foreignTenant.BodyTenantID = &otherTenant
+	_, err = svc.Accept(context.Background(), foreignTenant)
+	if codeOf(t, err) != apperrors.CodeTenantContextConflict || store.accepts != 0 {
+		t.Fatalf("body tenant code=%s calls=%d", codeOf(t, err), store.accepts)
+	}
+	authority.actor = domain.ActorAuthority{Active: true, ActiveMembership: false, CompanyRoles: []string{domain.RoleCarrierAdmin}}
+	_, err = svc.Accept(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeRelationshipAcceptanceForbidden || store.accepts != 0 {
+		t.Fatalf("inactive membership code=%s calls=%d", codeOf(t, err), store.accepts)
+	}
+	authority.actor = domain.ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RolePlatformAdmin}}
+	_, err = svc.Accept(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeRelationshipAcceptanceForbidden || store.accepts != 0 {
+		t.Fatalf("company-scoped platform admin code=%s calls=%d", codeOf(t, err), store.accepts)
+	}
+	authority.actor = domain.ActorAuthority{Active: true, ActiveMembership: true, TenantGlobalPlatformAdmin: true}
+	_, err = svc.Accept(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeRelationshipRequestNotFound || store.accepts != 1 {
+		t.Fatalf("tenant-global platform admin code=%s calls=%d", codeOf(t, err), store.accepts)
+	}
+}
+
 const (
 	shipmentTestToken = "shipment-relationship-test-token"
 	rfxTestToken      = "rfx-relationship-test-token"

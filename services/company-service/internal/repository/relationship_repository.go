@@ -311,6 +311,16 @@ func (r *RelationshipRepository) AcceptRelationshipRequest(ctx context.Context, 
 		return domain.PersistAcceptResult{}, relationshipStoreError(errors.New("unknown request status"))
 	}
 
+	if err := lockRelationship(ctx, tx, request, in.ActorTenantID); err != nil {
+		return domain.PersistAcceptResult{}, err
+	}
+	mismatch, err := operatingEndpointMismatch(ctx, tx, request, in)
+	if err != nil {
+		return domain.PersistAcceptResult{}, err
+	}
+	if mismatch {
+		return domain.PersistAcceptResult{}, apperrors.New(apperrors.CodeRelationshipAcceptanceForbidden, "relationship command refused")
+	}
 	if source == nil {
 		return domain.PersistAcceptResult{}, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
 	}
@@ -323,11 +333,6 @@ func (r *RelationshipRepository) AcceptRelationshipRequest(ctx context.Context, 
 	}
 	if decision != domain.SourceMatch {
 		return domain.PersistAcceptResult{}, apperrors.New(apperrors.CodeRelationshipRequestStaleSource, "relationship source is stale")
-	}
-
-	relLock := "relationship:" + request.SourceTenantID.String() + ":" + request.CarrierCompanyID.String() + ":" + in.ActorTenantID.String()
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, relLock); err != nil {
-		return domain.PersistAcceptResult{}, relationshipStoreError(err)
 	}
 	relationshipID, relationshipVersion, err := ensureActiveRelationship(ctx, tx, request, in)
 	if err != nil {
@@ -438,6 +443,30 @@ type auditRow struct {
 	CorrelationID       string
 	Reason              string
 	Action              string
+}
+
+func lockRelationship(ctx context.Context, tx pgx.Tx, request requestRow, actorTenant uuid.UUID) error {
+	relLock := "relationship:" + request.SourceTenantID.String() + ":" + request.CarrierCompanyID.String() + ":" + actorTenant.String()
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0::bigint))`, relLock); err != nil {
+		return relationshipStoreError(err)
+	}
+	return nil
+}
+
+func operatingEndpointMismatch(ctx context.Context, tx pgx.Tx, request requestRow, in domain.PersistAccept) (bool, error) {
+	var stored uuid.UUID
+	err := tx.QueryRow(ctx, `
+		SELECT operating_carrier_company_id
+		FROM company.carrier_relationships
+		WHERE shipper_tenant_id = $1 AND shipper_carrier_company_id = $2 AND operating_tenant_id = $3
+	`, request.SourceTenantID, request.CarrierCompanyID, in.ActorTenantID).Scan(&stored)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, relationshipStoreError(err)
+	}
+	return stored != in.OperatingCompanyID, nil
 }
 
 func ensureActiveRelationship(ctx context.Context, tx pgx.Tx, request requestRow, in domain.PersistAccept) (uuid.UUID, int, error) {
