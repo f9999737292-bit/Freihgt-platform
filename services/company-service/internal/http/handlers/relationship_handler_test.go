@@ -133,7 +133,7 @@ func TestRelationshipHTTPSecurity(t *testing.T) {
 	}, nil, nil, nil, nil, deniedSvc)
 	acceptBody := []byte(`{"idempotency_key":"accept-key","acceptance_token":"` + created.AcceptanceToken + `"}`)
 	ordinary := doJSON(t, deniedRouter, http.MethodPost, "/v1/carrier-operating-relationship-acceptances", token, companyID, acceptBody, uuid.Nil)
-	if ordinary.Code != http.StatusForbidden || deniedStore.accepts != 0 || strings.Contains(ordinary.Body.String(), created.AcceptanceToken) {
+	if ordinary.Code != http.StatusForbidden || deniedStore.accepts != 0 || strings.Contains(ordinary.Body.String(), created.AcceptanceToken) || ordinary.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("ordinary accept: %d calls=%d body=%s", ordinary.Code, deniedStore.accepts, ordinary.Body.String())
 	}
 
@@ -144,7 +144,7 @@ func TestRelationshipHTTPSecurity(t *testing.T) {
 		`{"idempotency_key":"mismatch","acceptance_token":"` + created.AcceptanceToken + `","relationship_request_id":"` + uuid.NewString() + `"}`,
 	} {
 		rec := doJSON(t, router, http.MethodPost, "/v1/carrier-operating-relationship-acceptances", token, companyID, []byte(payload), uuid.Nil)
-		if rec.Code != http.StatusNotFound {
+		if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "no-store" {
 			t.Fatalf("expected 404, got %d %s", rec.Code, rec.Body.String())
 		}
 		notFoundBodies = append(notFoundBodies, rec.Body.String())
@@ -342,4 +342,41 @@ func statusBody(sourceID, tenantID, userID, companyID uuid.UUID, sourceType stri
 
 func (s *recordingStore) GetVisibleRelationshipRequest(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.VisibleRequest, error) {
 	return domain.VisibleRequest{}, apperrors.New(apperrors.CodeRelationshipRequestNotFound, "relationship request not found")
+}
+
+type fixedAcceptStore struct {
+	recordingStore
+	result domain.PersistAcceptResult
+}
+
+func (s *fixedAcceptStore) AcceptRelationshipRequest(context.Context, domain.PersistAccept, domain.SourceRevalidator) (domain.PersistAcceptResult, error) {
+	s.accepts++
+	return s.result, nil
+}
+
+func TestAcceptSuccessSetsNoStoreAndOmitsToken(t *testing.T) {
+	userID := uuid.New()
+	tenantID := uuid.New()
+	companyID := uuid.New()
+	relationshipID := uuid.New()
+	authority := &recordingAuthority{byUser: map[uuid.UUID]domain.ActorAuthority{
+		userID: {Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleCarrierAdmin}},
+	}}
+	store := &fixedAcceptStore{result: domain.PersistAcceptResult{
+		RelationshipID: relationshipID, RelationshipVersion: 1, RequestStatus: domain.RequestStatusAccepted, Created: true,
+	}}
+	svc := service.NewRelationshipService(store, authority, service.RelationshipConfig{
+		CommandsEnabled: true, TokenPepper: testPepper,
+	}, nil, nil)
+	router := httpserver.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, config.Config{
+		JWTSecret: testSecret, RelationshipCommandsEnabled: true, RelationshipTokenPepper: testPepper,
+	}, nil, nil, nil, nil, svc)
+	token := sign(t, userID, tenantID)
+	rec := doJSON(t, router, http.MethodPost, "/v1/carrier-operating-relationship-acceptances", token, companyID, []byte(`{"idempotency_key":"accept-key"}`), uuid.New())
+	if rec.Code != http.StatusCreated || rec.Header().Get("Cache-Control") != "no-store" || strings.Contains(rec.Body.String(), "acceptance_token") {
+		t.Fatalf("accept status=%d cache=%q body=%s", rec.Code, rec.Header().Get("Cache-Control"), rec.Body.String())
+	}
+	if store.accepts != 1 || authority.seen != userID {
+		t.Fatalf("accept calls=%d seen=%s", store.accepts, authority.seen)
+	}
 }

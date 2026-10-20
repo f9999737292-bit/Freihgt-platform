@@ -158,6 +158,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/users/{user_id}/companies/{company_id}/roles/{role_id}", "delete", "Remove role from user in company", "Roles", True, True, "identity_user_authority"),
     ("/api/v1/roles", "get", "List tenant and system roles", "Roles", True, True, "identity_user_authority"),
     ("/api/v1/roles/{role_id}/permissions", "get", "List permissions for a role", "Roles", True, True, "identity_user_authority"),
+    ("/api/v1/carrier-operating-relationship-acceptances", "post", "Accept a pending carrier operating relationship", "Companies", True, True, "public_relationship_accept"),
     ("/api/v1/companies", "post", "Create company", "Companies", True, True, None),
     ("/api/v1/companies", "get", "List companies", "Companies", True, True, None),
     ("/api/v1/companies/{id}", "get", "Get company by ID", "Companies", True, True, None),
@@ -1703,6 +1704,116 @@ def _bno_anonymized_geography_lines() -> list[str]:
     ]
 
 
+def public_relationship_accept_operation(summary: str, tag: str) -> str:
+    return f"""    post:
+      tags: [{tag}]
+      summary: {summary}
+      operationId: acceptCarrierOperatingRelationship
+      description: |
+        Authenticated operating-company accept of a pending carrier relationship request.
+        The bearer token is the verified user JWT. X-Company-ID is a selector restored by the gateway and is not authority.
+        Company-service rechecks an active user, an active membership, and either company-scoped CARRIER_ADMIN or tenant-global PLATFORM_ADMIN.
+        A sibling operating company cannot consume a token for an existing relationship root.
+        The response never includes acceptance_token.
+      parameters:
+        - $ref: '#/components/parameters/XRequestID'
+        - in: header
+          name: X-Company-ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [acceptance_token, idempotency_key]
+              additionalProperties: false
+              properties:
+                acceptance_token:
+                  type: string
+                idempotency_key:
+                  type: string
+                  maxLength: 200
+                relationship_request_id:
+                  type: string
+                  format: uuid
+                tenant_id:
+                  type: string
+                  format: uuid
+                company_id:
+                  type: string
+                  format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: First accept commit. No acceptance_token.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [relationship_id, relationship_version, request_status]
+                properties:
+                  relationship_id:
+                    type: string
+                    format: uuid
+                  relationship_version:
+                    type: integer
+                  request_status:
+                    type: string
+        '200':
+          description: Idempotent replay. No acceptance_token.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [relationship_id, relationship_version, request_status]
+                properties:
+                  relationship_id:
+                    type: string
+                    format: uuid
+                  relationship_version:
+                    type: integer
+                  request_status:
+                    type: string
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Commands disabled, actor refused, or sibling operating company.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Generic token or locator failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Expired, cancelled, already accepted, stale source, tenant conflict, or a unique-index idempotency conflict when the relationship advisory lock is not held. The locked sibling race is 403.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Store or source unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+"""
+
+
 def render_operation(
     path: str,
     method: str,
@@ -1712,6 +1823,8 @@ def render_operation(
     secured: bool,
     profile: str | None = None,
 ) -> str:
+    if profile == "public_relationship_accept":
+        return public_relationship_accept_operation(summary, tag)
     operation_id = PROFILE_OPERATION_IDS.get(profile, f"{method}_{path_to_id(summary)}")
     lines = [
         f"    {method}:",

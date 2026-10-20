@@ -158,6 +158,7 @@ func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 	assertRollbackIsAtomic(t, pool, fix)
 	assertConcurrentCreate(t, match, cat, fix)
 	assertCancelRecovery(t, pool, match, cat, fix)
+	runPublicAcceptScenarios(t, pool)
 	t.Log("POSTGRES_INTEGRATION=PASS")
 }
 
