@@ -103,6 +103,14 @@ type stubCreator struct {
 	calls      int
 }
 
+func (s *stubCreator) Status(context.Context, service.RfxRelationshipActor, string, uuid.UUID) ([]service.RfxRelationshipStatusItem, error) {
+	return []service.RfxRelationshipStatusItem{}, nil
+}
+
+func (s *stubCreator) Cancel(context.Context, service.RfxRelationshipActor, string, uuid.UUID, uuid.UUID, string, string) (service.RfxRelationshipCancelResult, error) {
+	return service.RfxRelationshipCancelResult{}, nil
+}
+
 func (s *stubCreator) Create(_ context.Context, actor service.RfxRelationshipActor, sourceType string, sourceID uuid.UUID, key string) (service.RfxRelationshipCreateResult, error) {
 	s.calls++
 	s.actor = actor

@@ -30,14 +30,18 @@ const (
 )
 
 type recordingAuthority struct {
-	byUser  map[uuid.UUID]domain.ActorAuthority
-	seen    uuid.UUID
-	carrier bool
+	byUser     map[uuid.UUID]domain.ActorAuthority
+	seen       uuid.UUID
+	userActive bool
 }
 
 func (a *recordingAuthority) LoadRelationshipActor(_ context.Context, _, userID, _ uuid.UUID) (domain.ActorAuthority, error) {
 	a.seen = userID
 	return a.byUser[userID], nil
+}
+
+func (a *recordingAuthority) ActiveUserInTenant(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return a.userActive, nil
 }
 
 func (a *recordingAuthority) ActiveCompanyInTenant(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
@@ -237,6 +241,7 @@ type recordingStore struct {
 	carrier    bool
 	accepts    int
 	creates    int
+	lists      int
 	lastCaller string
 	rows       map[string]domain.PersistCreateResult
 	hashes     map[string][]byte
@@ -266,6 +271,73 @@ func (s *recordingStore) CreateRelationshipRequest(_ context.Context, in domain.
 func (s *recordingStore) AcceptRelationshipRequest(context.Context, domain.PersistAccept, domain.SourceRevalidator) (domain.PersistAcceptResult, error) {
 	s.accepts++
 	return domain.PersistAcceptResult{}, apperrors.New(apperrors.CodeRelationshipRequestNotFound, "relationship request not found")
+}
+
+func (s *recordingStore) ListSourceRelationshipRequests(context.Context, string, uuid.UUID, uuid.UUID, uuid.UUID) ([]domain.SourceRequestHead, error) {
+	s.lists++
+	return []domain.SourceRequestHead{}, nil
+}
+
+func (s *recordingStore) CancelRelationshipRequest(context.Context, domain.PersistCancel) (domain.PersistCancelResult, error) {
+	return domain.PersistCancelResult{}, apperrors.New(apperrors.CodeRelationshipRequestNotFound, "relationship request not found")
+}
+
+func TestStatusRejectsDirectBypassBeforeList(t *testing.T) {
+	userID := uuid.New()
+	tenantID := uuid.New()
+	companyID := uuid.New()
+	sourceID := uuid.New()
+	authority := &recordingAuthority{userActive: true, byUser: map[uuid.UUID]domain.ActorAuthority{
+		userID: {Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleShipperAdmin}},
+	}}
+	store := &recordingStore{}
+	svc := service.NewRelationshipService(store, authority, service.RelationshipConfig{
+		CommandsEnabled: true, TokenPepper: testPepper, ShipmentServiceToken: shipmentTestToken, RfxServiceToken: rfxTestToken,
+	}, nil, allowSource{})
+	router := httpserver.NewRouter(slog.New(slog.NewJSONHandler(io.Discard, nil)), nil, config.Config{
+		JWTSecret: testSecret, RelationshipCommandsEnabled: true,
+	}, nil, nil, nil, nil, svc)
+	post := func(token string, body string, roles bool) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, "/v1/carrier-relationship-request-statuses", strings.NewReader(body))
+		if token != "" {
+			req.Header.Set(service.RelationshipServiceTokenHeader, token)
+		}
+		req.Header.Set("X-User-ID", uuid.NewString())
+		req.Header.Set("X-Tenant-ID", uuid.NewString())
+		req.Header.Set("X-Company-ID", uuid.NewString())
+		if roles {
+			req.Header.Set("X-User-Roles", "SHIPPER_ADMIN,PLATFORM_ADMIN")
+			req.Header.Set("X-Platform-Admin", "true")
+		}
+		return doRaw(t, router, req)
+	}
+	missing := post(shipmentTestToken, `{"source_type":"SHIPMENT","source_id":"`+sourceID.String()+`","source_tenant_id":"`+tenantID.String()+`","requesting_user_id":"`+userID.String()+`"}`, true)
+	if missing.Code != http.StatusBadRequest || store.lists != 0 {
+		t.Fatalf("missing company %d lists=%d %s", missing.Code, store.lists, missing.Body.String())
+	}
+	authority.userActive = false
+	inactive := post(shipmentTestToken, statusBody(sourceID, tenantID, userID, companyID, domain.SourceTypeShipment), true)
+	if inactive.Code != http.StatusForbidden || store.lists != 0 || strings.Contains(inactive.Body.String(), sourceID.String()) {
+		t.Fatalf("inactive %d lists=%d %s", inactive.Code, store.lists, inactive.Body.String())
+	}
+	authority.userActive = true
+	wrong := post(rfxTestToken, statusBody(sourceID, tenantID, userID, companyID, domain.SourceTypeShipment), true)
+	if wrong.Code != http.StatusForbidden || store.lists != 0 {
+		t.Fatalf("rfx credential %d lists=%d %s", wrong.Code, store.lists, wrong.Body.String())
+	}
+	none := post("", statusBody(sourceID, tenantID, userID, companyID, domain.SourceTypeShipment), true)
+	if none.Code != http.StatusUnauthorized || store.lists != 0 {
+		t.Fatalf("missing token %d lists=%d %s", none.Code, store.lists, none.Body.String())
+	}
+	allowed := post(shipmentTestToken, statusBody(sourceID, tenantID, userID, companyID, domain.SourceTypeShipment), false)
+	if allowed.Code != http.StatusOK || store.lists != 1 || strings.Contains(allowed.Body.String(), "acceptance_token") || allowed.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("authorized %d lists=%d %s", allowed.Code, store.lists, allowed.Body.String())
+	}
+}
+
+func statusBody(sourceID, tenantID, userID, companyID uuid.UUID, sourceType string) string {
+	return `{"source_type":"` + sourceType + `","source_id":"` + sourceID.String() + `","source_tenant_id":"` + tenantID.String() + `","requesting_user_id":"` + userID.String() + `","requesting_company_id":"` + companyID.String() + `"}`
 }
 
 func (s *recordingStore) GetVisibleRelationshipRequest(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.VisibleRequest, error) {

@@ -23,6 +23,8 @@ const (
 	CodeRelationshipRequestStale           Code = "RELATIONSHIP_REQUEST_STALE_SOURCE"
 	CodeRelationshipSourceUnavailable      Code = "RELATIONSHIP_SOURCE_UNAVAILABLE"
 	CodeRelationshipStoreUnavailable       Code = "RELATIONSHIP_STORE_UNAVAILABLE"
+	CodeRelationshipRequestNotFound        Code = "RELATIONSHIP_REQUEST_NOT_FOUND"
+	CodeRelationshipRequestAlreadyAccepted Code = "RELATIONSHIP_REQUEST_ALREADY_ACCEPTED"
 )
 
 type ValidationErrorItem struct {

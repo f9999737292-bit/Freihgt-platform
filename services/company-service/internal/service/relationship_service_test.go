@@ -12,11 +12,12 @@ import (
 )
 
 type scriptedAuthority struct {
-	actor   domain.ActorAuthority
-	carrier bool
-	calls   int
-	userID  uuid.UUID
-	err     error
+	actor      domain.ActorAuthority
+	carrier    bool
+	userActive bool
+	calls      int
+	userID     uuid.UUID
+	err        error
 }
 
 func (s *scriptedAuthority) LoadRelationshipActor(_ context.Context, _, userID, _ uuid.UUID) (domain.ActorAuthority, error) {
@@ -26,6 +27,10 @@ func (s *scriptedAuthority) LoadRelationshipActor(_ context.Context, _, userID, 
 		return domain.ActorAuthority{}, s.err
 	}
 	return s.actor, nil
+}
+
+func (s *scriptedAuthority) ActiveUserInTenant(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return s.userActive, s.err
 }
 
 func (s *scriptedAuthority) ActiveCompanyInTenant(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
@@ -42,6 +47,7 @@ type scriptedStore struct {
 	pending    map[string]struct{}
 	lastHash   []byte
 	lastCaller string
+	lists      int
 }
 
 func newScriptedStore() *scriptedStore {
@@ -80,6 +86,20 @@ func (s *scriptedStore) AcceptRelationshipRequest(_ context.Context, _ domain.Pe
 		_, _ = source.Revalidate(context.Background(), domain.SourceSnapshot{})
 	}
 	return domain.PersistAcceptResult{}, apperrors.New(apperrors.CodeRelationshipRequestNotFound, "relationship request not found")
+}
+
+func (s *scriptedStore) ListSourceRelationshipRequests(context.Context, string, uuid.UUID, uuid.UUID, uuid.UUID) ([]domain.SourceRequestHead, error) {
+	s.mu.Lock()
+	s.lists++
+	s.mu.Unlock()
+	return []domain.SourceRequestHead{{
+		RequestID: uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), Status: domain.RequestStatusPending,
+		CarrierCompanyID: uuid.MustParse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), RequestingCompanyID: uuid.MustParse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+	}}, nil
+}
+
+func (s *scriptedStore) CancelRelationshipRequest(context.Context, domain.PersistCancel) (domain.PersistCancelResult, error) {
+	return domain.PersistCancelResult{}, apperrors.New(apperrors.CodeRelationshipRequestNotFound, "relationship request not found")
 }
 
 func (s *scriptedStore) GetVisibleRelationshipRequest(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (domain.VisibleRequest, error) {
@@ -306,6 +326,54 @@ func TestUnconfirmedSourceDoesNotReservePendingSlot(t *testing.T) {
 	wg.Wait()
 	if store.creates != 0 || len(store.pending) != 0 || len(store.rows) != 0 {
 		t.Fatalf("unconfirmed concurrency reserved state creates=%d pending=%d rows=%d", store.creates, len(store.pending), len(store.rows))
+	}
+}
+
+func TestListAuthorizesBeforeReadingRequests(t *testing.T) {
+	store := newScriptedStore()
+	authority := &scriptedAuthority{carrier: true}
+	svc := NewRelationshipService(store, authority, testRelationshipConfig(), nil, nil)
+	companyID := uuid.MustParse("cccccccc-cccc-cccc-cccc-cccccccccccc")
+	base := ListSourceRequestsInput{
+		ServiceToken: shipmentTestToken, SourceType: domain.SourceTypeShipment, SourceID: uuid.New(),
+		SourceTenantID: uuid.New(), RequestingUserID: uuid.New(), RequestingCompanyID: companyID,
+	}
+	_, err := svc.ListSourceRequests(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeRelationshipRequestForbidden || store.lists != 0 {
+		t.Fatalf("inactive user code=%s lists=%d", codeOf(t, err), store.lists)
+	}
+
+	authority.userActive = true
+	_, err = svc.ListSourceRequests(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeRelationshipRequestNotFound || store.lists != 0 {
+		t.Fatalf("non-member code=%s lists=%d", codeOf(t, err), store.lists)
+	}
+
+	authority.actor = domain.ActorAuthority{Active: true, ActiveMembership: true}
+	_, err = svc.ListSourceRequests(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeRelationshipRequestForbidden || store.lists != 0 {
+		t.Fatalf("member without role code=%s lists=%d", codeOf(t, err), store.lists)
+	}
+
+	authority.actor.TenantGlobalPlatformAdmin = true
+	authority.actor.ActiveMembership = false
+	_, err = svc.ListSourceRequests(context.Background(), base)
+	if codeOf(t, err) != apperrors.CodeRelationshipRequestNotFound || store.lists != 0 {
+		t.Fatalf("platform admin without membership code=%s lists=%d", codeOf(t, err), store.lists)
+	}
+
+	rfx := base
+	rfx.SourceType = domain.SourceTypeRfxAward
+	authority.actor.ActiveMembership = true
+	_, err = svc.ListSourceRequests(context.Background(), rfx)
+	if codeOf(t, err) != apperrors.CodeRelationshipRequestForbidden || store.lists != 0 {
+		t.Fatalf("shipment credential on rfx code=%s lists=%d", codeOf(t, err), store.lists)
+	}
+
+	authority.actor = domain.ActorAuthority{Active: true, ActiveMembership: true, CompanyRoles: []string{domain.RoleShipperAdmin}}
+	rows, err := svc.ListSourceRequests(context.Background(), base)
+	if err != nil || len(rows) != 1 || store.lists != 1 || rows[0].RequestID.String() == "" {
+		t.Fatalf("creator list err=%v rows=%d lists=%d", err, len(rows), store.lists)
 	}
 }
 

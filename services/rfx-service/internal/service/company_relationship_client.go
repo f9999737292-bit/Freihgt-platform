@@ -44,7 +44,7 @@ type CompanyRelationshipCreateResult struct {
 // It does not send X-Internal-Service-Name and it does not use INTERNAL_SERVICE_TOKEN.
 // SHIPMENT is refused before any HTTP call. An empty URL or token fails closed.
 // A transport error is not retried. This client never invents a replacement idempotency key.
-// A lost success response is recovered by a future cancel plus a new request, which this stage does not perform.
+// A lost success response is recovered by the source-scoped status list, cancel, and a later create that uses a new idempotency key.
 type CompanyRelationshipCreateClient struct {
 	baseURL string
 	token   string
@@ -147,6 +147,10 @@ func mapCompanyRelationshipError(raw []byte) error {
 		return apperrors.New(apperrors.CodeRelationshipRequestPendingConflict, "pending relationship request already exists")
 	case "RELATIONSHIP_STORE_UNAVAILABLE":
 		return apperrors.New(apperrors.CodeRelationshipStoreUnavailable, "relationship store unavailable")
+	case "RELATIONSHIP_REQUEST_NOT_FOUND":
+		return apperrors.New(apperrors.CodeRelationshipRequestNotFound, "relationship request not found")
+	case "RELATIONSHIP_REQUEST_ALREADY_ACCEPTED":
+		return apperrors.New(apperrors.CodeRelationshipRequestAlreadyAccepted, "relationship request already accepted")
 	default:
 		return apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
 	}
@@ -154,4 +158,117 @@ func mapCompanyRelationshipError(raw []byte) error {
 
 func refuseCompanyRelationshipRedirect(*http.Request, []*http.Request) error {
 	return errors.New("company relationship redirect refused")
+}
+
+// RfxRelationshipStatusItem is one source-scoped status row. It has no acceptance token.
+type RfxRelationshipStatusItem struct {
+	RequestID        uuid.UUID
+	Status           string
+	CarrierCompanyID uuid.UUID
+	TokenExpiresAt   time.Time
+}
+
+// RfxRelationshipCancelResult is the cancel recovery outcome. It has no acceptance token.
+type RfxRelationshipCancelResult struct {
+	RequestID uuid.UUID
+	Status    string
+}
+
+func (c *CompanyRelationshipCreateClient) ListStatus(ctx context.Context, sourceType string, sourceID, sourceTenantID, userID, requestingCompanyID uuid.UUID) ([]RfxRelationshipStatusItem, error) {
+	if sourceType != domain.RfxSourceTypeAward && sourceType != domain.RfxSourceTypeAwardLink {
+		return nil, apperrors.New(apperrors.CodeRelationshipRequestForbidden, "relationship command refused")
+	}
+	if c == nil || c.client == nil || c.baseURL == "" || c.token == "" || ctx == nil || requestingCompanyID == uuid.Nil {
+		return nil, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+	}
+	raw, status, err := c.postCompany(ctx, "/v1/carrier-relationship-request-statuses", map[string]string{
+		"source_type": sourceType, "source_id": sourceID.String(), "source_tenant_id": sourceTenantID.String(),
+		"requesting_user_id": userID.String(), "requesting_company_id": requestingCompanyID.String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if status != http.StatusOK {
+		return nil, mapCompanyRelationshipError(raw)
+	}
+	var decoded struct {
+		Requests []struct {
+			RequestID        string    `json:"relationship_request_id"`
+			Status           string    `json:"request_status"`
+			CarrierCompanyID string    `json:"shipper_carrier_company_id"`
+			TokenExpiresAt   time.Time `json:"token_expires_at"`
+		} `json:"requests"`
+	}
+	if err := json.Unmarshal(raw, &decoded); err != nil || decoded.Requests == nil {
+		return nil, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+	}
+	out := make([]RfxRelationshipStatusItem, 0, len(decoded.Requests))
+	for _, row := range decoded.Requests {
+		requestID, err := uuid.Parse(strings.TrimSpace(row.RequestID))
+		carrierID, carrierErr := uuid.Parse(strings.TrimSpace(row.CarrierCompanyID))
+		if err != nil || carrierErr != nil || strings.TrimSpace(row.Status) == "" || row.TokenExpiresAt.IsZero() {
+			return nil, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+		}
+		out = append(out, RfxRelationshipStatusItem{RequestID: requestID, Status: row.Status, CarrierCompanyID: carrierID, TokenExpiresAt: row.TokenExpiresAt})
+	}
+	return out, nil
+}
+
+func (c *CompanyRelationshipCreateClient) Cancel(ctx context.Context, sourceType string, sourceID, sourceTenantID, userID, requestID uuid.UUID, idempotencyKey, reason string) (RfxRelationshipCancelResult, error) {
+	if sourceType != domain.RfxSourceTypeAward && sourceType != domain.RfxSourceTypeAwardLink {
+		return RfxRelationshipCancelResult{}, apperrors.New(apperrors.CodeRelationshipRequestForbidden, "relationship command refused")
+	}
+	if c == nil || c.client == nil || c.baseURL == "" || c.token == "" || ctx == nil || requestID == uuid.Nil {
+		return RfxRelationshipCancelResult{}, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+	}
+	payload := map[string]string{
+		"source_type": sourceType, "source_id": sourceID.String(), "source_tenant_id": sourceTenantID.String(),
+		"requesting_user_id": userID.String(), "idempotency_key": idempotencyKey,
+	}
+	if strings.TrimSpace(reason) != "" {
+		payload["cancel_reason"] = reason
+	}
+	raw, status, err := c.postCompany(ctx, "/v1/carrier-relationship-requests/"+requestID.String()+"/cancellations", payload)
+	if err != nil {
+		return RfxRelationshipCancelResult{}, err
+	}
+	if status != http.StatusOK {
+		return RfxRelationshipCancelResult{}, mapCompanyRelationshipError(raw)
+	}
+	var decoded struct {
+		RequestID string `json:"relationship_request_id"`
+		Status    string `json:"request_status"`
+		Token     string `json:"acceptance_token"`
+	}
+	if err := json.Unmarshal(raw, &decoded); err != nil || decoded.Token != "" {
+		return RfxRelationshipCancelResult{}, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+	}
+	id, err := uuid.Parse(strings.TrimSpace(decoded.RequestID))
+	if err != nil || id != requestID || (decoded.Status != "CANCELLED" && decoded.Status != "EXPIRED") {
+		return RfxRelationshipCancelResult{}, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+	}
+	return RfxRelationshipCancelResult{RequestID: id, Status: decoded.Status}, nil
+}
+
+func (c *CompanyRelationshipCreateClient) postCompany(ctx context.Context, path string, payload map[string]string) ([]byte, int, error) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, 0, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(body))
+	if err != nil {
+		return nil, 0, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Service-Token", c.token)
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, 0, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 8192))
+	if err != nil {
+		return nil, 0, apperrors.New(apperrors.CodeRelationshipSourceUnavailable, "relationship source unavailable")
+	}
+	return raw, resp.StatusCode, nil
 }

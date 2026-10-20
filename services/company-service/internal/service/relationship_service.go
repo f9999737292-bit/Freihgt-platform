@@ -14,10 +14,13 @@ type RelationshipStore interface {
 	CreateRelationshipRequest(ctx context.Context, in domain.PersistCreate) (domain.PersistCreateResult, error)
 	AcceptRelationshipRequest(ctx context.Context, in domain.PersistAccept, source domain.SourceRevalidator) (domain.PersistAcceptResult, error)
 	GetVisibleRelationshipRequest(ctx context.Context, tenantID, companyID, requestID uuid.UUID) (domain.VisibleRequest, error)
+	ListSourceRelationshipRequests(ctx context.Context, sourceType string, sourceID, sourceTenantID, requestingCompanyID uuid.UUID) ([]domain.SourceRequestHead, error)
+	CancelRelationshipRequest(ctx context.Context, in domain.PersistCancel) (domain.PersistCancelResult, error)
 }
 
 type AuthorityReader interface {
 	LoadRelationshipActor(ctx context.Context, tenantID, userID, companyID uuid.UUID) (domain.ActorAuthority, error)
+	ActiveUserInTenant(ctx context.Context, tenantID, userID uuid.UUID) (bool, error)
 	ActiveCompanyInTenant(ctx context.Context, tenantID, companyID uuid.UUID) (bool, error)
 }
 

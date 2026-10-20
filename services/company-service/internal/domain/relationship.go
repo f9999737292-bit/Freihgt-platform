@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -264,4 +265,41 @@ func FingerprintAcceptanceToken(pepper string, raw []byte) []byte {
 	mac := hmac.New(sha256.New, []byte(pepper))
 	_, _ = mac.Write(raw)
 	return mac.Sum(nil)
+}
+
+// CancelBodyHash covers only the relationship request id.
+// The cancel reason is stored on the event and audit and is not part of the hash.
+func CancelBodyHash(requestID uuid.UUID) []byte {
+	sum := sha256.Sum256([]byte(requestID.String()))
+	return sum[:]
+}
+
+// PersistCancel is the company-owned cancel command.
+// AssertedCompanyID is optional. When set, it must equal the request root's requesting company.
+type PersistCancel struct {
+	CallerService     string
+	SourceType        string
+	SourceID          uuid.UUID
+	SourceTenantID    uuid.UUID
+	ActorUserID       uuid.UUID
+	RequestID         uuid.UUID
+	IdempotencyKey    string
+	Reason            string
+	CorrelationID     string
+	AssertedCompanyID *uuid.UUID
+}
+
+// PersistCancelResult is a terminal recovery outcome. It never carries an acceptance token.
+type PersistCancelResult struct {
+	RequestID uuid.UUID
+	Status    string
+}
+
+// SourceRequestHead is a source-scoped status row. It has no token and no token hash.
+type SourceRequestHead struct {
+	RequestID           uuid.UUID
+	Status              string
+	CarrierCompanyID    uuid.UUID
+	RequestingCompanyID uuid.UUID
+	TokenExpiresAt      time.Time
 }

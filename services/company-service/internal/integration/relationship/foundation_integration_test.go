@@ -43,12 +43,21 @@ func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := coreSnapshot(t, pool)
+	if err := applyCancelDown(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
 	if err := cycleFoundationMigration(ctx, pool); err != nil {
 		t.Fatal(err)
 	}
 	after := coreSnapshot(t, pool)
 	if before != after {
 		t.Fatalf("historical tables changed during 000100 rollback: before=%s after=%s", before, after)
+	}
+	if err := cycleCancelMigration(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	if again := coreSnapshot(t, pool); again != after {
+		t.Fatalf("historical tables changed during 000101 rollback: before=%s after=%s", after, again)
 	}
 	var remaining int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM core.tenants WHERE id = $1`, marker).Scan(&remaining); err != nil || remaining != 1 {
@@ -148,6 +157,7 @@ func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 	assertDatabaseConstraints(t, pool, fix)
 	assertRollbackIsAtomic(t, pool, fix)
 	assertConcurrentCreate(t, match, cat, fix)
+	assertCancelRecovery(t, pool, match, cat, fix)
 	t.Log("POSTGRES_INTEGRATION=PASS")
 }
 

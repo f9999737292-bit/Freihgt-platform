@@ -81,6 +81,20 @@ func (r *RelationshipRepository) LoadRelationshipActor(ctx context.Context, tena
 	return actor, nil
 }
 
+func (r *RelationshipRepository) ActiveUserInTenant(ctx context.Context, tenantID, userID uuid.UUID) (bool, error) {
+	const query = `
+		SELECT EXISTS (
+			SELECT 1 FROM core.users
+			WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL AND status = 'ACTIVE'
+		)
+	`
+	var active bool
+	if err := r.pool.QueryRow(ctx, query, userID, tenantID).Scan(&active); err != nil {
+		return false, relationshipStoreError(err)
+	}
+	return active, nil
+}
+
 func (r *RelationshipRepository) ActiveCompanyInTenant(ctx context.Context, tenantID, companyID uuid.UUID) (bool, error) {
 	const query = `
 		SELECT EXISTS (
@@ -422,6 +436,7 @@ type auditRow struct {
 	SourceID            *uuid.UUID
 	IdempotencyKey      string
 	CorrelationID       string
+	Reason              string
 	Action              string
 }
 
@@ -548,10 +563,10 @@ func insertAudit(ctx context.Context, tx pgx.Tx, row auditRow) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO company.carrier_relationship_audit (
 			audit_id, actor_user_id, actor_tenant_id, selected_company_id, relationship_request_id,
-			relationship_id, relationship_version, source_type, source_id, idempotency_key, correlation_id, action
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, NULLIF($10, ''), NULLIF($11, ''), $12)
+			relationship_id, relationship_version, source_type, source_id, idempotency_key, correlation_id, reason, action
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9, NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, ''), $13)
 	`, uuid.New(), row.ActorUserID, row.ActorTenantID, row.SelectedCompanyID, row.RequestID, row.RelationshipID,
-		row.RelationshipVersion, row.SourceType, row.SourceID, row.IdempotencyKey, row.CorrelationID, row.Action)
+		row.RelationshipVersion, row.SourceType, row.SourceID, row.IdempotencyKey, row.CorrelationID, row.Reason, row.Action)
 	if err != nil {
 		return relationshipStoreError(err)
 	}
@@ -614,6 +629,9 @@ func relationshipStoreError(err error) error {
 		case "23505":
 			if pgErr.ConstraintName == "uq_crr_one_pending_source_carrier" {
 				return apperrors.New(apperrors.CodeRelationshipRequestPendingConflict, "pending relationship request already exists")
+			}
+			if pgErr.ConstraintName == "uq_crr_one_terminal_event" || pgErr.ConstraintName == "uq_crr_event_version" {
+				return apperrors.New(apperrors.CodeRelationshipStoreUnavailable, "relationship store unavailable")
 			}
 			return apperrors.New(apperrors.CodeRelationshipIdempotencyConflict, "idempotency conflict")
 		case "23514", "55000":
