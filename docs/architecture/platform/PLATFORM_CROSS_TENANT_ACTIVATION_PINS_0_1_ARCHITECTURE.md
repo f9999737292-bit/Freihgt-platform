@@ -36,16 +36,18 @@ R1_REMEDIATION=PIN-01,PIN-02,PIN-03,PIN-04
 R2_REMEDIATION=R2-01,R2-02,R2-03,R2-04,R2-05
 R3_REMEDIATION=R3-01,R3-02,R3-03,R3-04
 R4_REMEDIATION=R4-01
+R5_REMEDIATION=R5-01
 SECURITY_DEFINER_SEARCH_PATH=pg_catalog
 ENFORCEMENT_TRIGGER_READS=CURRENT_ROW_AT_COMMIT
-ENFORCEMENT_TRIGGER_UPDATE_OF=source_activation_id,supersedes_revision_id,operating_tenant_id
+ENFORCEMENT_TRIGGER_UPDATE_OF=id,source_activation_id,supersedes_revision_id,operating_tenant_id
+NOT_FOUND_SUCCESS=DELETE_ONLY
 FLAG_BYPASSES_DB_ENFORCEMENT=NO
 REPLAY_PREDICATE=contract_sha256
 PIN_SET_FINGERPRINT_REPLACES_CONTRACT_SHA256=NO
 SHARED_FREIGHT_LOGIN=DEPLOYMENT_BLOCKER
 ```
 
-This document freezes how a confirmed carrier relationship becomes an immutable pin on a transport execution revision. R1 keeps `contract_sha256` as the replay predicate and copies the committed pin set onto a successor revision. R2 binds each pin to the locked subject version, keeps shipment DML on executions and revisions, denies pin and authorization DML to `shipment_runtime`, sets every definer function to `search_path = pg_catalog`, and leaves a lost-ack body conflict pending in NLO. R3 reads the revision row at `COMMIT`, ships that check only with the `Project` that writes evidence, grants `company_runtime` the actor reads those commands already use, and binds the pin to the full subject identity. R4 queues that check on `INSERT`, `DELETE`, and `UPDATE` of `source_activation_id`, `supersedes_revision_id`, or `operating_tenant_id`, so `CreateSuccessorRevision` can mark a legacy revision `SUPERSEDED` without inventing an authorization. It does not authorize runtime code, a migration file, a flag change, an NLO edit, a Control Tower edit, or deployment.
+This document freezes how a confirmed carrier relationship becomes an immutable pin on a transport execution revision. R1 keeps `contract_sha256` as the replay predicate and copies the committed pin set onto a successor revision. R2 binds each pin to the locked subject version, keeps shipment DML on executions and revisions, denies pin and authorization DML to `shipment_runtime`, sets every definer function to `search_path = pg_catalog`, and leaves a lost-ack body conflict pending in NLO. R3 reads the revision row at `COMMIT`, ships that check only with the `Project` that writes evidence, grants `company_runtime` the actor reads those commands already use, and binds the pin to the full subject identity. R4 queues that check on `INSERT`, `DELETE`, and `UPDATE` of the activation columns, so `CreateSuccessorRevision` can mark a legacy revision `SUPERSEDED` without inventing an authorization. R5 adds `id` to that `UPDATE` list and does not treat a missing id as success except after a real `DELETE`. It does not authorize runtime code, a migration file, a flag change, an NLO edit, a Control Tower edit, or deployment.
 
 Authoritative inputs read at `e810056284ebb39014572903bf73a5ba29fc52e9`:
 
@@ -238,7 +240,8 @@ PIN_BEFORE_REVISION=FORBIDDEN
 PIN_REVISION_FK=IMMEDIATE
 NEW_ACTIVATION_EVIDENCE_CHECK=DEFERRABLE_AT_COMMIT
 ENFORCEMENT_TRIGGER_READS=CURRENT_ROW_AT_COMMIT
-ENFORCEMENT_TRIGGER_EVENTS=INSERT_OR_DELETE_OR_UPDATE_OF_source_activation_id_supersedes_revision_id_operating_tenant_id
+ENFORCEMENT_TRIGGER_EVENTS=INSERT_OR_DELETE_OR_UPDATE_OF_id_source_activation_id_supersedes_revision_id_operating_tenant_id
+NOT_FOUND_SUCCESS=DELETE_ONLY
 PIN_IDENTITY_FK=fk_pin_subject_identity
 FLAG_BYPASSES_DB_ENFORCEMENT=NO
 ADVISORY_LOCK=pg_catalog.pg_advisory_xact_lock
@@ -428,6 +431,7 @@ DECLARE
     current_source uuid;
     current_supersedes uuid;
     current_operating uuid;
+    surviving_headerless integer;
 BEGIN
     IF TG_OP OPERATOR(pg_catalog.=) 'DELETE' THEN
         revision_id := OLD.id;
@@ -439,6 +443,26 @@ BEGIN
       FROM transport.transport_execution_revisions AS r
      WHERE r.id OPERATOR(pg_catalog.=) revision_id;
     IF NOT FOUND THEN
+        IF TG_OP OPERATOR(pg_catalog.=) 'DELETE' THEN
+            RETURN NULL;
+        END IF;
+        SELECT pg_catalog.count(*)
+          INTO surviving_headerless
+          FROM transport.transport_execution_revisions AS r
+         WHERE r.xmin::pg_catalog.text OPERATOR(pg_catalog.=) pg_catalog.pg_current_xact_id()::pg_catalog.text
+           AND r.created_at OPERATOR(pg_catalog.>=) pg_catalog.transaction_timestamp()
+           AND r.source_activation_id IS NOT NULL
+           AND r.supersedes_revision_id IS NULL
+           AND NOT EXISTS (
+                SELECT 1
+                  FROM company.carrier_relationship_activation_authorizations AS a
+                 WHERE a.operating_tenant_id OPERATOR(pg_catalog.=) r.operating_tenant_id
+                   AND a.source_activation_id OPERATOR(pg_catalog.=) r.source_activation_id
+           );
+        IF surviving_headerless OPERATOR(pg_catalog.>) 0 THEN
+            RAISE EXCEPTION 'new activation revision has no authorization header'
+                USING ERRCODE = 'check_violation';
+        END IF;
         RETURN NULL;
     END IF;
     IF current_source IS NOT NULL
@@ -456,12 +480,11 @@ BEGIN
 END;
 $$;
 
--- UPDATE OF is limited to the activation columns. createSuccessorRevisionInTx
--- sets only status and updated_at on the previous revision, so that UPDATE
--- does not queue this check. INSERT and DELETE still do.
+-- UPDATE OF includes id. createSuccessorRevisionInTx sets only status and
+-- updated_at on the previous revision, so that UPDATE does not queue this check.
 CREATE CONSTRAINT TRIGGER trg_new_activation_authorization
     AFTER INSERT OR DELETE
-        OR UPDATE OF source_activation_id, supersedes_revision_id, operating_tenant_id
+        OR UPDATE OF id, source_activation_id, supersedes_revision_id, operating_tenant_id
         ON transport.transport_execution_revisions
     DEFERRABLE INITIALLY DEFERRED
     FOR EACH ROW
@@ -510,9 +533,9 @@ Each subject row stores the activation's tenant, the shipment, the shipper-local
 
 `BEFORE INSERT` on `company.carrier_relationship_activation_subjects` runs `company.enforce_activation_subject_head`. That function is `SECURITY DEFINER`, owned by `freight_migrations`, with `search_path = pg_catalog`, and it uses only schema-qualified names. For the new row it takes `pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(...))` on `relationship:{shipment_tenant_id}:{source_company_id}:{operating_tenant_id}`. Those three subject columns are the Accept/Revoke business key: shipper tenant, shipper-local carrier, and operating tenant. It then locks `company.carrier_relationship_heads` `FOR UPDATE`. It raises unless `status` is `ACTIVE` and `current_version_id` equals `locked_relationship_version_id`. A historical version row that is still `ACTIVE` is refused once the head is `REVOKED` or points at another version, including an insert by the function owner. The same transaction already holding that advisory lock may take it again. The authorizer takes the full sorted advisory set before the first subject insert, so the trigger repeats locks the caller already holds and does not open a second lock order. The trigger does not read `current_setting`. `shipment_runtime` does not receive `EXECUTE` on this trigger function. The authorizer inserts subjects as `freight_migrations`.
 
-`shipment_runtime` does receive `EXECUTE` on `transport.enforce_new_activation_authorization` because that role inserts revisions and can update the three activation columns. At `COMMIT` the function selects the revision by id and reads the stored `source_activation_id`, `supersedes_revision_id`, and `operating_tenant_id`. It does not use the `NEW` snapshot from the statement that queued the event. PostgreSQL queues `UPDATE OF` when one of those columns is named in `SET`, even when the assigned value equals the old value. The function still reads the row stored at `COMMIT`. Several inserts and updates of one row in the same transaction each queue an event only when the event is `INSERT`, `DELETE`, or an `UPDATE` that names one of those columns, and every queued event sees the row that is still stored. A row that was deleted is not an activation and the event returns without raising. `shipment_runtime` has no `DELETE` on the revision table. `source_activation_id` on the existing revision table is `NOT NULL`, so clearing it fails before the trigger. Changing it to another activation id requires a header for that id and the same operating tenant. A final row with `supersedes_revision_id` set is a successor and is outside the predicate, including a successor written by `CreateSuccessorRevision`. Clearing `supersedes_revision_id` before `COMMIT` makes the row a new activation and requires a header. An id change is an `UPDATE` event whose `NEW.id` is the id still stored, so the check follows the row. `SET status` and `SET updated_at` do not name the activation columns, so they do not queue the check. `PUBLIC` has no `EXECUTE` on either trigger function. `company_runtime` receives neither trigger function and receives no `INSERT`, `UPDATE`, or `DELETE` on the authorization tables or the pin table.
+`shipment_runtime` does receive `EXECUTE` on `transport.enforce_new_activation_authorization` because that role inserts revisions and can update `id`, `source_activation_id`, `supersedes_revision_id`, and `operating_tenant_id`. At `COMMIT` the function selects the revision by id and reads the stored `source_activation_id`, `supersedes_revision_id`, and `operating_tenant_id`. It does not use the `NEW` snapshot from the statement that queued the event. PostgreSQL queues `UPDATE OF` when one of those columns is named in `SET`, even when the assigned value equals the old value. The function still reads the row stored at `COMMIT`. Several inserts and updates of one row in the same transaction each queue an event only when the event is `INSERT`, `DELETE`, or an `UPDATE` that names one of those columns, and every queued event sees the row that is still stored. A `DELETE` whose row is gone returns without raising. That is the only missing-row success. An `INSERT` or `UPDATE` whose id is no longer stored does not succeed by itself. `UPDATE` of `id` uses `NEW.id`, the id after that statement. If that row is still stored and is an initial activation, the header is required. If that id is gone because a later statement changed `id` again, the event looks for an initial activation written in this transaction, with `created_at` at or after `transaction_timestamp()` and no matching header, and raises when one remains. A historical revision only marked `SUPERSEDED` keeps its earlier `created_at` and is not that row. `CreateSuccessorRevision` does not change `id`, so it does not enter the missing-id branch. `shipment_runtime` has no `DELETE` on the revision table. `source_activation_id` on the existing revision table is `NOT NULL`, so clearing it fails before the trigger. Changing it to another activation id requires a header for that id and the same operating tenant. A final row with `supersedes_revision_id` set is a successor and is outside the predicate, including a successor written by `CreateSuccessorRevision`. Clearing `supersedes_revision_id` before `COMMIT` makes the row a new activation and requires a header. An id change is an `UPDATE` event whose `NEW.id` is the id still stored, so the check follows the row. `SET status` and `SET updated_at` do not name `id` or the activation columns, so they do not queue the check. `PUBLIC` has no `EXECUTE` on either trigger function. `company_runtime` receives neither trigger function and receives no `INSERT`, `UPDATE`, or `DELETE` on the authorization tables or the pin table.
 
-`BEFORE UPDATE OR DELETE` on the authorization header and on authorization subjects calls `company.reject_activation_evidence_mutation`. Deleting or retargeting a header in the same transaction cannot remove the evidence the deferred check reads, and it cannot point a committed header at a different activation. Historical revision rows are not rewritten when the trigger is created. A later `UPDATE` that names `source_activation_id`, `supersedes_revision_id`, or `operating_tenant_id` is checked from the row stored at `COMMIT`. An update of `status` or `updated_at` is not.
+`BEFORE UPDATE OR DELETE` on the authorization header and on authorization subjects calls `company.reject_activation_evidence_mutation`. Deleting or retargeting a header in the same transaction cannot remove the evidence the deferred check reads, and it cannot point a committed header at a different activation. Historical revision rows are not rewritten when the trigger is created. A later `UPDATE` that names `id`, `source_activation_id`, `supersedes_revision_id`, or `operating_tenant_id` is checked from the row stored at `COMMIT`. An update of `status` or `updated_at` is not.
 
 ```sql
 -- Proposal only. company_runtime keeps the writes Create, Accept, Cancel, and Revoke already perform.
@@ -540,7 +563,9 @@ REVOKE INSERT, UPDATE, DELETE ON company.carrier_relationship_activation_subject
 REVOKE INSERT, UPDATE, DELETE ON transport.transport_execution_carrier_relationship_pins FROM company_runtime;
 ```
 
-`transport.enforce_new_activation_authorization` is a constraint trigger on `transport.transport_execution_revisions`, `AFTER INSERT OR DELETE OR UPDATE OF source_activation_id, supersedes_revision_id, operating_tenant_id`, `DEFERRABLE INITIALLY DEFERRED`. Every queued event runs at `COMMIT` and reads the revision still stored under that event's id. The predicate uses those stored values: `source_activation_id IS NOT NULL AND supersedes_revision_id IS NULL`. For that final row the trigger requires an authorization header with the same `operating_tenant_id` and `source_activation_id`. The header is inserted before the revision, and the check waits until `COMMIT`, so the insert order is possible. An insert that starts as a successor and an update that then sets `supersedes_revision_id` to null are judged by the stored row, not by the insert snapshot, because naming that column in `SET` queues the event and the function ignores the original `NEW` tuple. A successor whose stored `supersedes_revision_id` remains non-null is outside the predicate. Rows committed before this trigger exists are historical. Creating the trigger does not rewrite them and does not require authorization for them. `createSuccessorRevisionInTx` updates the previous revision with `SET status, updated_at` only. Those columns are outside `UPDATE OF`, so that statement does not demand a header for the legacy revision. The following insert names `supersedes_revision_id` and is a successor. A new insert, or an update that names an activation column and leaves the predicate true without a header, fails at `COMMIT` and leaves no revision.
+`transport.enforce_new_activation_authorization` is a constraint trigger on `transport.transport_execution_revisions`, `AFTER INSERT OR DELETE OR UPDATE OF id, source_activation_id, supersedes_revision_id, operating_tenant_id`, `DEFERRABLE INITIALLY DEFERRED`. Every queued event runs at `COMMIT` and reads the revision still stored under that event's id. The predicate uses those stored values: `source_activation_id IS NOT NULL AND supersedes_revision_id IS NULL`. For that final row the trigger requires an authorization header with the same `operating_tenant_id` and `source_activation_id`. The header is inserted before the revision, and the check waits until `COMMIT`, so the insert order is possible. An insert that starts as a successor and an update that then sets `supersedes_revision_id` to null are judged by the stored row, not by the insert snapshot, because naming that column in `SET` queues the event and the function ignores the original `NEW` tuple. A successor whose stored `supersedes_revision_id` remains non-null is outside the predicate. Rows committed before this trigger exists are historical. Creating the trigger does not rewrite them and does not require authorization for them. `createSuccessorRevisionInTx` updates the previous revision with `SET status, updated_at` only. Those columns are outside `UPDATE OF`, so that statement does not demand a header for the legacy revision. The following insert names `supersedes_revision_id` and is a successor. A new insert, or an update that names an activation column and leaves the predicate true without a header, fails at `COMMIT` and leaves no revision.
+
+`INSERT` then `UPDATE` of `id` then `COMMIT`, with no header, fails. The `UPDATE` event reads `NEW.id`. The row is an initial activation, so the header is required. The transaction rolls back the revision and the execution, including a change to `current_revision_id`. A second and later `UPDATE` of `id` in that same transaction is the same denial: the last event reads the id still stored, and an earlier event whose id is gone still sees that headerless row. `INSERT` then `UPDATE` of `id` then `UPDATE` of `supersedes_revision_id` is judged from the stored row. A final null `supersedes_revision_id` fails. A final non-null `supersedes_revision_id` is a successor and does not require a header. `INSERT` then `DELETE` of that same new row leaves no revision. The `DELETE` event is the missing-row success. The `INSERT` event does not pass while a headerless initial activation from this transaction remains, and after the delete none does. `UPDATE` of only `status` and `updated_at` on a historical revision does not queue the check. That is the `CreateSuccessorRevision` write on the previous revision, and it still commits without a backfilled authorization. `UPDATE` of `operating_tenant_id` names a queued column. The stored tenant is the one that must match the header, so a headerless change fails.
 
 `source_company_id` is the shipper-local carrier company, the same value as `company.carrier_relationships.shipper_carrier_company_id` and as the fingerprint field `shipment_carrier_company_id`. It is not `shipper_company_id` and it is not the operating company.
 
@@ -559,7 +584,7 @@ Constraints the later migration must enforce. Triggers are owned by `freight_mig
 - `company.enforce_activation_subject_head` rejects a subject whose locked version is not the current `ACTIVE` head. An older version row that is still marked `ACTIVE` does not pass after the head is `REVOKED`.
 - Insert rejects a second fingerprint on the same revision.
 - Every subject in the batch shares one `operating_tenant_id` and one `operating_carrier_company_id`. One failed subject rolls the batch back.
-- At `COMMIT`, the revision row still stored is the row that is judged. The check is queued by `INSERT`, `DELETE`, and `UPDATE OF source_activation_id, supersedes_revision_id, operating_tenant_id`. `SET status` and `SET updated_at` do not queue it. `source_activation_id IS NOT NULL AND supersedes_revision_id IS NULL` requires the matching authorization header. A non-null `supersedes_revision_id` on that stored row, and rows committed before the trigger exists, are outside that predicate. Updating `supersedes_revision_id` to null, or changing `source_activation_id`, is judged from the stored row. `shipment_runtime` may insert and update the execution and the revision. The commit check is what rejects a new activation that skipped the authorizer.
+- At `COMMIT`, the revision row still stored is the row that is judged. The check is queued by `INSERT`, `DELETE`, and `UPDATE OF id, source_activation_id, supersedes_revision_id, operating_tenant_id`. `SET status` and `SET updated_at` do not queue it. A missing row is success only for `DELETE`. An `INSERT` followed by `UPDATE` of `id` is judged at `NEW.id` and, when that id was changed again, by any initial activation this transaction still stores. `source_activation_id IS NOT NULL AND supersedes_revision_id IS NULL` requires the matching authorization header. A non-null `supersedes_revision_id` on that stored row, and rows committed before the trigger exists, are outside that predicate. Updating `supersedes_revision_id` to null, or changing `source_activation_id`, is judged from the stored row. `shipment_runtime` may insert and update the execution and the revision. The commit check is what rejects a new activation that skipped the authorizer.
 - The outbox check gains `carrier_relationship.activation_authorized`. `activation_consumed` is not a second event. The pin rows are the consumption record in the same commit. `activation_expired` stays unused because the authorization lifetime is the transaction, not a clock.
 
 The authorizer does not read `current_setting` and does not accept a session tenant. Tenant ids are arguments checked against the locked relationship root. A SQL `SET` cannot switch the tenant.
@@ -726,7 +751,7 @@ Finance and POD keep their historical tenant-local company ids. No auto-match an
 
 ## 11. PostgreSQL test plan
 
-The later runtime stage runs these tests against PostgreSQL. This stage does not add them and does not claim they have been executed. TAP-01 through TAP-16 keep their existing ids. Lost acknowledgement stays TAP-06. TAP-16 stays the different-subject case, now decided by `contract_sha256`. TAP-17 through TAP-33 are the next free ids. These rows are specifications. `CONTRACT_ONLY=YES`. This stage does not claim they have been executed. TAP-21 and TAP-29 stay.
+The later runtime stage runs these tests against PostgreSQL. This stage does not add them and does not claim they have been executed. TAP-01 through TAP-16 keep their existing ids. Lost acknowledgement stays TAP-06. TAP-16 stays the different-subject case, now decided by `contract_sha256`. TAP-17 through TAP-35 are the next free ids. These rows are specifications. `CONTRACT_ONLY=YES`. This stage does not claim they have been executed. TAP-21, TAP-29, and TAP-33 stay.
 
 | Id | Setup | Expected |
 | --- | --- | --- |
@@ -763,6 +788,8 @@ The later runtime stage runs these tests against PostgreSQL. This stage does not
 | TAP-31 | The same headerless insert after the trigger is installed, with the flag off, and again with the flag on | Both commits fail. The flag does not change the result. Dropping the trigger is the operations rollback and is not a runtime bypass |
 | TAP-32 | The table owner, or `transport.attach_activation_pins`, inserts a pin whose `authorization_subject_id` and `relationship_version_id` match a subject and whose `shipment_id` does not | `fk_pin_subject_identity` rejects the insert. No pin row remains |
 | TAP-33 `LEGACY_SUCCESSOR_WITHOUT_AUTHORIZATION` | Before the trigger, commit an execution and an initial revision with `source_activation_id` set and `supersedes_revision_id` null. Install `trg_new_activation_authorization`. Run `CreateSuccessorRevision`: set the previous revision `status` to `SUPERSEDED` and `updated_at`, then insert the successor with `supersedes_revision_id` pointing at that revision. `COMMIT` | Pass. The successor references the previous revision. No authorization header is created for the legacy revision. TAP-21, TAP-29, and a direct headerless activation insert remain denied |
+| TAP-34 `HEADERLESS_ACTIVATION_ID_CHANGE_DENIAL` | `INSERT` a new activation revision with `source_activation_id` set, `supersedes_revision_id` null, and no authorization header. `UPDATE` its primary key `id` to another uuid. Point `transport.transport_executions.current_revision_id` at that new id. `COMMIT` | Authorization error. Rollback leaves no revision and no execution. A further `UPDATE` of `id` before `COMMIT` is the same denial |
+| TAP-35 | Same headerless activation, then `UPDATE` `operating_tenant_id` to another tenant before `COMMIT` | The stored tenant has no matching header. `COMMIT` fails. No revision remains |
 
 Each test asserts the other tenant cannot observe the row through a shipper list, and a shipper read does not return the operating driver or vehicle id.
 
@@ -776,7 +803,7 @@ Not authorized by this stage.
 | 1 | Database role split | Logins and grants only. No enforcement trigger | `shipment_runtime` can insert and update executions and revisions, can update `event_seq`, and cannot insert pins or authorization rows. `company_runtime` can Create, Accept, Cancel, and Revoke, including the actor read. Today's `Project` still commits. `freight` is not a service login. Flag still off |
 | 2 | Authorizer and authorization schema | Tables, subject trigger, and authorizer. No revision enforcement trigger | Function refuses `REVOKED` and refuses a historical version under the Accept/Revoke lock order. Today's `Project` still commits |
 | 3 | Compatibility check | No new writer | TAP-30. Headerless `Project` commits |
-| 4 | Joint `Project` and enforcement trigger | shipment-service and the deferred trigger in one release | TAP-21, TAP-29, TAP-31, and TAP-33. A headerless new activation fails at `COMMIT`. A legacy successor that only changes `status` and `updated_at` commits. The sentence "flag off leaves today's `Project` unchanged" does not apply once this trigger is installed |
+| 4 | Joint `Project` and enforcement trigger | shipment-service and the deferred trigger in one release | TAP-21, TAP-29, TAP-31, TAP-33, TAP-34, and TAP-35. A headerless new activation fails at `COMMIT`, including after its `id` changes. A legacy successor that only changes `status` and `updated_at` commits. The sentence "flag off leaves today's `Project` unchanged" does not apply once this trigger is installed |
 | 5 | NLO response mapping and shipment tenant | network-optimizer-service only, separate PR | HTTP 200 and HTTP 201 link. HTTP 409 `ACTIVATION_BODY_CONFLICT` stays `PENDING_EXECUTION` and is not `REJECTED`. The original digest can then return HTTP 200 and link. `execution_supported` still false |
 | 6 | Flag enablement | Operations authorization | The flag does not disable the trigger. Separate from stages 0–5 |
 
