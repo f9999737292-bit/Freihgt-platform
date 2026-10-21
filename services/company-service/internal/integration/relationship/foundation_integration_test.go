@@ -49,6 +49,9 @@ func TestCompanyRelationshipFoundationPostgres(t *testing.T) {
 	if err := applyCancelDown(ctx, pool); err != nil {
 		t.Fatal(err)
 	}
+	if err := execMigration(ctx, pool, "000103_tms_relationship_pins_security_foundation_v0_1.down.sql"); err != nil {
+		t.Fatal(err)
+	}
 	if err := cycleFoundationMigration(ctx, pool); err != nil {
 		t.Fatal(err)
 	}
