@@ -113,6 +113,133 @@ func proveConcurrentRoleMigration(t *testing.T, ctx context.Context, adminURL st
 	t.Logf("concurrent databases=%s,%s", names[0], names[1])
 }
 
+func TestPostgresSecurityFoundationMultiDatabaseDown(t *testing.T) {
+	adminURL := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
+	if adminURL == "" {
+		t.Fatal("TEST_DATABASE_URL is required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	t.Cleanup(cancel)
+	t.Cleanup(func() { dropSecurityRoles(adminURL) })
+	dropSecurityRoles(adminURL)
+	admin, err := pgxpool.New(ctx, adminURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, role := range []string{"freight_migrations", "company_runtime", "shipment_runtime"} {
+		var exists int
+		if err := admin.QueryRow(ctx, `SELECT count(*) FROM pg_roles WHERE rolname = $1`, role).Scan(&exists); err != nil {
+			admin.Close()
+			t.Fatal(err)
+		}
+		if exists == 0 {
+			if _, err := admin.Exec(ctx, "CREATE ROLE "+role+" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS"); err != nil {
+				admin.Close()
+				t.Fatalf("pre-existing role %s: %v", role, err)
+			}
+			continue
+		}
+		if _, err := admin.Exec(ctx, "COMMENT ON ROLE "+role+" IS NULL"); err != nil {
+			admin.Close()
+			t.Fatalf("clear pre-existing role marker %s: %v", role, err)
+		}
+	}
+	admin.Close()
+	name1, url1, drop1, err := createTempDatabase(ctx, adminURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { drop1(context.Background()) })
+	name2, url2, drop2, err := createTempDatabase(ctx, adminURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { drop2(context.Background()) })
+	pool1, err := pgxpool.New(ctx, url1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool1.Close)
+	pool2, err := pgxpool.New(ctx, url2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool2.Close)
+	if err := applyMigrations(ctx, pool1); err != nil {
+		t.Fatalf("database one migrations: %v", err)
+	}
+	if err := applyMigrations(ctx, pool2); err != nil {
+		t.Fatalf("database two migrations: %v", err)
+	}
+	if _, err := pool1.Exec(ctx, `
+		CREATE TABLE transport.sec04_keeper (id integer PRIMARY KEY);
+		ALTER TABLE transport.sec04_keeper OWNER TO freight_migrations;
+		INSERT INTO transport.sec04_keeper (id) VALUES (1)
+	`); err != nil {
+		t.Fatal(err)
+	}
+	before := scalarInt(t, pool2, `SELECT count(*) FROM company.carrier_relationship_activation_authorizations`)
+	if err := execMigration(ctx, pool1, "000103_tms_relationship_pins_security_foundation_v0_1.down.sql"); err != nil {
+		t.Fatalf("down first database: %v", err)
+	}
+	var keeper int
+	if err := pool1.QueryRow(ctx, `SELECT count(*) FROM transport.sec04_keeper`).Scan(&keeper); err != nil || keeper != 1 {
+		t.Fatalf("foreign object remaining=%d err=%v", keeper, err)
+	}
+	if scalarInt(t, pool1, `SELECT count(*) FROM pg_class WHERE relname = 'carrier_relationship_activation_authorizations'`) != 0 {
+		t.Fatal("down left authorization storage in the first database")
+	}
+	if scalarInt(t, pool2, `SELECT count(*) FROM pg_class WHERE relname = 'carrier_relationship_activation_authorizations'`) != 1 {
+		t.Fatal("down changed authorization storage in the second database")
+	}
+	if scalarInt(t, pool2, `SELECT count(*) FROM company.carrier_relationship_activation_authorizations`) != before {
+		t.Fatal("down changed authorization rows in the second database")
+	}
+	if scalarInt(t, pool1, `SELECT count(*) FROM pg_roles WHERE rolname = 'freight_migrations'`) != 1 {
+		t.Fatal("down dropped a role still used by the second database")
+	}
+	if err := execMigration(ctx, pool1, "000103_tms_relationship_pins_security_foundation_v0_1.up.sql"); err != nil {
+		t.Fatalf("up after shared-role down: %v", err)
+	}
+	if err := pool1.QueryRow(ctx, `SELECT count(*) FROM transport.sec04_keeper`).Scan(&keeper); err != nil || keeper != 1 {
+		t.Fatalf("up removed foreign object remaining=%d err=%v", keeper, err)
+	}
+	if scalarInt(t, pool1, `SELECT count(*) FROM pg_class WHERE relname = 'carrier_relationship_activation_authorizations'`) != 1 {
+		t.Fatal("up did not restore authorization storage")
+	}
+	t.Logf("SEC-04 databases=%s,%s", name1, name2)
+	t.Log("SEC-04A=PASS")
+	t.Log("SEC-04B=PASS")
+	t.Log("SEC-04C=PASS")
+	t.Log("SEC-04D=PASS")
+	if err := execMigration(ctx, pool2, "000103_tms_relationship_pins_security_foundation_v0_1.down.sql"); err != nil {
+		t.Fatalf("down second database: %v", err)
+	}
+	if err := execMigration(ctx, pool1, "000103_tms_relationship_pins_security_foundation_v0_1.down.sql"); err != nil {
+		t.Fatalf("down first database after the other was removed: %v", err)
+	}
+	if scalarInt(t, pool1, `SELECT count(*) FROM pg_roles WHERE rolname IN ('freight_migrations', 'company_runtime', 'shipment_runtime')`) != 3 {
+		t.Fatal("down dropped a role that existed before the migration")
+	}
+	if scalarInt(t, pool1, `
+		SELECT count(*)
+		  FROM pg_shdescription AS description
+		  JOIN pg_authid AS role_row ON role_row.oid = description.objoid
+		 WHERE description.classoid = 'pg_authid'::regclass
+		   AND role_row.rolname IN ('freight_migrations', 'company_runtime', 'shipment_runtime')
+		   AND description.description = 'tms-relationship-pins-security-foundation-v0.1'
+	`) != 0 {
+		t.Fatal("migration claimed a pre-existing role")
+	}
+	if err := execMigration(ctx, pool1, "000103_tms_relationship_pins_security_foundation_v0_1.up.sql"); err != nil {
+		t.Fatalf("up after pre-existing role survived down: %v", err)
+	}
+	if err := pool1.QueryRow(ctx, `SELECT count(*) FROM transport.sec04_keeper`).Scan(&keeper); err != nil || keeper != 1 {
+		t.Fatalf("pre-existing role cycle removed foreign object remaining=%d err=%v", keeper, err)
+	}
+	t.Log("SEC-04E=PASS")
+}
+
 func expectSecurityObjects(ctx context.Context, pool *pgxpool.Pool, present bool) error {
 	var roles, trigger, column int
 	if err := pool.QueryRow(ctx, `

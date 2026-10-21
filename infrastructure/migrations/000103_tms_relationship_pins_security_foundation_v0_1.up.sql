@@ -7,37 +7,45 @@
 -- role split. The gate refuses to install the trigger while that login can
 -- bypass grants. This migration does not enable TMS_RELATIONSHIP_ACTIVATION_ENABLED.
 
--- Roles are cluster-global. Concurrent databases on one server take the same
--- advisory lock, then tolerate a role that already exists. No dynamic SQL.
+-- Roles are cluster-global. A one-argument advisory lock is database-local, so
+-- it does not stop two databases from updating the same pg_authid row. The
+-- shared role row is locked instead. The comment is set only when this
+-- migration creates the role, and the down script uses that marker.
 DO $roles$
 BEGIN
-    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('tms-relationship-pins-security-roles', 0));
-
     BEGIN
         CREATE ROLE freight_migrations NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+        COMMENT ON ROLE freight_migrations IS 'tms-relationship-pins-security-foundation-v0.1';
     EXCEPTION
         WHEN unique_violation OR duplicate_object THEN
             NULL;
     END;
-    ALTER ROLE freight_migrations NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-
     BEGIN
         CREATE ROLE company_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+        COMMENT ON ROLE company_runtime IS 'tms-relationship-pins-security-foundation-v0.1';
     EXCEPTION
         WHEN unique_violation OR duplicate_object THEN
             NULL;
     END;
-    ALTER ROLE company_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-
     BEGIN
         CREATE ROLE shipment_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+        COMMENT ON ROLE shipment_runtime IS 'tms-relationship-pins-security-foundation-v0.1';
     EXCEPTION
         WHEN unique_violation OR duplicate_object THEN
             NULL;
     END;
-    ALTER ROLE shipment_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
 END
 $roles$;
+
+SELECT role_row.oid
+  FROM pg_catalog.pg_authid AS role_row
+ WHERE role_row.rolname IN ('company_runtime', 'freight_migrations', 'shipment_runtime')
+ ORDER BY role_row.rolname
+   FOR UPDATE;
+
+ALTER ROLE freight_migrations NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+ALTER ROLE company_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+ALTER ROLE shipment_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
 
 GRANT USAGE ON SCHEMA company, transport, core TO freight_migrations, company_runtime, shipment_runtime;
 
@@ -77,6 +85,7 @@ CREATE TABLE company.carrier_relationship_activation_authorizations (
     operating_carrier_company_id uuid NOT NULL,
     contract_sha256 text NOT NULL,
     pin_set_fingerprint text NOT NULL,
+    created_xact pg_catalog.xid8 NOT NULL DEFAULT pg_catalog.pg_current_xact_id(),
     created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
     CONSTRAINT uq_cr_activation_auth UNIQUE (operating_tenant_id, source_activation_id),
     CONSTRAINT chk_cr_activation_auth_digest CHECK (
@@ -314,24 +323,76 @@ BEGIN
 END;
 $fn$;
 
-CREATE FUNCTION transport.reject_revision_fingerprint_rewrite()
-RETURNS trigger
-LANGUAGE plpgsql
+-- xmin is xid. pg_current_xact_id() is xid8. The xid cast keeps the low 32 bits,
+-- which is the value stored on a row inserted by this top-level transaction.
+-- Text comparison is not used: xid8 text includes the epoch, so it diverges
+-- from xmin after the first xid wrap. A committed row cannot match the current
+-- xid. PostgreSQL freezes or removes every tuple before that xid is reused,
+-- and FrozenTransactionId is never assigned as a current transaction id.
+CREATE FUNCTION transport.revision_inserted_in_current_xact(p_xmin pg_catalog.xid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = pg_catalog
+AS $fn$
+    SELECT p_xmin OPERATOR(pg_catalog.=) pg_catalog.pg_current_xact_id()::pg_catalog.xid;
+$fn$;
+
+-- The rewrite trigger is an invoker so current_user() is the caller. Pin rows
+-- stay unreadable by shipment_runtime, so the comparison runs as the owner.
+CREATE FUNCTION transport.revision_pin_fingerprint_conflicts(p_revision_id uuid, p_fingerprint text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
 SECURITY DEFINER
 SET search_path = pg_catalog
 AS $fn$
-BEGIN
-    IF OLD.pin_set_fingerprint IS NOT NULL
-       AND NEW.pin_set_fingerprint IS DISTINCT FROM OLD.pin_set_fingerprint THEN
-        RAISE EXCEPTION 'revision pin_set_fingerprint is immutable'
-            USING ERRCODE = '23514';
-    END IF;
-    IF EXISTS (
+    SELECT EXISTS (
         SELECT 1
           FROM transport.transport_execution_carrier_relationship_pins AS pin
-         WHERE pin.execution_revision_id OPERATOR(pg_catalog.=) NEW.id
-           AND pin.pin_set_fingerprint IS DISTINCT FROM NEW.pin_set_fingerprint
-    ) THEN
+         WHERE pin.execution_revision_id OPERATOR(pg_catalog.=) p_revision_id
+           AND pin.pin_set_fingerprint IS DISTINCT FROM p_fingerprint
+    );
+$fn$;
+
+CREATE FUNCTION transport.reject_revision_fingerprint_rewrite()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog
+AS $fn$
+BEGIN
+    IF transport.revision_inserted_in_current_xact(OLD.xmin) THEN
+        IF NEW.pin_set_fingerprint IS DISTINCT FROM OLD.pin_set_fingerprint
+           AND pg_catalog.current_user() IS DISTINCT FROM 'freight_migrations' THEN
+            RAISE EXCEPTION 'revision pin_set_fingerprint is immutable'
+                USING ERRCODE = '23514';
+        END IF;
+        IF transport.revision_pin_fingerprint_conflicts(NEW.id, NEW.pin_set_fingerprint) THEN
+            RAISE EXCEPTION 'revision pin_set_fingerprint is immutable'
+                USING ERRCODE = '23514';
+        END IF;
+        RETURN NEW;
+    END IF;
+    IF NEW.id IS DISTINCT FROM OLD.id
+       OR NEW.execution_id IS DISTINCT FROM OLD.execution_id
+       OR NEW.operating_tenant_id IS DISTINCT FROM OLD.operating_tenant_id
+       OR NEW.source_route_plan_id IS DISTINCT FROM OLD.source_route_plan_id
+       OR NEW.source_route_plan_version IS DISTINCT FROM OLD.source_route_plan_version
+       OR NEW.source_activation_id IS DISTINCT FROM OLD.source_activation_id
+       OR NEW.source_activation_version IS DISTINCT FROM OLD.source_activation_version
+       OR NEW.evaluation_fingerprint IS DISTINCT FROM OLD.evaluation_fingerprint
+       OR NEW.planning_mode IS DISTINCT FROM OLD.planning_mode
+       OR NEW.supersedes_revision_id IS DISTINCT FROM OLD.supersedes_revision_id
+       OR NEW.version IS DISTINCT FROM OLD.version
+       OR NEW.contract_sha256 IS DISTINCT FROM OLD.contract_sha256
+       OR NEW.created_at IS DISTINCT FROM OLD.created_at
+       OR NEW.pin_set_fingerprint IS DISTINCT FROM OLD.pin_set_fingerprint THEN
+        RAISE EXCEPTION 'committed revision identity is immutable'
+            USING ERRCODE = '23514';
+    END IF;
+    IF transport.revision_pin_fingerprint_conflicts(NEW.id, NEW.pin_set_fingerprint) THEN
         RAISE EXCEPTION 'revision pin_set_fingerprint is immutable'
             USING ERRCODE = '23514';
     END IF;
@@ -368,7 +429,7 @@ BEGIN
         SELECT pg_catalog.count(*)
           INTO surviving_headerless
           FROM transport.transport_execution_revisions AS r
-         WHERE r.xmin::pg_catalog.text OPERATOR(pg_catalog.=) pg_catalog.pg_current_xact_id()::pg_catalog.text
+         WHERE transport.revision_inserted_in_current_xact(r.xmin)
            AND r.created_at OPERATOR(pg_catalog.>=) pg_catalog.transaction_timestamp()
            AND r.source_activation_id IS NOT NULL
            AND r.supersedes_revision_id IS NULL
@@ -377,6 +438,8 @@ BEGIN
                   FROM company.carrier_relationship_activation_authorizations AS a
                  WHERE a.operating_tenant_id OPERATOR(pg_catalog.=) r.operating_tenant_id
                    AND a.source_activation_id OPERATOR(pg_catalog.=) r.source_activation_id
+                   AND a.created_xact OPERATOR(pg_catalog.=) pg_catalog.pg_current_xact_id()
+                   AND transport.revision_inserted_in_current_xact(a.xmin)
            );
         IF surviving_headerless OPERATOR(pg_catalog.>) 0 THEN
             RAISE EXCEPTION 'new activation revision has no authorization header'
@@ -384,16 +447,37 @@ BEGIN
         END IF;
         RETURN NULL;
     END IF;
-    IF current_source IS NOT NULL
-       AND current_supersedes IS NULL
-       AND NOT EXISTS (
+    IF current_source IS NOT NULL AND current_supersedes IS NULL THEN
+        IF NOT EXISTS (
             SELECT 1
               FROM company.carrier_relationship_activation_authorizations AS a
              WHERE a.operating_tenant_id OPERATOR(pg_catalog.=) current_operating
                AND a.source_activation_id OPERATOR(pg_catalog.=) current_source
-       ) THEN
-        RAISE EXCEPTION 'new activation revision has no authorization header'
-            USING ERRCODE = '23514';
+               AND a.created_xact OPERATOR(pg_catalog.=) pg_catalog.pg_current_xact_id()
+               AND transport.revision_inserted_in_current_xact(a.xmin)
+        ) THEN
+            RAISE EXCEPTION 'new activation revision has no authorization header'
+                USING ERRCODE = '23514';
+        END IF;
+        IF EXISTS (
+            SELECT 1
+              FROM company.carrier_relationship_activation_subjects AS s
+              JOIN company.carrier_relationship_activation_authorizations AS a
+                ON a.id OPERATOR(pg_catalog.=) s.authorization_id
+              JOIN company.carrier_relationship_heads AS h
+                ON h.relationship_id OPERATOR(pg_catalog.=) s.relationship_id
+             WHERE a.operating_tenant_id OPERATOR(pg_catalog.=) current_operating
+               AND a.source_activation_id OPERATOR(pg_catalog.=) current_source
+               AND a.created_xact OPERATOR(pg_catalog.=) pg_catalog.pg_current_xact_id()
+               AND transport.revision_inserted_in_current_xact(a.xmin)
+               AND (
+                    h.status IS DISTINCT FROM 'ACTIVE'
+                    OR h.current_version_id IS DISTINCT FROM s.locked_relationship_version_id
+               )
+        ) THEN
+            RAISE EXCEPTION 'RELATIONSHIP_REVOKED'
+                USING ERRCODE = '23514';
+        END IF;
     END IF;
     RETURN NULL;
 END;
@@ -577,10 +661,10 @@ BEGIN
     authorization_id := pg_catalog.gen_random_uuid();
     INSERT INTO company.carrier_relationship_activation_authorizations (
         id, source_activation_id, operating_tenant_id, operating_carrier_company_id,
-        contract_sha256, pin_set_fingerprint
+        contract_sha256, pin_set_fingerprint, created_xact
     ) VALUES (
         authorization_id, p_source_activation_id, p_operating_tenant_id, p_operating_carrier_company_id,
-        p_contract_sha256, p_pin_set_fingerprint
+        p_contract_sha256, p_pin_set_fingerprint, pg_catalog.pg_current_xact_id()
     );
     FOR v_i IN 1..v_n LOOP
         INSERT INTO company.carrier_relationship_activation_subjects (
@@ -628,18 +712,21 @@ BEGIN
       JOIN transport.transport_executions AS e
         ON e.id OPERATOR(pg_catalog.=) r.execution_id
        AND e.operating_tenant_id OPERATOR(pg_catalog.=) r.operating_tenant_id
-     WHERE r.id OPERATOR(pg_catalog.=) p_revision_id;
+     WHERE r.id OPERATOR(pg_catalog.=) p_revision_id
+       AND transport.revision_inserted_in_current_xact(r.xmin);
     IF NOT FOUND OR v_supersedes IS NOT NULL THEN
-        RAISE EXCEPTION 'activation pins require the initial execution revision'
+        RAISE EXCEPTION 'activation pins require a revision created in this transaction'
             USING ERRCODE = '23514';
     END IF;
     SELECT a.id, a.pin_set_fingerprint, a.contract_sha256, a.operating_carrier_company_id
       INTO v_auth, v_finger, v_header_digest, v_company
       FROM company.carrier_relationship_activation_authorizations AS a
      WHERE a.operating_tenant_id OPERATOR(pg_catalog.=) v_tenant
-       AND a.source_activation_id OPERATOR(pg_catalog.=) v_source;
+       AND a.source_activation_id OPERATOR(pg_catalog.=) v_source
+       AND a.created_xact OPERATOR(pg_catalog.=) pg_catalog.pg_current_xact_id()
+       AND transport.revision_inserted_in_current_xact(a.xmin);
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'activation pin requires authorization header'
+        RAISE EXCEPTION 'activation pin requires authorization from this transaction'
             USING ERRCODE = '23514';
     END IF;
     IF v_header_digest IS DISTINCT FROM v_digest THEN
@@ -648,6 +735,26 @@ BEGIN
     END IF;
     IF v_execution_company IS DISTINCT FROM v_company THEN
         RAISE EXCEPTION 'RELATIONSHIP_OPERATING_COMPANY_MISMATCH'
+            USING ERRCODE = '23514';
+    END IF;
+    PERFORM h.relationship_id
+      FROM company.carrier_relationship_heads AS h
+      JOIN company.carrier_relationship_activation_subjects AS s
+        ON s.relationship_id OPERATOR(pg_catalog.=) h.relationship_id
+     WHERE s.authorization_id OPERATOR(pg_catalog.=) v_auth
+     FOR UPDATE OF h;
+    IF EXISTS (
+        SELECT 1
+          FROM company.carrier_relationship_activation_subjects AS s
+          JOIN company.carrier_relationship_heads AS h
+            ON h.relationship_id OPERATOR(pg_catalog.=) s.relationship_id
+         WHERE s.authorization_id OPERATOR(pg_catalog.=) v_auth
+           AND (
+                h.status IS DISTINCT FROM 'ACTIVE'
+                OR h.current_version_id IS DISTINCT FROM s.locked_relationship_version_id
+           )
+    ) THEN
+        RAISE EXCEPTION 'RELATIONSHIP_REVOKED'
             USING ERRCODE = '23514';
     END IF;
     UPDATE transport.transport_execution_revisions
@@ -700,6 +807,9 @@ DECLARE
     v_finger text;
     v_company uuid;
     v_count integer := 0;
+    v_source_tenant uuid;
+    v_source_execution uuid;
+    v_source_count integer;
     pin record;
 BEGIN
     SELECT r.supersedes_revision_id, r.operating_tenant_id, r.execution_id, e.carrier_company_id
@@ -707,9 +817,21 @@ BEGIN
       FROM transport.transport_execution_revisions AS r
       JOIN transport.transport_executions AS e
         ON e.id OPERATOR(pg_catalog.=) r.execution_id
-     WHERE r.id OPERATOR(pg_catalog.=) p_successor_revision_id;
+       AND e.operating_tenant_id OPERATOR(pg_catalog.=) r.operating_tenant_id
+     WHERE r.id OPERATOR(pg_catalog.=) p_successor_revision_id
+       AND transport.revision_inserted_in_current_xact(r.xmin);
     IF NOT FOUND OR v_source IS NULL THEN
-        RAISE EXCEPTION 'successor pin copy requires supersedes_revision_id'
+        RAISE EXCEPTION 'successor pin copy requires a revision created in this transaction'
+            USING ERRCODE = '23514';
+    END IF;
+    SELECT source.execution_id, source.operating_tenant_id, source.pin_set_fingerprint
+      INTO v_source_execution, v_source_tenant, v_finger
+      FROM transport.transport_execution_revisions AS source
+     WHERE source.id OPERATOR(pg_catalog.=) v_source;
+    IF NOT FOUND
+       OR v_source_execution IS DISTINCT FROM v_execution
+       OR v_source_tenant IS DISTINCT FROM v_tenant THEN
+        RAISE EXCEPTION 'successor pin copy source revision is not the previous revision of this execution'
             USING ERRCODE = '23514';
     END IF;
     IF NOT EXISTS (
@@ -719,13 +841,9 @@ BEGIN
            AND execution.operating_tenant_id OPERATOR(pg_catalog.=) v_tenant
            AND execution.carrier_company_id OPERATOR(pg_catalog.=) v_company
     ) THEN
-        RAISE EXCEPTION 'successor pin copy requires the execution operating tenant'
+        RAISE EXCEPTION 'successor pin copy does not match the execution'
             USING ERRCODE = '23514';
     END IF;
-    SELECT r.pin_set_fingerprint
-      INTO v_finger
-      FROM transport.transport_execution_revisions AS r
-     WHERE r.id OPERATOR(pg_catalog.=) v_source;
     FOR pin IN
         SELECT p.authorization_subject_id, p.operating_tenant_id, p.shipment_tenant_id, p.shipment_id,
                p.source_company_id, p.relationship_id, p.relationship_version_id, p.relationship_version,
@@ -763,6 +881,14 @@ BEGIN
         );
         v_count := v_count OPERATOR(pg_catalog.+) 1;
     END LOOP;
+    SELECT pg_catalog.count(*)
+      INTO v_source_count
+      FROM transport.transport_execution_carrier_relationship_pins AS source_pin
+     WHERE source_pin.execution_revision_id OPERATOR(pg_catalog.=) v_source;
+    IF v_count IS DISTINCT FROM v_source_count THEN
+        RAISE EXCEPTION 'successor pin copy does not match the historical pin set'
+            USING ERRCODE = '23514';
+    END IF;
     RETURN v_count;
 END;
 $fn$;
@@ -893,7 +1019,9 @@ ALTER FUNCTION company.enforce_activation_subject_head() OWNER TO freight_migrat
 ALTER FUNCTION company.reject_activation_evidence_mutation() OWNER TO freight_migrations;
 ALTER FUNCTION transport.reject_activation_pin_mutation() OWNER TO freight_migrations;
 ALTER FUNCTION transport.enforce_activation_pin_binding() OWNER TO freight_migrations;
+ALTER FUNCTION transport.revision_pin_fingerprint_conflicts(uuid, text) OWNER TO freight_migrations;
 ALTER FUNCTION transport.reject_revision_fingerprint_rewrite() OWNER TO freight_migrations;
+ALTER FUNCTION transport.revision_inserted_in_current_xact(pg_catalog.xid) OWNER TO freight_migrations;
 ALTER FUNCTION transport.enforce_new_activation_authorization() OWNER TO freight_migrations;
 ALTER FUNCTION company.authorize_carrier_relationship_activation(
     uuid, uuid, uuid, text, text, company.activation_subject_input[]
@@ -929,7 +1057,7 @@ CREATE TRIGGER trg_execution_relationship_pin_immutable
     EXECUTE FUNCTION transport.reject_activation_pin_mutation();
 
 CREATE TRIGGER trg_revision_pin_fingerprint_immutable
-    BEFORE UPDATE OF pin_set_fingerprint ON transport.transport_execution_revisions
+    BEFORE UPDATE ON transport.transport_execution_revisions
     FOR EACH ROW
     EXECUTE FUNCTION transport.reject_revision_fingerprint_rewrite();
 
@@ -937,7 +1065,9 @@ REVOKE ALL ON FUNCTION company.enforce_activation_subject_head() FROM PUBLIC;
 REVOKE ALL ON FUNCTION company.reject_activation_evidence_mutation() FROM PUBLIC;
 REVOKE ALL ON FUNCTION transport.reject_activation_pin_mutation() FROM PUBLIC;
 REVOKE ALL ON FUNCTION transport.enforce_activation_pin_binding() FROM PUBLIC;
+REVOKE ALL ON FUNCTION transport.revision_pin_fingerprint_conflicts(uuid, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION transport.reject_revision_fingerprint_rewrite() FROM PUBLIC;
+REVOKE ALL ON FUNCTION transport.revision_inserted_in_current_xact(pg_catalog.xid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION transport.enforce_new_activation_authorization() FROM PUBLIC;
 REVOKE ALL ON FUNCTION company.authorize_carrier_relationship_activation(
     uuid, uuid, uuid, text, text, company.activation_subject_input[]
@@ -958,7 +1088,9 @@ GRANT EXECUTE ON FUNCTION transport.attach_activation_pins(uuid) TO shipment_run
 GRANT EXECUTE ON FUNCTION transport.propagate_execution_relationship_pins(uuid) TO shipment_runtime;
 GRANT EXECUTE ON FUNCTION company.record_activation_audit(uuid, uuid, uuid, uuid, text) TO shipment_runtime;
 GRANT EXECUTE ON FUNCTION transport.enforce_new_activation_authorization() TO shipment_runtime;
+GRANT EXECUTE ON FUNCTION transport.revision_pin_fingerprint_conflicts(uuid, text) TO shipment_runtime;
 GRANT EXECUTE ON FUNCTION transport.reject_revision_fingerprint_rewrite() TO shipment_runtime;
+GRANT EXECUTE ON FUNCTION transport.revision_inserted_in_current_xact(pg_catalog.xid) TO shipment_runtime;
 GRANT USAGE ON TYPE company.activation_subject_input TO shipment_runtime;
 GRANT EXECUTE ON FUNCTION transport.assert_activation_enforcement_role_split() TO freight_migrations;
 
@@ -971,7 +1103,24 @@ GRANT SELECT, UPDATE ON transport.transport_execution_revisions TO freight_migra
 GRANT SELECT ON transport.transport_executions TO freight_migrations;
 
 GRANT SELECT, INSERT, UPDATE ON transport.transport_executions TO shipment_runtime;
-GRANT SELECT, INSERT, UPDATE ON transport.transport_execution_revisions TO shipment_runtime;
+GRANT SELECT, INSERT ON transport.transport_execution_revisions TO shipment_runtime;
+GRANT UPDATE (
+    id,
+    execution_id,
+    operating_tenant_id,
+    source_route_plan_id,
+    source_route_plan_version,
+    source_activation_id,
+    source_activation_version,
+    evaluation_fingerprint,
+    planning_mode,
+    supersedes_revision_id,
+    status,
+    version,
+    contract_sha256,
+    created_at,
+    updated_at
+) ON transport.transport_execution_revisions TO shipment_runtime;
 REVOKE DELETE ON transport.transport_execution_revisions FROM shipment_runtime;
 REVOKE INSERT, UPDATE, DELETE ON transport.transport_execution_carrier_relationship_pins FROM shipment_runtime;
 REVOKE INSERT, UPDATE, DELETE ON company.carrier_relationship_activation_authorizations FROM shipment_runtime;

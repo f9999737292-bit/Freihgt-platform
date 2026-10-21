@@ -36,8 +36,20 @@ func TestActivationSecurityMigrationKeepsEnforcementGated(t *testing.T) {
 	if !strings.Contains(gate, "CREATE CONSTRAINT TRIGGER trg_new_activation_authorization") || !strings.Contains(gate, "assert_activation_enforcement_role_split") {
 		t.Fatal("enforcement gate is not the deferred revision check")
 	}
-	if !strings.Contains(down, "DROP TRIGGER IF EXISTS trg_new_activation_authorization") || !strings.Contains(down, "DROP ROLE IF EXISTS freight_migrations") {
+	if !strings.Contains(down, "DROP TRIGGER IF EXISTS trg_new_activation_authorization") || !strings.Contains(down, "DROP ROLE freight_migrations") {
 		t.Fatal("down migration does not remove the gate trigger and the migration role")
+	}
+	if strings.Contains(down, "DROP OWNED BY") || !strings.Contains(down, "pg_shdepend") {
+		t.Fatal("down migration drops every object owned by the roles")
+	}
+	if strings.Contains(up, "xmin::pg_catalog.text") || !strings.Contains(up, "pg_current_xact_id()::pg_catalog.xid") || !strings.Contains(up, "created_xact") {
+		t.Fatal("authorization transaction identity is not the xid comparison")
+	}
+	if strings.Contains(up, "tms-relationship-pins-security-roles") || !strings.Contains(up, "FROM pg_catalog.pg_authid") || !strings.Contains(up, "FOR UPDATE") {
+		t.Fatal("shared role changes are not serialized on the role row")
+	}
+	if !strings.Contains(up, "tms-relationship-pins-security-foundation-v0.1") || !strings.Contains(down, "tms-relationship-pins-security-foundation-v0.1") {
+		t.Fatal("down cannot distinguish a role created by this migration")
 	}
 }
 
