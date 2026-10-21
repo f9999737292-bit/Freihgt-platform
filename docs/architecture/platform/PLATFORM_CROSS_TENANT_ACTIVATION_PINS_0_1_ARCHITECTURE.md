@@ -33,12 +33,14 @@ CONTROL_TOWER_CHECKOUT_CHANGED=NO
 MERGE_AUTHORIZED=NO
 DEPLOYMENT_AUTHORIZED=NO
 R1_REMEDIATION=PIN-01,PIN-02,PIN-03,PIN-04
+R2_REMEDIATION=R2-01,R2-02,R2-03,R2-04,R2-05
+SECURITY_DEFINER_SEARCH_PATH=pg_catalog
 REPLAY_PREDICATE=contract_sha256
 PIN_SET_FINGERPRINT_REPLACES_CONTRACT_SHA256=NO
 SHARED_FREIGHT_LOGIN=DEPLOYMENT_BLOCKER
 ```
 
-This document freezes how a confirmed carrier relationship becomes an immutable pin on a transport execution revision. R1 keeps `contract_sha256` as the replay predicate, stores the locked relationship version on authorization evidence, denies direct table DML to the shipment runtime role, and copies the committed pin set onto a successor revision. It does not authorize runtime code, a migration file, a flag change, an NLO edit, a Control Tower edit, or deployment.
+This document freezes how a confirmed carrier relationship becomes an immutable pin on a transport execution revision. R1 keeps `contract_sha256` as the replay predicate and copies the committed pin set onto a successor revision. R2 binds each pin to the locked subject version, keeps shipment DML on executions and revisions, denies pin and authorization DML to `shipment_runtime`, sets every definer function to `search_path = pg_catalog`, and leaves a lost-ack body conflict pending in NLO. It does not authorize runtime code, a migration file, a flag change, an NLO edit, a Control Tower edit, or deployment.
 
 Authoritative inputs read at `e810056284ebb39014572903bf73a5ba29fc52e9`:
 
@@ -138,14 +140,15 @@ The public route-plan activate command does not pin. NLO writes `PENDING_EXECUTI
 | 1. Verified caller | API gateway for the user command that created the activation. Shipment-service for the internal route | Internal caller is `network-optimizer-service` after the internal token check. `OperatingTenantID` equals the verified tenant. `route_plan_activations` does not store a user id. NLO audit records the actor. That actor is provenance, not a relationship version |
 | 2. Shipment and transport order | shipment-service | Each subject shipment exists at the command version, `deleted_at` is null, and the cargo version matches. A transport order is not a pin subject. Order status is not moved |
 | 3. Operating carrier | shipment-service | `core.companies.id = carrier_company_id` and `tenant_id = operating_tenant_id` and `deleted_at` is null. This company is not the shipper-local carrier UUID |
-| 4. ACTIVE relationship | `company.authorize_carrier_relationship_activation`, called by the transport entry point on the same connection | Head is locked and is `ACTIVE`. The evidence stores that locked `relationship_version_id`. It is the only version a new pin may name |
-| 5. Driver and vehicle | shipment-service | A non-null id matches operating tenant, operating company, `status = ACTIVE`, and `deleted_at IS NULL`, under `FOR UPDATE`. Null remains "no assignment" |
-| 6. Pins | shipment-service | One immutable pin per shipment participant, using the version from step 4 |
-| 7. Execution revision | shipment-service | Existing insert of execution, revision, participants, stops, actions, and driver stop tasks |
-| 8. Audit and outbox | company function and shipment-service, same transaction | `carrier_relationship.activation_authorized` and `shipment.execution_plan.created` |
-| 9. Idempotent result | shipment-service, then NLO in a later transaction | Same `contract_sha256` returns the committed ids with HTTP 200 and no new evidence. NLO links `EXECUTION_LINKED` only after that acknowledgement |
+| 4. ACTIVE relationship | `company.authorize_carrier_relationship_activation`, called by shipment-service on the same connection | Head is locked and is `ACTIVE`. The evidence stores that locked `relationship_version_id`. It is the only version a new pin may name |
+| 5. Driver and vehicle | shipment-service | A non-null id matches operating tenant, operating company, `status = ACTIVE`, and `deleted_at IS NULL`, under `FOR UPDATE`. Null remains "no assignment". This check is after the head lock and before the execution insert |
+| 6. Execution | `shipment_runtime` DML | Insert `transport.transport_executions` |
+| 7. Execution revision | `shipment_runtime` DML | Insert the revision after the execution row. `supersedes_revision_id` is null for this first activation revision |
+| 8. Pins | `transport.attach_activation_pins` | One immutable pin per subject after the revision exists. The pin foreign key to the revision is immediate |
+| 9. Audit and outbox | company function and shipment-service, same transaction, after the pins | `carrier_relationship.activation_authorized` and `shipment.execution_plan.created` |
+| 10. Idempotent result | shipment-service, then NLO in a later transaction | Same `contract_sha256` returns the committed ids with HTTP 200 and no new evidence. NLO links `EXECUTION_LINKED` only after that acknowledgement |
 
-Step 4 is not an HTTP call to company-service. Company-service remains the owner of the relationship rules because the function is `SECURITY DEFINER`, `search_path = company, pg_temp`, and it writes only `company.*`.
+Step 4 is not an HTTP call to company-service. Company-service remains the owner of the relationship rules because `company.authorize_carrier_relationship_activation` is `SECURITY DEFINER`, owned by `freight_migrations`, with `search_path = pg_catalog`. It writes authorization evidence only. Every name in that function is schema-qualified. The idempotent-result step stays step 10 in the narrative above: shipment-service returns the committed ids, and NLO links only after that acknowledgement.
 
 ## 4. Transaction boundary
 
@@ -182,12 +185,12 @@ The `freight` login can today insert into either schema without the function. Mi
 sequenceDiagram
     participant NLO as network-optimizer-service
     participant TMS as shipment-service transaction
-    participant Fn as transport.project_route_plan_activation
+    participant Fn as authorizer and pin functions
     participant DB as freight_platform
 
     NLO->>TMS: POST from-route-plan-activation
     TMS->>DB: BEGIN
-    TMS->>Fn: EXECUTE entry point
+    TMS->>Fn: call when the first lookup finds no revision
     Fn->>DB: lookup revision by operating tenant and source_activation_id
     alt revision visible and contract_sha256 matches
         Fn-->>TMS: existing ids, no new evidence
@@ -210,8 +213,12 @@ sequenceDiagram
                 Fn->>DB: ROLLBACK
                 TMS-->>NLO: no execution
             else head is ACTIVE
-                Fn->>DB: evidence for the locked version, then execution, revision, pins, tasks, outbox
-                Fn->>DB: COMMIT
+                Fn->>DB: insert authorization header and subjects
+                TMS->>DB: insert execution
+                TMS->>DB: insert revision
+                Fn->>DB: insert pins
+                Fn->>DB: audit and outbox
+                TMS->>DB: COMMIT
                 TMS-->>NLO: HTTP 201
             end
         end
@@ -220,12 +227,16 @@ sequenceDiagram
 ```
 
 ```text
-ACTIVATION_LOCK_ORDER=1_ALL_ADVISORY_KEYS_SORTED+2_REREAD_REVISION_AND_DIGEST+3_ALL_HEADS_FOR_UPDATE_SAME_ORDER+4_READ_LOCKED_VERSION+5_AUTHORIZATION_EVIDENCE+6_PIN_AND_EXECUTION+7_COMMIT
+ACTIVATION_INSERT_ORDER=1_ADVISORY_LOCKS+2_REREAD_FOR_REPLAY+3_HEADS_FOR_UPDATE+4_ACTIVE_CHECK+5_AUTHORIZATION_HEADER_AND_SUBJECTS+6_EXECUTION+7_REVISION+8_PINS+9_AUDIT_AND_OUTBOX+10_COMMIT
 HEAD_LOCK_BEFORE_ADVISORY=FORBIDDEN
-ADVISORY_LOCK=pg_advisory_xact_lock
+PIN_BEFORE_REVISION=FORBIDDEN
+PIN_REVISION_FK=IMMEDIATE
+NEW_ACTIVATION_EVIDENCE_CHECK=DEFERRABLE_AT_COMMIT
+ADVISORY_LOCK=pg_catalog.pg_advisory_xact_lock
 ADVISORY_LOCK_LIFETIME=UNTIL_COMMIT_OR_ROLLBACK
 HEAD_LOCK_LIFETIME=UNTIL_COMMIT_OR_ROLLBACK
 REPLAY_DOES_NOT_LOCK_HEAD=YES
+SECURITY_DEFINER_SEARCH_PATH=pg_catalog
 ```
 
 Sort key is lowercase `shipper_tenant_id`, then lowercase `shipper_carrier_company_id`. Every advisory lock for the subject set is taken before any head lock. The advisory key text is the Accept/Revoke key: `relationship:{shipper_tenant_id}:{shipper_carrier_company_id}:{operating_tenant_id}`. Revoke of one relationship takes that same advisory lock and then that head. It cannot pass an activation that already holds them, and an activation cannot pass a revoke that already holds them. Shipment row checks and driver or vehicle row locks happen after the head locks and before the inserts. They do not move ahead of the advisory lock. If a unique constraint still fires, the losing transaction rolls back and does not commit. The following read uses the committed row, the same way `replayAfterConflict` reads after rollback today. The same `contract_sha256` returns HTTP 200. A different digest returns HTTP 409. The loser does not report success for inserts it rolled back.
@@ -250,20 +261,25 @@ An HTTP read of `ACTIVE` before `Project` is not this protocol. `REVOCATION_DURI
 | PostgreSQL or shipment-service crash before `COMMIT` | Rollback. No authorization, pin, execution, task, audit, or outbox | NLO left the activation `PENDING_EXECUTION` on a timeout. The next attempt is a full activation |
 | HTTP timeout after `COMMIT` and before the response | Pins and execution are committed. NLO is still `PENDING_EXECUTION` because the link has not run | Retry calls `Project`. The same `contract_sha256` returns HTTP 200 and the same revision. NLO then links |
 | NLO link transaction fails after a valid acknowledgement | Pins stay. Activation stays `PENDING_EXECUTION` | Retry `Project`, then `LinkRoutePlanActivation`. Do not roll the pins back |
-| Same activation id, different `contract_sha256`, execution already committed | `409 ACTIVATION_BODY_CONFLICT`. Pins unchanged. No second execution and no new authorization | Not a successful link. Do not link the mismatched body. Do not return this 409 for an identical concurrent request whose digest matches the committed row |
+| Same activation id, different `contract_sha256`, execution already committed | `409 ACTIVATION_BODY_CONFLICT`. Pins unchanged. No second execution and no new authorization | Not a link. NLO stays `PENDING_EXECUTION`. `MarkRoutePlanActivationRejected` does not run. The original body can still return HTTP 200 and then be linked |
 | Identical concurrent `Project`, winner already committed | Loser rolls back. Following read returns HTTP 200. One execution and one authorization | NLO may link. `MarkRoutePlanActivationRejected` does not run |
-| Permanent refusal before commit, including `RELATIONSHIP_REVOKED` | Nothing committed | NLO may mark `REJECTED` only while no revision is stored for that activation and `execution_id` is still null |
+| Permanent refusal before commit, including `RELATIONSHIP_REVOKED` | Nothing committed. No revision row | A later NLO stage may mark `REJECTED` only for this class, and only after it has seen that no revision is stored. `ACTIVATION_BODY_CONFLICT` is not this class |
 
 ```text
 NLO_HTTP_201=LINK_NEW_EXECUTION
 NLO_HTTP_200=LINK_EXISTING_EXECUTION
-NLO_HTTP_409_ACTIVATION_BODY_CONFLICT=DO_NOT_LINK
+NLO_HTTP_409_ACTIVATION_BODY_CONFLICT=DO_NOT_LINK_STAY_PENDING_EXECUTION
+NLO_CONFIRMED_PRECOMMIT_REFUSAL=REJECT_ONLY_WHEN_NO_REVISION_STORED
 IDENTICAL_CONCURRENT_PROJECT_HTTP=200
 ```
 
-`MarkRoutePlanActivationRejected` updates only a `PENDING_EXECUTION` row whose execution ids are null. Current NLO also treats every HTTP 409 as a permanent error and calls that update. This stage does not change that Go code. The later NLO stage must use the mapping above. HTTP 200 and HTTP 201 continue to link. HTTP 409 `ACTIVATION_BODY_CONFLICT` does not link. An identical concurrent `Project` is HTTP 200, so that reject update does not run for it. A 409 is not rewritten into a link merely because some other revision exists.
+`executionproj.HTTPClient.Project` treats HTTP 200 and HTTP 201 as success. It treats HTTP 409 as a non-temporary error. `finishActivationHandoff` calls `MarkRoutePlanActivationRejected` for every non-temporary error, and that update matches only `PENDING_EXECUTION` with null execution ids. This stage does not change that Go code.
 
-There is no incomplete activation row to repair. Recovery of the same command is the committed revision. Absence means run the whole activation again. Presence with the same `contract_sha256` means return it. Presence with a different digest means 409 and no new evidence.
+The later NLO stage must split those 409 responses. `ACTIVATION_BODY_CONFLICT` means a revision for this activation id may already be committed with a different digest, which is the state after a lost HTTP 201. NLO does not link that mismatched body and does not mark the activation `REJECTED`. The row stays `PENDING_EXECUTION`. Recovery resends the original body. The same `contract_sha256` returns HTTP 200, and only then does NLO run `LinkRoutePlanActivation` and move the row to `EXECUTION_LINKED`.
+
+A confirmed refusal is a response whose code is `RELATIONSHIP_REVOKED`, `RELATIONSHIP_NOT_FOUND`, `RELATIONSHIP_OPERATING_COMPANY_MISMATCH`, `OPERATING_DRIVER_NOT_VALID`, or `OPERATING_VEHICLE_NOT_VALID`, after a transaction that rolled back and left no revision. The later stage may mark `REJECTED` only for that class, and only after a read shows no revision for `(operating_tenant_id, source_activation_id)`. A timeout has no TMS body. It stays `PENDING_EXECUTION` and retries the same command. If the classifier cannot tell the class, it stays `PENDING_EXECUTION` rather than rejecting.
+
+There is no incomplete activation row to repair. Recovery of the same command is the committed revision. Absence of a revision means the activation was not committed. Presence with the same `contract_sha256` means HTTP 200. Presence with a different digest means HTTP 409, the NLO row stays pending, and no new evidence is written.
 
 ## 5. Pin schema proposal
 
@@ -283,15 +299,10 @@ CREATE TABLE company.carrier_relationship_activation_authorizations (
     source_activation_id uuid NOT NULL,
     operating_tenant_id uuid NOT NULL,
     operating_carrier_company_id uuid NOT NULL,
-    execution_revision_id uuid NOT NULL,
     contract_sha256 text NOT NULL CHECK (char_length(contract_sha256) = 64),
     pin_set_fingerprint text NOT NULL CHECK (char_length(pin_set_fingerprint) = 64),
     created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-    CONSTRAINT uq_cr_activation_auth UNIQUE (operating_tenant_id, source_activation_id),
-    CONSTRAINT fk_cr_activation_auth_revision
-        FOREIGN KEY (execution_revision_id)
-        REFERENCES transport.transport_execution_revisions (id)
-        DEFERRABLE INITIALLY DEFERRED
+    CONSTRAINT uq_cr_activation_auth UNIQUE (operating_tenant_id, source_activation_id)
 );
 
 CREATE TABLE company.carrier_relationship_activation_subjects (
@@ -305,13 +316,14 @@ CREATE TABLE company.carrier_relationship_activation_subjects (
     locked_relationship_version_id uuid NOT NULL REFERENCES company.carrier_relationship_versions (relationship_version_id),
     relationship_version integer NOT NULL CHECK (relationship_version >= 1),
     operating_carrier_company_id uuid NOT NULL,
-    CONSTRAINT uq_cr_activation_subject UNIQUE (operating_tenant_id, authorization_id, shipment_tenant_id, shipment_id)
+    CONSTRAINT uq_cr_activation_subject UNIQUE (operating_tenant_id, authorization_id, shipment_tenant_id, shipment_id),
+    CONSTRAINT uq_cr_activation_subject_version UNIQUE (id, locked_relationship_version_id)
 );
 
 CREATE TABLE transport.transport_execution_carrier_relationship_pins (
     pin_id uuid PRIMARY KEY,
     execution_revision_id uuid NOT NULL REFERENCES transport.transport_execution_revisions (id),
-    authorization_subject_id uuid NOT NULL REFERENCES company.carrier_relationship_activation_subjects (id),
+    authorization_subject_id uuid NOT NULL,
     operating_tenant_id uuid NOT NULL,
     shipment_tenant_id uuid NOT NULL,
     shipment_id uuid NOT NULL,
@@ -322,11 +334,119 @@ CREATE TABLE transport.transport_execution_carrier_relationship_pins (
     operating_carrier_company_id uuid NOT NULL,
     pin_set_fingerprint text NOT NULL CHECK (char_length(pin_set_fingerprint) = 64),
     created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-    CONSTRAINT uq_execution_relationship_pin UNIQUE (execution_revision_id, shipment_tenant_id, shipment_id)
+    CONSTRAINT uq_execution_relationship_pin UNIQUE (execution_revision_id, shipment_tenant_id, shipment_id),
+    CONSTRAINT fk_pin_subject_locked_version
+        FOREIGN KEY (authorization_subject_id, relationship_version_id)
+        REFERENCES company.carrier_relationship_activation_subjects (id, locked_relationship_version_id)
 );
+
+CREATE FUNCTION company.enforce_activation_subject_head()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $$
+DECLARE
+    head_status text;
+    head_version uuid;
+BEGIN
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended(
+            'relationship:' || NEW.shipment_tenant_id::pg_catalog.text
+                || ':' || NEW.source_company_id::pg_catalog.text
+                || ':' || NEW.operating_tenant_id::pg_catalog.text,
+            0
+        )
+    );
+    SELECT h.status, h.current_version_id
+      INTO head_status, head_version
+      FROM company.carrier_relationship_heads AS h
+     WHERE h.relationship_id OPERATOR(pg_catalog.=) NEW.relationship_id
+     FOR UPDATE;
+    IF head_status IS DISTINCT FROM 'ACTIVE'
+       OR head_version IS DISTINCT FROM NEW.locked_relationship_version_id THEN
+        RAISE EXCEPTION 'activation subject version is not the active head'
+            USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_cr_activation_subject_head
+    BEFORE INSERT ON company.carrier_relationship_activation_subjects
+    FOR EACH ROW
+    EXECUTE FUNCTION company.enforce_activation_subject_head();
+
+CREATE FUNCTION transport.enforce_new_activation_authorization()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $$
+BEGIN
+    IF NEW.source_activation_id IS NOT NULL
+       AND NEW.supersedes_revision_id IS NULL
+       AND NOT EXISTS (
+            SELECT 1
+              FROM company.carrier_relationship_activation_authorizations AS a
+             WHERE a.operating_tenant_id OPERATOR(pg_catalog.=) NEW.operating_tenant_id
+               AND a.source_activation_id OPERATOR(pg_catalog.=) NEW.source_activation_id
+       ) THEN
+        RAISE EXCEPTION 'new activation revision has no authorization header'
+            USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+CREATE CONSTRAINT TRIGGER trg_new_activation_authorization
+    AFTER INSERT ON transport.transport_execution_revisions
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW
+    EXECUTE FUNCTION transport.enforce_new_activation_authorization();
+
+REVOKE ALL ON FUNCTION company.enforce_activation_subject_head() FROM PUBLIC;
+REVOKE ALL ON FUNCTION transport.enforce_new_activation_authorization() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION transport.enforce_new_activation_authorization() TO shipment_runtime;
+
+GRANT SELECT, INSERT, UPDATE ON transport.transport_executions TO shipment_runtime;
+GRANT SELECT, INSERT, UPDATE ON transport.transport_execution_revisions TO shipment_runtime;
+REVOKE INSERT, UPDATE, DELETE ON transport.transport_execution_carrier_relationship_pins FROM shipment_runtime;
+REVOKE INSERT, UPDATE, DELETE ON company.carrier_relationship_activation_authorizations FROM shipment_runtime;
+REVOKE INSERT, UPDATE, DELETE ON company.carrier_relationship_activation_subjects FROM shipment_runtime;
 ```
 
-The authorization header is one row per `(operating_tenant_id, source_activation_id)`, the same key as `transport_execution_revisions_activation_uq`. Each subject row stores the activation's tenant, the shipment, the shipper-local carrier as `source_company_id`, `relationship_id`, and the `locked_relationship_version_id` read from the locked head. The header stores `execution_revision_id` and the `contract_sha256` of the command that was authorized. Deferred foreign keys check the revision id at `COMMIT`, so the evidence and the revision are written in one transaction and neither can commit alone.
+The pin foreign key to `transport.transport_execution_revisions` is immediate. A pin inserted before its revision fails that foreign key and does not wait for `COMMIT`. The authorization header does not reference the revision. That avoids a cycle with the revision's evidence check. The shared key is `(operating_tenant_id, source_activation_id)`, the same key as `transport_execution_revisions_activation_uq`.
+
+`uq_cr_activation_subject_version` is the target of `fk_pin_subject_locked_version`. A pin cannot name a `relationship_version_id` other than `locked_relationship_version_id` on the subject row it cites.
+
+Each subject row stores the activation's tenant, the shipment, the shipper-local carrier as `source_company_id`, `relationship_id`, and the `locked_relationship_version_id` read from the locked head. The header stores the `contract_sha256` of the command that was authorized.
+
+`BEFORE INSERT` on `company.carrier_relationship_activation_subjects` runs `company.enforce_activation_subject_head`. That function is `SECURITY DEFINER`, owned by `freight_migrations`, with `search_path = pg_catalog`, and it uses only schema-qualified names. For the new row it takes `pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(...))` on `relationship:{shipment_tenant_id}:{source_company_id}:{operating_tenant_id}`. Those three subject columns are the Accept/Revoke business key: shipper tenant, shipper-local carrier, and operating tenant. It then locks `company.carrier_relationship_heads` `FOR UPDATE`. It raises unless `status` is `ACTIVE` and `current_version_id` equals `locked_relationship_version_id`. A historical version row that is still `ACTIVE` is refused once the head is `REVOKED` or points at another version, including an insert by the function owner. The same transaction already holding that advisory lock may take it again. The authorizer takes the full sorted advisory set before the first subject insert, so the trigger repeats locks the caller already holds and does not open a second lock order. The trigger does not read `current_setting`. `shipment_runtime` does not receive `EXECUTE` on this trigger function. The authorizer inserts subjects as `freight_migrations`.
+
+`shipment_runtime` does receive `EXECUTE` on `transport.enforce_new_activation_authorization` because that role inserts revisions itself. The function returns without raising when `supersedes_revision_id` is not null or `source_activation_id` is null, so successor and non-activation revisions still commit. `PUBLIC` has no `EXECUTE` on either trigger function. `company_runtime` receives neither trigger function and receives no `INSERT` on the authorization tables.
+
+```sql
+-- Proposal only. company_runtime keeps the writes Accept, Revoke, and Cancel already perform.
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationships TO company_runtime;
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationship_versions TO company_runtime;
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationship_heads TO company_runtime;
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationship_requests TO company_runtime;
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationship_request_events TO company_runtime;
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationship_request_heads TO company_runtime;
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationship_request_idempotency TO company_runtime;
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationship_acceptance_idempotency TO company_runtime;
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationship_revoke_idempotency TO company_runtime;
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationship_cancel_idempotency TO company_runtime;
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationship_audit TO company_runtime;
+GRANT SELECT, INSERT, UPDATE ON company.carrier_relationship_outbox TO company_runtime;
+GRANT SELECT ON core.companies TO company_runtime;
+GRANT SELECT ON core.tenants TO company_runtime;
+REVOKE INSERT, UPDATE, DELETE ON company.carrier_relationship_activation_authorizations FROM company_runtime;
+REVOKE INSERT, UPDATE, DELETE ON company.carrier_relationship_activation_subjects FROM company_runtime;
+```
+
+`transport.enforce_new_activation_authorization` is a constraint trigger on `transport.transport_execution_revisions`, `DEFERRABLE INITIALLY DEFERRED`, so it runs at `COMMIT`. The predicate is exact: `source_activation_id IS NOT NULL AND supersedes_revision_id IS NULL`. For that row the trigger requires an authorization header with the same `operating_tenant_id` and `source_activation_id` visible in the transaction. The header is inserted before the revision, and the check waits until `COMMIT`, so the insert order is possible. A successor revision has `supersedes_revision_id IS NOT NULL` and is outside the predicate. Rows committed before this trigger exists are historical. The trigger does not rewrite them and does not require authorization for them. A new insert that matches the predicate without a header fails at `COMMIT` and leaves no revision.
 
 `source_company_id` is the shipper-local carrier company, the same value as `company.carrier_relationships.shipper_carrier_company_id` and as the fingerprint field `shipment_carrier_company_id`. It is not `shipper_company_id` and it is not the operating company.
 
@@ -337,16 +457,15 @@ A revision may add a nullable `pin_set_fingerprint`. Existing rows stay null. A 
 Constraints the later migration must enforce. Triggers are owned by `freight_migrations`. The shipment runtime role cannot disable them because it does not own the tables:
 
 - `BEFORE UPDATE OR DELETE` on the pin table raises and leaves the row unchanged.
-- A pin insert requires a subject evidence row, visible in this transaction or already committed, with the same `relationship_id`, `locked_relationship_version_id`, operating tenant, operating company, shipment tenant, and shipment id.
-- A new activation pin's `execution_revision_id` equals the authorization header's `execution_revision_id`. A successor pin instead copies `authorization_subject_id` from a pin on the revision named by `supersedes_revision_id`.
-- Insert rejects a `relationship_version_id` that differs from the evidence row's locked version.
+- A pin insert requires a subject evidence row with the same `relationship_id`, operating tenant, operating company, shipment tenant, and shipment id. `fk_pin_subject_locked_version` requires the pin's `relationship_version_id` to equal that subject's `locked_relationship_version_id`.
+- A new activation pin's revision is the revision inserted in the same transaction. A successor pin copies `authorization_subject_id` and `relationship_version_id` from a pin on the revision named by `supersedes_revision_id`.
 - Insert rejects a version row whose `relationship_id` or `relationship_version` differs from the pin.
 - Insert rejects a pin whose `operating_tenant_id` differs from the revision.
 - Insert rejects a pin whose `operating_carrier_company_id` or `source_company_id` differs from the relationship root.
-- The authorizer inserts evidence only when the locked head is `ACTIVE` and `current_version_id` is the version being stored. An older version row that is still marked `ACTIVE` is rejected once the head is `REVOKED` or points at another version.
+- `company.enforce_activation_subject_head` rejects a subject whose locked version is not the current `ACTIVE` head. An older version row that is still marked `ACTIVE` does not pass after the head is `REVOKED`.
 - Insert rejects a second fingerprint on the same revision.
 - Every subject in the batch shares one `operating_tenant_id` and one `operating_carrier_company_id`. One failed subject rolls the batch back.
-- An activation execution insert commits only when the matching authorization header exists in the same transaction. Historical executions with no authorization stay valid. The shipment runtime role has no direct `INSERT` into that table, so it cannot add an activation execution beside the entry point.
+- At `COMMIT`, a revision with `source_activation_id IS NOT NULL AND supersedes_revision_id IS NULL` requires the matching authorization header. Successor revisions and historical rows are outside that predicate. `shipment_runtime` may insert the execution and the revision. The commit check is what rejects a new activation that skipped the authorizer.
 - The outbox check gains `carrier_relationship.activation_authorized`. `activation_consumed` is not a second event. The pin rows are the consumption record in the same commit. `activation_expired` stays unused because the authorization lifetime is the transaction, not a clock.
 
 The authorizer does not read `current_setting` and does not accept a session tenant. Tenant ids are arguments checked against the locked relationship root. A SQL `SET` cannot switch the tenant.
@@ -363,11 +482,17 @@ COMPANY_RUNTIME_ROLE=company_runtime
 SHIPMENT_RUNTIME_ROLE=shipment_runtime
 ```
 
-`freight_migrations` owns `company` and `transport` tables, the two security-definer functions, and the triggers. It is the migration job login. Services do not use it. `company_runtime` is the later company-service login. It does not receive `EXECUTE` on the activation authorizer. `shipment_runtime` is the later shipment-service login. It receives `EXECUTE` on `transport.project_route_plan_activation` and `transport.propagate_execution_relationship_pins` only.
+`freight_migrations` owns `company` and `transport` tables, the security-definer functions, and the triggers. It is the migration job login. Services do not use it. `company_runtime` is the later company-service login. It does not receive `EXECUTE` on the activation functions and does not receive `INSERT` on the authorization tables. `shipment_runtime` is the later shipment-service login.
 
-Both functions are `SECURITY DEFINER`, owned by `freight_migrations`, with `search_path = pg_temp`. Every table reference is schema-qualified. The function bodies use static SQL. `EXECUTE format` and other dynamic SQL are forbidden. `company.authorize_carrier_relationship_activation` writes only `company.carrier_relationship_activation_authorizations`, `company.carrier_relationship_activation_subjects`, the relationship audit row, and the relationship outbox row. Its `EXECUTE` grant is to `freight_migrations`, which the transport function runs as, and not to `shipment_runtime`. `shipment_runtime` therefore cannot call the authorizer with a tenant of its own choosing.
+Every proposed function is `SECURITY DEFINER`, owned by `freight_migrations`, with `search_path = pg_catalog`. That path does not include `pg_temp`, so a temporary table or function in the session cannot capture an unqualified name. Relations, functions, and operators are schema-qualified, including `pg_catalog.pg_advisory_xact_lock`, `pg_catalog.hashtextextended`, and `OPERATOR(pg_catalog.=)`. Dynamic SQL is forbidden. The functions do not read `current_setting`. Tenant ids are arguments checked against the locked relationship root.
 
-`shipment_runtime` has no `INSERT`, `UPDATE`, or `DELETE` on `transport.transport_executions`, `transport.transport_execution_revisions`, `transport.transport_execution_carrier_relationship_pins`, the authorization tables, or `company.carrier_relationship_heads`, `company.carrier_relationship_versions`, and `company.carrier_relationships`. Shipment-service still creates the execution. It calls `transport.project_route_plan_activation` on its open transaction. The owner of that function performs the inserts. The runtime role's missing `INSERT` is a grant, not a comment on the shared `freight` login. That shared login owns the tables today and bypasses grants. The flag stays off until the service logins exist and the shared login is no longer the service credential.
+`company.authorize_carrier_relationship_activation` inserts the authorization header and subject rows. `company.record_activation_audit` inserts the relationship audit row and `carrier_relationship.activation_authorized` after the pins. `transport.attach_activation_pins` inserts the first pin rows after the revision exists. `transport.propagate_execution_relationship_pins` copies pins for a successor. `EXECUTE` on those four functions is granted to `shipment_runtime` only.
+
+`shipment_runtime` keeps `SELECT`, `INSERT`, and `UPDATE` on `transport.transport_executions` and `transport.transport_execution_revisions`. That preserves `Project`, `CreateSuccessorRevision`, and `event_seq = event_seq + 1`. It has no `INSERT`, `UPDATE`, or `DELETE` on `transport.transport_execution_carrier_relationship_pins` or on the authorization tables. A direct pin insert is permission denied. A direct insert of a new activation revision, `source_activation_id IS NOT NULL AND supersedes_revision_id IS NULL`, can be written and then fails at `COMMIT` without an authorization header. Successor updates of `current_revision_id` stay allowed.
+
+`company_runtime` keeps the DML Accept, Revoke, and Cancel already use: `SELECT`, `INSERT`, and `UPDATE` on `company.carrier_relationships`, `company.carrier_relationship_versions`, `company.carrier_relationship_heads`, `company.carrier_relationship_requests`, `company.carrier_relationship_request_events`, `company.carrier_relationship_request_heads`, `company.carrier_relationship_request_idempotency`, `company.carrier_relationship_acceptance_idempotency`, `company.carrier_relationship_revoke_idempotency`, `company.carrier_relationship_cancel_idempotency`, `company.carrier_relationship_audit`, and `company.carrier_relationship_outbox`. It may `SELECT` `core.companies` and `core.tenants` for the membership checks those commands already perform. It cannot write activation evidence.
+
+The shared `freight` login owns the tables today and bypasses grants. The flag stays off until the service logins exist and that shared login is no longer a service credential. This is a deployment blocker. The missing pin grant is enforced on `shipment_runtime`. It is not a comment on `freight`.
 
 ## 6. Fingerprint
 
@@ -485,16 +610,16 @@ Finance and POD keep their historical tenant-local company ids. No auto-match an
 
 ## 11. PostgreSQL test plan
 
-The later runtime stage runs these tests against PostgreSQL. This stage does not add them and does not claim they have been executed. TAP-01 through TAP-16 keep their existing ids. Lost acknowledgement stays TAP-06. TAP-16 stays the different-subject case, now decided by `contract_sha256`. TAP-17 through TAP-24 are the next free ids.
+The later runtime stage runs these tests against PostgreSQL. This stage does not add them and does not claim they have been executed. TAP-01 through TAP-16 keep their existing ids. Lost acknowledgement stays TAP-06. TAP-16 stays the different-subject case, now decided by `contract_sha256`. TAP-17 through TAP-28 are the next free ids. These rows are specifications. This stage does not claim they have been executed.
 
 | Id | Setup | Expected |
 | --- | --- | --- |
-| TAP-01 | `ACTIVE` head, valid operating driver and vehicle | One execution, one pin per subject, pin version equals the locked head, one authorization subject per shipment, 201 |
+| TAP-01 | `ACTIVE` head, valid operating driver and vehicle. One attempt inserts a pin before the revision. The successful attempt uses advisory lock, head lock, subjects, execution, revision, pins, then audit | The early pin fails the immediate revision foreign key. The ordered attempt commits one execution, one pin per subject, and one subject per shipment whose locked version equals the head. HTTP 201 |
 | TAP-02 | Head `REVOKED` | `RELATIONSHIP_REVOKED`. Zero executions, pins, authorizations, tasks |
 | TAP-03 | Revoke and activation start together | The waiter sees the winner's commit. Either no execution, or an execution whose pin is not updated by the revoke |
 | TAP-04 | Two concurrent first activations, different activation ids, one shipment | One active slot. One rollback with no authorization left behind |
 | TAP-05 | Replay of the TAP-01 command, same `contract_sha256` | HTTP 200, same execution id, no second pin, no second authorization, authorizer not called |
-| TAP-06 | Commit, drop the HTTP response, retry the same body | HTTP 200, same execution. NLO links. Pins unchanged. `MarkRoutePlanActivationRejected` does not run |
+| TAP-06 | TAP-01 commits, the HTTP 201 is dropped, a different digest is sent, then the original body is sent again | The different digest is HTTP 409 `ACTIVATION_BODY_CONFLICT`. NLO stays `PENDING_EXECUTION` and is not `REJECTED`. The original digest is HTTP 200. NLO then links `EXECUTION_LINKED` |
 | TAP-07 | Operating tenant is not the relationship operating tenant | `RELATIONSHIP_NOT_FOUND`. No pin |
 | TAP-08 | Command company is a sibling of `operating_carrier_company_id` | `RELATIONSHIP_OPERATING_COMPANY_MISMATCH`. No pin |
 | TAP-09 | Driver or vehicle id belongs to another tenant or company | 409. Rollback includes the authorization |
@@ -505,14 +630,18 @@ The later runtime stage runs these tests against PostgreSQL. This stage does not
 | TAP-14 | Projection ack committed | NLO link, in its own transaction, stores that execution id and revision id. It does not write a relationship version |
 | TAP-15 | Body includes `relationship_version_id` | 400. Transaction not opened |
 | TAP-16 | Same activation id, different subject set | HTTP 409 `ACTIVATION_BODY_CONFLICT` because the digest differs. Stored pin unchanged. Not a successful link |
-| TAP-17 | Same activation id and same shipment set, different driver or vehicle | HTTP 409 `ACTIVATION_BODY_CONFLICT`. Fingerprint equality does not return the old execution |
+| TAP-17 | Same activation id and same shipment set, different driver or vehicle, after a lost HTTP 201 | HTTP 409 `ACTIVATION_BODY_CONFLICT`. Fingerprint equality does not return the old execution and does not mark NLO `REJECTED`. The original digest then returns HTTP 200 and NLO links |
 | TAP-18 | Legacy revision, null `pin_set_fingerprint`, no pin rows, same digest | HTTP 200 and the stored ids. No new authorization and no new pins |
 | TAP-19 | Two parallel `Project` calls, one activation id, same digest | One HTTP 201 and one HTTP 200. One execution. One authorization. NLO is not `REJECTED` |
-| TAP-20 | `shipment_runtime` inserts a pin directly, including a pin that names a historical `ACTIVE` version while the head is `REVOKED` | Permission denied. Zero new pin rows |
-| TAP-21 | `shipment_runtime` inserts an activation execution directly | Permission denied. The entry point is the only writer. A commit without authorization evidence fails |
-| TAP-22 | Authorizer or owner insert uses a historical `ACTIVE` version after the head is `REVOKED` | Rejected. The evidence version must be the locked head. No new execution |
-| TAP-23 | TAP-01, then successor, then revoke | `current_revision_id` references the successor. Its pins keep the original `relationship_version_id` and authorization subject ids. Revoke changes neither pin set |
+| TAP-20 | `shipment_runtime` inserts a pin directly | Permission denied. Zero new pin rows |
+| TAP-21 | `shipment_runtime` inserts an execution and a revision with `source_activation_id` set and `supersedes_revision_id` null, and no authorization header | The revision statement is allowed. `COMMIT` fails the deferred evidence check. No revision remains. A successor revision with `supersedes_revision_id` set is outside that predicate |
+| TAP-22 | Insert an authorization subject that names a historical `ACTIVE` version while the head is `REVOKED`, including an insert by the function owner | `company.enforce_activation_subject_head` raises. The composite pin foreign key cannot cite that version. No new execution |
+| TAP-23 | TAP-01, then successor, then revoke | `current_revision_id` references the successor. Its pins keep the original `relationship_version_id` and authorization subject ids. Revoke changes neither pin set. `shipment_runtime` can perform the successor revision DML after the role split |
 | TAP-24 | Successor pin copy raises before commit | Successor revision, `current_revision_id` change, and copied pins all roll back |
+| TAP-25 | `shipment_runtime` increments `transport.transport_executions.event_seq` | The update commits. The role still cannot insert a pin |
+| TAP-26 | `company_runtime` runs the existing Accept and Revoke writes | Version, head, audit, and outbox rows are written. The role cannot insert an activation subject |
+| TAP-27 | The session creates a temporary function or table with the name of a catalog function before calling the authorizer | The call uses `pg_catalog` and schema-qualified names. The temporary object is not executed |
+| TAP-28 | `shipment_runtime` replaces a definer function or grants itself pin `INSERT` | Both fail. The function owner remains `freight_migrations` |
 
 Each test asserts the other tenant cannot observe the row through a shipper list, and a shipper read does not return the operating driver or vehicle id.
 
@@ -523,10 +652,10 @@ Not authorized by this stage.
 | Order | Stage | Allowed to change | Stop condition |
 | --- | --- | --- | --- |
 | 0 | This document and ADR-PLATFORM-003 | Docs only | Draft PR, exact-head CI, Agent I review |
-| 1 | Database role split | Logins and grants only | `shipment_runtime` can execute the entry point and cannot insert execution, pin, or relationship rows. `freight` is not a service login. Flag still off |
+| 1 | Database role split | Logins and grants only | `shipment_runtime` can insert and update executions and revisions, can update `event_seq`, and cannot insert pins or authorization rows. `company_runtime` can still Accept and Revoke. `freight` is not a service login. Flag still off |
 | 2 | Authorizer, authorization tables, outbox event type | company-service and one unnumbered-until-then migration | Function refuses `REVOKED` and refuses a historical version under the Accept/Revoke lock order. Evidence stores `locked_relationship_version_id`. No TMS insert yet |
-| 3 | Pin table, entry point, and `Project` integration | shipment-service behind `TMS_RELATIONSHIP_ACTIVATION_ENABLED` default off | TAP-01 through TAP-24. Flag off leaves today's `Project` unchanged |
-| 4 | NLO response mapping and shipment tenant | network-optimizer-service only, separate PR | HTTP 200 and HTTP 201 link. HTTP 409 `ACTIVATION_BODY_CONFLICT` does not link. Identical concurrent `Project` is HTTP 200. `execution_supported` still false |
+| 3 | Pin table, authorizer, and `Project` integration | shipment-service behind `TMS_RELATIONSHIP_ACTIVATION_ENABLED` default off | TAP-01 through TAP-28. Flag off leaves today's `Project` unchanged |
+| 4 | NLO response mapping and shipment tenant | network-optimizer-service only, separate PR | HTTP 200 and HTTP 201 link. HTTP 409 `ACTIVATION_BODY_CONFLICT` stays `PENDING_EXECUTION` and is not `REJECTED`. The original digest can then return HTTP 200 and link. `execution_supported` still false |
 | 5 | Flag enablement | Operations authorization | Separate from stages 0–4 |
 
 Stages 1–5 are not started here. Merge of this document is not merge of runtime.
