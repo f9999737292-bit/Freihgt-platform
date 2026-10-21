@@ -7,21 +7,34 @@
 -- role split. The gate refuses to install the trigger while that login can
 -- bypass grants. This migration does not enable TMS_RELATIONSHIP_ACTIVATION_ENABLED.
 
--- Roles are cluster-global. A second database on the same server must be able
--- to apply this migration after another test database already created them.
+-- Roles are cluster-global. Concurrent databases on one server take the same
+-- advisory lock, then tolerate a role that already exists. No dynamic SQL.
 DO $roles$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'freight_migrations') THEN
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('tms-relationship-pins-security-roles', 0));
+
+    BEGIN
         CREATE ROLE freight_migrations NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'company_runtime') THEN
-        CREATE ROLE company_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'shipment_runtime') THEN
-        CREATE ROLE shipment_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-    END IF;
+    EXCEPTION
+        WHEN unique_violation OR duplicate_object THEN
+            NULL;
+    END;
     ALTER ROLE freight_migrations NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+
+    BEGIN
+        CREATE ROLE company_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+    EXCEPTION
+        WHEN unique_violation OR duplicate_object THEN
+            NULL;
+    END;
     ALTER ROLE company_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+
+    BEGIN
+        CREATE ROLE shipment_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+    EXCEPTION
+        WHEN unique_violation OR duplicate_object THEN
+            NULL;
+    END;
     ALTER ROLE shipment_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
 END
 $roles$;

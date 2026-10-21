@@ -35,6 +35,7 @@ func setupSecurityPostgres(t *testing.T) *pgxpool.Pool {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	t.Cleanup(cancel)
+	proveConcurrentRoleMigration(t, ctx, adminURL)
 	dbName, testURL, dropDB, err := createTempDatabase(ctx, adminURL)
 	if err != nil {
 		t.Fatalf("isolated postgres: %v", err)
@@ -69,6 +70,47 @@ func setupSecurityPostgres(t *testing.T) *pgxpool.Pool {
 	}
 	t.Logf("isolated database=%s sibling=%s", dbName, siblingName)
 	return pool
+}
+
+func proveConcurrentRoleMigration(t *testing.T, ctx context.Context, adminURL string) {
+	t.Helper()
+	const n = 2
+	names := make([]string, n)
+	urls := make([]string, n)
+	drops := make([]func(context.Context), n)
+	for i := 0; i < n; i++ {
+		name, url, drop, err := createTempDatabase(ctx, adminURL)
+		if err != nil {
+			t.Fatalf("concurrent database: %v", err)
+		}
+		names[i], urls[i], drops[i] = name, url, drop
+	}
+	defer func() {
+		for _, drop := range drops {
+			if drop != nil {
+				drop(context.Background())
+			}
+		}
+	}()
+	errs := make(chan error, n)
+	for i := 0; i < n; i++ {
+		url := urls[i]
+		go func() {
+			pool, err := pgxpool.New(ctx, url)
+			if err != nil {
+				errs <- err
+				return
+			}
+			defer pool.Close()
+			errs <- applyMigrations(ctx, pool)
+		}()
+	}
+	for i := 0; i < n; i++ {
+		if err := <-errs; err != nil {
+			t.Fatalf("concurrent migrations: %v", err)
+		}
+	}
+	t.Logf("concurrent databases=%s,%s", names[0], names[1])
 }
 
 func expectSecurityObjects(ctx context.Context, pool *pgxpool.Pool, present bool) error {
