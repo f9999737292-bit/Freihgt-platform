@@ -52,7 +52,22 @@ func setupSecurityPostgres(t *testing.T) *pgxpool.Pool {
 	if err := applyMigrations(ctx, pool); err != nil {
 		t.Fatalf("migrations: %v", err)
 	}
-	t.Logf("isolated database=%s", dbName)
+	siblingName, siblingURL, dropSibling, err := createTempDatabase(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("sibling database: %v", err)
+	}
+	sibling, err := pgxpool.New(ctx, siblingURL)
+	if err != nil {
+		dropSibling(context.Background())
+		t.Fatal(err)
+	}
+	siblingErr := applyMigrations(ctx, sibling)
+	sibling.Close()
+	dropSibling(context.Background())
+	if siblingErr != nil {
+		t.Fatalf("sibling migrations while roles exist: %v", siblingErr)
+	}
+	t.Logf("isolated database=%s sibling=%s", dbName, siblingName)
 	return pool
 }
 
