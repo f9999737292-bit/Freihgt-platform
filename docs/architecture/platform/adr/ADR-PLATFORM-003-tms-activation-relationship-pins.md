@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. Architecture only. Runtime, a migration file, a gateway route, a feature-flag enablement, an NLO change, and deployment are not authorized. R1 binds replay to `contract_sha256`. R2 binds each pin to the locked subject version, keeps shipment DML on executions and revisions, sets every definer function to `search_path = pg_catalog`, and leaves a lost-ack body conflict pending in NLO.
+Proposed. Architecture only. Runtime, a migration file, a gateway route, a feature-flag enablement, an NLO change, and deployment are not authorized. R1 binds replay to `contract_sha256`. R2 binds each pin to the locked subject version, keeps shipment DML on executions and revisions, sets every definer function to `search_path = pg_catalog`, and leaves a lost-ack body conflict pending in NLO. R3 judges the revision row stored at `COMMIT`, installs that check only with the `Project` that writes evidence, grants the actor reads Create, Accept, Cancel, and Revoke already use, and binds each pin to the full subject identity.
 
 ```text
 ADR_NUMBER=ADR-PLATFORM-003
@@ -14,7 +14,10 @@ RUNTIME_AUTHORIZED=NO
 MIGRATION_NUMBER_ASSIGNED=NO
 R1_REMEDIATION=PIN-01,PIN-02,PIN-03,PIN-04
 R2_REMEDIATION=R2-01,R2-02,R2-03,R2-04,R2-05
+R3_REMEDIATION=R3-01,R3-02,R3-03,R3-04
 SECURITY_DEFINER_SEARCH_PATH=pg_catalog
+ENFORCEMENT_TRIGGER_READS=CURRENT_ROW_AT_COMMIT
+FLAG_BYPASSES_DB_ENFORCEMENT=NO
 ```
 
 `ADR-PLATFORM-001` is public accept. `ADR-PLATFORM-002` is relationship revoke. On `e810056284ebb39014572903bf73a5ba29fc52e9` the platform ADR directory contains only those two files. This decision uses `ADR-PLATFORM-003`. It does not reuse either number.
@@ -33,13 +36,13 @@ Company-service and shipment-service both use the database `freight_platform` in
 
 TMS activation pins a relationship inside one local shipment-service transaction on `freight_platform`. `shipment_runtime` inserts and updates `transport.transport_executions` and `transport.transport_execution_revisions`, including `event_seq` and successor revisions. It does not receive DML on pin or authorization tables. `company.authorize_carrier_relationship_activation` inserts the authorization header and subjects. `transport.attach_activation_pins` inserts pins only after the revision row exists. `transport.propagate_execution_relationship_pins` copies pins onto a successor. `company.record_activation_audit` writes the relationship audit and outbox after the pins. Each of those functions is `SECURITY DEFINER`, owned by `freight_migrations`, with `search_path = pg_catalog`, schema-qualified names, and no dynamic SQL. `EXECUTE` is granted to `shipment_runtime` only.
 
-`company_runtime` keeps `SELECT`, `INSERT`, and `UPDATE` on the relationship request, root, version, head, idempotency, audit, and outbox tables that Accept, Revoke, and Cancel already write. It does not receive `EXECUTE` on the activation functions and does not receive `INSERT` on the authorization tables.
+`company_runtime` keeps `SELECT`, `INSERT`, and `UPDATE` on the relationship request, root, version, head, idempotency, audit, and outbox tables that Create, Accept, Cancel, and Revoke already write. It also keeps `SELECT` on `core.users`, `core.company_memberships`, `core.companies`, `core.user_roles`, `core.roles`, and `core.tenants`. The five commands read the first five of those catalogs. They do not read `core.tenants` and they do not call `nextval`. It does not receive `EXECUTE` on the activation functions and does not receive `INSERT`, `UPDATE`, or `DELETE` on the authorization tables or the pin table.
 
 The insert path locks every subject business key first, in ascending lowercase `shipper_tenant_id`, then lowercase `shipper_carrier_company_id`, and re-reads the revision. A committed row with the same `contract_sha256` returns HTTP 200 and does not lock heads or insert evidence. A different digest returns `ACTIVATION_BODY_CONFLICT` and inserts nothing. Only a still-absent activation locks heads `FOR UPDATE` in that same key order. `company.enforce_activation_subject_head` runs `BEFORE INSERT` on each subject, takes that same advisory lock, locks the head, and raises unless `status` is `ACTIVE` and `current_version_id` equals `locked_relationship_version_id`. A historical version row that remains `ACTIVE` is not eligible once the head has moved.
 
-`shipment_runtime` then inserts the execution and the revision. Pins come next. Their foreign key to `transport.transport_execution_revisions` is immediate, so a pin before its revision fails. The authorization header does not reference the revision, so the two requirements do not form a cycle. At `COMMIT`, a deferred constraint allows a new revision only when `source_activation_id IS NOT NULL AND supersedes_revision_id IS NULL` has a matching authorization header from the same transaction. Successor revisions have a non-null `supersedes_revision_id` and are outside that predicate. Historical revisions committed before the trigger are not rewritten.
+`shipment_runtime` then inserts the execution and the revision. Pins come next. Their foreign key to `transport.transport_execution_revisions` is immediate, so a pin before its revision fails. `fk_pin_subject_locked_version` keeps the version pair. `fk_pin_subject_identity` also requires `relationship_id`, `operating_tenant_id`, `operating_carrier_company_id`, `shipment_tenant_id`, `shipment_id`, and `source_company_id` to equal the cited subject. The authorization header does not reference the revision, so the evidence check and the pin foreign keys do not form a cycle. At `COMMIT`, `transport.enforce_new_activation_authorization` runs for every queued `INSERT`, `UPDATE`, and `DELETE`. Each event selects the revision still stored under that event's id and reads `source_activation_id`, `supersedes_revision_id`, and `operating_tenant_id` from that row. It does not trust the `NEW` snapshot. A stored row with `source_activation_id` set and `supersedes_revision_id` null needs a matching authorization header. A stored successor, with `supersedes_revision_id` still set, does not. An insert that begins as a successor and an update that clears `supersedes_revision_id` before `COMMIT` is a new activation and needs a header. Changing `source_activation_id` is judged from the value still stored. Historical revisions committed before the trigger are not rewritten. Authorization headers and subjects are append-only, so a delete or retarget of the header cannot remove the evidence the check reads.
 
-While every service still uses the shared `freight` login, that login owns the tables, so grants do not constrain it. Enabling `TMS_RELATIONSHIP_ACTIVATION_ENABLED` before the runtime logins exist and the shared login is gone is a deployment blocker.
+While every service still uses the shared `freight` login, that login owns the tables, so grants do not constrain it. Enabling `TMS_RELATIONSHIP_ACTIVATION_ENABLED` before the runtime logins exist and the shared login is gone is a deployment blocker. The flag does not disable the enforcement trigger. The trigger is installed in the same release as the `Project` that writes the authorization header. Until that pair is released, the trigger is absent and today's `Project` still commits. After the trigger exists, a headerless new activation fails at `COMMIT` with the flag on or off. A partial pair rolls back to the old `Project` and no trigger.
 
 ```text
 TMS_EXECUTION_OWNER=SHIPMENT_SERVICE
@@ -83,6 +86,10 @@ SPLIT_DATABASE_PLACEMENT=UNSUPPORTED_FAIL_CLOSED
 SHARED_FREIGHT_LOGIN_PRESENT=YES
 SHARED_FREIGHT_LOGIN=DEPLOYMENT_BLOCKER
 ACTIVATION_FLAG_ENABLE_BEFORE_ROLE_SPLIT=FORBIDDEN
+FLAG_BYPASSES_DB_ENFORCEMENT=NO
+ENFORCEMENT_BEFORE_PROJECT_WRITES_EVIDENCE=FORBIDDEN
+ENFORCEMENT_TRIGGER_READS=CURRENT_ROW_AT_COMMIT
+PIN_IDENTITY_FK=fk_pin_subject_identity
 SUCCESSOR_PIN_SOURCE=COPY_COMMITTED_PIN_SET
 SUCCESSOR_AUTHORIZER=NOT_CALLED
 SUCCESSOR_HEAD_READ=NO
@@ -109,14 +116,14 @@ The lock order for every relationship business key is the order Accept and Revok
 7. Insert the execution revision.
 8. Insert the immutable pins. The pin-to-revision foreign key is immediate.
 9. Insert audit and outbox.
-10. `COMMIT`, which runs the deferred new-activation evidence check and then releases the locks.
+10. `COMMIT`, which reads each queued revision from the table, runs the deferred new-activation evidence check, and then releases the locks.
 
 Taking a head lock before the advisory lock is forbidden. It deadlocks with Revoke. A committed pin stays after a later revoke.
 
 ## Consequences
 
-A later runtime stage has to add the roles, the authorization tables, the pin table, the functions, the subject trigger, the deferred revision check, the composite pin foreign key, the append-only pin trigger, the activation outbox event type, and the shipment-service calls. No migration number is assigned here. Historical executions stay unpinned. There is no backfill. NLO continues to send the projection command and to link `EXECUTION_LINKED` after HTTP 200 or HTTP 201. A lost 201 followed by `ACTIVATION_BODY_CONFLICT` stays `PENDING_EXECUTION` until the original digest returns 200. This ADR does not set `execution_supported` and does not change NLO code. Control Tower remains a post-commit consumer. Shipper-scoped responses still omit operating `driver_id` and `vehicle_id`.
+A later runtime stage has to add the roles, the authorization tables, the pin table, the functions, the subject trigger, the deferred revision check, both composite pin foreign keys, the append-only pin and evidence triggers, the activation outbox event type, and the shipment-service calls. The deferred check and the `Project` that writes evidence are one release. No migration number is assigned here. Historical executions stay unpinned. There is no backfill. NLO continues to send the projection command and to link `EXECUTION_LINKED` after HTTP 200 or HTTP 201. A lost 201 followed by `ACTIVATION_BODY_CONFLICT` stays `PENDING_EXECUTION` until the original digest returns 200. This ADR does not set `execution_supported` and does not change NLO code. Control Tower remains a post-commit consumer. Shipper-scoped responses still omit operating `driver_id` and `vehicle_id`.
 
 ## Alternatives rejected
 
-An HTTP `GET` of the head, followed by the existing projection commit, loses to a revoke that lands between the two calls. A durable lease has the same window after the response. Putting the execution insert in company-service moves TMS ownership. Letting the client send `relationship_version_id` makes a stale or foreign version authoritative. Updating the pin when the head becomes `REVOKED` rewrites history. Treating `pin_set_fingerprint` as the replay key returns an old execution when the driver or vehicle changed and drops the current `ACTIVATION_BODY_CONFLICT` check. One distributed transaction that also commits the NLO link and the Control Tower projection is not provided by the current process boundaries, so this ADR does not claim it. Sharing the `freight` login is not a substitute for the functions or for a later role split. A written ban on `INSERT`, granted to the same login that owns the tables, does not stop that login. A successor that reads the current head would let a later revoke block or rewrite a route change for an execution that already pinned an older version.
+An HTTP `GET` of the head, followed by the existing projection commit, loses to a revoke that lands between the two calls. A durable lease has the same window after the response. Putting the execution insert in company-service moves TMS ownership. Letting the client send `relationship_version_id` makes a stale or foreign version authoritative. Updating the pin when the head becomes `REVOKED` rewrites history. Treating `pin_set_fingerprint` as the replay key returns an old execution when the driver or vehicle changed and drops the current `ACTIVATION_BODY_CONFLICT` check. One distributed transaction that also commits the NLO link and the Control Tower projection is not provided by the current process boundaries, so this ADR does not claim it. Sharing the `freight` login is not a substitute for the functions or for a later role split. A written ban on `INSERT`, granted to the same login that owns the tables, does not stop that login. A successor that reads the current head would let a later revoke block or rewrite a route change for an execution that already pinned an older version. Judging the deferred check from `NEW.supersedes_revision_id` lets an update clear that column after the insert snapshot was queued. Installing the enforcement trigger before `Project` writes a header makes today's activation fail while the flag is still off. Using the flag to skip the trigger leaves a database bypass in application configuration.
