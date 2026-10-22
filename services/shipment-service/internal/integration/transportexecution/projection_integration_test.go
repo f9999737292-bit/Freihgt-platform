@@ -461,22 +461,30 @@ func startPostgres(t *testing.T) *execEnv {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	t.Cleanup(cancel)
-	port := freePort(t)
-	runtimePath := filepath.Join(t.TempDir(), "pg-runtime")
-	dataPath := filepath.Join(t.TempDir(), "pg-data")
-	pg := embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().
-		Port(uint32(port)).
-		RuntimePath(runtimePath).
-		DataPath(dataPath).
-		Database("freight_mstop_test").
-		Username("freight").
-		Password("freight").
-		Version(embeddedpostgres.V16))
-	if err := pg.Start(); err != nil {
-		t.Fatalf("start embedded postgres: %v", err)
+	adminURL := ""
+	if os.Getenv("CI") == "true" {
+		adminURL = strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
+		if adminURL == "" {
+			t.Fatal("TEST_DATABASE_URL is required in CI")
+		}
+	} else {
+		port := freePort(t)
+		runtimePath := filepath.Join(t.TempDir(), "pg-runtime")
+		dataPath := filepath.Join(t.TempDir(), "pg-data")
+		pg := embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().
+			Port(uint32(port)).
+			RuntimePath(runtimePath).
+			DataPath(dataPath).
+			Database("freight_mstop_test").
+			Username("freight").
+			Password("freight").
+			Version(embeddedpostgres.V16))
+		if err := pg.Start(); err != nil {
+			t.Fatalf("start embedded postgres: %v", err)
+		}
+		t.Cleanup(func() { _ = pg.Stop() })
+		adminURL = fmt.Sprintf("postgres://freight:freight@127.0.0.1:%d/postgres?sslmode=disable", port)
 	}
-	t.Cleanup(func() { _ = pg.Stop() })
-	adminURL := fmt.Sprintf("postgres://freight:freight@127.0.0.1:%d/postgres?sslmode=disable", port)
 	dbName := "mstop_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
 	testURL, cleanup := createDatabase(t, ctx, adminURL, dbName)
 	t.Cleanup(func() { cleanup() })

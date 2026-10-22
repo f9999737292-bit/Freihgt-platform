@@ -14,8 +14,9 @@ import (
 
 // SetRelationshipActivationEnabled turns on the same-transaction authorizer path.
 // The default is off. While off, Project keeps the headerless revision it commits today.
-// While on, Project refuses unless the enforcement trigger is installed and the
-// session is not the shared freight login. The flag does not disable that trigger.
+// While on, Project refuses unless the enforcement trigger's catalog identity
+// matches transport.transport_execution_revisions and the session is not the
+// shared freight login. The flag does not disable that trigger.
 func (r *TransportExecutionRepository) SetRelationshipActivationEnabled(enabled bool) {
 	if r == nil {
 		return
@@ -92,12 +93,31 @@ func requireActivationEnforcement(ctx context.Context, tx pgx.Tx) error {
 	var triggerInstalled, superuser, bypass, sharedFreight, ownsProtected, writesProtected bool
 	err := tx.QueryRow(ctx, `
 		SELECT
-			EXISTS (
-				SELECT 1
+			(
+				SELECT count(*)
 				FROM pg_catalog.pg_trigger AS trg
-				WHERE trg.tgname = 'trg_new_activation_authorization'
+				JOIN pg_catalog.pg_proc AS fn ON fn.oid = trg.tgfoid
+				JOIN pg_catalog.pg_namespace AS fn_ns ON fn_ns.oid = fn.pronamespace
+				WHERE trg.tgrelid = 'transport.transport_execution_revisions'::regclass
+				  AND trg.tgname = 'trg_new_activation_authorization'
 				  AND NOT trg.tgisinternal
-			),
+				  AND trg.tgconstraint <> 0
+				  AND trg.tgdeferrable
+				  AND trg.tginitdeferred
+				  AND fn_ns.nspname = 'transport'
+				  AND fn.proname = 'enforce_new_activation_authorization'
+				  AND fn.pronargs = 0
+				  AND (
+				    (
+				      pg_catalog.current_setting('session_replication_role') = 'replica'
+				      AND trg.tgenabled IN ('R', 'A')
+				    )
+				    OR (
+				      pg_catalog.current_setting('session_replication_role') <> 'replica'
+				      AND trg.tgenabled IN ('O', 'A')
+				    )
+				  )
+			) = 1,
 			role_row.rolsuper,
 			role_row.rolbypassrls,
 			role_row.rolname = 'freight',
@@ -313,6 +333,17 @@ func lockOperatingAssignment(ctx context.Context, tx pgx.Tx, cmd domain.Projecti
 		}
 	}
 	return nil
+}
+
+// activationAuthorizedHook runs after the authorizer holds the relationship
+// advisory lock and before execution rows are inserted. Production leaves it nil.
+var activationAuthorizedHook func(context.Context) error
+
+// SetActivationAuthorizedHookForTest pauses one flagged Project after authorization.
+func SetActivationAuthorizedHookForTest(fn func(context.Context) error) func() {
+	previous := activationAuthorizedHook
+	activationAuthorizedHook = fn
+	return func() { activationAuthorizedHook = previous }
 }
 
 var propagateExecutionRelationshipPins = copySuccessorRelationshipPins

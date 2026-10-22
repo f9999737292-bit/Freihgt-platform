@@ -242,6 +242,7 @@ jobs:
           --health-retries 10
     env:
       CI: true
+      REQUIRE_TEST_DATABASE: "1"
       TEST_DATABASE_URL: postgres://rfx_test:rfx_test@localhost:5432/freight_test?sslmode=disable
     steps:
       - name: Checkout
@@ -259,11 +260,17 @@ jobs:
         working-directory: services/shipment-service
         run: |
           set -o pipefail
-          go test -tags=integration -count=1 -timeout 20m -v ./internal/integration/transportexecution -run TestActivationRuntimePins | tee "$RUNNER_TEMP/tms-activation-runtime.txt"
+          go test -tags=integration -count=1 -timeout 40m -v ./internal/integration/transportexecution -run 'TestActivationRuntimePins|TestTransportExecutionFoundation|TestSuccessorRevision|TestExecutionProjectionAPI' | tee "$RUNNER_TEMP/tms-activation-runtime.txt"
           if grep -q -- '--- SKIP:' "$RUNNER_TEMP/tms-activation-runtime.txt"; then
             echo "required PostgreSQL integration test was skipped"
             exit 1
           fi
+          for test in TestActivationRuntimePins TestTransportExecutionFoundation TestSuccessorRevision TestExecutionProjectionAPI; do
+            if ! grep -q -- "--- PASS: ${test} " "$RUNNER_TEMP/tms-activation-runtime.txt"; then
+              echo "required PostgreSQL integration test ${test} did not pass"
+              exit 1
+            fi
+          done
 
   rfx-source-authority-postgres:
     name: rfx-source-authority-postgres

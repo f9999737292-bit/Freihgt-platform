@@ -70,6 +70,11 @@ func (r *TransportExecutionRepository) Project(ctx context.Context, cmd domain.P
 			return *replay, nil
 		}
 		authorizationID = authID
+		if activationAuthorizedHook != nil {
+			if err := activationAuthorizedHook(ctx); err != nil {
+				return domain.ProjectionResult{}, err
+			}
+		}
 	}
 
 	now := time.Now().UTC()

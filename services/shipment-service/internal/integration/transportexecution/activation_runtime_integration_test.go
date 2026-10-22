@@ -73,6 +73,58 @@ func TestActivationRuntimePins(t *testing.T) {
 	runtimeRepo.SetRelationshipActivationEnabled(true)
 	disabledRepo := repository.NewTransportExecutionRepository(runtime)
 
+	disabledShip := seedShipmentOn(t, env.ctx, admin, "rt01-disabled", "IN_TRANSIT")
+	if _, err := admin.Exec(env.ctx, `ALTER TABLE transport.transport_execution_revisions DISABLE TRIGGER trg_new_activation_authorization`); err != nil {
+		t.Fatal(err)
+	}
+	assertNoActivationWrite(t, env.ctx, admin, runtimeRepo, oneSubjectCommand(operating, legacyCarrier, disabledShip, nil, nil), "RT01_A")
+	if _, err := admin.Exec(env.ctx, `ALTER TABLE transport.transport_execution_revisions ENABLE TRIGGER trg_new_activation_authorization`); err != nil {
+		t.Fatal(err)
+	}
+	assertActivationTriggerIdentity(t, env.ctx, admin)
+	t.Log("RT01_A=PASS")
+
+	if _, err := admin.Exec(env.ctx, `DROP TRIGGER trg_new_activation_authorization ON transport.transport_execution_revisions`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := admin.Exec(env.ctx, `
+		CREATE FUNCTION transport.decoy_activation_name_trigger()
+		RETURNS trigger
+		LANGUAGE plpgsql
+		AS $fn$
+		BEGIN
+			RETURN NEW;
+		END;
+		$fn$
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := admin.Exec(env.ctx, `
+		CREATE CONSTRAINT TRIGGER trg_new_activation_authorization
+		    AFTER INSERT ON transport.transport_executions
+		    DEFERRABLE INITIALLY DEFERRED
+		    FOR EACH ROW
+		    EXECUTE FUNCTION transport.decoy_activation_name_trigger()
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if triggerCount(t, admin) != 1 || activationTriggerOnRevisions(t, env.ctx, admin) != 0 {
+		t.Fatal("RT01_B did not leave the same trigger name only on another table")
+	}
+	decoyShip := seedShipmentOn(t, env.ctx, admin, "rt01-decoy", "IN_TRANSIT")
+	assertNoActivationWrite(t, env.ctx, admin, runtimeRepo, oneSubjectCommand(operating, legacyCarrier, decoyShip, nil, nil), "RT01_B")
+	if _, err := admin.Exec(env.ctx, `DROP TRIGGER trg_new_activation_authorization ON transport.transport_executions`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := admin.Exec(env.ctx, `DROP FUNCTION transport.decoy_activation_name_trigger()`); err != nil {
+		t.Fatal(err)
+	}
+	if err := execSQLFile(env.ctx, admin, filepath.Join(env.migrations, "..", "postgres", "tms_activation_enforcement_gate_v0.1.sql")); err != nil {
+		t.Fatal(err)
+	}
+	assertActivationTriggerIdentity(t, env.ctx, admin)
+	t.Log("RT01_B=PASS")
+
 	headerlessShip := seedShipmentOn(t, env.ctx, admin, "headerless", "IN_TRANSIT")
 	headerlessBefore := executionCount(t, env.ctx, admin)
 	if _, err := disabledRepo.Project(env.ctx, oneSubjectCommand(operating, legacyCarrier, headerlessShip, nil, nil)); err == nil {
@@ -102,6 +154,11 @@ func TestActivationRuntimePins(t *testing.T) {
 		t.Fatalf("pinned project: %v %+v", err, created)
 	}
 	assertPinned(t, env.ctx, admin, created, live, cmd.ActivationID, 1)
+	assertActivationTriggerIdentity(t, env.ctx, admin)
+	if executionCountForActivation(t, env.ctx, admin, cmd.ActivationID) != 1 {
+		t.Fatal("RT01_C execution count")
+	}
+	t.Log("RT01_C=PASS")
 	var executionDriver, executionVehicle *uuid.UUID
 	if err := admin.QueryRow(env.ctx, `SELECT driver_id, vehicle_id FROM transport.transport_executions WHERE id=$1`, created.ExecutionID).Scan(&executionDriver, &executionVehicle); err != nil || executionDriver == nil || *executionDriver != driver || executionVehicle == nil || *executionVehicle != vehicle {
 		t.Fatalf("assignment driver=%v vehicle=%v err=%v", executionDriver, executionVehicle, err)
@@ -258,11 +315,13 @@ func TestActivationRuntimePins(t *testing.T) {
 	}
 	raceCmd := oneSubjectCommand(race.operating, race.operatingCarrier, raceShip, nil, nil)
 	raceDone := make(chan error, 1)
+	raceFinished := make(chan struct{})
 	go func() {
 		_, projectErr := runtimeRepo.Project(env.ctx, raceCmd)
 		raceDone <- projectErr
+		close(raceFinished)
 	}()
-	time.Sleep(400 * time.Millisecond)
+	waitForAdvisoryLock(t, env.ctx, admin, race.shipment.tenantID, race.sourceCarrier, race.operating, 1, 1, raceFinished)
 	revokedVersion := uuid.New()
 	if _, err := hold.Exec(env.ctx, `
 		INSERT INTO company.carrier_relationship_versions (
@@ -290,6 +349,83 @@ func TestActivationRuntimePins(t *testing.T) {
 	}
 	t.Log("TAP-02=PASS")
 	t.Log("TAP-03=PASS")
+	t.Log("RT02_REVOKE_FIRST=PASS")
+
+	activationFirst := seedRelationship(t, env.ctx, admin, "activation-first")
+	activationCmd := oneSubjectCommand(activationFirst.operating, activationFirst.operatingCarrier, activationFirst.shipment, nil, nil)
+	lockHeld := make(chan struct{})
+	releaseProject := make(chan struct{})
+	var signalOnce sync.Once
+	restoreHook := repository.SetActivationAuthorizedHookForTest(func(ctx context.Context) error {
+		signalOnce.Do(func() { close(lockHeld) })
+		select {
+		case <-releaseProject:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})
+	defer restoreHook()
+	activationDone := make(chan error, 1)
+	activationFinished := make(chan struct{})
+	var activationResult domain.ProjectionResult
+	go func() {
+		var projectErr error
+		activationResult, projectErr = runtimeRepo.Project(env.ctx, activationCmd)
+		activationDone <- projectErr
+		close(activationFinished)
+	}()
+	select {
+	case <-lockHeld:
+	case <-activationFinished:
+		t.Fatalf("activation-first project finished before the advisory lock: %v", <-activationDone)
+	case <-time.After(30 * time.Second):
+		t.Fatal("activation-first project did not reach the advisory lock")
+	}
+	waitForAdvisoryLock(t, env.ctx, admin, activationFirst.shipment.tenantID, activationFirst.sourceCarrier, activationFirst.operating, 1, 0, activationFinished)
+	revokeDone := make(chan error, 1)
+	revokeFinished := make(chan struct{})
+	go func() {
+		revokeDone <- revokeRelationshipAfterLock(env.ctx, admin, activationFirst)
+		close(revokeFinished)
+	}()
+	waitForAdvisoryLock(t, env.ctx, admin, activationFirst.shipment.tenantID, activationFirst.sourceCarrier, activationFirst.operating, 1, 1, activationFinished)
+	close(releaseProject)
+	if err := <-activationDone; err != nil || !activationResult.Created {
+		t.Fatalf("activation-first project: %v %+v", err, activationResult)
+	}
+	select {
+	case err := <-revokeDone:
+		if err != nil {
+			t.Fatalf("activation-first revoke: %v", err)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("activation-first revoke did not finish")
+	}
+	if executionCountForActivation(t, env.ctx, admin, activationCmd.ActivationID) != 1 || activationCount(t, env.ctx, admin, activationCmd.ActivationID) != 1 {
+		t.Fatal("activation-first race lost the execution or duplicated authorization")
+	}
+	var pinnedVersion uuid.UUID
+	var headStatus string
+	if err := admin.QueryRow(env.ctx, `
+		SELECT pin.relationship_version_id, head.status
+		FROM transport.transport_execution_carrier_relationship_pins AS pin
+		JOIN company.carrier_relationship_heads AS head ON head.relationship_id = $2
+		WHERE pin.execution_revision_id = $1
+	`, activationResult.RevisionID, activationFirst.relationship).Scan(&pinnedVersion, &headStatus); err != nil || pinnedVersion != activationFirst.version || headStatus != "REVOKED" {
+		t.Fatalf("activation-first pin=%s head=%s err=%v", pinnedVersion, headStatus, err)
+	}
+	if scalar(t, env.ctx, admin, `SELECT count(*) FROM company.carrier_relationship_audit WHERE action='ACTIVATION_AUTHORIZED' AND correlation_id=$1`, activationCmd.ActivationID.String()) != 1 {
+		t.Fatal("activation-first duplicated audit")
+	}
+	if scalar(t, env.ctx, admin, `SELECT count(*) FROM company.carrier_relationship_outbox WHERE event_type='carrier_relationship.activation_authorized' AND payload->>'source_activation_id'=$1`, activationCmd.ActivationID.String()) != 1 {
+		t.Fatal("activation-first duplicated outbox")
+	}
+	if scalar(t, env.ctx, admin, `SELECT count(*) FROM transport.shipment_event_outbox WHERE aggregate_id=$1 AND event_type='shipment.execution_plan.created'`, activationResult.ExecutionID) != 1 {
+		t.Fatal("activation-first duplicated execution outbox")
+	}
+	restoreHook()
+	t.Log("RT02_ACTIVATION_FIRST=PASS")
 
 	parallelShip := seedRelatedShipment(t, env.ctx, admin, live.shipment, live.sourceCarrier, "parallel")
 	parallel := oneSubjectCommand(live.operating, live.operatingCarrier, parallelShip, &driver, &vehicle)
@@ -743,6 +879,145 @@ func assertPinned(t *testing.T, ctx context.Context, pool *pgxpool.Pool, result 
 func triggerCount(t *testing.T, pool *pgxpool.Pool) int {
 	t.Helper()
 	return scalar(t, context.Background(), pool, `SELECT count(*) FROM pg_trigger WHERE tgname='trg_new_activation_authorization' AND NOT tgisinternal`)
+}
+
+func activationTriggerOnRevisions(t *testing.T, ctx context.Context, pool *pgxpool.Pool) int {
+	t.Helper()
+	return scalar(t, ctx, pool, `
+		SELECT count(*)
+		FROM pg_catalog.pg_trigger
+		WHERE tgname = 'trg_new_activation_authorization'
+		  AND tgrelid = 'transport.transport_execution_revisions'::regclass
+		  AND NOT tgisinternal
+	`)
+}
+
+func assertActivationTriggerIdentity(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	t.Helper()
+	var ready bool
+	err := pool.QueryRow(ctx, `
+		SELECT count(*) = 1
+		FROM pg_catalog.pg_trigger AS trg
+		JOIN pg_catalog.pg_proc AS fn ON fn.oid = trg.tgfoid
+		JOIN pg_catalog.pg_namespace AS fn_ns ON fn_ns.oid = fn.pronamespace
+		WHERE trg.tgrelid = 'transport.transport_execution_revisions'::regclass
+		  AND trg.tgname = 'trg_new_activation_authorization'
+		  AND NOT trg.tgisinternal
+		  AND trg.tgenabled IN ('O', 'A')
+		  AND trg.tgconstraint <> 0
+		  AND trg.tgdeferrable
+		  AND trg.tginitdeferred
+		  AND fn_ns.nspname = 'transport'
+		  AND fn.proname = 'enforce_new_activation_authorization'
+		  AND fn.pronargs = 0
+	`).Scan(&ready)
+	if err != nil || !ready {
+		t.Fatalf("activation trigger identity ready=%v err=%v", ready, err)
+	}
+}
+
+func assertNoActivationWrite(t *testing.T, ctx context.Context, pool *pgxpool.Pool, repo *repository.TransportExecutionRepository, cmd domain.ProjectionCommand, label string) {
+	t.Helper()
+	execBefore := executionCount(t, ctx, pool)
+	authBefore := scalar(t, ctx, pool, `SELECT count(*) FROM company.carrier_relationship_activation_authorizations`)
+	pinBefore := scalar(t, ctx, pool, `SELECT count(*) FROM transport.transport_execution_carrier_relationship_pins`)
+	if _, err := repo.Project(ctx, cmd); appReason(err) != domain.ReasonRelationshipStoreUnavailable {
+		t.Fatalf("%s: %v", label, err)
+	}
+	if executionCount(t, ctx, pool) != execBefore ||
+		scalar(t, ctx, pool, `SELECT count(*) FROM company.carrier_relationship_activation_authorizations`) != authBefore ||
+		scalar(t, ctx, pool, `SELECT count(*) FROM transport.transport_execution_carrier_relationship_pins`) != pinBefore ||
+		activationCount(t, ctx, pool, cmd.ActivationID) != 0 ||
+		executionCountForActivation(t, ctx, pool, cmd.ActivationID) != 0 {
+		t.Fatalf("%s left an execution, authorization, or pin", label)
+	}
+}
+
+func waitForAdvisoryLock(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tenantID, sourceID, operatingID uuid.UUID, minGranted, minWaiting int, finished <-chan struct{}) {
+	t.Helper()
+	deadline := time.NewTimer(30 * time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(25 * time.Millisecond)
+	defer ticker.Stop()
+	var granted, waiting int
+	for {
+		select {
+		case <-finished:
+			t.Fatalf("project finished before advisory barrier granted=%d waiting=%d", granted, waiting)
+		default:
+		}
+		if err := pool.QueryRow(ctx, `
+			WITH key AS (
+				SELECT pg_catalog.hashtextextended(
+					'relationship:' || $1::text || ':' || $2::text || ':' || $3::text, 0
+				) AS k
+			)
+			SELECT
+				count(*) FILTER (WHERE l.granted),
+				count(*) FILTER (WHERE NOT l.granted)
+			FROM key
+			JOIN pg_catalog.pg_locks AS l
+			  ON l.locktype = 'advisory'
+			 AND l.objsubid = 1
+			 AND l.classid = ((key.k >> 32) & 4294967295)::oid
+			 AND l.objid = (key.k & 4294967295)::oid
+		`, tenantID, sourceID, operatingID).Scan(&granted, &waiting); err != nil {
+			t.Fatal(err)
+		}
+		if granted >= minGranted && waiting >= minWaiting {
+			return
+		}
+		select {
+		case <-finished:
+			t.Fatalf("project finished before advisory barrier granted=%d waiting=%d", granted, waiting)
+		case <-deadline.C:
+			t.Fatalf("advisory barrier timed out granted=%d waiting=%d want >=%d/>=%d", granted, waiting, minGranted, minWaiting)
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+func revokeRelationshipAfterLock(ctx context.Context, pool *pgxpool.Pool, fx relationshipFixture) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `SELECT pg_catalog.set_config('lock_timeout', '30000', true)`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+			'relationship:' || $1::text || ':' || $2::text || ':' || $3::text, 0))
+	`, fx.shipment.tenantID, fx.sourceCarrier, fx.operating); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `SELECT relationship_id FROM company.carrier_relationship_heads WHERE relationship_id=$1 FOR UPDATE`, fx.relationship); err != nil {
+		return err
+	}
+	revokedVersion := uuid.New()
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO company.carrier_relationship_versions (
+			relationship_version_id, relationship_id, relationship_version, status,
+			supersedes_relationship_version_id, source_relationship_request_id, created_by, revoke_reason
+		) VALUES ($1,$2,2,'REVOKED',$3,$4,$5,'activation-first')
+	`, revokedVersion, fx.relationship, fx.version, fx.request, fx.user); err != nil {
+		return err
+	}
+	tag, err := tx.Exec(ctx, `
+		UPDATE company.carrier_relationship_heads
+		SET status='REVOKED', current_version=2, current_version_id=$2
+		WHERE relationship_id=$1 AND status='ACTIVE'
+	`, fx.relationship, revokedVersion)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return fmt.Errorf("relationship head was not revoked")
+	}
+	return tx.Commit(ctx)
 }
 
 func executionCount(t *testing.T, ctx context.Context, pool *pgxpool.Pool) int {
