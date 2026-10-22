@@ -166,6 +166,9 @@ func createSuccessorRevisionInTx(ctx context.Context, tx pgx.Tx, cmd domain.Succ
 		currentRevision, domain.RevisionStatusActive, digest, now); err != nil {
 		return domain.SuccessorRevisionResult{}, mapDBError(err)
 	}
+	if err := propagateExecutionRelationshipPins(ctx, tx, nextRevision); err != nil {
+		return domain.SuccessorRevisionResult{}, err
+	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE transport.transport_executions
 		SET current_revision_id = $2, updated_at = $3

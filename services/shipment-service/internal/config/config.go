@@ -22,6 +22,7 @@ type Config struct {
 	CompanyRelationshipBaseURL           string
 	ShipmentRelationshipServiceToken     string
 	CompanyRelationshipRevalidationToken string
+	RelationshipActivationEnabled        bool
 	Notification                         NotificationConfig
 	FCM                                  FCMConfig
 }
@@ -93,6 +94,7 @@ func Load() (Config, error) {
 		CompanyRelationshipBaseURL:           strings.TrimRight(strings.TrimSpace(os.Getenv("COMPANY_RELATIONSHIP_BASE_URL")), "/"),
 		ShipmentRelationshipServiceToken:     strings.TrimSpace(os.Getenv("SHIPMENT_RELATIONSHIP_SERVICE_TOKEN")),
 		CompanyRelationshipRevalidationToken: strings.TrimSpace(os.Getenv("COMPANY_RELATIONSHIP_REVALIDATION_TOKEN")),
+		RelationshipActivationEnabled:        parseBool(getEnv("TMS_RELATIONSHIP_ACTIVATION_ENABLED", "false")),
 		Notification:                         notification,
 		FCM: FCMConfig{
 			ProjectID:   strings.TrimSpace(os.Getenv("FCM_PROJECT_ID")),

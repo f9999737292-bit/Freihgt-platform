@@ -15,7 +15,8 @@ import (
 )
 
 type TransportExecutionRepository struct {
-	pool *pgxpool.Pool
+	pool                   *pgxpool.Pool
+	relationshipActivation bool
 }
 
 func NewTransportExecutionRepository(pool *pgxpool.Pool) *TransportExecutionRepository {
@@ -59,6 +60,22 @@ func (r *TransportExecutionRepository) Project(ctx context.Context, cmd domain.P
 	if err := verifyMaterializedRows(ctx, tx, subjects); err != nil {
 		return domain.ProjectionResult{}, err
 	}
+	var authorizationID uuid.UUID
+	if r.relationshipActivation {
+		replay, authID, authErr := r.authorizeRelationshipActivation(ctx, tx, cmd, digest, subjects)
+		if authErr != nil {
+			return domain.ProjectionResult{}, authErr
+		}
+		if replay != nil {
+			return *replay, nil
+		}
+		authorizationID = authID
+		if activationAuthorizedHook != nil {
+			if err := activationAuthorizedHook(ctx); err != nil {
+				return domain.ProjectionResult{}, err
+			}
+		}
+	}
 
 	now := time.Now().UTC()
 	executionID := uuid.New()
@@ -100,6 +117,11 @@ func (r *TransportExecutionRepository) Project(ctx context.Context, cmd domain.P
 	}
 	if err := emitInitialCurrentStop(ctx, tx, cmd.OperatingTenantID, executionID, revisionID, now); err != nil {
 		return domain.ProjectionResult{}, err
+	}
+	if r.relationshipActivation {
+		if err := recordActivationEvidence(ctx, tx, revisionID, authorizationID, cmd); err != nil {
+			return domain.ProjectionResult{}, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		if constraintName(err) == "transport_execution_revisions_activation_uq" {

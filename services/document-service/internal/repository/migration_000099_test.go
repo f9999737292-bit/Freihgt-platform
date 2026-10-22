@@ -45,7 +45,7 @@ func TestMigration000099Contract(t *testing.T) {
 	if !strings.Contains(down, "DROP TABLE IF EXISTS documents.pod_delivery_action_evidence") {
 		t.Fatal("down migration does not drop the evidence table")
 	}
-	assertMigrationChain(t, dir, 103)
+	assertMigrationChain(t, dir, 104)
 }
 
 func assertMigrationChain(t *testing.T, dir string, head int) {
