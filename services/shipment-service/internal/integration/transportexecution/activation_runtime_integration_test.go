@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -404,6 +405,49 @@ func startActivationPostgres(t *testing.T) (*execEnv, *pgxpool.Pool) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	t.Cleanup(cancel)
+	adminURL := ""
+	if os.Getenv("CI") == "true" {
+		adminURL = strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
+		if adminURL == "" {
+			t.Fatal("TEST_DATABASE_URL is required in CI")
+		}
+	} else {
+		adminURL = startEmbeddedActivationPostgres(t)
+	}
+	cfg, err := pgxpool.ParseConfig(adminURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbName := "act_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
+	testURL, cleanup := createDatabase(t, ctx, adminURL, dbName)
+	t.Cleanup(func() { cleanup() })
+	bootstrap, err := pgxpool.New(ctx, testURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(bootstrap.Close)
+	if _, err := bootstrap.Exec(ctx, `CREATE ROLE freight LOGIN SUPERUSER PASSWORD 'freight'`); err != nil {
+		t.Fatal(err)
+	}
+	freightURL := fmt.Sprintf("postgres://freight:freight@%s:%d/%s?sslmode=disable", cfg.ConnConfig.Host, cfg.ConnConfig.Port, dbName)
+	pool, err := pgxpool.New(ctx, freightURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	migrations, err := locateMigrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := &execEnv{ctx: ctx, pool: pool, migrations: migrations}
+	if err := applySelectedMigrations(ctx, pool, migrations); err != nil {
+		t.Fatal(err)
+	}
+	return env, bootstrap
+}
+
+func startEmbeddedActivationPostgres(t *testing.T) string {
+	t.Helper()
 	port := freePort(t)
 	runtimePath := filepath.Join(t.TempDir(), "pg-runtime")
 	dataPath := filepath.Join(t.TempDir(), "pg-data")
@@ -419,33 +463,7 @@ func startActivationPostgres(t *testing.T) (*execEnv, *pgxpool.Pool) {
 		t.Fatalf("start embedded postgres: %v", err)
 	}
 	t.Cleanup(func() { _ = pg.Stop() })
-	adminURL := fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/postgres?sslmode=disable", port)
-	dbName := "act_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
-	testURL, cleanup := createDatabase(t, ctx, adminURL, dbName)
-	t.Cleanup(func() { cleanup() })
-	bootstrap, err := pgxpool.New(ctx, testURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(bootstrap.Close)
-	if _, err := bootstrap.Exec(ctx, `CREATE ROLE freight LOGIN SUPERUSER PASSWORD 'freight'`); err != nil {
-		t.Fatal(err)
-	}
-	freightURL := fmt.Sprintf("postgres://freight:freight@127.0.0.1:%d/%s?sslmode=disable", port, dbName)
-	pool, err := pgxpool.New(ctx, freightURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
-	migrations, err := locateMigrations()
-	if err != nil {
-		t.Fatal(err)
-	}
-	env := &execEnv{ctx: ctx, pool: pool, migrations: migrations}
-	if err := applySelectedMigrations(ctx, pool, migrations); err != nil {
-		t.Fatal(err)
-	}
-	return env, bootstrap
+	return fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/postgres?sslmode=disable", port)
 }
 
 func installActivationGate(t *testing.T, env *execEnv, admin *pgxpool.Pool) *pgxpool.Pool {
