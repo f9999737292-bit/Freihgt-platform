@@ -312,6 +312,7 @@ func TestPostgresSecurityFoundation(t *testing.T) {
 	t.Log("TAP-31=PASS")
 	proveSameTransactionGate(t, pool, roleSvc, cat, fix, staleActivation, pinCarrier)
 	proveSameTransactionIdentity(t, pool, roleSvc, cat, fix, pinCarrier)
+	proveSupersedesAndCarrier(t, pool, fix, pinCarrier, legacyRev, pinRev)
 	proveCommittedRevisionIdentity(t, pool, legacyRev, pinRev)
 	t.Log("SEC-02D=PASS")
 
@@ -345,6 +346,7 @@ func TestPostgresSecurityFoundation(t *testing.T) {
 	t.Log("TAP-33=PASS")
 	t.Log("SEC-02B=PASS")
 	t.Log("SEC-05D=PASS")
+	t.Log("SEC-06D=PASS")
 
 	rejectClearedSupersedes(t, pool, legacyRev, marker)
 	t.Log("TAP-21=PASS")
@@ -409,6 +411,7 @@ func TestPostgresSecurityFoundation(t *testing.T) {
 	t.Log("SEC-03B=PASS")
 	t.Log("SEC-03C=PASS")
 	t.Log("SEC-05E=PASS")
+	t.Log("SEC-06E=PASS")
 	crossCarrier := insertCarrier(t, pool, fix.TenantA)
 	acceptCarrier(t, roleSvc, cat, fix, crossCarrier, "sec-03a")
 	proveCrossExecutionSuccessorDenied(t, pool, fix.TenantB, fix.OperatingB, fix.TenantA, crossCarrier)
@@ -1152,4 +1155,226 @@ func proveSameTransactionIdentity(t *testing.T, pool *pgxpool.Pool, svc *service
 		t.Fatal("denied identity rewrites changed committed authorization, revision, or pin counts")
 	}
 	t.Log("SEC-05F=PASS")
+}
+
+func securityEvidenceCounts(t *testing.T, pool *pgxpool.Pool) (int, int, int) {
+	t.Helper()
+	return scalarInt(t, pool, `SELECT count(*) FROM company.carrier_relationship_activation_authorizations`),
+		scalarInt(t, pool, `SELECT count(*) FROM company.carrier_relationship_audit WHERE action = 'ACTIVATION_AUTHORIZED'`),
+		scalarInt(t, pool, `SELECT count(*) FROM company.carrier_relationship_outbox WHERE event_type = 'carrier_relationship.activation_authorized'`)
+}
+
+func assertRolledBackActivation(t *testing.T, pool *pgxpool.Pool, execID, revID uuid.UUID, auth, audit, outbox int) {
+	t.Helper()
+	if scalarInt(t, pool, `SELECT count(*) FROM transport.transport_executions WHERE id = $1`, execID) != 0 ||
+		scalarInt(t, pool, `SELECT count(*) FROM transport.transport_execution_revisions WHERE id = $1`, revID) != 0 ||
+		scalarInt(t, pool, `SELECT count(*) FROM transport.transport_execution_carrier_relationship_pins WHERE execution_revision_id = $1`, revID) != 0 {
+		t.Fatal("rolled back activation left an execution, revision, or pin")
+	}
+	gotAuth, gotAudit, gotOutbox := securityEvidenceCounts(t, pool)
+	if gotAuth != auth || gotAudit != audit || gotOutbox != outbox {
+		t.Fatalf("rolled back activation left evidence auth=%d/%d audit=%d/%d outbox=%d/%d", gotAuth, auth, gotAudit, audit, gotOutbox, outbox)
+	}
+}
+
+func proveSupersedesAndCarrier(t *testing.T, pool *pgxpool.Pool, fix fixture, carrier, predecessor, otherPredecessor uuid.UUID) {
+	t.Helper()
+	otherCarrier := insertCarrier(t, pool, fix.TenantB)
+
+	auth, audit, outbox := securityEvidenceCounts(t, pool)
+	ctx, tx := beginRole(t, pool, "shipment_runtime")
+	activation := uuid.New()
+	execID, revID := uuid.New(), uuid.New()
+	outcome, _, err := callAuthorizer(ctx, tx, activation, fix.TenantB, fix.OperatingB, secDigest, secFinger, fix.TenantA, uuid.New(), carrier)
+	if err != nil || outcome != "AUTHORIZED" {
+		t.Fatalf("sec06a authorizer outcome=%s err=%v", outcome, err)
+	}
+	insertExecutionTx(t, tx, execID, fix.TenantB, fix.OperatingB)
+	insertRevisionTx(t, tx, execID, revID, fix.TenantB, activation, nil, secDigest)
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_executions SET current_revision_id = $2 WHERE id = $1`, execID, revID); err != nil {
+		t.Fatal(err)
+	}
+	var attached int
+	if err := tx.QueryRow(ctx, `SELECT transport.attach_activation_pins($1)`, revID).Scan(&attached); err != nil || attached != 1 {
+		t.Fatalf("sec06a attach=%d err=%v", attached, err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_execution_revisions SET supersedes_revision_id = $2 WHERE id = $1`, revID, predecessor); err == nil || !strings.Contains(err.Error(), "activation revision supersedes_revision_id is immutable") {
+		t.Fatalf("null to uuid err=%v", err)
+	}
+	_ = tx.Rollback(ctx)
+	assertRolledBackActivation(t, pool, execID, revID, auth, audit, outbox)
+	t.Log("SEC-06A=PASS")
+
+	ownerExec, ownerRev := uuid.New(), uuid.New()
+	ctx, tx = beginRole(t, pool, "shipment_runtime")
+	ownerActivation := uuid.New()
+	outcome, _, err = callAuthorizer(ctx, tx, ownerActivation, fix.TenantB, fix.OperatingB, secDigest, secFinger, fix.TenantA, uuid.New(), carrier)
+	if err != nil || outcome != "AUTHORIZED" {
+		t.Fatalf("sec06b authorizer outcome=%s err=%v", outcome, err)
+	}
+	insertExecutionTx(t, tx, ownerExec, fix.TenantB, fix.OperatingB)
+	insertRevisionTx(t, tx, ownerExec, ownerRev, fix.TenantB, ownerActivation, nil, secDigest)
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_executions SET current_revision_id = $2 WHERE id = $1`, ownerExec, ownerRev); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.QueryRow(ctx, `SELECT transport.attach_activation_pins($1)`, ownerRev).Scan(&attached); err != nil || attached != 1 {
+		t.Fatalf("sec06b pins=%d err=%v", attached, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("sec06b pinned commit: %v", err)
+	}
+	ownerPins := scalarInt(t, pool, `SELECT count(*) FROM transport.transport_execution_carrier_relationship_pins WHERE execution_revision_id = $1`, ownerRev)
+	auth, audit, outbox = securityEvidenceCounts(t, pool)
+	ctx, tx = beginRole(t, pool, "shipment_runtime")
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_execution_revisions SET status = 'SUPERSEDED', updated_at = clock_timestamp() WHERE id = $1`, ownerRev); err != nil {
+		t.Fatal(err)
+	}
+	successor := uuid.New()
+	insertRevisionTx(t, tx, ownerExec, successor, fix.TenantB, uuid.New(), &ownerRev, secDigestB)
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_executions SET current_revision_id = $2, updated_at = clock_timestamp() WHERE id = $1`, ownerExec, successor); err != nil {
+		t.Fatal(err)
+	}
+	var copied int
+	if err := tx.QueryRow(ctx, `SELECT transport.propagate_execution_relationship_pins($1)`, successor).Scan(&copied); err != nil || copied != 1 {
+		t.Fatalf("sec06b propagate=%d err=%v", copied, err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_executions SET carrier_company_id = $2 WHERE id = $1`, ownerExec, otherCarrier); err != nil {
+		t.Fatalf("sec06b carrier update did not reach commit: %v", err)
+	}
+	if err := tx.Commit(ctx); err == nil || !strings.Contains(err.Error(), "activation pin carrier does not match the execution carrier") {
+		t.Fatalf("sec06b commit err=%v", err)
+	}
+	_ = tx.Rollback(ctx)
+	var ownerStatus string
+	var ownerCarrier uuid.UUID
+	if err := pool.QueryRow(context.Background(), `SELECT status FROM transport.transport_execution_revisions WHERE id = $1`, ownerRev).Scan(&ownerStatus); err != nil || ownerStatus != "ACTIVE" {
+		t.Fatalf("sec06b owner status=%s err=%v", ownerStatus, err)
+	}
+	if err := pool.QueryRow(context.Background(), `SELECT carrier_company_id FROM transport.transport_executions WHERE id = $1`, ownerExec).Scan(&ownerCarrier); err != nil || ownerCarrier != fix.OperatingB {
+		t.Fatalf("sec06b carrier=%s err=%v", ownerCarrier, err)
+	}
+	if scalarInt(t, pool, `SELECT count(*) FROM transport.transport_execution_revisions WHERE id = $1`, successor) != 0 ||
+		scalarInt(t, pool, `SELECT count(*) FROM transport.transport_execution_carrier_relationship_pins WHERE execution_revision_id = $1`, successor) != 0 ||
+		scalarInt(t, pool, `SELECT count(*) FROM transport.transport_execution_carrier_relationship_pins WHERE execution_revision_id = $1`, ownerRev) != ownerPins {
+		t.Fatal("sec06b successor remained or changed the predecessor pins")
+	}
+	gotAuth, gotAudit, gotOutbox := securityEvidenceCounts(t, pool)
+	if gotAuth != auth || gotAudit != audit || gotOutbox != outbox {
+		t.Fatal("sec06b left authorization evidence")
+	}
+	t.Log("SEC-06B=PASS")
+
+	auth, audit, outbox = securityEvidenceCounts(t, pool)
+	ctx, tx = beginRole(t, pool, "shipment_runtime")
+	activation = uuid.New()
+	execID, revID = uuid.New(), uuid.New()
+	outcome, authID, err := callAuthorizer(ctx, tx, activation, fix.TenantB, fix.OperatingB, secDigest, secFinger, fix.TenantA, uuid.New(), carrier)
+	if err != nil || outcome != "AUTHORIZED" {
+		t.Fatalf("sec06c authorizer outcome=%s err=%v", outcome, err)
+	}
+	insertExecutionTx(t, tx, execID, fix.TenantB, fix.OperatingB)
+	insertRevisionTx(t, tx, execID, revID, fix.TenantB, activation, nil, secDigest)
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_executions SET current_revision_id = $2 WHERE id = $1`, execID, revID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.QueryRow(ctx, `SELECT transport.attach_activation_pins($1)`, revID).Scan(&attached); err != nil || attached != 1 {
+		t.Fatalf("sec06c attach=%d err=%v", attached, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("sec06c commit: %v", err)
+	}
+	var digestMatch, carrierMatch bool
+	var supersedes *uuid.UUID
+	if err := pool.QueryRow(context.Background(), `
+		SELECT r.contract_sha256 = a.contract_sha256,
+		       e.carrier_company_id = a.operating_carrier_company_id,
+		       r.supersedes_revision_id
+		FROM transport.transport_execution_revisions r
+		JOIN transport.transport_executions e ON e.id = r.execution_id AND e.operating_tenant_id = r.operating_tenant_id
+		JOIN company.carrier_relationship_activation_authorizations a ON a.id = $2
+		JOIN transport.transport_execution_carrier_relationship_pins p ON p.execution_revision_id = r.id
+		WHERE r.id = $1 AND p.operating_carrier_company_id = e.carrier_company_id
+	`, revID, authID).Scan(&digestMatch, &carrierMatch, &supersedes); err != nil || !digestMatch || !carrierMatch || supersedes != nil {
+		t.Fatalf("sec06c digest=%v carrier=%v supersedes=%v err=%v", digestMatch, carrierMatch, supersedes, err)
+	}
+	if _, err := pool.Exec(context.Background(), `UPDATE transport.transport_execution_revisions SET supersedes_revision_id = $2 WHERE id = $1`, revID, predecessor); err == nil || !strings.Contains(err.Error(), "committed revision identity is immutable") {
+		t.Fatalf("committed supersedes rewrite err=%v", err)
+	}
+	t.Log("SEC-06C=PASS")
+
+	auth, audit, outbox = securityEvidenceCounts(t, pool)
+	ctx, tx = beginRole(t, pool, "shipment_runtime")
+	activation = uuid.New()
+	execID, revID = uuid.New(), uuid.New()
+	outcome, _, err = callAuthorizer(ctx, tx, activation, fix.TenantB, fix.OperatingB, secDigestB, secFingerB, fix.TenantA, uuid.New(), carrier)
+	if err != nil || outcome != "AUTHORIZED" {
+		t.Fatalf("sec06f authorizer outcome=%s err=%v", outcome, err)
+	}
+	insertExecutionTx(t, tx, execID, fix.TenantB, fix.OperatingB)
+	insertRevisionTx(t, tx, execID, revID, fix.TenantB, activation, nil, secDigestB)
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_executions SET current_revision_id = $2 WHERE id = $1`, execID, revID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.QueryRow(ctx, `SELECT transport.attach_activation_pins($1)`, revID).Scan(&attached); err != nil || attached != 1 {
+		t.Fatalf("sec06f attach=%d err=%v", attached, err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_execution_revisions SET status = 'ACTIVE', updated_at = clock_timestamp() WHERE id = $1`, revID); err != nil {
+		t.Fatalf("sec06f status update: %v", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_execution_revisions SET supersedes_revision_id = $2 WHERE id = $1`, revID, predecessor); err == nil || !strings.Contains(err.Error(), "activation revision supersedes_revision_id is immutable") {
+		t.Fatalf("status then supersedes err=%v", err)
+	}
+	_ = tx.Rollback(ctx)
+	assertRolledBackActivation(t, pool, execID, revID, auth, audit, outbox)
+
+	ctx, tx = beginRole(t, pool, "shipment_runtime")
+	execID, revID = uuid.New(), uuid.New()
+	insertExecutionTx(t, tx, execID, fix.TenantB, fix.OperatingB)
+	insertRevisionTx(t, tx, execID, revID, fix.TenantB, uuid.New(), &predecessor, secDigest)
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_executions SET current_revision_id = $2 WHERE id = $1`, execID, revID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_execution_revisions SET supersedes_revision_id = $2 WHERE id = $1`, revID, predecessor); err != nil {
+		t.Fatalf("same supersedes update: %v", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_execution_revisions SET supersedes_revision_id = $2 WHERE id = $1`, revID, otherPredecessor); err == nil || !strings.Contains(err.Error(), "activation revision supersedes_revision_id is immutable") {
+		t.Fatalf("uuid retarget err=%v", err)
+	}
+	_ = tx.Rollback(ctx)
+	assertRolledBackActivation(t, pool, execID, revID, auth, audit, outbox)
+
+	ctx, tx = beginRole(t, pool, "shipment_runtime")
+	execID, revID = uuid.New(), uuid.New()
+	insertExecutionTx(t, tx, execID, fix.TenantB, fix.OperatingB)
+	insertRevisionTx(t, tx, execID, revID, fix.TenantB, uuid.New(), &predecessor, secDigest)
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_executions SET current_revision_id = $2 WHERE id = $1`, execID, revID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_execution_revisions SET supersedes_revision_id = NULL WHERE id = $1`, revID); err != nil {
+		t.Fatalf("uuid to null: %v", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_execution_revisions SET supersedes_revision_id = $2 WHERE id = $1`, revID, otherPredecessor); err == nil || !strings.Contains(err.Error(), "activation revision supersedes_revision_id is immutable") {
+		t.Fatalf("null after clear err=%v", err)
+	}
+	_ = tx.Rollback(ctx)
+	assertRolledBackActivation(t, pool, execID, revID, auth, audit, outbox)
+	t.Log("SEC-06F=PASS")
+
+	auth, audit, outbox = securityEvidenceCounts(t, pool)
+	ctx, tx = beginRole(t, pool, "shipment_runtime")
+	execID, revID = uuid.New(), uuid.New()
+	insertExecutionTx(t, tx, execID, fix.TenantB, fix.OperatingB)
+	insertRevisionTx(t, tx, execID, revID, fix.TenantB, uuid.New(), &predecessor, secDigest)
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_executions SET current_revision_id = $2 WHERE id = $1`, execID, revID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE transport.transport_execution_revisions SET supersedes_revision_id = NULL, updated_at = clock_timestamp() WHERE id = $1`, revID); err != nil {
+		t.Fatalf("sec06g clear: %v", err)
+	}
+	if err := tx.Commit(ctx); err == nil || !strings.Contains(err.Error(), "new activation revision has no authorization header") {
+		t.Fatalf("sec06g commit err=%v", err)
+	}
+	_ = tx.Rollback(ctx)
+	assertRolledBackActivation(t, pool, execID, revID, auth, audit, outbox)
+	t.Log("SEC-06G=PASS")
 }

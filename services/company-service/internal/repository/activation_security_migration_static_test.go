@@ -52,8 +52,8 @@ func TestActivationSecurityMigrationKeepsEnforcementGated(t *testing.T) {
 		t.Fatal("down cannot distinguish a role created by this migration")
 	}
 	rewrite := functionBody(t, up, "CREATE FUNCTION transport.reject_revision_fingerprint_rewrite")
-	if !strings.Contains(rewrite, "activation revision identity is immutable") || !strings.Contains(rewrite, "committed revision identity is immutable") {
-		t.Fatal("revision execution and contract stay writable inside the inserting transaction")
+	if !strings.Contains(rewrite, "activation revision identity is immutable") || !strings.Contains(rewrite, "committed revision identity is immutable") || !strings.Contains(rewrite, "activation revision supersedes_revision_id is immutable") {
+		t.Fatal("revision execution, contract, or supersedes stay writable inside the inserting transaction")
 	}
 	enforce := functionBody(t, up, "CREATE FUNCTION transport.enforce_new_activation_authorization")
 	for _, phrase := range []string{
@@ -62,6 +62,7 @@ func TestActivationSecurityMigrationKeepsEnforcementGated(t *testing.T) {
 		"activation revision contract does not match the authorization header",
 		"activation revision execution does not match the authorization carrier",
 		"activation pin set does not match the authorization header",
+		"activation pin carrier does not match the execution carrier",
 	} {
 		if !strings.Contains(enforce, phrase) {
 			t.Fatalf("commit check missing %s", phrase)

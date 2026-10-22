@@ -373,6 +373,18 @@ BEGIN
             RAISE EXCEPTION 'activation revision identity is immutable'
                 USING ERRCODE = '23514';
         END IF;
+        -- NULL to a UUID, or one predecessor UUID to another, would reclassify
+        -- the row before COMMIT. Clearing a UUID back to NULL stays possible;
+        -- that row then has to pass the initial-activation check at COMMIT.
+        -- After COMMIT the identity block below rejects every supersedes change.
+        IF NEW.supersedes_revision_id IS DISTINCT FROM OLD.supersedes_revision_id
+           AND NOT (
+                OLD.supersedes_revision_id IS NOT NULL
+                AND NEW.supersedes_revision_id IS NULL
+           ) THEN
+            RAISE EXCEPTION 'activation revision supersedes_revision_id is immutable'
+                USING ERRCODE = '23514';
+        END IF;
         IF NEW.pin_set_fingerprint IS DISTINCT FROM OLD.pin_set_fingerprint
            AND pg_catalog.current_user() IS DISTINCT FROM 'freight_migrations' THEN
             RAISE EXCEPTION 'revision pin_set_fingerprint is immutable'
@@ -552,6 +564,40 @@ BEGIN
             RAISE EXCEPTION 'activation pin set does not match the authorization header'
                 USING ERRCODE = '23514';
         END IF;
+    END IF;
+    -- Pins keep the carrier of the execution they were attached to, including
+    -- a successor whose supersedes_revision_id is already set. The check reads
+    -- the rows at COMMIT, so a carrier change after propagate is visible.
+    IF transport.revision_inserted_in_current_xact(current_xmin)
+       AND EXISTS (
+            SELECT 1
+              FROM transport.transport_execution_carrier_relationship_pins AS p
+             WHERE p.execution_revision_id OPERATOR(pg_catalog.=) revision_id
+       )
+       AND (
+            NOT EXISTS (
+                SELECT 1
+                  FROM transport.transport_executions AS e
+                 WHERE e.id OPERATOR(pg_catalog.=) current_execution
+                   AND e.operating_tenant_id OPERATOR(pg_catalog.=) current_operating
+            )
+            OR EXISTS (
+                SELECT 1
+                  FROM transport.transport_execution_carrier_relationship_pins AS p
+                 WHERE p.execution_revision_id OPERATOR(pg_catalog.=) revision_id
+                   AND (
+                        p.operating_tenant_id IS DISTINCT FROM current_operating
+                        OR p.operating_carrier_company_id IS DISTINCT FROM (
+                            SELECT e.carrier_company_id
+                              FROM transport.transport_executions AS e
+                             WHERE e.id OPERATOR(pg_catalog.=) current_execution
+                               AND e.operating_tenant_id OPERATOR(pg_catalog.=) current_operating
+                        )
+                   )
+            )
+       ) THEN
+        RAISE EXCEPTION 'activation pin carrier does not match the execution carrier'
+            USING ERRCODE = '23514';
     END IF;
     RETURN NULL;
 END;
