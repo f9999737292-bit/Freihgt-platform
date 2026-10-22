@@ -35,12 +35,22 @@ func TestPostgresSecurityFoundation(t *testing.T) {
 	}
 	legacyExec, legacyRev := insertExecutionRevision(t, pool, marker, marker, uuid.New(), nil, secDigest)
 	for _, present := range []bool{false, true, false, true} {
-		script := "000103_tms_relationship_pins_security_foundation_v0_1.down.sql"
-		if present {
-			script = "000103_tms_relationship_pins_security_foundation_v0_1.up.sql"
+		// 000104 grants keep shipment_runtime in pg_shdepend, so 000103 down
+		// cannot drop that role until those grants are revoked.
+		scripts := []string{
+			"000104_tms_activation_runtime_grants_v0_1.down.sql",
+			"000103_tms_relationship_pins_security_foundation_v0_1.down.sql",
 		}
-		if err := execMigration(ctx, pool, script); err != nil {
-			t.Fatalf("migration %s present=%v: %v", script, present, err)
+		if present {
+			scripts = []string{
+				"000103_tms_relationship_pins_security_foundation_v0_1.up.sql",
+				"000104_tms_activation_runtime_grants_v0_1.up.sql",
+			}
+		}
+		for _, script := range scripts {
+			if err := execMigration(ctx, pool, script); err != nil {
+				t.Fatalf("migration %s present=%v: %v", script, present, err)
+			}
 		}
 		if err := expectSecurityObjects(ctx, pool, present); err != nil {
 			t.Fatalf("security objects present=%v: %v", present, err)
