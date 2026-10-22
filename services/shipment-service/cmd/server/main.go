@@ -104,6 +104,7 @@ func main() {
 	}
 
 	executionRepo := repository.NewTransportExecutionRepository(db.Pool)
+	executionRepo.SetRelationshipActivationEnabled(cfg.RelationshipActivationEnabled)
 	driverStopSvc.BindDeliveryDisposition(executionRepo)
 	sourceRepo := repository.NewShipmentSourceAuthorityRepository(db.Pool)
 	relationshipToken := cfg.ShipmentRelationshipServiceToken

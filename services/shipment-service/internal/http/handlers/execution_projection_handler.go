@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"strings"
 
@@ -51,6 +53,16 @@ func (h *ExecutionProjectionHandler) Create(w http.ResponseWriter, r *http.Reque
 		respond.Error(w, err)
 		return
 	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
+		return
+	}
+	if domain.JSONContainsRelationshipAuthority(body) {
+		respond.Error(w, domain.ActivationRefusal(domain.ReasonRelationshipVersionNotAuthoritative))
+		return
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
 	var cmd domain.ProjectionCommand
 	if err := decodeStrictJSON(r, &cmd); err != nil {
 		respond.Error(w, err)

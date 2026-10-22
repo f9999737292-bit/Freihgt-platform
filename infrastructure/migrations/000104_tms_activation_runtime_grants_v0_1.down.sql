@@ -1,0 +1,16 @@
+REVOKE ALL ON transport.shipment_event_outbox FROM shipment_runtime;
+REVOKE ALL ON transport.driver_stop_tasks FROM shipment_runtime;
+REVOKE ALL ON transport.transport_execution_command_audit FROM shipment_runtime;
+REVOKE ALL ON transport.transport_execution_commands FROM shipment_runtime;
+REVOKE ALL ON transport.transport_execution_revision_actions FROM shipment_runtime;
+REVOKE ALL ON transport.transport_execution_actions FROM shipment_runtime;
+REVOKE ALL ON transport.transport_execution_revision_stops FROM shipment_runtime;
+REVOKE ALL ON transport.transport_execution_stops FROM shipment_runtime;
+REVOKE ALL ON transport.transport_execution_active_shipments FROM shipment_runtime;
+REVOKE ALL ON transport.transport_execution_participants FROM shipment_runtime;
+REVOKE ALL ON core.companies FROM shipment_runtime;
+REVOKE ALL ON transport.locations FROM shipment_runtime;
+REVOKE ALL ON transport.vehicles FROM shipment_runtime;
+REVOKE ALL ON transport.drivers FROM shipment_runtime;
+REVOKE ALL ON transport.cargoes FROM shipment_runtime;
+REVOKE ALL ON transport.shipments FROM shipment_runtime;
