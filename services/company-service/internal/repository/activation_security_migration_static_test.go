@@ -51,6 +51,22 @@ func TestActivationSecurityMigrationKeepsEnforcementGated(t *testing.T) {
 	if !strings.Contains(up, "tms-relationship-pins-security-foundation-v0.1") || !strings.Contains(down, "tms-relationship-pins-security-foundation-v0.1") {
 		t.Fatal("down cannot distinguish a role created by this migration")
 	}
+	rewrite := functionBody(t, up, "CREATE FUNCTION transport.reject_revision_fingerprint_rewrite")
+	if !strings.Contains(rewrite, "activation revision identity is immutable") || !strings.Contains(rewrite, "committed revision identity is immutable") {
+		t.Fatal("revision execution and contract stay writable inside the inserting transaction")
+	}
+	enforce := functionBody(t, up, "CREATE FUNCTION transport.enforce_new_activation_authorization")
+	for _, phrase := range []string{
+		"new activation revision has no authorization header",
+		"RELATIONSHIP_REVOKED",
+		"activation revision contract does not match the authorization header",
+		"activation revision execution does not match the authorization carrier",
+		"activation pin set does not match the authorization header",
+	} {
+		if !strings.Contains(enforce, phrase) {
+			t.Fatalf("commit check missing %s", phrase)
+		}
+	}
 }
 
 func functionBody(t *testing.T, sql, signature string) string {

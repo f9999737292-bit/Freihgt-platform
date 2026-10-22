@@ -363,7 +363,16 @@ SECURITY INVOKER
 SET search_path = pg_catalog
 AS $fn$
 BEGIN
+    -- execution_id and contract_sha256 are fixed at INSERT. A later UPDATE in
+    -- the same transaction is still a different execution or a different
+    -- contract, including the interval after pins are attached. status and
+    -- updated_at stay writable so CreateSuccessorRevision can supersede the row.
     IF transport.revision_inserted_in_current_xact(OLD.xmin) THEN
+        IF NEW.execution_id IS DISTINCT FROM OLD.execution_id
+           OR NEW.contract_sha256 IS DISTINCT FROM OLD.contract_sha256 THEN
+            RAISE EXCEPTION 'activation revision identity is immutable'
+                USING ERRCODE = '23514';
+        END IF;
         IF NEW.pin_set_fingerprint IS DISTINCT FROM OLD.pin_set_fingerprint
            AND pg_catalog.current_user() IS DISTINCT FROM 'freight_migrations' THEN
             RAISE EXCEPTION 'revision pin_set_fingerprint is immutable'
@@ -411,6 +420,14 @@ DECLARE
     current_source uuid;
     current_supersedes uuid;
     current_operating uuid;
+    current_execution uuid;
+    current_digest text;
+    current_xmin pg_catalog.xid;
+    header_id uuid;
+    header_digest text;
+    header_carrier uuid;
+    subject_count integer;
+    pin_count integer;
     surviving_headerless integer;
 BEGIN
     IF TG_OP OPERATOR(pg_catalog.=) 'DELETE' THEN
@@ -418,8 +435,10 @@ BEGIN
     ELSE
         revision_id := NEW.id;
     END IF;
-    SELECT r.source_activation_id, r.supersedes_revision_id, r.operating_tenant_id
-      INTO current_source, current_supersedes, current_operating
+    SELECT r.source_activation_id, r.supersedes_revision_id, r.operating_tenant_id,
+           r.execution_id, r.contract_sha256, r.xmin
+      INTO current_source, current_supersedes, current_operating,
+           current_execution, current_digest, current_xmin
       FROM transport.transport_execution_revisions AS r
      WHERE r.id OPERATOR(pg_catalog.=) revision_id;
     IF NOT FOUND THEN
@@ -447,35 +466,90 @@ BEGIN
         END IF;
         RETURN NULL;
     END IF;
+    -- Successors and headerless legacy revisions stay outside this branch.
+    -- The deferred INSERT trigger reads the row at COMMIT, so a carrier or
+    -- pin change made after attach is visible here.
     IF current_source IS NOT NULL AND current_supersedes IS NULL THEN
-        IF NOT EXISTS (
-            SELECT 1
-              FROM company.carrier_relationship_activation_authorizations AS a
-             WHERE a.operating_tenant_id OPERATOR(pg_catalog.=) current_operating
-               AND a.source_activation_id OPERATOR(pg_catalog.=) current_source
-               AND a.created_xact OPERATOR(pg_catalog.=) pg_catalog.pg_current_xact_id()
-               AND transport.revision_inserted_in_current_xact(a.xmin)
-        ) THEN
+        SELECT a.id, a.contract_sha256, a.operating_carrier_company_id
+          INTO header_id, header_digest, header_carrier
+          FROM company.carrier_relationship_activation_authorizations AS a
+         WHERE a.operating_tenant_id OPERATOR(pg_catalog.=) current_operating
+           AND a.source_activation_id OPERATOR(pg_catalog.=) current_source
+           AND a.created_xact OPERATOR(pg_catalog.=) pg_catalog.pg_current_xact_id()
+           AND transport.revision_inserted_in_current_xact(a.xmin);
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'new activation revision has no authorization header'
+                USING ERRCODE = '23514';
+        END IF;
+        IF NOT transport.revision_inserted_in_current_xact(current_xmin) THEN
             RAISE EXCEPTION 'new activation revision has no authorization header'
                 USING ERRCODE = '23514';
         END IF;
         IF EXISTS (
             SELECT 1
               FROM company.carrier_relationship_activation_subjects AS s
-              JOIN company.carrier_relationship_activation_authorizations AS a
-                ON a.id OPERATOR(pg_catalog.=) s.authorization_id
               JOIN company.carrier_relationship_heads AS h
                 ON h.relationship_id OPERATOR(pg_catalog.=) s.relationship_id
-             WHERE a.operating_tenant_id OPERATOR(pg_catalog.=) current_operating
-               AND a.source_activation_id OPERATOR(pg_catalog.=) current_source
-               AND a.created_xact OPERATOR(pg_catalog.=) pg_catalog.pg_current_xact_id()
-               AND transport.revision_inserted_in_current_xact(a.xmin)
+             WHERE s.authorization_id OPERATOR(pg_catalog.=) header_id
                AND (
                     h.status IS DISTINCT FROM 'ACTIVE'
                     OR h.current_version_id IS DISTINCT FROM s.locked_relationship_version_id
                )
         ) THEN
             RAISE EXCEPTION 'RELATIONSHIP_REVOKED'
+                USING ERRCODE = '23514';
+        END IF;
+        IF current_digest IS DISTINCT FROM header_digest THEN
+            RAISE EXCEPTION 'activation revision contract does not match the authorization header'
+                USING ERRCODE = '23514';
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1
+              FROM transport.transport_executions AS e
+             WHERE e.id OPERATOR(pg_catalog.=) current_execution
+               AND e.operating_tenant_id OPERATOR(pg_catalog.=) current_operating
+               AND e.carrier_company_id OPERATOR(pg_catalog.=) header_carrier
+        ) THEN
+            RAISE EXCEPTION 'activation revision execution does not match the authorization carrier'
+                USING ERRCODE = '23514';
+        END IF;
+        SELECT pg_catalog.count(*)
+          INTO subject_count
+          FROM company.carrier_relationship_activation_subjects AS s
+         WHERE s.authorization_id OPERATOR(pg_catalog.=) header_id;
+        SELECT pg_catalog.count(*)
+          INTO pin_count
+          FROM transport.transport_execution_carrier_relationship_pins AS p
+         WHERE p.execution_revision_id OPERATOR(pg_catalog.=) revision_id;
+        IF subject_count OPERATOR(pg_catalog.<) 1
+           OR pin_count IS DISTINCT FROM subject_count
+           OR EXISTS (
+                SELECT 1
+                  FROM company.carrier_relationship_activation_subjects AS s
+                 WHERE s.authorization_id OPERATOR(pg_catalog.=) header_id
+                   AND NOT EXISTS (
+                        SELECT 1
+                          FROM transport.transport_execution_carrier_relationship_pins AS p
+                         WHERE p.execution_revision_id OPERATOR(pg_catalog.=) revision_id
+                           AND p.authorization_subject_id OPERATOR(pg_catalog.=) s.id
+                           AND p.relationship_version_id OPERATOR(pg_catalog.=) s.locked_relationship_version_id
+                           AND p.operating_tenant_id OPERATOR(pg_catalog.=) s.operating_tenant_id
+                           AND p.operating_carrier_company_id OPERATOR(pg_catalog.=) s.operating_carrier_company_id
+                   )
+           )
+           OR EXISTS (
+                SELECT 1
+                  FROM transport.transport_execution_carrier_relationship_pins AS p
+                 WHERE p.execution_revision_id OPERATOR(pg_catalog.=) revision_id
+                   AND NOT EXISTS (
+                        SELECT 1
+                          FROM company.carrier_relationship_activation_subjects AS s
+                         WHERE s.authorization_id OPERATOR(pg_catalog.=) header_id
+                           AND s.id OPERATOR(pg_catalog.=) p.authorization_subject_id
+                           AND s.locked_relationship_version_id OPERATOR(pg_catalog.=) p.relationship_version_id
+                   )
+           ) THEN
+            RAISE EXCEPTION 'activation pin set does not match the authorization header'
                 USING ERRCODE = '23514';
         END IF;
     END IF;
