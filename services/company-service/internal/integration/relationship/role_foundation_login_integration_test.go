@@ -49,6 +49,7 @@ func TestCompanyRuntimeLoginFoundation(t *testing.T) {
 	if err != nil || updated.LegalName != renamed {
 		t.Fatalf("update company: %v %+v", err, updated)
 	}
+	expectSQLState(t, login, `UPDATE core.companies SET tenant_id = tenant_id WHERE false`, "42501")
 	if _, err := companies.GetByID(ctx, fix.TenantB, created.ID); err == nil {
 		t.Fatal("company read crossed tenants")
 	}
@@ -81,6 +82,9 @@ func TestCompanyRuntimeLoginFoundation(t *testing.T) {
 	if err != nil || member.Position == nil || *member.Position != nextPosition {
 		t.Fatalf("update membership: %v %+v", err, member)
 	}
+	expectSQLState(t, login, `UPDATE core.company_memberships SET tenant_id = tenant_id WHERE false`, "42501")
+	expectSQLState(t, login, `UPDATE core.company_memberships SET company_id = company_id WHERE false`, "42501")
+	expectSQLState(t, login, `UPDATE core.company_memberships SET user_id = user_id WHERE false`, "42501")
 	var roleID uuid.UUID
 	if err := login.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'SHIPPER_ADMIN' AND deleted_at IS NULL`).Scan(&roleID); err != nil {
 		t.Fatal(err)
@@ -237,16 +241,49 @@ func quoteIdent(value string) string {
 
 func assertDedicatedSession(t *testing.T, pool *pgxpool.Pool, loginName string) {
 	t.Helper()
-	var current string
-	var super, bypass bool
-	if err := pool.QueryRow(context.Background(), `
-		SELECT current_user, rolsuper, rolbypassrls
-		FROM pg_roles WHERE rolname = current_user
-	`).Scan(&current, &super, &bypass); err != nil {
+	conn, err := pool.Acquire(context.Background())
+	if err != nil {
 		t.Fatal(err)
 	}
-	if current != loginName || super || bypass {
-		t.Fatalf("session current=%s super=%v bypass=%v", current, super, bypass)
+	defer conn.Release()
+	var current, sessionUser, memberships string
+	var super, bypass, freightMember, privilegedMember bool
+	if err := conn.QueryRow(context.Background(), `
+		SELECT current_user,
+		       session_user,
+		       rolsuper,
+		       rolbypassrls,
+		       CASE
+		           WHEN EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'freight')
+		           THEN pg_has_role(current_user, 'freight', 'member')
+		           ELSE false
+		       END,
+		       EXISTS (
+		           SELECT 1
+		           FROM pg_roles granted
+		           WHERE granted.rolname <> current_user
+		             AND pg_has_role(current_user, granted.oid, 'member')
+		             AND (
+		                 granted.rolname IN ('freight', 'freight_migrations')
+		                 OR granted.rolsuper
+		                 OR granted.rolbypassrls
+		             )
+		       ),
+		       COALESCE((
+		           SELECT string_agg(granted.rolname, ',' ORDER BY granted.rolname)
+		           FROM pg_roles granted
+		           WHERE granted.rolname <> current_user
+		             AND pg_has_role(current_user, granted.oid, 'member')
+		       ), '')
+		FROM pg_roles
+		WHERE rolname = current_user
+	`).Scan(&current, &sessionUser, &super, &bypass, &freightMember, &privilegedMember, &memberships); err != nil {
+		t.Fatal(err)
+	}
+	runtimeName := strings.TrimSuffix(loginName, "_login") + "_runtime"
+	if current != loginName || sessionUser != loginName || super || bypass || freightMember || privilegedMember || memberships != runtimeName {
+		t.Fatalf("session current=%s session_user=%s super=%v bypass=%v freight_member=%v privileged=%v memberships=%s",
+			current, sessionUser, super, bypass, freightMember, privilegedMember, memberships)
 	}
 }
 

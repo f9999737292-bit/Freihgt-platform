@@ -111,6 +111,12 @@ func TestShipmentRuntimeLoginFoundation(t *testing.T) {
 	if err != nil || !creator.ActiveMembership || len(creator.CompanyRoles) == 0 {
 		t.Fatalf("source creator: %v %+v", err, creator)
 	}
+	for _, column := range []string{"password_hash", "email", "phone", "mfa_enabled", "last_login_at"} {
+		expectShipmentSQLState(t, login, "SELECT "+column+" FROM core.users WHERE false", "42501")
+	}
+	if _, err := login.Exec(ctx, `SELECT id, tenant_id, status, deleted_at FROM core.users WHERE false`); err != nil {
+		t.Fatalf("creator columns: %v", err)
+	}
 
 	bidID := seedBid(t, env, graph)
 	bid, err := shipments.GetBid(ctx, bidID, graph.tenantID)
@@ -167,6 +173,19 @@ func TestShipmentRuntimeLoginFoundation(t *testing.T) {
 		WHERE n.nspname = 'rfx' AND p.proname = 'lock_award_transport_order_for_execution'
 	`).Scan(&functions); err != nil || functions != 0 {
 		t.Fatalf("award lock function count=%d err=%v", functions, err)
+	}
+	assertExecuteAwardOrderFailClosed(t, env, login, graph)
+	for _, query := range []string{
+		`UPDATE transport.driver_task SET tenant_id = tenant_id WHERE false`,
+		`UPDATE transport.driver_device SET tenant_id = tenant_id WHERE false`,
+		`UPDATE transport.driver_notification_delivery SET tenant_id = tenant_id WHERE false`,
+		`UPDATE transport.delivery_disposition_cases SET operating_tenant_id = operating_tenant_id WHERE false`,
+		`UPDATE transport.delivery_disposition_cases SET shipment_tenant_id = shipment_tenant_id WHERE false`,
+		`UPDATE transport.delivery_disposition_commands SET operating_tenant_id = operating_tenant_id WHERE false`,
+		`UPDATE transport.driver_task SET driver_id = driver_id WHERE false`,
+		`UPDATE transport.driver_task SET shipment_id = shipment_id WHERE false`,
+	} {
+		expectShipmentSQLState(t, login, query, "42501")
 	}
 
 	expectShipmentSQLState(t, login, `DELETE FROM transport.transport_execution_carrier_relationship_pins WHERE false`, "42501")
@@ -493,15 +512,48 @@ func quoteSQLIdent(value string) string {
 
 func assertShipmentSession(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	var current string
-	var super, bypass bool
-	if err := pool.QueryRow(context.Background(), `
-		SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user
-	`).Scan(&current, &super, &bypass); err != nil {
+	conn, err := pool.Acquire(context.Background())
+	if err != nil {
 		t.Fatal(err)
 	}
-	if current != "shipment_login" || super || bypass {
-		t.Fatalf("session current=%s super=%v bypass=%v", current, super, bypass)
+	defer conn.Release()
+	var current, sessionUser, memberships string
+	var super, bypass, freightMember, privilegedMember bool
+	if err := conn.QueryRow(context.Background(), `
+		SELECT current_user,
+		       session_user,
+		       rolsuper,
+		       rolbypassrls,
+		       CASE
+		           WHEN EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'freight')
+		           THEN pg_has_role(current_user, 'freight', 'member')
+		           ELSE false
+		       END,
+		       EXISTS (
+		           SELECT 1
+		           FROM pg_roles granted
+		           WHERE granted.rolname <> current_user
+		             AND pg_has_role(current_user, granted.oid, 'member')
+		             AND (
+		                 granted.rolname IN ('freight', 'freight_migrations')
+		                 OR granted.rolsuper
+		                 OR granted.rolbypassrls
+		             )
+		       ),
+		       COALESCE((
+		           SELECT string_agg(granted.rolname, ',' ORDER BY granted.rolname)
+		           FROM pg_roles granted
+		           WHERE granted.rolname <> current_user
+		             AND pg_has_role(current_user, granted.oid, 'member')
+		       ), '')
+		FROM pg_roles
+		WHERE rolname = current_user
+	`).Scan(&current, &sessionUser, &super, &bypass, &freightMember, &privilegedMember, &memberships); err != nil {
+		t.Fatal(err)
+	}
+	if current != "shipment_login" || sessionUser != "shipment_login" || super || bypass || freightMember || privilegedMember || memberships != "shipment_runtime" {
+		t.Fatalf("session current=%s session_user=%s super=%v bypass=%v freight_member=%v privileged=%v memberships=%s",
+			current, sessionUser, super, bypass, freightMember, privilegedMember, memberships)
 	}
 }
 
@@ -519,4 +571,109 @@ func sqlStateOf(err error) string {
 		return pgErr.Code
 	}
 	return ""
+}
+
+func assertExecuteAwardOrderFailClosed(t *testing.T, env *execEnv, login *pgxpool.Pool, graph shipmentGraph) {
+	t.Helper()
+	orderID := uuid.New()
+	eventID := uuid.New()
+	responseID := uuid.New()
+	awardID := uuid.New()
+	linkID := uuid.New()
+	if _, err := env.pool.Exec(env.ctx, `
+		INSERT INTO transport.transport_orders (
+			id, tenant_id, order_number, status, shipper_company_id, consignee_company_id,
+			origin_location_id, destination_location_id, cargo_id, transport_mode, source_system
+		) VALUES ($1,$2,$3,'DRAFT',$4,$5,$6,$7,$8,'ROAD','rfx_award')
+	`, orderID, graph.tenantID, "TO-"+orderID.String()[:8], graph.shipperID, graph.consigneeID, graph.originID, graph.destID, graph.cargoID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(env.ctx, `
+		INSERT INTO rfx.rfx_events (id, tenant_id, owner_company_id, title, rfx_type, category, rfx_number, status)
+		VALUES ($1,$2,$3,'Award Event','SPOT_RFQ','FREIGHT',$4,'AWARDED')
+	`, eventID, graph.tenantID, graph.shipperID, "RFX-"+eventID.String()[:8]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(env.ctx, `
+		INSERT INTO rfx.rfx_responses (id, tenant_id, rfx_event_id, participant_company_id, status)
+		VALUES ($1,$2,$3,$4,'SUBMITTED')
+	`, responseID, graph.tenantID, eventID, graph.carrierID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(env.ctx, `
+		INSERT INTO rfx.rfx_awards (id, tenant_id, rfx_event_id, rfx_response_id, carrier_company_id, awarded_at)
+		VALUES ($1,$2,$3,$4,$5,now())
+	`, awardID, graph.tenantID, eventID, responseID, graph.carrierID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(env.ctx, `
+		INSERT INTO rfx.rfx_award_transport_orders (
+			id, tenant_id, rfx_event_id, rfx_award_id, rfx_response_id, transport_order_id,
+			carrier_company_id, buyer_company_id, amount, currency_code
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,100000,'RUB')
+	`, linkID, graph.tenantID, eventID, awardID, responseID, orderID, graph.carrierID, graph.shipperID); err != nil {
+		t.Fatal(err)
+	}
+
+	before := awardSideEffects(t, env, orderID, linkID)
+	_, err := repository.NewOrderExecutionRepository(login).ExecuteAwardOrder(env.ctx, repository.ExecuteAwardOrderParams{
+		TenantID:         graph.tenantID,
+		TransportOrderID: orderID,
+		CarrierCompanyID: graph.carrierID,
+		ShipmentNumber:   "SHP-" + orderID.String()[:8],
+		Transition:       domain.NewUserTransitionContext(uuid.New(), nil, time.Now().UTC()),
+	})
+	if sqlStateOf(err) != "42501" {
+		t.Fatalf("execute award order state=%s err=%v", sqlStateOf(err), err)
+	}
+	if _, err := login.Exec(env.ctx, `SELECT 1`); err != nil {
+		t.Fatalf("login transaction was not rolled back: %v", err)
+	}
+	after := awardSideEffects(t, env, orderID, linkID)
+	if after != before || after.shipments != 0 || after.orderStatus != "DRAFT" {
+		t.Fatalf("award execution wrote data before=%+v after=%+v", before, after)
+	}
+}
+
+type awardSideEffectSnapshot struct {
+	shipments     int
+	statusHistory int
+	cargoEvidence int
+	outbox        int
+	orderStatus   string
+	linkVersion   int
+	linkCarrier   uuid.UUID
+	linkBuyer     uuid.UUID
+	linkOrder     uuid.UUID
+	linkAmount    string
+	linkCurrency  string
+}
+
+func awardSideEffects(t *testing.T, env *execEnv, orderID, linkID uuid.UUID) awardSideEffectSnapshot {
+	t.Helper()
+	var snap awardSideEffectSnapshot
+	if err := env.pool.QueryRow(env.ctx, `
+		SELECT
+			(SELECT count(*) FROM transport.shipments WHERE transport_order_id = $1),
+			(SELECT count(*) FROM transport.shipment_status_history h
+			 JOIN transport.shipments s ON s.id = h.shipment_id
+			 WHERE s.transport_order_id = $1),
+			(SELECT count(*) FROM transport.shipment_cargo_execution_evidence e
+			 JOIN transport.shipments s ON s.id = e.shipment_id
+			 WHERE s.transport_order_id = $1),
+			(SELECT count(*) FROM transport.shipment_event_outbox o
+			 WHERE o.aggregate_id IN (SELECT id FROM transport.shipments WHERE transport_order_id = $1)
+			    OR o.aggregate_id = $1),
+			(SELECT status FROM transport.transport_orders WHERE id = $1),
+			l.version, l.carrier_company_id, l.buyer_company_id, l.transport_order_id,
+			l.amount::text, l.currency_code
+		FROM rfx.rfx_award_transport_orders l
+		WHERE l.id = $2
+	`, orderID, linkID).Scan(
+		&snap.shipments, &snap.statusHistory, &snap.cargoEvidence, &snap.outbox, &snap.orderStatus,
+		&snap.linkVersion, &snap.linkCarrier, &snap.linkBuyer, &snap.linkOrder, &snap.linkAmount, &snap.linkCurrency,
+	); err != nil {
+		t.Fatal(err)
+	}
+	return snap
 }

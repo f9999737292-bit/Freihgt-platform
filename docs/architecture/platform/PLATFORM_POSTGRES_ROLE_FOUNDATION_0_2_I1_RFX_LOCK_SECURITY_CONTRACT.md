@@ -29,4 +29,6 @@ The award function would have no equivalent server-owned caller identity. Passin
 
 `shipment_runtime` may `SELECT` `rfx.rfx_award_transport_orders`. It may not `INSERT`, `UPDATE`, or `DELETE` that table. `SELECT ... FOR UPDATE` and a direct `UPDATE` both fail with `42501` for `shipment_login`. The function is absent from `pg_proc`.
 
+`ExecuteAwardOrder` under `shipment_login` is fail-closed. The integration test seeds an award link, calls the repository, and requires SQLSTATE `42501`. The order stays `DRAFT`, no shipment row is inserted, the award link is unchanged, and the transaction leaves no related history, evidence, or outbox row. `ROLL-03` stays open. This path is not ready for production cutover.
+
 `ExecuteAwardOrder` still cannot run as `shipment_login` until a later contract supplies a caller identity the session cannot choose. That contract has to name the server-owned check, the function owner, the `search_path`, the execute grant, and the regression that a foreign tenant or a foreign order locks nothing. This document is not that implementation.
