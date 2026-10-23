@@ -22,6 +22,8 @@ ENFORCEMENT_GATE_INSTALL_AUTHORIZED=NO
 FEATURE_FLAG_ENABLE_AUTHORIZED=NO
 DEPLOYMENT_AUTHORIZED=NO
 LIVE_CATALOG_READ=NO
+REMEDIATION_R1=RC-01,RC-02
+FUNCTION_CREATED=NO
 ```
 
 PR #298 and ADR-PLATFORM-004 stay the rollout reference. They are open and unmodified. This document plans how the shared login stops being required. It does not perform that change.
@@ -62,7 +64,20 @@ analytics-service and localization-service do not open PostgreSQL. api-gateway o
 
 Each inventoried server loads one URL and opens one `pgxpool`. company-service does this in `database.Connect`. shipment-service does the same. `cmd/shipment-outbox-replay`, `cmd/shipment-status-snapshot-export`, and `cmd/control-tower-status-snapshot-import` use that same URL for their service. There is no second pool that could keep activation on `shipment_runtime` while the rest of the process stays on `freight`.
 
-The compose file has no PgBouncer. Session state that the binaries do use is transaction-local: `pg_advisory_xact_lock` in company-service, transport-order-service, freight-cost-service, and control-tower, and `set_config('lock_timeout', ..., true)` in the control-tower rebuild. Those do not require a superuser. `pg_advisory_xact_lock` and `hashtextextended` are executable by a normal login.
+The compose file has no PgBouncer. Company-service, freight-cost-service, and control-tower use `pg_advisory_xact_lock`, which ends with the transaction. The control-tower rebuild also uses `set_config('lock_timeout', ..., true)`. Those calls need no extra grant on the service login.
+
+transport-order-service does not use that transaction lock. `PricedOrderRepository.WithCreateIdempotencyLock` acquires one pool connection and runs `SELECT pg_advisory_lock($1, $2)`. The lock is session-level and survives the callback's commit. `SELECT pg_advisory_unlock($1, $2)` runs on that same acquired connection, in a defer that uses `context.Background()` so a cancelled request still unlocks. The callback then uses the pool: `FindCreateIdempotency` reads through `pool.QueryRow`, and `CreatePricedOrder` starts `pool.Begin`. Those statements are not one transaction with the lock, and they may run on another connection. The acquired connection stays checked out until the callback returns and the unlock runs.
+
+Transaction-mode pooling would put the lock, the callback, and the unlock on different server connections. This path stays on the connection `Acquire` pins. Applying transaction-mode pooling to it requires a separate implementation change. This discovery does not make that change.
+
+`pg_advisory_lock` and `pg_advisory_unlock` are executable by a normal login. `transport_order_login` gets no extra privilege for them. A later password rotation keeps the same lifecycle: the connection that takes the lock is the connection that releases it, and closing that session releases the lock if the process exits first. Rotation does not return the pinned connection to the pool while the lock is held.
+
+The later acceptance test for this path, under `transport_order_login`:
+
+1. Two concurrent priced-order creates with the same idempotency key produce one order. The second caller waits until the first call unlocks.
+2. The callback's `pool.Begin` commits on a pool connection and is not the transaction that holds the lock. After `pg_advisory_unlock` on the pinned connection, a repeat with the same key returns that order. The login still has no extra privilege for the lock calls.
+
+`freight-pricing-snapshot-integration` already runs `TestCTo016ConcurrentSameKeySameRequest` as the CI bootstrap user. That test does not yet prove the pinned-connection unlock or the separate callback transaction under `transport_order_login`.
 
 No runtime statement requires superuser, `BYPASSRLS`, `CREATEDB`, `CREATEROLE`, or ownership of the protected relations. The current login has those powers because it is the image bootstrap user. Grants do not constrain it. That is the bypass `transport.assert_activation_enforcement_role_split()` rejects.
 
@@ -123,7 +138,7 @@ Schema `USAGE` is granted on `company`, `transport`, and `core` only. The cross-
 | `core.users`, `core.company_memberships`, `core.user_roles`, `core.roles` | `SELECT` for source authority | `SELECT` |
 | `documents.documents` | `SELECT` | `USAGE` on `documents`, `SELECT` |
 | `rfx.bids` | `SELECT` | `USAGE` on `rfx`, `SELECT` |
-| `rfx.rfx_award_transport_orders` | `SELECT` and `FOR UPDATE` in `lockAwardLink`. The statement changes no column | no table `UPDATE`. Add a definer lock in section 4.3 |
+| `rfx.rfx_award_transport_orders` | `SELECT` and `FOR UPDATE` in `lockAwardLink`. The statement changes no column | no table `UPDATE`. The later definer in section 4.3 locks the matching row |
 | `transport.transport_orders` | `SELECT`, `UPDATE` of `status`, `version`, `updated_at`, and `FOR UPDATE` | `SELECT` and column `UPDATE (status, version, updated_at)` |
 | `transport.transport_execution_pod_requirement_decisions` | `SELECT` | `SELECT` |
 | `transport.shipment_status_history` | `INSERT`, `SELECT` | `INSERT`, `SELECT` |
@@ -155,11 +170,25 @@ These privileges stay revoked from `shipment_runtime`:
 
 Direct DML is the grant for every shipment gap in section 4.2 except the award-link lock. Those statements are the service's own writes. Wrapping shipment create, driver assignment, or delivery disposition in a definer would let the function owner bypass the column limit on revisions.
 
-The award-link statement only locks `rfx.rfx_award_transport_orders`. A table `UPDATE` grant would also let the shipment login change award rows. The later migration adds one function, owned by `freight_migrations`, with a fixed `search_path`, named `rfx.lock_award_transport_order_for_execution(uuid, uuid)`. It locks the row and returns the columns the repository already reads. `shipment_runtime` receives `EXECUTE`. It does not receive `UPDATE` on that table. This discovery does not create the function.
+The award-link statement only locks `rfx.rfx_award_transport_orders`. A table `UPDATE` grant would also let the shipment login change award rows. The later migration adds `rfx.lock_award_transport_order_for_execution(uuid, uuid)` with this contract:
+
+- The function is `SECURITY DEFINER`.
+- Its owner is a `NOLOGIN` migration/ownership role. That role is not `shipment_runtime`, not `shipment_login`, and not `freight`. `freight_migrations` is the existing role of that kind. The later migration may create this new function with that owner.
+- `SET search_path = pg_catalog`. The function body uses schema-qualified names.
+- `shipment_runtime` receives `EXECUTE` only. `EXECUTE` is revoked from `PUBLIC`. `shipment_login` inherits that `EXECUTE` and receives no direct grant of its own.
+- `shipment_runtime` and `shipment_login` receive no `INSERT`, `UPDATE`, or `DELETE` on `rfx.rfx_award_transport_orders`. Direct `UPDATE` of that table stays forbidden.
+- The function takes the caller's tenant and transport order and locks a row only after that row matches both. A different tenant or a different order returns no row and does not lock another tenant's award link. The returned columns are the ones `lockAwardLink` already reads.
+- Creating the function does not change the owner of any existing `rfx` relation. This PR does not create the function and does not add a migration.
+
+The later acceptance test runs as `shipment_login`:
+
+1. The function call locks the row for that tenant and transport order.
+2. A direct `UPDATE` of `rfx.rfx_award_transport_orders` returns `42501`.
+3. A call with another tenant, or with a transport order that belongs to another tenant, does not return or lock the foreign row.
 
 `transport.transport_orders` is a real column update. The later grant is column-level `UPDATE (status, version, updated_at)` plus `SELECT`. The same probe confirms that `FOR UPDATE` succeeds under that column grant. A `42501` on the lock widens the grant only far enough for the lock to succeed, and the widening is reviewed again before it is applied.
 
-The four activation functions that already exist remain the only definers on the activation path. They write evidence and `pin_set_fingerprint`, which the runtime role must not write directly.
+The four activation functions that already exist remain the definers that write evidence and `pin_set_fingerprint`. The runtime role must not write those directly. The award-link function above is a later definer and is not part of this PR.
 
 `requireActivationEnforcement` reads `pg_catalog` for `current_user`. It refuses a superuser, `BYPASSRLS`, the role name `freight`, ownership of the four protected relations, or a direct `INSERT`, `UPDATE`, or `DELETE` ACL on the pin and evidence tables. The check looks at `current_user` and direct ACL entries. It does not walk role membership. The login model in section 6 is shaped around that.
 
@@ -170,7 +199,7 @@ No privilege role exists yet for these binaries. The minimum later grant is `USA
 | Service | Later NOLOGIN role | Cross-schema need |
 | --- | --- | --- |
 | identity-service | `identity_runtime` | `INSERT`, `SELECT`, `UPDATE` on `core.users`. `SELECT`, `INSERT`, `DELETE` on `core.user_roles`. `SELECT` on `core.companies`, `core.company_memberships`, `core.roles`, `core.permissions`, `core.role_permissions`, `core.tenants`. Statements are separate `pool.Exec` calls, with no explicit transaction |
-| transport-order-service | `transport_order_runtime` | `SELECT` on `core.companies`. Own writes are `transport.transport_orders`, `transport.cargoes`, `transport.cargo_items`, `transport.locations`, rate snapshots, and create idempotency |
+| transport-order-service | `transport_order_runtime` | `SELECT` on `core.companies`. Own writes are `transport.transport_orders`, `transport.cargoes`, `transport.cargo_items`, `transport.locations`, rate snapshots, and create idempotency. Priced-order create also holds the session advisory lock in section 2. That lock adds no grant |
 | rfx-service | `rfx_runtime` | `SELECT` on `core.companies`, `core.company_memberships`, `core.users`, `core.user_roles`, `core.roles`. `SELECT` on `transport.locations`. `INSERT` on `transport.cargoes` from award conversion. No `UPDATE` or `DELETE` on cargoes |
 | document-service | `document_runtime` | `SELECT` on `core.companies` and `core.users`. `SELECT` on `transport.shipments`. Writes stay in `documents`, including POD evidence and signatures |
 | billing-register-service | `billing_runtime` | `SELECT` on `core.companies`, `core.company_memberships`, `core.roles`, `core.user_roles`, `documents.documents`, `rfx.rfx_award_transport_orders`, `transport.shipments`, `transport.transport_orders`, `transport.transport_order_rate_snapshots`. Writes stay in `billing` |
@@ -236,7 +265,7 @@ The repository has no `pg_hba.conf`. This change does not add one. The policy a 
 
 Secrets live in the secret store. A document, a compose default, or a CI variable is not a production password. Connection strings are not copied into this discovery.
 
-The pool keeps using one URL. Moving a service is a change of that URL to the service login, a rolling restart, and a check that `current_user` is the new login. There is no fallback URL pointing at `freight`.
+The pool keeps using one URL. Moving a service is a change of that URL to the service login, a rolling restart, and a check that `current_user` is the new login. There is no fallback URL pointing at `freight`. The transport-order priced-create path is the exception in section 2: transaction-mode pooling does not apply to it until the implementation changes.
 
 ## 8. Credential rotation and rollback
 
@@ -247,6 +276,8 @@ PostgreSQL stores one password on a role. Overlap uses two login roles that are 
 3. Point the service secret at the next login and roll the process.
 4. Confirm `current_user`, a representative read, and a representative write.
 5. After that confirmation, set the previous login to `NOLOGIN` or revoke its `CONNECT`. Keep the privilege role.
+
+For transport-order-service, the rolling restart waits until each in-flight `WithCreateIdempotencyLock` has run `pg_advisory_unlock` on its pinned connection, or that connection's session has disconnected and PostgreSQL has released the session lock. The new login uses the same acquire, lock, callback, and unlock order. Rotation does not move a held lock onto another connection.
 
 Rollback of a bad rotation is the previous secret and a restart. The privilege role and its grants stay. The previous login is still present because step 5 has not run. A `42501` from a missing grant is a failed cutover: restore the previous secret. It is not a reason to grant the login a superuser attribute or to grant the privilege role to `freight`.
 
@@ -314,6 +345,8 @@ Existing CI connects as the workflow bootstrap user. The official image makes th
 | Finance | `freight-settlement-integration`, `freight-billing-closing-integration`, `freight-payments-core-integration`, `freight-cost-ledger-integration` | Repeat as `billing_login`, `payment_login`, and `freight_cost_login` |
 | Control Tower | The execution-tracking job covers one slice. The read-model binary's case, workflow, and projection statements have no role-coverage job | Run projection rebuild, case event insert, and critical-event insert as `control_tower_login`, including the two sequences |
 | RFx award conversion | `rfx-award-to-transport-order-integration` | Confirm `INSERT` on `transport.cargoes` as `rfx_login` and the absence of cargo `UPDATE` |
+| Award-link lock | `lockAwardLink` runs inside the shipment activation tests as the bootstrap user | Under `shipment_login`, the section 4.3 function locks the matching row, direct `UPDATE` of `rfx.rfx_award_transport_orders` returns `42501`, and a foreign tenant or foreign order does not receive that row |
+| Priced-order idempotency lock | `freight-pricing-snapshot-integration` runs `TestCTo016ConcurrentSameKeySameRequest` as the bootstrap user | Under `transport_order_login`, two concurrent creates with one idempotency key return one order, and the callback transaction is not the session that holds `pg_advisory_lock` |
 | NLO handoff | NLO persistence jobs store `EXECUTION_LINKED`. They do not assert that a failed shipment `COMMIT` leaves the route plan unlinked | `ROLL-07` staging scenario |
 | Low-code | No PostgreSQL integration job, and low-code-service is outside the `backend-go-check` matrix | Add a role-coverage test before `low_code_login` is used |
 | Identity | No dedicated PostgreSQL job | User insert and role assign or delete as `identity_login` |
