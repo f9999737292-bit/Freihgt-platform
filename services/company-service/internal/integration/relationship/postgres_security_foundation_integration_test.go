@@ -35,9 +35,10 @@ func TestPostgresSecurityFoundation(t *testing.T) {
 	}
 	legacyExec, legacyRev := insertExecutionRevision(t, pool, marker, marker, uuid.New(), nil, secDigest)
 	for _, present := range []bool{false, true, false, true} {
-		// 000104 grants keep shipment_runtime in pg_shdepend, so 000103 down
-		// cannot drop that role until those grants are revoked.
+		// Later grant migrations keep the runtime roles in pg_shdepend, so
+		// 000103 down cannot drop those roles until 000105 and 000104 are revoked.
 		scripts := []string{
+			"000105_platform_postgres_role_foundation_v0_2_i1.down.sql",
 			"000104_tms_activation_runtime_grants_v0_1.down.sql",
 			"000103_tms_relationship_pins_security_foundation_v0_1.down.sql",
 		}
@@ -45,6 +46,7 @@ func TestPostgresSecurityFoundation(t *testing.T) {
 			scripts = []string{
 				"000103_tms_relationship_pins_security_foundation_v0_1.up.sql",
 				"000104_tms_activation_runtime_grants_v0_1.up.sql",
+				"000105_platform_postgres_role_foundation_v0_2_i1.up.sql",
 			}
 		}
 		for _, script := range scripts {
