@@ -272,6 +272,68 @@ jobs:
             fi
           done
 
+  platform-postgres-role-foundation-i1:
+    name: platform-postgres-role-foundation-i1
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:16
+        env:
+          POSTGRES_USER: rfx_test
+          POSTGRES_PASSWORD: rfx_test
+          POSTGRES_DB: freight_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: true
+      REQUIRE_TEST_DATABASE: "1"
+      TEST_DATABASE_URL: postgres://rfx_test:rfx_test@localhost:5432/freight_test?sslmode=disable
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: |
+            packages/shared-go/go.sum
+            services/company-service/go.sum
+            services/shipment-service/go.sum
+
+      - name: Run company login foundation
+        working-directory: services/company-service
+        run: |
+          set -o pipefail
+          go test -tags=integration -count=1 -timeout 20m -v ./internal/integration/relationship -run TestCompanyRuntimeLoginFoundation | tee "$RUNNER_TEMP/company-role-foundation.txt"
+          if grep -q -- '--- SKIP:' "$RUNNER_TEMP/company-role-foundation.txt"; then
+            echo "required PostgreSQL integration test was skipped"
+            exit 1
+          fi
+          if ! grep -q -- '--- PASS: TestCompanyRuntimeLoginFoundation ' "$RUNNER_TEMP/company-role-foundation.txt"; then
+            echo "required PostgreSQL integration test TestCompanyRuntimeLoginFoundation did not pass"
+            exit 1
+          fi
+
+      - name: Run shipment login foundation
+        working-directory: services/shipment-service
+        run: |
+          set -o pipefail
+          go test -tags=integration -count=1 -timeout 40m -v ./internal/integration/transportexecution -run TestShipmentRuntimeLoginFoundation | tee "$RUNNER_TEMP/shipment-role-foundation.txt"
+          if grep -q -- '--- SKIP:' "$RUNNER_TEMP/shipment-role-foundation.txt"; then
+            echo "required PostgreSQL integration test was skipped"
+            exit 1
+          fi
+          if ! grep -q -- '--- PASS: TestShipmentRuntimeLoginFoundation ' "$RUNNER_TEMP/shipment-role-foundation.txt"; then
+            echo "required PostgreSQL integration test TestShipmentRuntimeLoginFoundation did not pass"
+            exit 1
+          fi
+
   rfx-source-authority-postgres:
     name: rfx-source-authority-postgres
     runs-on: ubuntu-latest
