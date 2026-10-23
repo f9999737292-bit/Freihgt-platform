@@ -7,13 +7,80 @@
   --ion-color-primary-tint: #273047;
 
   --ion-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --driver-touch-target-min: 48px;
+  --driver-form-max-width: 480px;
+  --driver-content-max-width: 640px;
+}
+
+html,
+body,
+#app,
+ion-app {
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 ion-content {
   --background: #f8fafc;
+  --padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+ion-header ion-toolbar:first-of-type {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+ion-content.form-content {
+  --keyboard-offset: 0px;
+  --padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
 ion-button {
   text-transform: none;
   font-weight: 600;
+}
+
+ion-button[size='large'],
+ion-button.submit-btn,
+ion-button.action-btn,
+ion-button.open-btn {
+  min-height: var(--driver-touch-target-min);
+}
+
+ion-card button,
+ion-card[button] {
+  min-height: var(--driver-touch-target-min);
+}
+
+ion-item {
+  --min-height: 52px;
+}
+
+ion-back-button {
+  min-width: var(--driver-touch-target-min);
+  min-height: var(--driver-touch-target-min);
+}
+
+.login-form,
+.detail,
+.center {
+  width: 100%;
+  max-width: var(--driver-content-max-width);
+  margin-inline: auto;
+}
+
+.login-form {
+  max-width: var(--driver-form-max-width);
+}
+
+@media (min-width: 768px) {
+  ion-content.ion-padding {
+    --padding-start: max(16px, calc((100vw - var(--driver-content-max-width)) / 2));
+    --padding-end: max(16px, calc((100vw - var(--driver-content-max-width)) / 2));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  ion-content.form-content::part(scroll) {
+    scroll-padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
 }
