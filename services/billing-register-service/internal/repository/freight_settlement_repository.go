@@ -586,6 +586,9 @@ func (r *FreightSettlementRepository) IncludeInRegister(ctx context.Context, set
 	if err != nil {
 		return nil, err
 	}
+	if err := authorizeIncludeInRegister(settlement, in); err != nil {
+		return nil, err
+	}
 	if settlement.BillingRegisterID != nil {
 		return settlement, nil
 	}
@@ -593,9 +596,6 @@ func (r *FreightSettlementRepository) IncludeInRegister(ctx context.Context, set
 		settlement.Status != domain.SettlementStatusDocumentsReady &&
 		settlement.Status != domain.SettlementStatusReadyForPayment {
 		return nil, apperrors.Validation("settlement must be approved before register inclusion", map[string]any{"status": settlement.Status})
-	}
-	if in.ActorKind != domain.SettlementActorBuyer || settlement.BuyerCompanyID != in.ActorCompanyID {
-		return nil, apperrors.Forbidden("only buyer can include settlement in billing register")
 	}
 	var result domain.FreightSettlement
 	err = r.withAuditTx(ctx, func(tx pgx.Tx) error {
@@ -629,6 +629,13 @@ func (r *FreightSettlementRepository) IncludeInRegister(ctx context.Context, set
 		})
 	})
 	return &result, err
+}
+
+func authorizeIncludeInRegister(settlement *domain.FreightSettlement, in domain.SettlementActorInput) error {
+	if in.ActorKind != domain.SettlementActorBuyer || settlement.BuyerCompanyID != in.ActorCompanyID {
+		return apperrors.Forbidden("only buyer can include settlement in billing register")
+	}
+	return nil
 }
 
 func (r *FreightSettlementRepository) withAuditTx(ctx context.Context, fn func(pgx.Tx) error) error {

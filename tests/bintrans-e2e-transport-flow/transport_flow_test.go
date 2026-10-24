@@ -196,6 +196,7 @@ func TestBintransE2ETransportFlow(t *testing.T) {
 	}
 
 	continueDeliveryAndPOD(t, env, fix, carrier, shipmentID)
+	continueFinancialClosing(t, env, fix, shipmentID)
 }
 
 func awardOneLot(t *testing.T, env *flowEnv, fix flowFixture, buyer, carrier map[string]string) (eventID, lotID string) {
