@@ -130,10 +130,10 @@ func (s *PricedTransportOrderService) CreateFromAwardScope(ctx context.Context, 
 	if in.RfxLotID != nil && *in.RfxLotID != uuid.Nil {
 		lotID = in.RfxLotID
 	}
-	actorKind := "INTERNAL_SERVICE"
-	if in.CreatedBy != nil {
-		actorKind = "USER"
-	}
+	// Award conversion is performed by the event owner. Contract-rate accepts BUYER
+	// or CARRIER and re-derives that kind from the caller's membership. USER is
+	// rejected before any rate or order is written.
+	actorKind := domain.ActorKindBuyer
 	actorUser := in.ActorUserID
 	if in.CreatedBy != nil {
 		actorUser = *in.CreatedBy

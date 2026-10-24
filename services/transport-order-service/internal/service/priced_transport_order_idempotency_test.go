@@ -147,3 +147,45 @@ func TestPricedCreateSameKeyReturnsOneOrder(t *testing.T) {
 		t.Fatalf("lock tenants=%v", store.tenants)
 	}
 }
+
+type actorKindResolver struct {
+	kind string
+}
+
+func (r *actorKindResolver) Resolve(_ context.Context, in domain.CreatePricedTransportOrderInput, _ time.Time) (domain.ResolveRateResult, error) {
+	r.kind = in.Actor.ActorKind
+	return domain.ResolveRateResult{}, context.Canceled
+}
+
+func TestCreateFromAwardScopeForwardsBuyerActor(t *testing.T) {
+	t.Parallel()
+	resolver := &actorKindResolver{}
+	svc := NewPricedTransportOrderService(pricedRefStub{}, cargoRefStub{}, locationRefStub{}, &idempotentPricedStore{}, resolver, nil)
+	tenantID := uuid.New()
+	buyerID := uuid.New()
+	userID := uuid.New()
+	refID := uuid.New()
+	_, err := svc.CreateFromAwardScope(context.Background(), domain.CreateFromAwardScopeInput{
+		TenantID:              tenantID,
+		ActorUserID:           userID,
+		ActorCompanyID:        buyerID,
+		IdempotencyKey:        "award-conv-buyer",
+		RfxEventID:            uuid.New(),
+		OrderNumber:           "TO-AWD",
+		ShipperCompanyID:      buyerID,
+		ConsigneeCompanyID:    buyerID,
+		OriginLocationID:      refID,
+		DestinationLocationID: refID,
+		CargoID:               refID,
+		TransportMode:         domain.TransportModeRoad,
+		EquipmentType:         "TAUTLINER",
+		CarrierCompanyID:      uuid.New(),
+		CreatedBy:             &userID,
+	})
+	if err == nil {
+		t.Fatal("expected rate resolution to stop the create")
+	}
+	if resolver.kind != domain.ActorKindBuyer {
+		t.Fatalf("actor kind=%q", resolver.kind)
+	}
+}
