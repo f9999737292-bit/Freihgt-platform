@@ -38,6 +38,13 @@ func validateStandDatabaseURL(raw string) (string, error) {
 	return raw, nil
 }
 
+func standHTTPListenHost(mode string) string {
+	if strings.TrimSpace(mode) == "stand" {
+		return "127.0.0.1"
+	}
+	return ""
+}
+
 func evaluateStandSchema(state standSchemaState) error {
 	if state.Version != standSchemaVersion || state.Dirty {
 		return fmt.Errorf("schema_migrations version=%d dirty=%t, want %d clean", state.Version, state.Dirty, standSchemaVersion)

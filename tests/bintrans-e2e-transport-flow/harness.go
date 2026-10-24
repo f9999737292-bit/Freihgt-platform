@@ -96,6 +96,7 @@ func newFlowEnv(t *testing.T) *flowEnv {
 		shipmentLog = "info"
 		towerLog = "info"
 	}
+	listenHost := standHTTPListenHost(mode)
 	documentRoot := t.TempDir()
 	if mode == "stand" {
 		if configured := strings.TrimSpace(os.Getenv("DOCUMENT_STORAGE_ROOT")); configured != "" {
@@ -162,6 +163,7 @@ func newFlowEnv(t *testing.T) *flowEnv {
 		"SHIPMENT_OUTBOX_PUBLISH_TIMEOUT":     "5s",
 		"SHIPMENT_OUTBOX_LEASE_TIMEOUT":       "30s",
 		"TMS_RELATIONSHIP_ACTIVATION_ENABLED": "false",
+		"SHIPMENT_HTTP_LISTEN_HOST":           listenHost,
 		"LOG_LEVEL":                           shipmentLog,
 		"ENVIRONMENT":                         "test",
 	})
@@ -195,6 +197,7 @@ func newFlowEnv(t *testing.T) *flowEnv {
 		"CONTROL_TOWER_DRIVER_EVENTS_ENABLED":   "false",
 		"SHIPMENT_SERVICE_URL":                  shipmentURL,
 		"INTERNAL_SERVICE_TOKEN":                internalToken,
+		"CONTROL_TOWER_HTTP_LISTEN_HOST":        listenHost,
 		"LOG_LEVEL":                             towerLog,
 		"ENVIRONMENT":                           "test",
 	})

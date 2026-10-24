@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -121,8 +120,13 @@ func main() {
 		service.NewRelationshipCreateInitiator(sourceRepo, service.NewCompanyRelationshipCreateClient(cfg.CompanyRelationshipBaseURL, relationshipToken, nil)),
 	)
 
+	listenAddr, err := config.HTTPListenAddr(cfg.HTTPListenHost, cfg.HTTPPort)
+	if err != nil {
+		log.Error("invalid http listen address", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
 	server := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.HTTPPort),
+		Addr:              listenAddr,
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
@@ -131,7 +135,7 @@ func main() {
 	}
 
 	go func() {
-		log.Info("starting http server", slog.Int("port", cfg.HTTPPort))
+		log.Info("starting http server", slog.Int("port", cfg.HTTPPort), slog.String("listen_host", cfg.HTTPListenHost))
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("http server error", slog.String("error", err.Error()))
 			os.Exit(1)

@@ -14,6 +14,7 @@ type Config struct {
 	ServiceName                          string
 	Environment                          string
 	HTTPPort                             int
+	HTTPListenHost                       string
 	LogLevel                             string
 	DatabaseURL                          string
 	Outbox                               OutboxConfig
@@ -82,10 +83,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	return Config{
+	cfg := Config{
 		ServiceName:                          "shipment-service",
 		Environment:                          getEnv("ENVIRONMENT", "development"),
 		HTTPPort:                             port,
+		HTTPListenHost:                       strings.TrimSpace(os.Getenv("SHIPMENT_HTTP_LISTEN_HOST")),
 		LogLevel:                             getEnv("LOG_LEVEL", "info"),
 		DatabaseURL:                          databaseURL,
 		Outbox:                               outbox,
@@ -100,7 +102,27 @@ func Load() (Config, error) {
 			ProjectID:   strings.TrimSpace(os.Getenv("FCM_PROJECT_ID")),
 			AccessToken: strings.TrimSpace(os.Getenv("FCM_ACCESS_TOKEN")),
 		},
-	}, nil
+	}
+	if _, err := HTTPListenAddr(cfg.HTTPListenHost, cfg.HTTPPort); err != nil {
+		return Config{}, err
+	}
+	return cfg, nil
+}
+
+// HTTPListenAddr keeps the historical all-interface bind when host is empty.
+// The isolated stand sets the host to 127.0.0.1. Any other host is rejected.
+func HTTPListenAddr(host string, port int) (string, error) {
+	if port <= 0 || port > 65535 {
+		return "", fmt.Errorf("http port must be between 1 and 65535")
+	}
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return fmt.Sprintf(":%d", port), nil
+	}
+	if host != "127.0.0.1" {
+		return "", fmt.Errorf("http listen host %q is not allowed", host)
+	}
+	return fmt.Sprintf("127.0.0.1:%d", port), nil
 }
 
 func loadNotificationConfig() (NotificationConfig, error) {

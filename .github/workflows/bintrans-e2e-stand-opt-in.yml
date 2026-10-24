@@ -30,6 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          bash scripts/ops/bintrans_e2e_stand/project-guard.sh --project bintrans-e2e-stand-v0.1a
           docker compose \
             --env-file "$RUNNER_TEMP/bintrans-e2e-stand.env" \
             -p bintrans-e2e-stand-v0.1a \
@@ -64,6 +65,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          bash scripts/ops/bintrans_e2e_stand/project-guard.sh --project bintrans-e2e-stand-v0.1a
           docker compose \
             --env-file "$RUNNER_TEMP/bintrans-e2e-stand.env" \
             -p bintrans-e2e-stand-v0.1a \
@@ -75,8 +77,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker compose \
-            --env-file "$RUNNER_TEMP/bintrans-e2e-stand.env" \
-            -p bintrans-e2e-stand-v0.1a \
-            -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml \
-            down -v --remove-orphans
+          bash scripts/ops/bintrans_e2e_stand/down.sh --env-file "$RUNNER_TEMP/bintrans-e2e-stand.env"

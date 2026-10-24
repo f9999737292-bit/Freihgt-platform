@@ -46,19 +46,29 @@ Workflow `bintrans-e2e-stand-opt-in` is `workflow_dispatch` only. It is not adde
 Do not run these commands in stage 0.1B.
 
 1. Generate variables with `scripts/ops/bintrans_e2e_stand/ephemeral-env.sh` and keep the output outside the repository.
-2. Build and run only this project:
+2. Confirm the project before any Compose command:
+
+```text
+bash scripts/ops/bintrans_e2e_stand/project-guard.sh --project bintrans-e2e-stand-v0.1a
+```
+
+The guard reads `name:` from the stand Compose file, `COMPOSE_PROJECT_NAME` when it is set, and the `--project` argument. The resolved project must be `bintrans-e2e-stand-v0.1a`. Any other name, including a staging project name, exits before Docker.
+
+3. Build and run only this project:
 
 ```text
 docker compose --env-file <ephemeral-file> -p bintrans-e2e-stand-v0.1a -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml up --build --abort-on-container-exit --exit-code-from runner
 ```
 
-3. Remove only this project:
+4. Remove only this project with the same ephemeral file:
 
 ```text
-scripts/ops/bintrans_e2e_stand/down.sh
+bash scripts/ops/bintrans_e2e_stand/down.sh --env-file <ephemeral-file>
 ```
 
-That script is `docker compose -p bintrans-e2e-stand-v0.1a -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml down -v --remove-orphans`. It does not prune volumes, networks, or the platform project.
+`down.sh` checks that the file exists and is readable, requires the three ephemeral database keys without printing them, runs the project guard, and then executes `docker compose --env-file <ephemeral-file> -p bintrans-e2e-stand-v0.1a -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml down -v --remove-orphans`. A missing file, an unreadable file, or a different project exits before that command. The script does not accept a caller project override and does not prune volumes, networks, or another project.
+
+In stand mode the harness sets `SHIPMENT_HTTP_LISTEN_HOST=127.0.0.1` and `CONTROL_TOWER_HTTP_LISTEN_HOST=127.0.0.1`. An empty host keeps the existing `:<port>` bind used by normal deployment. Any other host is rejected.
 
 ## Broker results covered without Docker
 

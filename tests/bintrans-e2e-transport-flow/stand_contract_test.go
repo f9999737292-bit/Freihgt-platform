@@ -137,10 +137,12 @@ func TestStandCleanupIsProjectScoped(t *testing.T) {
 	script := readStandFile(t, filepath.Join(root, "scripts", "ops", "bintrans_e2e_stand", "down.sh"))
 	envScript := readStandFile(t, filepath.Join(root, "scripts", "ops", "bintrans_e2e_stand", "ephemeral-env.sh"))
 	for _, token := range []string{
+		"--env-file",
 		"-p \"$project\"",
 		"bintrans-e2e-stand-v0.1a",
 		"docker-compose.bintrans-e2e-stand-v0.1a.yml",
 		"down -v --remove-orphans",
+		"project-guard.sh",
 	} {
 		if !strings.Contains(script, token) {
 			t.Fatalf("cleanup missing %q", token)
@@ -162,6 +164,18 @@ func TestStandCleanupIsProjectScoped(t *testing.T) {
 	}
 	if strings.Contains(envScript, "freight_password") || strings.Contains(envScript, "dev_secret_change_me") {
 		t.Fatal("ephemeral env script contains a platform credential")
+	}
+	guard := readStandFile(t, filepath.Join(root, "scripts", "ops", "bintrans_e2e_stand", "project-guard.sh"))
+	if !strings.Contains(guard, "bintrans-e2e-stand-v0.1a") || !strings.Contains(guard, "COMPOSE_PROJECT_NAME") {
+		t.Fatal("project guard does not check the stand project")
+	}
+	for _, token := range []string{"docker compose", "volume prune", "system prune", "bintrans-ct-staging"} {
+		if strings.Contains(guard, token) {
+			t.Fatalf("project guard contains %q", token)
+		}
+	}
+	if strings.Index(script, "project-guard.sh") > strings.Index(script, "docker compose") {
+		t.Fatal("cleanup reaches docker compose before the project guard")
 	}
 }
 
@@ -225,7 +239,7 @@ func TestStandOptInWorkflowIsManual(t *testing.T) {
 			t.Fatalf("opt-in workflow loads a protected environment file: %s", strings.TrimSpace(line))
 		}
 	}
-	if !strings.Contains(text, "-p bintrans-e2e-stand-v0.1a") || !strings.Contains(text, "down -v --remove-orphans") {
+	if !strings.Contains(text, "-p bintrans-e2e-stand-v0.1a") || !strings.Contains(text, "down.sh --env-file") || !strings.Contains(text, "project-guard.sh") {
 		t.Fatal("opt-in cleanup is not project scoped")
 	}
 }
