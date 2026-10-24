@@ -11,7 +11,7 @@ Baseline: `fb9dc6c409f048c4b9f913bb40f315c2a11b4d6a`. This stage creates no cred
 | `POSTGRES_PASSWORD` | `MISSING` from this branch. The base Compose file contains a committed dev default. | Generate it in the runner process for the stand project only. Do not commit it. Do not reuse the base-file default or a staging value. |
 | `JWT_SECRET` | `MISSING` for the stand. The base file contains `dev_secret_change_me`. | Not required while api-gateway and identity-service are out of the scenario. Do not copy the dev literal into the stand file. |
 | `INTERNAL_SERVICE_TOKEN` | The Go harness contains the fixed test token `bintrans-e2e-transport-flow-v0.1b`. | That string is a test fixture already in git. A Compose-started service must receive the same value the test sends. Do not replace it with `INTERNAL_SERVICE_TOKEN` from staging. Do not invent a second production token. |
-| `DATABASE_URL` | `MISSING` as a populated stand URL. | Built at run time from the ephemeral user, password, host `postgres`, and stand database name. `sslmode=disable` is acceptable only on the internal stand network. |
+| `DATABASE_URL` | `MISSING` as a populated stand URL. | Built at run time from the ephemeral user, password, host `postgres`, and stand database name. Any other host is rejected before seed. `sslmode=disable` is acceptable only on the internal stand network. |
 | Staging env file | `MISSING` here, and it must stay unread. | Never pass `--env-file` to a path under `/protected`. |
 | Registry credentials | `MISSING` | The stand builds local Dockerfiles or uses the public images already named in the repo. No registry login. |
 | SSH keys | `MISSING` | No SSH. |
@@ -24,7 +24,7 @@ Allowed report words for any later run are only `PRESENT`, `MISSING`, `EMPTY`, `
 - No host port for Postgres, Redpanda, or any service.
 - No route to `freight-platform-network`.
 - No route to the staging VM, staging Compose project, or the public internet from stand containers.
-- Redpanda advertises only `redpanda:9092`. The base file's external listener `localhost:19092` is not part of the stand.
+- Redpanda advertises only `redpanda:9092`. The base file's external listener `localhost:19092` is not part of the stand. `stand` mode rejects `localhost` and `127.0.0.1` as the test broker. The in-container `rpk` healthcheck may use `localhost:9092` and is not the client bootstrap.
 - SASL and TLS stay disabled because the broker is reachable only on that internal network. Do not add a SASL password in this design.
 
 `internal: true` blocks container egress. Image pulls happen before the network is used for application traffic. The runner image has to be present locally before the test container joins the network.
@@ -80,4 +80,4 @@ The stand must not log the token, the database URL, or the Postgres password. Sh
 5. Activation flag is `false`.
 6. No `CREATE ROLE ... LOGIN` and no `pg_hba` change.
 7. Payment service is absent and `billing.payment_obligations` stays empty.
-8. Broker client in the stand run is Redpanda, not `kfake`.
+8. Broker client in the stand run is `redpanda:9092`. `BINTRANS_E2E_STAND_MODE=stand`. `BINTRANS_E2E_KFAKE_ALLOW` is unset. There is no fallback to `kfake`.

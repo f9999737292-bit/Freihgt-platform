@@ -30,9 +30,9 @@ Planning total for a later local run: 6 GB RAM available to Docker, 4 GB as a mi
 
 ## CI cost
 
-This docs PR runs the existing `.github/workflows/ci.yml` because pull requests to `main` have no path filter. That includes job `bintrans-e2e-transport-flow`, which uses `kfake` and a GitHub `postgres:16` service. It does not start Redpanda.
+This docs PR runs the existing `.github/workflows/ci.yml` because pull requests to `main` have no path filter. That includes job `bintrans-e2e-transport-flow`, which on this baseline still uses `kfake` and a GitHub `postgres:16` service. It does not start Redpanda, and it does not set `BINTRANS_E2E_KFAKE_ALLOW`. A green result of that job is not stand evidence. The later implementation must put `kfake` behind `BINTRANS_E2E_STAND_MODE=ci` and the explicit allow. The stand runner does not set that allow.
 
-A later implementation that adds Redpanda to that job would add one service container on `ubuntu-latest` for up to the 35-minute job timeout. Dollar cost is not estimated. The runner class is the existing `ubuntu-latest` class, not a larger runner.
+A later implementation that adds Redpanda to the GitHub job is not required by this contract. The stand is a local project. The existing job remains the `ci` mode once it sets the explicit allow. Dollar cost of a hypothetical Redpanda service on `ubuntu-latest` is not estimated.
 
 ## What would change the estimate
 

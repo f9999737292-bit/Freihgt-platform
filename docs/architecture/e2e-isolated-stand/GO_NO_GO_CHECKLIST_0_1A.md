@@ -23,13 +23,13 @@ All of the following are required before anyone calls a future stand run success
 | 1 | Project identity | Compose project is `bintrans-e2e-stand-v0.1a`. Staging project `bintrans-ct-staging` is untouched. |
 | 2 | Network | Network is internal. `docker compose port` shows no published ports. Postgres is not reachable from the host network. |
 | 3 | Volume | Postgres data volume name contains `bintrans-e2e-stand` and is not `freight_postgres_data`. |
-| 4 | Postgres | `pg_isready` succeeds inside the container. Image is PostgreSQL 16. |
-| 5 | Migrations | Versions `000001` through `000105` applied with no error. Head is `000105`. |
+| 4 | Postgres | `pg_isready` succeeds inside the container. Image is PostgreSQL 16. `TEST_DATABASE_URL` host is exactly `postgres`. |
+| 5 | Migrations | The migrate container applied versions `000001` through `000105` once. Recorded version is `105`. The harness did not call `applyMigrations`. |
 | 6 | Activation | `TMS_RELATIONSHIP_ACTIVATION_ENABLED=false`. Trigger `trg_new_activation_authorization` is absent. Gate SQL was not applied. |
 | 7 | Roles | Runtime roles from `000103`–`000105` are `NOLOGIN`. No `pg_hba` change. Services use the ephemeral database owner, not `shipment_login`. |
-| 8 | Redpanda | `rpk cluster info` succeeds. Topics `shipment.status.v1` and `driver.events.v1` exist before the consumer starts. |
-| 9 | Process health | contract-rate, transport-order, rfx, shipment, document, billing, and control-tower each return HTTP 200 from `GET /ready`. |
-| 10 | Consumer | Control-tower log contains `starting shipment status consumer` for group `control-tower-e2e-<run-id>`. `kfake` is absent from the test log. |
+| 8 | Redpanda | `rpk cluster info` succeeds inside the Redpanda container. Topics `shipment.status.v1` and `driver.events.v1` exist before the consumer starts. The test log shows `bintrans_e2e_mode=stand` and `bintrans_e2e_broker=redpanda:9092` before seed. |
+| 9 | Process health | contract-rate, transport-order, rfx, shipment, document, billing, and control-tower each return HTTP 200 from `GET /ready`. Child listeners on `127.0.0.1` stay inside the runner container. |
+| 10 | Consumer | Control-tower log contains `starting shipment status consumer` for group `control-tower-e2e-<run-id>`. The test log does not show `kfake.NewCluster`. `BINTRANS_E2E_KFAKE_ALLOW` is unset. |
 | 11 | Seed only | Before the first RFx POST, shipment, order, POD, settlement, and projection business tables for the scenario are empty. |
 | 12 | One chain | One operating tenant's shipper and awarded carrier produce one RFx, one award, one transport order, and one shipment. |
 | 13 | Delivery | Shipment HTTP status is `DELIVERED`. One history row. Replay does not add a second row. |
@@ -49,10 +49,12 @@ All of the following are required before anyone calls a future stand run success
 
 Stop the later run, do not retry against another database, and leave the stand up only long enough to collect the failing evidence if any of these are true:
 
-- The broker address is a `kfake` listen address.
-- The database host is not the stand container.
+- `BINTRANS_E2E_STAND_MODE` is missing, not `stand`, or paired with `BINTRANS_E2E_KFAKE_ALLOW`.
+- The broker is unset, empty, a `kfake` address, `localhost`, `127.0.0.1`, or any value other than `redpanda:9092`.
+- The dial to `redpanda:9092` fails and the run continues, or `kfake.NewCluster` is called.
+- The database host is not `postgres`.
 - A host port is published.
-- Migration head is not `000105`, or the enforcement trigger exists.
+- Migration head is not `000105`, the harness also applied migrations, or the enforcement trigger exists.
 - Activation is enabled.
 - `ExecuteAwardOrder` is attempted as `shipment_login`.
 - A shipment, POD, or settlement row appears before the matching HTTP call.

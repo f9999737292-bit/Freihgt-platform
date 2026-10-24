@@ -2,7 +2,7 @@
 
 Stage: `BINTRANS-E2E-ISOLATED-STAND-0.1A-DISCOVERY`
 
-Baseline: `fb9dc6c409f048c4b9f913bb40f315c2a11b4d6a`. This matrix describes the future project `bintrans-e2e-stand-v0.1a`. It does not change `infrastructure/docker-compose/docker-compose.yml`.
+Baseline: `fb9dc6c409f048c4b9f913bb40f315c2a11b4d6a`. This matrix describes the future project `bintrans-e2e-stand-v0.1a`. Remediation R1 adds the fail-closed `STAND_MODE` contract and corrects the tracking port. It does not change `infrastructure/docker-compose/docker-compose.yml`.
 
 ## Why the current Compose file is not the stand
 
@@ -39,9 +39,53 @@ Baseline: `fb9dc6c409f048c4b9f913bb40f315c2a11b4d6a`. This matrix describes the 
 | document-service | `services/document-service/Dockerfile` | migrate succeeded | `GET /ready` = 200 | `DOCUMENT_STORAGE_ROOT` on the stand document volume. Port `8086`. |
 | billing-register-service | `services/billing-register-service/Dockerfile` | migrate succeeded | `GET /ready` = 200 | `BILLING_FREIGHT_COST_OUTBOX_ENABLED=false`. No `PAYMENT_SERVICE_URL`. Port `8087`. |
 | control-tower-read-model-service | `services/control-tower-read-model-service/Dockerfile` | topics exist, shipment `/ready` | `GET /ready` = 200 and log `starting shipment status consumer` | `CONTROL_TOWER_CONSUMER_ENABLED=true`, `CONTROL_TOWER_DATABASE_URL` same DSN, `CONTROL_TOWER_KAFKA_BROKERS=redpanda:9092`, `CONTROL_TOWER_KAFKA_TOPIC=shipment.status.v1`, `CONTROL_TOWER_KAFKA_GROUP_ID=control-tower-e2e-<run-id>`, `CONTROL_TOWER_KAFKA_CLIENT_ID=control-tower-e2e`, `CONTROL_TOWER_DRIVER_EVENTS_ENABLED=false`, `SHIPMENT_SERVICE_URL=http://shipment-service:8085`. Port `8089`. |
-| runner | future test image, or `docker compose run` with the repo mounted | all `/ready` above | `go test` exit 0 | `TEST_DATABASE_URL` set. `REQUIRE_TEST_DATABASE=1`. Broker override is not implemented on this baseline. |
+| runner | future test image, or `docker compose run` with the repo mounted | all `/ready` above, then broker validation | `go test` exit 0 | On network `bintrans-e2e-stand` only. `BINTRANS_E2E_STAND_MODE=stand`. `BINTRANS_E2E_KAFKA_BROKERS=redpanda:9092`. `BINTRANS_E2E_KFAKE_ALLOW` unset. `TEST_DATABASE_URL` host is `postgres`. `REQUIRE_TEST_DATABASE=1`. Child processes may bind `127.0.0.1` only inside this container. No host port is published. |
 
-If the runner keeps building the seven Go processes itself, the Compose project starts only `postgres`, `redpanda`, `topic-init`, and `migrate`. The application rows above are then process dependencies of the harness, with the same environment and the same ready checks. Do not start both copies.
+If the runner keeps building the seven Go processes itself, the Compose project starts only `postgres`, `redpanda`, `topic-init`, and `migrate`. The application rows above are then process dependencies of the harness, with the same environment and the same ready checks. Do not start both copies. The runner container is the only place those child processes listen. `127.0.0.1` there is not a host port and is not a legal broker or Postgres address.
+
+## STAND_MODE broker contract
+
+This is the contract for a later implementation. PR #305 does not change `startKafka` and does not switch brokers at runtime.
+
+`BINTRANS_E2E_STAND_MODE` is required and has two values.
+
+| Mode | Required settings | Broker | `kfake.NewCluster` |
+| --- | --- | --- | --- |
+| `stand` | `BINTRANS_E2E_KAFKA_BROKERS=redpanda:9092`. `BINTRANS_E2E_KFAKE_ALLOW` must be unset. | The only legal address is `redpanda:9092` on the stand network. | Forbidden. |
+| `ci` | `BINTRANS_E2E_KFAKE_ALLOW=1`. | The in-process cluster used by today's CI job. | Allowed only after that allow flag is set. |
+
+The stand runner sets `stand` and the Redpanda address. It does not set `BINTRANS_E2E_KFAKE_ALLOW`. A missing mode, any other mode value, or `stand` together with the allow flag fails before seed.
+
+Validation order in `stand`, before `seedFlowFixture` and before any business POST:
+
+1. Read the mode and the broker string.
+2. Log `bintrans_e2e_mode` and `bintrans_e2e_broker` with the values actually read. An empty broker is logged as empty.
+3. Fail if the broker is unset, empty, not exactly `redpanda:9092`, contains `localhost` or `127.0.0.1`, or is a `kfake` address.
+4. Dial `redpanda:9092`. If the dial fails, fail. Do not start `kfake` afterwards.
+5. Only then seed.
+
+There is no fallback from Redpanda to `kfake`. A failed dial is a failed stand run.
+
+`ci` without `BINTRANS_E2E_KFAKE_ALLOW=1` fails before seed. `ci` with that allow may start `kfake` and must log `bintrans_e2e_mode=ci` plus the address actually used. Today's CI job does not set these variables because this PR does not change the harness. The later implementation PR sets the allow on that job. A green `kfake` CI run is not stand evidence.
+
+The Redpanda healthcheck may call `rpk` at `localhost:9092` inside the Redpanda container. That address is not the test bootstrap. The test, the shipment producer, and the control-tower consumer use `redpanda:9092`.
+
+Acceptance tests required in the later implementation PR, not in PR #305:
+
+| Case | Result |
+| --- | --- |
+| `stand`, broker unset | FAIL before seed |
+| `stand`, broker is a `kfake` address | FAIL before seed |
+| `stand`, broker is `localhost` or `127.0.0.1` | FAIL before seed |
+| `stand`, broker is `redpanda:9092`, dial fails | FAIL before seed, and `kfake.NewCluster` is not called |
+| `stand`, broker is `redpanda:9092`, broker ready | PASS only when the HTTP scenario passes |
+| `ci` and `BINTRANS_E2E_KFAKE_ALLOW=1` | PASS on the existing `kfake` path |
+
+## Migration owner
+
+The stand has one applier. The migrate container runs `up` once on the empty stand database and records version `105`. In `stand` mode the harness does not call `applyMigrations` and does not create a second database. `TEST_DATABASE_URL` points at that database, and its host is exactly `postgres`.
+
+`ci` mode may keep the current harness applier on the CI database. That path is not a second stand strategy.
 
 ## Optional services
 
@@ -53,11 +97,12 @@ If the runner keeps building the seven Go processes itself, the Compose project 
 | payment-service | postgres, billing URL | Omit. The scenario requires zero payment obligations. |
 | low-code-service | postgres, identity | Omit. |
 | prometheus, grafana | gateway | Omit. Profiles `observability` stay off. |
-| tracking-service, freight-cost-service | staging overlay only | Omit. Staging gives tracking host port `8089`, which is the control-tower port in the base file. The stand does not import that overlay. |
+| tracking-service | staging overlay only | Omit. Not used by this E2E flow. Container port is `8089`. The staging overlay sets `ports: !override []` for tracking, so it publishes no host port. Host port `8089` in that overlay is `control-tower-read-model-service` (`127.0.0.1:${CONTROL_TOWER_READ_MODEL_HOST_PORT:-8089}:8089`). The stand does not import the staging overlay. |
+| freight-cost-service | staging overlay only | Omit. Not used by this E2E flow. The stand does not import the staging overlay. |
 
 ## Health and stop
 
-Ready order is the startup list above. A failed `/ready` stops the run before seed SQL and before the first RFx POST.
+Ready order is the startup list above. A failed `/ready`, or a failed `stand` broker check, stops the run before seed SQL and before the first RFx POST.
 
 Stop and remove only this project:
 
@@ -69,8 +114,8 @@ That command is specified here and is not run in this stage. It must not be poin
 
 ## Dev file gaps that a later implementation has to close
 
-1. Add the stand file. Do not edit the base file in order to hide staging ports.
-2. Teach `startKafka` to use `redpanda:9092` when the stand broker variable is set, and to fail if that variable is set and `kfake` would still start.
-3. Decide one migration owner: the migrate container or `applyMigrations`. The harness currently applies SQL itself and does not write `schema_migrations`. golang-migrate does. Running both against one database will fail or double-apply.
+1. Add the stand file. Do not edit the base file in order to hide staging ports. Do not import `docker-compose.bintrans-ct-staging.yml`.
+2. Implement the `STAND_MODE` contract above. Do not add a fallback that starts `kfake` when Redpanda is missing.
+3. Keep the migrate container as the only stand applier. The harness must not apply the same files in `stand` mode.
 4. Give the runner a unique consumer group per invocation. The base file uses the fixed group `control-tower-shipment-status-v1`.
 5. Set service `LOG_LEVEL=info` on shipment and control-tower for the stand. The harness currently sets `error`, which drops the proof lines described in the runbook.

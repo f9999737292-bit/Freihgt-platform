@@ -8,39 +8,40 @@ Baseline: `fb9dc6c409f048c4b9f913bb40f315c2a11b4d6a`. Do not run this runbook in
 
 `tests/bintrans-e2e-transport-flow/harness.go` function `startKafka` always starts `kfake`. It does not read a broker address. `TEST_DATABASE_URL` is already honored, and CI sets it. A database container alone does not make the scenario a Redpanda test.
 
-Until a later change adds an explicit stand-broker switch that refuses to start `kfake`, the stand is specified and not executable. CI job `bintrans-e2e-transport-flow` remains the `kfake` job. A green run of that job is not stand evidence.
+The later implementation adds `BINTRANS_E2E_STAND_MODE` and does not change that fact in this PR. In `stand`, the broker is required and the only legal value is `redpanda:9092`. An unset broker, a `kfake` address, or a `localhost` / `127.0.0.1` address fails before seed. A failed dial of `redpanda:9092` fails before seed and does not call `kfake.NewCluster`. The test log contains `bintrans_e2e_mode` and `bintrans_e2e_broker`.
+
+`kfake` is legal only in `BINTRANS_E2E_STAND_MODE=ci` with `BINTRANS_E2E_KFAKE_ALLOW=1`. The stand runner sets `stand` and does not set the allow. CI job `bintrans-e2e-transport-flow` on this baseline still uses `kfake` without those variables. A green run of that job is not stand evidence.
 
 ## Preconditions for a later authorized run
 
 1. Worktree is this scenario's implementation branch, not the dirty Control Tower checkout and not `bintrans-ct-staging`.
 2. Docker is local. The target is not the staging VM.
-3. Project name is `bintrans-e2e-stand-v0.1a`.
-4. No published host ports.
-5. Ephemeral Postgres credentials exist only in the process environment.
-6. Staging env file is not loaded.
-7. The harness broker switch is present and the test process is on network `bintrans-e2e-stand`.
+3. Project name is `bintrans-e2e-stand-v0.1a`. The runner container is attached only to network `bintrans-e2e-stand`.
+4. No published host ports. Child processes bind `127.0.0.1` only inside the runner container.
+5. Ephemeral Postgres credentials exist only in the process environment. `TEST_DATABASE_URL` host is exactly `postgres`.
+6. Staging env file is not loaded. The stand file does not import the staging overlay.
+7. `BINTRANS_E2E_STAND_MODE=stand`, `BINTRANS_E2E_KAFKA_BROKERS=redpanda:9092`, and `BINTRANS_E2E_KFAKE_ALLOW` is unset.
 
 ## Migration plan
 
-Apply on an empty database inside the stand container only.
+Apply on an empty database inside the stand container only. The migrate container is the only applier.
 
 1. Confirm the data directory is empty and `schema_migrations` is absent.
-2. Apply `infrastructure/migrations/000001_create_schemas.up.sql` through `000105_platform_postgres_role_foundation_v0_2_i1.up.sql`. There are 105 up files. Lexical order matches version order on this baseline.
-3. Prefer one owner:
-   - either golang-migrate `v4.17.1` with `up`, which records version `105`;
-   - or the harness `applyMigrations`, which executes each up file and does not record `schema_migrations`.
-4. Do not run both against the same database.
-5. The dev Compose migrate service is not a valid command yet: its `command` has `-path` and `-database` and omits `up`.
-6. After apply, read-only checks:
-   - latest file prefix is `000105_`;
+2. Apply `infrastructure/migrations/000001_create_schemas.up.sql` through `000105_platform_postgres_role_foundation_v0_2_i1.up.sql` with golang-migrate `v4.17.1` `up`. There are 105 up files. Lexical order matches version order on this baseline. The command records version `105`.
+3. In `stand` mode the harness does not call `applyMigrations` and does not create a `bintrans_e2e_flow_*` database.
+4. The dev Compose migrate service is not a valid command yet: its `command` has `-path` and `-database` and omits `up`.
+5. After apply, read-only checks:
+   - `schema_migrations` version is `105`;
    - `transport.assert_activation_enforcement_role_split()` exists;
    - trigger `trg_new_activation_authorization` does not exist;
    - `freight_migrations`, `company_runtime`, and `shipment_runtime` are `NOLOGIN`;
    - no new `LOGIN` role was created by the migrations.
-7. Do not run `infrastructure/postgres/tms_activation_enforcement_gate_v0.1.sql`.
-8. Do not run `make migrate-up` from a shell whose `COMPOSE` target is the shared platform file.
+6. Do not run `infrastructure/postgres/tms_activation_enforcement_gate_v0.1.sql`. `TMS_RELATIONSHIP_ACTIVATION_ENABLED` stays `false`.
+7. Do not run `make migrate-up` from a shell whose `COMPOSE` target is the shared platform file.
 
-This discovery stage did not apply these files. The application path is the one already used by the harness and by CI against a throwaway Postgres 16. That is not a new execution performed here.
+`ci` mode may keep the current harness applier on the CI database. That is not a second way to migrate the stand.
+
+This remediation did not apply these files. The path above is the contract for a later run.
 
 ## Seed
 
@@ -88,6 +89,7 @@ The test already performs this sequence. The stand run keeps it.
 | Check | Evidence | Enough by itself |
 | --- | --- | --- |
 | Producer | Shipment log `outbox event published` with `aggregate_id`, `event_type`, and `result=published`. Requires `LOG_LEVEL=info`. The harness sets `error` today. | No. Pair it with the outbox row. |
+| Mode | Test log contains `bintrans_e2e_mode=stand` and `bintrans_e2e_broker=redpanda:9092` before seed. | Proves the selected mode. Does not prove a record was consumed. |
 | Broker | Independent reader of `shipment.status.v1` from `redpanda:9092`, same predicate as `assertBrokerDelivered`. | Proves the record was on Redpanda. Does not prove the control-tower group consumed it. |
 | Consumer start | Log `starting shipment status consumer` with topic `shipment.status.v1` and group `control-tower-e2e-<run-id>`. | Proves the group was configured, not that the record was applied. |
 | Consumer apply | Log `shipment status event processed` with `shipment_id`, `event_id`, `event_type`, and `outcome`. This line has no `tenant_id`. | Not sufficient for tenant isolation. |
@@ -106,12 +108,12 @@ Topic names and group:
 | Acks | all ISR |
 | Retries | 3 produce retries in the publisher |
 
-Do not point the stand at `localhost:19092`. Do not reuse group `control-tower-shipment-status-v1` from the dev file for the proof run.
+Do not point the stand at `localhost:19092`, `localhost`, or `127.0.0.1`. Do not reuse group `control-tower-shipment-status-v1` from the dev file for the proof run. Do not set `BINTRANS_E2E_KFAKE_ALLOW` on the stand runner.
 
 ## Cleanup after a later run
 
-Follow [ROLLBACK_AND_CLEANUP_PLAN_0_1A.md](ROLLBACK_AND_CLEANUP_PLAN_0_1A.md). The harness also drops its private database with `DROP DATABASE ... WITH (FORCE)` when it created one. That drop is allowed only for a database whose name starts with `bintrans_e2e_flow_` on the stand instance.
+Follow [ROLLBACK_AND_CLEANUP_PLAN_0_1A.md](ROLLBACK_AND_CLEANUP_PLAN_0_1A.md). `stand` mode does not create a `bintrans_e2e_flow_*` database, so the harness must not issue `DROP DATABASE` for the stand. That drop remains part of `ci` mode only, and only on the CI database.
 
 ## What this stage executed
 
-Repository identity, `origin/main`, PR #304 merge commit, migration file inventory, Compose and CI inspection, and the test source. No Compose command. No SQL session. No credential creation.
+Repository identity, `origin/main`, PR #304 merge commit, migration file inventory, Compose and CI inspection, and the test source. Remediation R1 updates the broker and tracking statements in these documents. No Compose command. No SQL session. No credential creation. No harness edit.
