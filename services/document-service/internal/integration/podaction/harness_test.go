@@ -211,12 +211,16 @@ func seedAction(t *testing.T, crossShipper bool) actionFixture {
 	if _, err := env.pool.Exec(env.ctx, `INSERT INTO transport.cargoes (id, tenant_id, cargo_type) VALUES ($1,$2,'GENERAL')`, fix.cargo, fix.shipmentTenant); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := env.pool.Exec(env.ctx, `INSERT INTO transport.drivers (id, tenant_id, carrier_company_id, full_name, status) VALUES ($1,$2,$3,'Assigned Driver','ACTIVE')`,
+		fix.driver, fix.shipmentTenant, shipper); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := env.pool.Exec(env.ctx, `
 		INSERT INTO transport.shipments (
 			id, tenant_id, shipment_number, shipper_company_id, consignee_company_id,
-			origin_location_id, destination_location_id, transport_mode, status, version
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,'ROAD','CREATED',1)`,
-		fix.shipment, fix.shipmentTenant, "SHP-"+fix.shipment.String()[:8], shipper, consignee, origin, dest); err != nil {
+			origin_location_id, destination_location_id, driver_id, transport_mode, status, version
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'ROAD','CREATED',1)`,
+		fix.shipment, fix.shipmentTenant, "SHP-"+fix.shipment.String()[:8], shipper, consignee, origin, dest, fix.driver); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := env.pool.Exec(env.ctx, `

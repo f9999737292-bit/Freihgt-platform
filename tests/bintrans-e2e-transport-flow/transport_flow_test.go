@@ -4,12 +4,16 @@ package bintranse2e
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 func TestBintransE2ETransportFlow(t *testing.T) {
@@ -190,6 +194,8 @@ func TestBintransE2ETransportFlow(t *testing.T) {
 	if countRows(t, env.pool, `SELECT COUNT(*) FROM transport.transport_orders`) != 1 {
 		t.Fatal("mismatched public create inserted an order")
 	}
+
+	continueDeliveryAndPOD(t, env, fix, carrier, shipmentID)
 }
 
 func awardOneLot(t *testing.T, env *flowEnv, fix flowFixture, buyer, carrier map[string]string) (eventID, lotID string) {
@@ -277,6 +283,315 @@ func awardOneLot(t *testing.T, env *flowEnv, fix flowFixture, buyer, carrier map
 		t.Fatalf("award status=%d body=%s\n%s", status, payload, env.logs())
 	}
 	return eventID, lotID
+}
+
+func continueDeliveryAndPOD(t *testing.T, env *flowEnv, fix flowFixture, carrier map[string]string, shipmentID string) {
+	t.Helper()
+	driver := actorHeaders(fix.TenantID, fix.DriverUser)
+	otherDriver := actorHeaders(fix.TenantID, fix.OtherDriverUser)
+	foreignDriver := actorHeaders(fix.ForeignTenant, fix.ForeignDriverUser)
+	deny := func(name string, status int, payload []byte, want int) {
+		t.Helper()
+		if status != want {
+			t.Fatalf("%s status=%d want=%d body=%s\n%s", name, status, want, payload, env.logs())
+		}
+	}
+
+	status, payload := env.post(t, env.shipment, "/v1/driver/me/shipments/"+shipmentID+"/events", map[string]string{
+		"type": "ARRIVED_AT_PICKUP", "idempotencyKey": "other-driver-pickup",
+	}, otherDriver)
+	deny("other driver event", status, payload, http.StatusNotFound)
+	status, payload = env.post(t, env.shipment, "/v1/driver/me/shipments/"+shipmentID+"/events", map[string]string{
+		"type": "ARRIVED_AT_PICKUP", "idempotencyKey": "foreign-driver-pickup",
+	}, foreignDriver)
+	deny("foreign tenant driver event", status, payload, http.StatusNotFound)
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM transport.shipment_status_history WHERE shipment_id=$1 AND to_status='IN_PICKUP'`, shipmentID) != 0 {
+		t.Fatal("denied driver event wrote a pickup transition")
+	}
+
+	status, payload = env.patch(t, env.shipment, "/v1/shipments/"+shipmentID+"/status", map[string]string{"status": "PICKUP_SLOT_BOOKED"}, carrier)
+	if status != http.StatusOK {
+		t.Fatalf("book pickup status=%d body=%s\n%s", status, payload, env.logs())
+	}
+
+	steps := []struct {
+		event  string
+		status string
+	}{
+		{"ARRIVED_AT_PICKUP", "IN_PICKUP"},
+		{"PICKUP_COMPLETED", "LOADED"},
+		{"DEPARTED_PICKUP", "IN_TRANSIT"},
+		{"ARRIVED_AT_DELIVERY", "ARRIVED_AT_CONSIGNEE"},
+		{"UNLOADING_STARTED", "UNLOADING"},
+		{"DELIVERY_COMPLETED", "DELIVERED"},
+	}
+	for _, step := range steps {
+		occurred := time.Now().UTC().Format(time.RFC3339)
+		status, payload = env.post(t, env.shipment, "/v1/driver/me/shipments/"+shipmentID+"/events", map[string]string{
+			"type": step.event, "occurredAt": occurred, "idempotencyKey": "e2e-" + step.event,
+		}, driver)
+		if status != http.StatusOK {
+			t.Fatalf("%s status=%d body=%s\n%s", step.event, status, payload, env.logs())
+		}
+		var recorded struct {
+			ShipmentID     string `json:"shipmentId"`
+			ShipmentStatus string `json:"shipmentStatus"`
+			Replayed       bool   `json:"replayed"`
+		}
+		if err := json.Unmarshal(payload, &recorded); err != nil {
+			t.Fatalf("%s json: %v body=%s", step.event, err, payload)
+		}
+		if recorded.ShipmentID != shipmentID || recorded.ShipmentStatus != step.status || recorded.Replayed {
+			t.Fatalf("%s result: %+v", step.event, recorded)
+		}
+	}
+
+	deliveredHistory := countRows(t, env.pool, `SELECT COUNT(*) FROM transport.shipment_status_history WHERE shipment_id=$1 AND to_status='DELIVERED'`, shipmentID)
+	if deliveredHistory != 1 {
+		t.Fatalf("delivered history rows=%d", deliveredHistory)
+	}
+	status, payload = env.post(t, env.shipment, "/v1/driver/me/shipments/"+shipmentID+"/events", map[string]string{
+		"type": "DELIVERY_COMPLETED", "occurredAt": time.Now().UTC().Format(time.RFC3339), "idempotencyKey": "e2e-DELIVERY_COMPLETED",
+	}, driver)
+	if status != http.StatusOK {
+		t.Fatalf("replay delivery status=%d body=%s\n%s", status, payload, env.logs())
+	}
+	var replayed struct {
+		ShipmentID     string `json:"shipmentId"`
+		ShipmentStatus string `json:"shipmentStatus"`
+		Replayed       bool   `json:"replayed"`
+	}
+	if err := json.Unmarshal(payload, &replayed); err != nil {
+		t.Fatalf("replay json: %v body=%s", err, payload)
+	}
+	if !replayed.Replayed || replayed.ShipmentID != shipmentID || replayed.ShipmentStatus != "DELIVERED" {
+		t.Fatalf("replay result: %+v", replayed)
+	}
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM transport.shipment_status_history WHERE shipment_id=$1 AND to_status='DELIVERED'`, shipmentID) != 1 {
+		t.Fatal("replayed delivery wrote another history row")
+	}
+
+	waitPublished(t, env, shipmentID)
+	assertBrokerDelivered(t, env.brokers, shipmentID)
+	waitControlTowerDelivered(t, env, fix.TenantID.String(), shipmentID)
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM control_tower.shipment_status_projection WHERE tenant_id=$1 AND shipment_id=$2`, fix.TenantID, shipmentID) != 1 {
+		t.Fatal("delivery projection is not one row for this tenant and shipment")
+	}
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM control_tower.shipment_status_projection WHERE tenant_id=$1 AND shipment_id=$2`, fix.ForeignTenant, shipmentID) != 0 {
+		t.Fatal("foreign tenant received a delivery projection")
+	}
+	status, payload = env.get(t, env.tower, "/internal/v1/control-tower/shipments/"+shipmentID+"/status", map[string]string{"X-Tenant-ID": fix.ForeignTenant.String()})
+	deny("foreign tenant control tower", status, payload, http.StatusNotFound)
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM transport.shipment_event_outbox WHERE aggregate_id=$1 AND status='PUBLISHED' AND payload->'data'->>'toStatus'='DELIVERED'`, shipmentID) != 1 {
+		t.Fatal("replayed delivery published another DELIVERED event")
+	}
+
+	status, payload = env.get(t, env.shipment, "/v1/shipments/"+shipmentID, carrier)
+	if status != http.StatusOK {
+		t.Fatalf("delivered shipment status=%d body=%s\n%s", status, payload, env.logs())
+	}
+	delivered := decodeShipment(t, payload)
+	if delivered.ID != shipmentID || delivered.TenantID != fix.TenantID.String() || delivered.Status != "DELIVERED" || deref(delivered.DriverID) != fix.DriverID.String() || deref(delivered.CarrierCompanyID) != fix.CarrierID.String() {
+		t.Fatalf("delivered shipment: %+v", delivered)
+	}
+
+	tenantHeader := map[string]string{"X-Tenant-ID": fix.TenantID.String()}
+	foreignHeader := map[string]string{"X-Tenant-ID": fix.ForeignTenant.String()}
+	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads", map[string]string{
+		"shipmentId": shipmentID, "driverId": fix.OtherDriver.String(), "ownerCompanyId": fix.CarrierID.String(),
+		"mimeType": "image/jpeg", "fileName": "other.jpg", "idempotencyKey": "pod-other-driver",
+	}, tenantHeader)
+	deny("other driver pod intent", status, payload, http.StatusNotFound)
+	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads", map[string]string{
+		"shipmentId": shipmentID, "driverId": fix.ForeignDriver.String(), "ownerCompanyId": fix.ForeignCarrier.String(),
+		"mimeType": "image/jpeg", "fileName": "foreign.jpg", "idempotencyKey": "pod-foreign-driver",
+	}, foreignHeader)
+	deny("foreign tenant pod intent", status, payload, http.StatusNotFound)
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.documents WHERE related_entity_id=$1 AND document_type='POD'`, shipmentID) != 0 {
+		t.Fatal("denied pod intent inserted a document")
+	}
+	if decodeShipment(t, mustGetShipment(t, env, shipmentID, carrier)).Status != "DELIVERED" {
+		t.Fatal("denied pod intent changed the shipment status")
+	}
+
+	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads", map[string]string{
+		"shipmentId": shipmentID, "driverId": fix.DriverID.String(), "ownerCompanyId": fix.CarrierID.String(),
+		"mimeType": "image/jpeg", "fileName": "pod.jpg", "idempotencyKey": "pod-" + shipmentID,
+	}, tenantHeader)
+	if status != http.StatusCreated {
+		t.Fatalf("pod intent status=%d body=%s\n%s", status, payload, env.logs())
+	}
+	var intent struct {
+		UploadID    string `json:"uploadId"`
+		DocumentID  string `json:"documentId"`
+		UploadToken string `json:"uploadToken"`
+	}
+	if err := json.Unmarshal(payload, &intent); err != nil || intent.UploadID == "" || intent.DocumentID == "" || intent.UploadToken == "" {
+		t.Fatalf("pod intent json: %v body=%s", err, payload)
+	}
+	body := []byte("bintrans-e2e-pod")
+	sum := sha256.Sum256(body)
+	status, payload = env.putRaw(t, env.documents, "/internal/v1/pod-uploads/"+intent.UploadID+"/content", body, map[string]string{
+		"X-Tenant-ID": fix.TenantID.String(), "X-Upload-Token": intent.UploadToken,
+	})
+	if status != http.StatusOK {
+		t.Fatalf("pod upload status=%d body=%s\n%s", status, payload, env.logs())
+	}
+	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads/"+intent.UploadID+"/complete", map[string]string{
+		"driverId": fix.DriverID.String(), "checksumSha256": hex.EncodeToString(sum[:]),
+	}, tenantHeader)
+	if status != http.StatusOK {
+		t.Fatalf("pod complete status=%d body=%s\n%s", status, payload, env.logs())
+	}
+	var completed struct {
+		DocumentID string `json:"documentId"`
+		UploadID   string `json:"uploadId"`
+		Status     string `json:"status"`
+	}
+	if err := json.Unmarshal(payload, &completed); err != nil {
+		t.Fatalf("pod complete json: %v body=%s", err, payload)
+	}
+	if completed.DocumentID != intent.DocumentID || completed.UploadID != intent.UploadID || completed.Status != "completed" {
+		t.Fatalf("pod complete: %+v", completed)
+	}
+	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads/"+intent.UploadID+"/complete", map[string]string{
+		"driverId": fix.DriverID.String(), "checksumSha256": hex.EncodeToString(sum[:]),
+	}, tenantHeader)
+	if status != http.StatusOK {
+		t.Fatalf("pod replay status=%d body=%s\n%s", status, payload, env.logs())
+	}
+	var completedAgain struct {
+		DocumentID string `json:"documentId"`
+		Status     string `json:"status"`
+	}
+	if err := json.Unmarshal(payload, &completedAgain); err != nil || completedAgain.DocumentID != intent.DocumentID || completedAgain.Status != "completed" {
+		t.Fatalf("pod replay: %v %+v body=%s", err, completedAgain, payload)
+	}
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.documents WHERE tenant_id=$1 AND document_type='POD' AND related_entity_type='SHIPMENT' AND related_entity_id=$2`, fix.TenantID, shipmentID) != 1 {
+		t.Fatal("replayed pod complete created another document")
+	}
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.document_files WHERE document_id=$1`, intent.DocumentID) != 1 {
+		t.Fatal("replayed pod complete created another file")
+	}
+
+	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads/"+intent.UploadID+"/complete", map[string]string{
+		"driverId": fix.OtherDriver.String(),
+	}, tenantHeader)
+	deny("other driver pod complete", status, payload, http.StatusBadRequest)
+	status, payload = env.get(t, env.documents, "/v1/documents/"+intent.DocumentID, foreignHeader)
+	deny("foreign tenant document", status, payload, http.StatusNotFound)
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.documents WHERE related_entity_id=$1 AND document_type='POD'`, shipmentID) != 1 {
+		t.Fatal("denied pod access created or removed a document")
+	}
+
+	status, payload = env.get(t, env.documents, "/v1/documents/"+intent.DocumentID, tenantHeader)
+	if status != http.StatusOK {
+		t.Fatalf("document lookup status=%d body=%s\n%s", status, payload, env.logs())
+	}
+	var document struct {
+		TenantID          string  `json:"tenant_id"`
+		DocumentType      string  `json:"document_type"`
+		RelatedEntityType *string `json:"related_entity_type"`
+		RelatedEntityID   *string `json:"related_entity_id"`
+	}
+	if err := json.Unmarshal(payload, &document); err != nil {
+		t.Fatalf("document json: %v body=%s", err, payload)
+	}
+	if document.TenantID != fix.TenantID.String() || document.DocumentType != "POD" || document.RelatedEntityType == nil || *document.RelatedEntityType != "SHIPMENT" || document.RelatedEntityID == nil || *document.RelatedEntityID != shipmentID {
+		t.Fatalf("document link: %+v", document)
+	}
+	finalShipment := decodeShipment(t, mustGetShipment(t, env, shipmentID, carrier))
+	if finalShipment.ID != shipmentID || finalShipment.Status != "DELIVERED" {
+		t.Fatalf("pod left shipment %+v", finalShipment)
+	}
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM transport.shipments`) != 1 {
+		t.Fatal("delivery or pod created another shipment")
+	}
+}
+
+func waitPublished(t *testing.T, env *flowEnv, shipmentID string) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		published := countRows(t, env.pool, `SELECT COUNT(*) FROM transport.shipment_event_outbox WHERE aggregate_id=$1 AND status='PUBLISHED' AND payload->'data'->>'toStatus'='DELIVERED'`, shipmentID)
+		pending := countRows(t, env.pool, `SELECT COUNT(*) FROM transport.shipment_event_outbox WHERE aggregate_id=$1 AND status<>'PUBLISHED'`, shipmentID)
+		if published == 1 && pending == 0 {
+			return
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	var rows string
+	_ = env.pool.QueryRow(context.Background(), `
+		SELECT COALESCE(string_agg(status || ':' || COALESCE(payload->'data'->>'toStatus', '?') || ':' || COALESCE(last_error_code, ''), ','), 'none')
+		FROM transport.shipment_event_outbox WHERE aggregate_id=$1`, shipmentID).Scan(&rows)
+	t.Fatalf("outbox did not publish the delivery event rows=%s\n%s", rows, env.logs())
+}
+
+func waitControlTowerDelivered(t *testing.T, env *flowEnv, tenantID, shipmentID string) {
+	t.Helper()
+	deadline := time.Now().Add(45 * time.Second)
+	var status int
+	var payload []byte
+	for time.Now().Before(deadline) {
+		status, payload = env.get(t, env.tower, "/internal/v1/control-tower/shipments/"+shipmentID+"/status", map[string]string{"X-Tenant-ID": tenantID})
+		if status == http.StatusOK {
+			var body struct {
+				ShipmentID    string `json:"shipmentId"`
+				CurrentStatus string `json:"currentStatus"`
+			}
+			if err := json.Unmarshal(payload, &body); err == nil && body.ShipmentID == shipmentID && body.CurrentStatus == "DELIVERED" {
+				return
+			}
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	t.Fatalf("control tower status=%d body=%s\n%s", status, payload, env.logs())
+}
+
+func assertBrokerDelivered(t *testing.T, brokers, shipmentID string) {
+	t.Helper()
+	client, err := kgo.NewClient(
+		kgo.SeedBrokers(strings.Split(brokers, ",")...),
+		kgo.ConsumeTopics("shipment.status.v1"),
+		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
+	)
+	if err != nil {
+		t.Fatalf("broker reader: %v", err)
+	}
+	defer client.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	seen := 0
+	sample := ""
+	found := false
+	for {
+		fetches := client.PollFetches(ctx)
+		fetches.EachRecord(func(record *kgo.Record) {
+			seen++
+			value := string(record.Value)
+			if sample == "" {
+				sample = value
+			}
+			if strings.Contains(value, shipmentID) && strings.Contains(value, "toStatus") && strings.Contains(value, "DELIVERED") {
+				found = true
+			}
+		})
+		if found {
+			return
+		}
+		if ctx.Err() != nil {
+			t.Fatalf("broker records=%d sample=%s errors=%v", seen, sample, fetches.Errors())
+		}
+	}
+}
+
+func mustGetShipment(t *testing.T, env *flowEnv, shipmentID string, headers map[string]string) []byte {
+	t.Helper()
+	status, payload := env.get(t, env.shipment, "/v1/shipments/"+shipmentID, headers)
+	if status != http.StatusOK {
+		t.Fatalf("shipment lookup status=%d body=%s\n%s", status, payload, env.logs())
+	}
+	return payload
 }
 
 func decodeShipment(t *testing.T, payload []byte) shipmentView {
