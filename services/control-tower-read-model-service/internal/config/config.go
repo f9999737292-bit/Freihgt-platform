@@ -12,6 +12,7 @@ type Config struct {
 	ServiceName      string
 	Environment      string
 	HTTPPort         int
+	HTTPListenHost   string
 	LogLevel         string
 	DatabaseURL      string
 	Consumer         ConsumerConfig
@@ -116,6 +117,7 @@ func Load() (Config, error) {
 		ServiceName:      "control-tower-read-model-service",
 		Environment:      getEnv("ENVIRONMENT", "development"),
 		HTTPPort:         port,
+		HTTPListenHost:   strings.TrimSpace(os.Getenv("CONTROL_TOWER_HTTP_LISTEN_HOST")),
 		LogLevel:         getEnv("LOG_LEVEL", "info"),
 		DatabaseURL:      databaseURL,
 		Consumer:         consumer,
@@ -250,8 +252,8 @@ func (c DriverKafkaConfig) ValidateRequired() error {
 }
 
 func (c Config) Validate() error {
-	if c.HTTPPort <= 0 {
-		return fmt.Errorf("CONTROL_TOWER_HTTP_PORT must be > 0")
+	if _, err := HTTPListenAddr(c.HTTPListenHost, c.HTTPPort); err != nil {
+		return err
 	}
 	if c.Consumer.PollTimeout <= 0 || c.Consumer.ProcessTimeout <= 0 || c.Consumer.CommitTimeout <= 0 {
 		return fmt.Errorf("consumer timeouts must be > 0")
@@ -328,6 +330,22 @@ func (c KafkaConfig) ErrorString(err error) string {
 		return ""
 	}
 	return strings.ReplaceAll(err.Error(), c.SASLPassword, "***")
+}
+
+// HTTPListenAddr keeps the historical all-interface bind when host is empty.
+// The isolated stand sets the host to 127.0.0.1. Any other host is rejected.
+func HTTPListenAddr(host string, port int) (string, error) {
+	if port <= 0 || port > 65535 {
+		return "", fmt.Errorf("http port must be between 1 and 65535")
+	}
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return fmt.Sprintf(":%d", port), nil
+	}
+	if host != "127.0.0.1" {
+		return "", fmt.Errorf("http listen host %q is not allowed", host)
+	}
+	return fmt.Sprintf("127.0.0.1:%d", port), nil
 }
 
 func parseBool(raw string) bool {
