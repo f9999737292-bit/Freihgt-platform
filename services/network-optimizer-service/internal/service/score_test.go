@@ -549,7 +549,18 @@ func TestBNO306_ANONYMIZED_TARGET_DISTANCE_NOT_EXPOSED(t *testing.T) {
 	cap := w.capacity(domain.CapacityAvailable, domain.SourceManual, 0, 0)
 	pickup := place(0, kmDeg(2), "Secret")
 	delivery := routing.Point{Longitude: 1}
-	load := w.load(domain.VisAnonymized, pickup, pointPlace(delivery, "Hidden"), nil)
+	// CI run 40113181166 failed because this load id contains the digit run "123".
+	load := domain.LoadOpportunity{
+		ID: uuid.MustParse("d8376626-ce22-452b-8614-15e39a4c1239"), OwnerTenantID: w.shipper,
+		SourceType: domain.SourceTransportOrder, SourceID: uuid.New(),
+		Pickup: pickup, Delivery: pointPlace(delivery, "Hidden"), VisibilityScope: domain.VisAnonymized,
+		Status: domain.LoadPublished, Version: 1, CreatedAt: w.at, UpdatedAt: w.at,
+	}
+	if err := w.store.Within(context.Background(), func(tx repository.Tx) error {
+		return tx.InsertLoad(context.Background(), load)
+	}); err != nil {
+		t.Fatal(err)
+	}
 	w.routes.defaultM = 10000
 	w.routes.defaultSec = 600
 	w.routes.roads[roadKey(delivery, routing.Point{Longitude: 10})] = roadCell{m: 123000, sec: 1}
@@ -557,13 +568,146 @@ func TestBNO306_ANONYMIZED_TARGET_DISTANCE_NOT_EXPOSED(t *testing.T) {
 	policy.ObjectiveProfile = domain.ProfileReturnHome
 	policy.TargetLocationID = &targetID
 	doc := w.search(w.actor(), cap.ID, policy)
-	if doc.Candidates[0].LoadOpportunityID != load.ID || doc.Candidates[0].Score == nil {
+	if len(doc.Candidates) != 1 || doc.Candidates[0].LoadOpportunityID != load.ID || doc.Candidates[0].Score == nil {
 		t.Fatalf("%+v", doc.Candidates)
 	}
-	raw, _ := json.Marshal(doc.Candidates[0])
-	if containsString(string(raw), "123") || containsString(string(raw), "location_id") {
-		t.Fatalf("%s", raw)
+	view := doc.Candidates[0]
+	if reason := anonymizedTargetLeak(view, targetID); reason != "" {
+		t.Fatalf("%s %+v", reason, view)
 	}
+	if view.DeadheadBucket != "0-25" || view.ScoreStatus != domain.ScoreRanked {
+		t.Fatalf("safe aggregate %+v", view)
+	}
+	proximity := component(t, view, domain.ComponentTargetProximity)
+	if proximity.RawValue != nil || proximity.RawUnit != "" || proximity.Explanation != "Delivery to the explicit target is comparatively near or far within the feasible pool" {
+		t.Fatalf("target component %+v", proximity)
+	}
+	if proximity.NormalizedPoints == nil || proximity.WeightedPoints == nil {
+		t.Fatal("comparative score aggregates missing")
+	}
+
+	rawLeak := cloneCandidate(view)
+	km := 123.0
+	if !setTargetComponent(&rawLeak, func(component *domain.ScoreComponentResult) {
+		component.RawValue = &km
+		component.RawUnit = "km"
+	}) {
+		t.Fatal("missing target component")
+	}
+	if got := anonymizedTargetLeak(rawLeak, targetID); got != "target_proximity_raw_value" {
+		t.Fatalf("raw 123 km detected as %q", got)
+	}
+	textLeak := cloneCandidate(view)
+	if !setTargetComponent(&textLeak, func(component *domain.ScoreComponentResult) {
+		component.Explanation = "Road distance from delivery to the explicit target is 123 km"
+	}) {
+		t.Fatal("missing target component")
+	}
+	if got := anonymizedTargetLeak(textLeak, targetID); got != "score_component_explanation" {
+		t.Fatalf("explanation 123 km detected as %q", got)
+	}
+	metersLeak := cloneCandidate(view)
+	meters := 123000.0
+	metersLeak.RoadDeadheadKm = &meters
+	if got := anonymizedTargetLeak(metersLeak, targetID); got != "road_deadhead_km" {
+		t.Fatalf("123000 m detected as %q", got)
+	}
+	locationLeak := cloneCandidate(view)
+	locationID := targetID
+	locationLeak.Load.Pickup.LocationID = &locationID
+	if got := anonymizedTargetLeak(locationLeak, targetID); got != "location_identifier" {
+		t.Fatalf("target location id detected as %q", got)
+	}
+}
+
+func cloneCandidate(view SearchCandidateView) SearchCandidateView {
+	view.ScoreComponents = append([]domain.ScoreComponentResult(nil), view.ScoreComponents...)
+	view.Explanation = append([]string(nil), view.Explanation...)
+	return view
+}
+
+func setTargetComponent(view *SearchCandidateView, edit func(*domain.ScoreComponentResult)) bool {
+	for i := range view.ScoreComponents {
+		if view.ScoreComponents[i].Code == domain.ComponentTargetProximity {
+			edit(&view.ScoreComponents[i])
+			return true
+		}
+	}
+	return false
+}
+
+func anonymizedTargetLeak(view SearchCandidateView, targetID uuid.UUID) string {
+	if view.RoadDeadheadKm != nil {
+		return "road_deadhead_km"
+	}
+	if view.RoadDeadheadMinutes != nil {
+		return "road_deadhead_minutes"
+	}
+	if view.ForwardProgressKm != nil || view.LateralDistanceKm != nil || view.RouteIncreaseKm != nil {
+		return "derived_distance"
+	}
+	switch view.DeadheadBucket {
+	case "", "0-25", "25-50", "50-100", "100-200", "200+":
+	default:
+		return "deadhead_bucket"
+	}
+	if placeLeaksExactLocation(view.Load.Pickup, targetID) || placeLeaksExactLocation(view.Load.Delivery, targetID) {
+		return "location_identifier"
+	}
+	for _, line := range view.Explanation {
+		if textLeaksTargetDistance(line, targetID) {
+			return "explanation"
+		}
+	}
+	for _, component := range view.ScoreComponents {
+		if component.Code == domain.ComponentTargetProximity && (component.RawValue != nil || component.RawUnit != "") {
+			return "target_proximity_raw_value"
+		}
+		if component.RawValue != nil && exactTargetDistance(*component.RawValue) {
+			return "score_component_raw_value"
+		}
+		if textLeaksTargetDistance(component.Explanation, targetID) || textLeaksTargetDistance(component.RawUnit, targetID) || textLeaksTargetDistance(component.ReasonCode, targetID) {
+			return "score_component_explanation"
+		}
+	}
+	return ""
+}
+
+func placeLeaksExactLocation(place domain.Place, targetID uuid.UUID) bool {
+	if place.LocationID != nil || place.Latitude != nil || place.Longitude != nil || place.Label != "" {
+		return true
+	}
+	return textLeaksTargetDistance(place.CountryCode, targetID) || textLeaksTargetDistance(place.Region, targetID) || textLeaksTargetDistance(place.City, targetID)
+}
+
+func textLeaksTargetDistance(text string, targetID uuid.UUID) bool {
+	if targetID != uuid.Nil && containsString(text, targetID.String()) {
+		return true
+	}
+	return containsExactTargetDistance(text)
+}
+
+func exactTargetDistance(value float64) bool {
+	return value == 123 || value == 123000
+}
+
+func containsExactTargetDistance(text string) bool {
+	for i := 0; i < len(text); {
+		if text[i] < '0' || text[i] > '9' {
+			i++
+			continue
+		}
+		j := i
+		for j < len(text) && text[j] >= '0' && text[j] <= '9' {
+			j++
+		}
+		token := text[i:j]
+		if token == "123" || token == "123000" {
+			return true
+		}
+		i = j
+	}
+	return false
 }
 
 func TestBNO307_SCORE_EXPLANATION_NO_EXACT_ANON_GEO(t *testing.T) {
