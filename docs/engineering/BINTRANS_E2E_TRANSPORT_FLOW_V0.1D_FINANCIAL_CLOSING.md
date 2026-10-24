@@ -40,6 +40,8 @@ Each accepted financial write is one database transaction and inserts `billing.s
 | --- | --- | --- |
 | Create | Same settlement id, still one row, `201` | No second settlement |
 | Include, calculate, register approve, package | Same register, item, totals, or package id | No second register, item, act, or VAT invoice |
+| Include by another shipper or carrier | `403` before any replay | No settlement payload, and no change to registers, items, audit events, outbox rows, or settlement version |
+| Include by a foreign tenant | `404` | No information about the settlement |
 | Submit or settlement approve | `400` | No second audit event and no second settlement |
 | Foreign tenant | `404` on create and on settlement read | No settlement |
 | Other carrier as `CARRIER`, or other shipper as `BUYER` | `403` | No settlement and no status change |

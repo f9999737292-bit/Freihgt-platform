@@ -25,6 +25,17 @@ func assertForbidden(t *testing.T, err error) {
 	}
 }
 
+func assertNotFound(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected not found error")
+	}
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeNotFound {
+		t.Fatalf("expected not found, got %v", err)
+	}
+}
+
 func assertValidation(t *testing.T, err error) {
 	t.Helper()
 	if err == nil {
@@ -471,7 +482,7 @@ func Test22DocumentAssociationTenantSafe(t *testing.T) {
 	_, err := env.settlements.ProposeAccessorial(context.Background(), settlement.ID, domain.ProposeAccessorialInput{
 		SettlementActorInput: carrierActor(fix),
 		ChargeCode:           "DETENTION", Amount: 1500,
-		EvidenceDocumentID:   &otherTenantDoc,
+		EvidenceDocumentID: &otherTenantDoc,
 	})
 	assertForbidden(t, err)
 
@@ -480,7 +491,7 @@ func Test22DocumentAssociationTenantSafe(t *testing.T) {
 	_, err = env.settlements.ProposeAccessorial(context.Background(), settlement.ID, domain.ProposeAccessorialInput{
 		SettlementActorInput: carrierActor(fix),
 		ChargeCode:           "DETENTION", Amount: 1500,
-		EvidenceDocumentID:   &foreignDoc,
+		EvidenceDocumentID: &foreignDoc,
 	})
 	assertForbidden(t, err)
 }
@@ -522,4 +533,81 @@ func Test23CompetitorFinancialIsolation(t *testing.T) {
 		ActorKind: domain.SettlementActorBuyer, ActorUserID: fix.BuyerUserID,
 	})
 	assertForbidden(t, err)
+}
+
+func TestIncludeReplayAuthorizesBeforeReturn(t *testing.T) {
+	env := setupEnv(t)
+	fix := seedFixture(t, env.pool)
+	ctx := context.Background()
+	settlement := createSettlement(t, env, fix, fix.ShipmentID, "include-replay-auth")
+	submitAndApproveSettlement(t, env, fix, settlement.ID)
+
+	first, err := env.settlements.IncludeInRegister(ctx, settlement.ID, buyerActor(fix), "BR-INCLUDE-AUTH")
+	if err != nil {
+		t.Fatalf("first include: %v", err)
+	}
+	if first.BillingRegisterID == nil || first.BillingRegisterItemID == nil {
+		t.Fatal("first include did not link a register")
+	}
+	before := readIncludeAuthSnapshot(t, env, first.ID, *first.BillingRegisterID)
+
+	second, err := env.settlements.IncludeInRegister(ctx, settlement.ID, buyerActor(fix), "BR-INCLUDE-AUTH")
+	if err != nil {
+		t.Fatalf("buyer replay: %v", err)
+	}
+	if second.BillingRegisterID == nil || *second.BillingRegisterID != *first.BillingRegisterID ||
+		second.BillingRegisterItemID == nil || *second.BillingRegisterItemID != *first.BillingRegisterItemID ||
+		second.BaseFreightAmount != first.BaseFreightAmount || second.TotalWithVAT != first.TotalWithVAT || second.Version != first.Version {
+		t.Fatalf("buyer replay changed the settlement: first=%+v second=%+v", first, second)
+	}
+
+	denied := []domain.SettlementActorInput{
+		{TenantID: fix.TenantID, ActorCompanyID: fix.ForeignBuyer, ActorKind: domain.SettlementActorBuyer, ActorUserID: fix.BuyerUserID},
+		{TenantID: fix.TenantID, ActorCompanyID: fix.CarrierB, ActorKind: domain.SettlementActorCarrier, ActorUserID: fix.UserID},
+		{TenantID: fix.TenantID, ActorCompanyID: fix.CarrierA, ActorKind: domain.SettlementActorCarrier, ActorUserID: fix.UserID},
+	}
+	for _, actor := range denied {
+		got, denyErr := env.settlements.IncludeInRegister(ctx, settlement.ID, actor, "BR-INCLUDE-AUTH")
+		if got != nil {
+			t.Fatalf("denied include returned settlement data for %s %s", actor.ActorKind, actor.ActorCompanyID)
+		}
+		assertForbidden(t, denyErr)
+	}
+	foreign, denyErr := env.settlements.IncludeInRegister(ctx, settlement.ID, domain.SettlementActorInput{
+		TenantID: fix.OtherTenantID, ActorCompanyID: fix.BuyerID, ActorKind: domain.SettlementActorBuyer, ActorUserID: fix.BuyerUserID,
+	}, "BR-INCLUDE-AUTH")
+	if foreign != nil {
+		t.Fatal("foreign tenant include returned settlement data")
+	}
+	assertNotFound(t, denyErr)
+	if got := readIncludeAuthSnapshot(t, env, first.ID, *first.BillingRegisterID); got != before {
+		t.Fatalf("denied include changed financial state before=%+v after=%+v", before, got)
+	}
+}
+
+type includeAuthSnapshot struct {
+	registers, items, audits, outbox, version int
+	baseAmount, totalWithVAT                  string
+}
+
+func readIncludeAuthSnapshot(t *testing.T, env *env, settlementID, registerID uuid.UUID) includeAuthSnapshot {
+	t.Helper()
+	var got includeAuthSnapshot
+	err := env.pool.QueryRow(context.Background(), `
+		SELECT
+			(SELECT COUNT(*) FROM billing.billing_registers WHERE id = $2),
+			(SELECT COUNT(*) FROM billing.billing_register_items WHERE register_id = $2),
+			(SELECT COUNT(*) FROM billing.settlement_audit_events WHERE settlement_id = $1),
+			(SELECT COUNT(*) FROM billing.freight_cost_outbox WHERE aggregate_id = $1),
+			fs.version,
+			fs.base_freight_amount::text,
+			fs.total_with_vat::text
+		FROM billing.freight_settlements fs
+		WHERE fs.id = $1`, settlementID, registerID).Scan(
+		&got.registers, &got.items, &got.audits, &got.outbox, &got.version, &got.baseAmount, &got.totalWithVAT,
+	)
+	if err != nil {
+		t.Fatalf("include auth snapshot: %v", err)
+	}
+	return got
 }

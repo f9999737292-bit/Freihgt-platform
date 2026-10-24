@@ -6,7 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func continueFinancialClosing(t *testing.T, env *flowEnv, fix flowFixture, shipmentID string) {
@@ -119,10 +122,23 @@ func continueFinancialClosing(t *testing.T, env *flowEnv, fix flowFixture, shipm
 	}
 	registerID := *included.BillingRegisterID
 	itemID := *included.BillingRegisterItemID
+	beforeReplay := readIncludeFingerprint(t, env, fix.TenantID, created.ID)
+	status, payload = env.post(t, env.billing, "/v1/freight-settlements/"+created.ID+"/include-in-register", map[string]any{}, otherBuyer)
+	denyIncludePayload(t, env, "other buyer include replay", status, payload, http.StatusForbidden, registerID, itemID)
+	status, payload = env.post(t, env.billing, "/v1/freight-settlements/"+created.ID+"/include-in-register", map[string]any{}, otherCarrier)
+	denyIncludePayload(t, env, "other carrier include replay", status, payload, http.StatusForbidden, registerID, itemID)
+	status, payload = env.post(t, env.billing, "/v1/freight-settlements/"+created.ID+"/include-in-register", map[string]any{}, foreignCarrier)
+	denyIncludePayload(t, env, "foreign tenant include replay", status, payload, http.StatusNotFound, registerID, itemID)
+	if got := readIncludeFingerprint(t, env, fix.TenantID, created.ID); got != beforeReplay {
+		t.Fatalf("denied include replay changed financial state before=%+v after=%+v", beforeReplay, got)
+	}
 	status, payload = env.post(t, env.billing, "/v1/freight-settlements/"+created.ID+"/include-in-register", map[string]any{}, buyer)
 	includedAgain := expectSettlement(t, env, status, payload, http.StatusOK, "APPROVED", created.ID)
 	if includedAgain.BillingRegisterID == nil || *includedAgain.BillingRegisterID != registerID || includedAgain.BillingRegisterItemID == nil || *includedAgain.BillingRegisterItemID != itemID {
 		t.Fatalf("include replay: %+v", includedAgain)
+	}
+	if got := readIncludeFingerprint(t, env, fix.TenantID, created.ID); got != beforeReplay {
+		t.Fatalf("buyer include replay changed financial state before=%+v after=%+v", beforeReplay, got)
 	}
 	assertFinanceShape(t, env, 1, 1, 1, 0, 0, 0, 0)
 
@@ -189,6 +205,49 @@ func continueFinancialClosing(t *testing.T, env *flowEnv, fix flowFixture, shipm
 	status, payload = env.get(t, env.documents, "/v1/documents/"+singleText(t, env, `SELECT id::text FROM documents.documents WHERE related_entity_id=$1 AND document_type='POD'`, shipmentID), map[string]string{"X-Tenant-ID": fix.ForeignTenant.String()})
 	deny("foreign tenant document after billing", status, payload, http.StatusNotFound)
 	assertChain()
+}
+
+type includeFingerprint struct {
+	registers, items, audits, outbox, version  int
+	baseAmount, settlementTotal, registerTotal string
+}
+
+func readIncludeFingerprint(t *testing.T, env *flowEnv, tenantID uuid.UUID, settlementID string) includeFingerprint {
+	t.Helper()
+	var got includeFingerprint
+	err := env.pool.QueryRow(context.Background(), `
+		SELECT
+			(SELECT COUNT(*) FROM billing.billing_registers),
+			(SELECT COUNT(*) FROM billing.billing_register_items),
+			(SELECT COUNT(*) FROM billing.settlement_audit_events WHERE settlement_id = fs.id),
+			(SELECT COUNT(*) FROM billing.freight_cost_outbox WHERE tenant_id = fs.tenant_id AND aggregate_id = fs.id),
+			fs.version,
+			fs.base_freight_amount::text,
+			fs.total_with_vat::text,
+			br.total_with_vat::text
+		FROM billing.freight_settlements fs
+		JOIN billing.billing_registers br ON br.id = fs.billing_register_id AND br.tenant_id = fs.tenant_id
+		WHERE fs.id = $1 AND fs.tenant_id = $2`, settlementID, tenantID).Scan(
+		&got.registers, &got.items, &got.audits, &got.outbox, &got.version,
+		&got.baseAmount, &got.settlementTotal, &got.registerTotal,
+	)
+	if err != nil {
+		t.Fatalf("include fingerprint: %v", err)
+	}
+	return got
+}
+
+func denyIncludePayload(t *testing.T, env *flowEnv, name string, status int, payload []byte, want int, registerID, itemID string) {
+	t.Helper()
+	if status != want {
+		t.Fatalf("%s status=%d want=%d body=%s\n%s", name, status, want, payload, env.logs())
+	}
+	body := string(payload)
+	for _, secret := range []string{registerID, itemID, "base_freight_amount", "billing_register_id", "total_with_vat", "vat_amount"} {
+		if strings.Contains(body, secret) {
+			t.Fatalf("%s leaked %s in %s", name, secret, body)
+		}
+	}
 }
 
 func assertFinanceShape(t *testing.T, env *flowEnv, settlements, registers, items, packages, acts, vatInvoices, payments int) {
