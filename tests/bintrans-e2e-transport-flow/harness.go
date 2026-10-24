@@ -74,36 +74,34 @@ type flowFixture struct {
 
 func newFlowEnv(t *testing.T) *flowEnv {
 	t.Helper()
-	adminURL := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
-	if adminURL == "" {
-		if os.Getenv("REQUIRE_TEST_DATABASE") == "1" || strings.EqualFold(strings.TrimSpace(os.Getenv("CI")), "true") {
-			t.Fatal("TEST_DATABASE_URL is required")
-		}
-		adminURL = startEmbeddedPostgres(t)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	t.Cleanup(cancel)
+	brokers := startKafka(t)
+	mode := strings.TrimSpace(os.Getenv("BINTRANS_E2E_STAND_MODE"))
 
-	_, testURL, dropDB, err := createTempDatabase(ctx, adminURL)
-	if err != nil {
-		t.Fatalf("isolated postgres: %v", err)
-	}
-	pool, err := pgxpool.New(ctx, testURL)
-	if err != nil {
-		dropDB(context.Background())
-		t.Fatalf("connect: %v", err)
-	}
-	t.Cleanup(func() {
-		pool.Close()
-		dropDB(context.Background())
-	})
-	if err := applyMigrations(ctx, pool); err != nil {
-		t.Fatalf("migrations: %v", err)
+	var pool *pgxpool.Pool
+	var testURL string
+	switch mode {
+	case "stand":
+		pool, testURL = openStandDatabase(t)
+	case "ci":
+		pool, testURL = openCIDatabase(t)
+	default:
+		t.Fatalf("BINTRANS_E2E_STAND_MODE %q is not stand or ci", mode)
 	}
 
 	root := repoRoot(t)
 	binDir := t.TempDir()
-	brokers := startKafka(t)
+	shipmentLog := "error"
+	towerLog := "error"
+	if mode == "stand" {
+		shipmentLog = "info"
+		towerLog = "info"
+	}
+	documentRoot := t.TempDir()
+	if mode == "stand" {
+		if configured := strings.TrimSpace(os.Getenv("DOCUMENT_STORAGE_ROOT")); configured != "" {
+			documentRoot = configured
+		}
+	}
 	rfxPort := freePort(t)
 	orderPort := freePort(t)
 	ratePort := freePort(t)
@@ -164,14 +162,14 @@ func newFlowEnv(t *testing.T) *flowEnv {
 		"SHIPMENT_OUTBOX_PUBLISH_TIMEOUT":     "5s",
 		"SHIPMENT_OUTBOX_LEASE_TIMEOUT":       "30s",
 		"TMS_RELATIONSHIP_ACTIVATION_ENABLED": "false",
-		"LOG_LEVEL":                           "error",
+		"LOG_LEVEL":                           shipmentLog,
 		"ENVIRONMENT":                         "test",
 	})
 	env.documents = startService(t, filepath.Join(root, "services", "document-service"), filepath.Join(binDir, "document.exe"), map[string]string{
 		"DATABASE_URL":          testURL,
 		"DOCUMENT_SERVICE_PORT": fmt.Sprintf("%d", documentPort),
 		"HTTP_PORT":             fmt.Sprintf("%d", documentPort),
-		"DOCUMENT_STORAGE_ROOT": t.TempDir(),
+		"DOCUMENT_STORAGE_ROOT": documentRoot,
 		"LOG_LEVEL":             "error",
 		"ENVIRONMENT":           "test",
 	})
@@ -197,7 +195,7 @@ func newFlowEnv(t *testing.T) *flowEnv {
 		"CONTROL_TOWER_DRIVER_EVENTS_ENABLED":   "false",
 		"SHIPMENT_SERVICE_URL":                  shipmentURL,
 		"INTERNAL_SERVICE_TOKEN":                internalToken,
-		"LOG_LEVEL":                             "error",
+		"LOG_LEVEL":                             towerLog,
 		"ENVIRONMENT":                           "test",
 	})
 	env.rates.base = rateURL
@@ -219,6 +217,41 @@ func newFlowEnv(t *testing.T) *flowEnv {
 
 func startKafka(t *testing.T) string {
 	t.Helper()
+	mode := strings.TrimSpace(os.Getenv("BINTRANS_E2E_STAND_MODE"))
+	broker := strings.TrimSpace(os.Getenv("BINTRANS_E2E_KAFKA_BROKERS"))
+	allow := strings.TrimSpace(os.Getenv("BINTRANS_E2E_KFAKE_ALLOW"))
+	modeLine, brokerLine := brokerLogLines(mode, broker)
+	t.Log(modeLine)
+	t.Log(brokerLine)
+	plan, err := decideBroker(mode, broker, allow, dialStandBroker)
+	if err != nil {
+		t.Fatalf("broker: %v", err)
+	}
+	if plan.UseKfake {
+		addr := startKfakeCluster(t)
+		_, used := brokerLogLines(mode, addr)
+		t.Log(used)
+		return addr
+	}
+	return plan.Broker
+}
+
+func dialStandBroker(addr string) error {
+	conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
+	if err != nil {
+		return err
+	}
+	return conn.Close()
+}
+
+func startKfakeCluster(t *testing.T) string {
+	t.Helper()
+	if strings.TrimSpace(os.Getenv("BINTRANS_E2E_STAND_MODE")) == "stand" {
+		t.Fatal("stand mode refuses kfake.NewCluster")
+	}
+	if strings.TrimSpace(os.Getenv("BINTRANS_E2E_KFAKE_ALLOW")) != "1" {
+		t.Fatal("kfake.NewCluster requires BINTRANS_E2E_KFAKE_ALLOW=1")
+	}
 	cluster, err := kfake.NewCluster(
 		kfake.NumBrokers(1),
 		kfake.SeedTopics(1, "shipment.status.v1", "driver.events.v1"),
@@ -232,6 +265,78 @@ func startKafka(t *testing.T) string {
 		t.Fatal("kafka cluster has no listen address")
 	}
 	return strings.Join(addrs, ",")
+}
+
+func openCIDatabase(t *testing.T) (*pgxpool.Pool, string) {
+	t.Helper()
+	adminURL := strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
+	if adminURL == "" {
+		if os.Getenv("REQUIRE_TEST_DATABASE") == "1" || strings.EqualFold(strings.TrimSpace(os.Getenv("CI")), "true") {
+			t.Fatal("TEST_DATABASE_URL is required")
+		}
+		adminURL = startEmbeddedPostgres(t)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	t.Cleanup(cancel)
+
+	_, testURL, dropDB, err := createTempDatabase(ctx, adminURL)
+	if err != nil {
+		t.Fatalf("isolated postgres: %v", err)
+	}
+	pool, err := pgxpool.New(ctx, testURL)
+	if err != nil {
+		dropDB(context.Background())
+		t.Fatalf("connect: %v", err)
+	}
+	t.Cleanup(func() {
+		pool.Close()
+		dropDB(context.Background())
+	})
+	if err := applyMigrations(ctx, pool); err != nil {
+		t.Fatalf("migrations: %v", err)
+	}
+	return pool, testURL
+}
+
+func openStandDatabase(t *testing.T) (*pgxpool.Pool, string) {
+	t.Helper()
+	dsn, err := validateStandDatabaseURL(os.Getenv("TEST_DATABASE_URL"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal("stand postgres connect failed")
+	}
+	t.Cleanup(pool.Close)
+	if err := assertStandSchema(ctx, pool); err != nil {
+		t.Fatalf("stand schema: %v", err)
+	}
+	return pool, dsn
+}
+
+func assertStandSchema(ctx context.Context, pool *pgxpool.Pool) error {
+	var state standSchemaState
+	if err := pool.QueryRow(ctx, `SELECT version, dirty FROM schema_migrations`).Scan(&state.Version, &state.Dirty); err != nil {
+		return fmt.Errorf("schema_migrations: %w", err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM pg_trigger WHERE tgname = 'trg_new_activation_authorization'`).Scan(&state.TriggerCount); err != nil {
+		return err
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM pg_roles WHERE rolcanlogin AND rolname <> current_user`).Scan(&state.ExtraLoginRoles); err != nil {
+		return err
+	}
+	var nologin int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM pg_roles
+		WHERE rolname IN ('freight_migrations', 'company_runtime', 'shipment_runtime')
+		  AND NOT rolcanlogin`).Scan(&nologin); err != nil {
+		return err
+	}
+	state.RuntimeRolesNoLogin = nologin == 3
+	return evaluateStandSchema(state)
 }
 
 func startService(t *testing.T, moduleDir, binPath string, environment map[string]string) *serviceProc {
@@ -446,6 +551,9 @@ func mustExec(t *testing.T, pool *pgxpool.Pool, query string, args ...any) {
 }
 
 func createTempDatabase(ctx context.Context, adminURL string) (dbName string, testURL string, cleanup func(context.Context), err error) {
+	if strings.TrimSpace(os.Getenv("BINTRANS_E2E_STAND_MODE")) == "stand" {
+		return "", "", nil, fmt.Errorf("stand mode refuses CREATE DATABASE")
+	}
 	cfg, err := pgxpool.ParseConfig(adminURL)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("parse database url: %w", err)
@@ -489,6 +597,9 @@ func buildDSN(cfg *pgxpool.Config) string {
 }
 
 func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	if strings.TrimSpace(os.Getenv("BINTRANS_E2E_STAND_MODE")) == "stand" {
+		return fmt.Errorf("stand mode refuses applyMigrations")
+	}
 	dir, err := locateMigrationsDir()
 	if err != nil {
 		return err

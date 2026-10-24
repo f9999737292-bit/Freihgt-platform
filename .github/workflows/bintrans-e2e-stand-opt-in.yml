@@ -1,0 +1,82 @@
+name: BINTRANS E2E stand opt-in
+
+# Manual only. This workflow is not part of ci.yml and is not a required check.
+# It builds an ephemeral database password in the job and does not read
+# repository credentials or production credential stores.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stand:
+    name: bintrans-e2e-stand-opt-in
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write ephemeral stand environment outside the diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          scripts/ops/bintrans_e2e_stand/ephemeral-env.sh > "$RUNNER_TEMP/bintrans-e2e-stand.env"
+
+      - name: Check rendered project boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose \
+            --env-file "$RUNNER_TEMP/bintrans-e2e-stand.env" \
+            -p bintrans-e2e-stand-v0.1a \
+            -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml \
+            config > "$RUNNER_TEMP/bintrans-e2e-stand.config.yml"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          text = Path(os.environ["RUNNER_TEMP"], "bintrans-e2e-stand.config.yml").read_text(encoding="utf-8")
+          forbidden = [
+              "freight_postgres_data",
+              "freight-platform-network",
+              "freight_postgres",
+              "bintrans-ct-staging",
+              "staging.env",
+              "/protected/",
+              "BINTRANS_E2E_KFAKE_ALLOW",
+              "tms_activation_enforcement_gate",
+              "container_name:",
+          ]
+          for token in forbidden:
+              if token in text:
+                  raise SystemExit(f"forbidden token present: {token}")
+          if "\n    ports:" in text or text.startswith("ports:"):
+              raise SystemExit("rendered config publishes host bindings")
+          if "internal: true" not in text:
+              raise SystemExit("stand network is not internal")
+          print("stand config boundaries ok")
+          PY
+
+      - name: Run the isolated stand
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose \
+            --env-file "$RUNNER_TEMP/bintrans-e2e-stand.env" \
+            -p bintrans-e2e-stand-v0.1a \
+            -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml \
+            up --build --abort-on-container-exit --exit-code-from runner
+
+      - name: Remove only this Compose project
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose \
+            --env-file "$RUNNER_TEMP/bintrans-e2e-stand.env" \
+            -p bintrans-e2e-stand-v0.1a \
+            -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml \
+            down -v --remove-orphans

@@ -1,0 +1,118 @@
+name: bintrans-e2e-stand-v0.1a
+
+# Isolated BINTRANS E2E stand. Postgres, Redpanda, topic creation, one migrate
+# container, and the Go test runner. The seven HTTP binaries stay child
+# processes inside the runner. This file does not import the platform Compose
+# file or the staging overlay.
+
+services:
+  postgres:
+    image: mirror.gcr.io/library/postgres:16
+    restart: "no"
+    environment:
+      POSTGRES_USER: ${BINTRANS_E2E_STAND_POSTGRES_USER:?ephemeral stand user required}
+      POSTGRES_PASSWORD: ${BINTRANS_E2E_STAND_POSTGRES_PASSWORD:?ephemeral stand password required}
+      POSTGRES_DB: ${BINTRANS_E2E_STAND_POSTGRES_DB:?ephemeral stand database required}
+    volumes:
+      - bintrans-e2e-stand-postgres:/var/lib/postgresql/data
+    networks:
+      - bintrans-e2e-stand
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.8
+    restart: "no"
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - 512M
+      - --reserve-memory
+      - 0M
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - internal://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - internal://redpanda:9092
+    volumes:
+      - bintrans-e2e-stand-redpanda:/var/lib/redpanda/data
+    networks:
+      - bintrans-e2e-stand
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "info", "--brokers", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  topic-init:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.8
+    restart: "no"
+    entrypoint: ["/bin/sh", "/topic-init.sh"]
+    volumes:
+      - ../docker/bintrans-e2e-stand/topic-init.sh:/topic-init.sh:ro
+    networks:
+      - bintrans-e2e-stand
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  migrate:
+    image: migrate/migrate:v4.17.1
+    restart: "no"
+    command:
+      - -path=/migrations
+      - -database=postgres://${BINTRANS_E2E_STAND_POSTGRES_USER}:${BINTRANS_E2E_STAND_POSTGRES_PASSWORD}@postgres:5432/${BINTRANS_E2E_STAND_POSTGRES_DB}?sslmode=disable
+      - up
+    volumes:
+      - ../migrations:/migrations:ro
+    networks:
+      - bintrans-e2e-stand
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  runner:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/bintrans-e2e-stand/Dockerfile
+    restart: "no"
+    environment:
+      BINTRANS_E2E_STAND_MODE: stand
+      BINTRANS_E2E_KAFKA_BROKERS: redpanda:9092
+      REQUIRE_TEST_DATABASE: "1"
+      TEST_DATABASE_URL: postgres://${BINTRANS_E2E_STAND_POSTGRES_USER}:${BINTRANS_E2E_STAND_POSTGRES_PASSWORD}@postgres:5432/${BINTRANS_E2E_STAND_POSTGRES_DB}?sslmode=disable
+      DOCUMENT_STORAGE_ROOT: /var/lib/bintrans-e2e-stand/documents
+      TMS_RELATIONSHIP_ACTIVATION_ENABLED: "false"
+    volumes:
+      - bintrans-e2e-stand-documents:/var/lib/bintrans-e2e-stand/documents
+    networks:
+      - bintrans-e2e-stand
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      topic-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+
+networks:
+  bintrans-e2e-stand:
+    internal: true
+
+volumes:
+  bintrans-e2e-stand-postgres:
+  bintrans-e2e-stand-documents:
+  bintrans-e2e-stand-redpanda:
