@@ -9,6 +9,7 @@ const (
 	CodeNotFound     Code = "NOT_FOUND"
 	CodeConflict     Code = "CONFLICT"
 	CodeUnauthorized Code = "UNAUTHORIZED"
+	CodeForbidden    Code = "FORBIDDEN"
 	CodeInternal     Code = "INTERNAL_ERROR"
 )
 
@@ -40,6 +41,10 @@ func NotFound(message string) *AppError {
 
 func Unauthorized(message string) *AppError {
 	return &AppError{Code: CodeUnauthorized, Message: message, Details: map[string]any{}}
+}
+
+func Forbidden(message string, details map[string]any) *AppError {
+	return &AppError{Code: CodeForbidden, Message: message, Details: detailsOrEmpty(details)}
 }
 
 func Conflict(message string, details map[string]any) *AppError {

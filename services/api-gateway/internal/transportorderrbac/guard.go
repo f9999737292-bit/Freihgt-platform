@@ -1,7 +1,10 @@
 package transportorderrbac
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -70,6 +73,19 @@ func (g *Guard) WithPolicy(policy Policy) http.HandlerFunc {
 		if queryTenant := strings.TrimSpace(r.URL.Query().Get("tenant_id")); queryTenant != "" && !strings.EqualFold(queryTenant, ac.TenantID) {
 			recordPublicRequest(operation, "forbidden_tenant_query")
 			recordAuthzDenied(operation, "tenant_query")
+			respond.Error(w, apperrors.Forbidden("tenant_id does not match authenticated tenant"))
+			return
+		}
+		bodyTenant, err := peekBodyTenantID(r)
+		if err != nil {
+			recordPublicRequest(operation, "forbidden_tenant_body")
+			recordAuthzDenied(operation, "tenant_body")
+			respond.Error(w, err)
+			return
+		}
+		if bodyTenant != "" && !bodyTenantMatches(bodyTenant, ac.TenantID) {
+			recordPublicRequest(operation, "forbidden_tenant_body")
+			recordAuthzDenied(operation, "tenant_body")
 			respond.Error(w, apperrors.Forbidden("tenant_id does not match authenticated tenant"))
 			return
 		}
@@ -166,4 +182,45 @@ func (g *Guard) handleIdentityError(w http.ResponseWriter, err error) {
 	default:
 		respond.Error(w, apperrors.AuthDependencyUnavailable("authentication service is temporarily unavailable"))
 	}
+}
+
+func peekBodyTenantID(r *http.Request) (string, error) {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions || r.Body == nil {
+		return "", nil
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return "", apperrors.Validation("invalid JSON body", map[string]any{"field": "body"})
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	if len(bytes.TrimSpace(body)) == 0 {
+		return "", nil
+	}
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return "", nil
+	}
+	raw, ok := payload["tenant_id"]
+	if !ok || len(bytes.TrimSpace(raw)) == 0 || string(bytes.TrimSpace(raw)) == "null" {
+		return "", nil
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return "", apperrors.Forbidden("tenant_id does not match authenticated tenant")
+	}
+	return strings.TrimSpace(value), nil
+}
+
+func bodyTenantMatches(supplied, verified string) bool {
+	supplied = strings.TrimSpace(supplied)
+	verified = strings.TrimSpace(verified)
+	if supplied == "" || verified == "" {
+		return false
+	}
+	left, leftErr := uuid.Parse(supplied)
+	right, rightErr := uuid.Parse(verified)
+	if leftErr == nil && rightErr == nil {
+		return left != uuid.Nil && left == right
+	}
+	return strings.EqualFold(supplied, verified)
 }

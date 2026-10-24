@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -13,8 +14,13 @@ import (
 	"github.com/freight-platform/transport-order-service/internal/service"
 )
 
+type pricedOrderCommands interface {
+	CreatePricedTransportOrder(ctx context.Context, in domain.CreatePricedTransportOrderInput) (*domain.PricedTransportOrderResult, error)
+	CreateFromAwardScope(ctx context.Context, in domain.CreateFromAwardScopeInput) (*domain.PricedTransportOrderResult, error)
+}
+
 type PricedTransportOrderHandler struct {
-	priced *service.PricedTransportOrderService
+	priced pricedOrderCommands
 }
 
 func NewPricedTransportOrderHandler(priced *service.PricedTransportOrderService) *PricedTransportOrderHandler {
@@ -22,14 +28,14 @@ func NewPricedTransportOrderHandler(priced *service.PricedTransportOrderService)
 }
 
 type pricingContextRequest struct {
-	CarrierCompanyID  *string `json:"carrier_company_id"`
-	AwardLinkID       *string `json:"award_link_id"`
-	AwardScopeEventID *string `json:"award_scope_event_id"`
-	AwardScopeLotID   *string `json:"award_scope_lot_id"`
-	BidID             *string `json:"bid_id"`
-	ManualSpotAmount  *string `json:"manual_spot_amount"`
+	CarrierCompanyID   *string `json:"carrier_company_id"`
+	AwardLinkID        *string `json:"award_link_id"`
+	AwardScopeEventID  *string `json:"award_scope_event_id"`
+	AwardScopeLotID    *string `json:"award_scope_lot_id"`
+	BidID              *string `json:"bid_id"`
+	ManualSpotAmount   *string `json:"manual_spot_amount"`
 	ManualSpotCurrency *string `json:"manual_spot_currency"`
-	PricingSource     *string `json:"pricing_source"`
+	PricingSource      *string `json:"pricing_source"`
 }
 
 type createPricedTransportOrderRequest struct {
@@ -61,17 +67,27 @@ func (h *PricedTransportOrderHandler) CreatePricedTransportOrder(w http.Response
 		respond.Error(w, err)
 		return
 	}
+	verifiedTenant, err := resolveVerifiedTenant(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
 	var req createPricedTransportOrderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
 		return
 	}
+	if err := rejectMismatchedBodyTenant(req.TenantID, verifiedTenant); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	req.TenantID = verifiedTenant.String()
 	base, err := parseCreateTransportOrderRequest(req.createTransportOrderRequest)
 	if err != nil {
 		respond.Error(w, err)
 		return
 	}
-	actor, err := parseActorFromRequest(r, base.TenantID)
+	actor, err := parseActorFromRequest(r, verifiedTenant)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -256,6 +272,21 @@ func parseActorFromRequest(r *http.Request, tenantID uuid.UUID) (domain.Internal
 		CompanyID: companyID,
 		ActorKind: kind,
 	}, nil
+}
+
+func rejectMismatchedBodyTenant(bodyTenant string, verified uuid.UUID) error {
+	raw := strings.TrimSpace(bodyTenant)
+	if raw == "" {
+		return nil
+	}
+	parsed, err := uuid.Parse(raw)
+	if err != nil || parsed == uuid.Nil {
+		return apperrors.Validation("invalid tenant id", map[string]any{"field": "tenant_id"})
+	}
+	if parsed != verified {
+		return apperrors.Forbidden("tenant_id does not match authenticated tenant", map[string]any{"field": "tenant_id"})
+	}
+	return nil
 }
 
 func trimOptional(value *string) *string {
