@@ -687,7 +687,7 @@ jobs:
         run: go test -tags=integration ./internal/integration/enterprise/... -count=1 -run 'AwardedConversion|ConversionDenied|RepeatedConversion|ConcurrentConversion|MultiLotPrice|ConversionAudit|CompetitorDataIsolationAfterConversion|BuyerOwnAwarded|SameTenantForeign|CrossTenant|NonAwarded' -v
 
   bintrans-e2e-transport-flow:
-    name: bintrans-e2e-transport-flow-v0.1c
+    name: bintrans-e2e-transport-flow
     runs-on: ubuntu-latest
     timeout-minutes: 35
     services:
@@ -724,9 +724,10 @@ jobs:
             services/shipment-service/go.sum
             services/document-service/go.sum
             services/control-tower-read-model-service/go.sum
+            services/billing-register-service/go.sum
             tests/bintrans-e2e-transport-flow/go.sum
 
-      - name: Run BINTRANS award-to-delivery chain
+      - name: Run BINTRANS award-to-closing chain
         working-directory: tests/bintrans-e2e-transport-flow
         run: go test -tags=integration -count=1 -timeout 25m -run TestBintransE2ETransportFlow -v .
 

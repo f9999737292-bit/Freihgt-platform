@@ -43,28 +43,33 @@ type flowEnv struct {
 	rates     *serviceProc
 	documents *serviceProc
 	tower     *serviceProc
+	billing   *serviceProc
 }
 
 type flowFixture struct {
-	TenantID          uuid.UUID
-	ShipperID         uuid.UUID
-	CarrierID         uuid.UUID
-	OtherCarrier      uuid.UUID
-	BuyerUser         uuid.UUID
-	CarrierUser       uuid.UUID
-	DriverUser        uuid.UUID
-	OtherDriverUser   uuid.UUID
-	ForeignDriverUser uuid.UUID
-	OriginID          uuid.UUID
-	DestID            uuid.UUID
-	DriverID          uuid.UUID
-	VehicleID         uuid.UUID
-	OtherDriver       uuid.UUID
-	OtherVehicle      uuid.UUID
-	ForeignTenant     uuid.UUID
-	ForeignCarrier    uuid.UUID
-	ForeignDriver     uuid.UUID
-	ForeignVehicle    uuid.UUID
+	TenantID           uuid.UUID
+	ShipperID          uuid.UUID
+	CarrierID          uuid.UUID
+	OtherCarrier       uuid.UUID
+	OtherShipper       uuid.UUID
+	BuyerUser          uuid.UUID
+	CarrierUser        uuid.UUID
+	OtherCarrierUser   uuid.UUID
+	OtherBuyerUser     uuid.UUID
+	ForeignCarrierUser uuid.UUID
+	DriverUser         uuid.UUID
+	OtherDriverUser    uuid.UUID
+	ForeignDriverUser  uuid.UUID
+	OriginID           uuid.UUID
+	DestID             uuid.UUID
+	DriverID           uuid.UUID
+	VehicleID          uuid.UUID
+	OtherDriver        uuid.UUID
+	OtherVehicle       uuid.UUID
+	ForeignTenant      uuid.UUID
+	ForeignCarrier     uuid.UUID
+	ForeignDriver      uuid.UUID
+	ForeignVehicle     uuid.UUID
 }
 
 func newFlowEnv(t *testing.T) *flowEnv {
@@ -105,12 +110,14 @@ func newFlowEnv(t *testing.T) *flowEnv {
 	shipmentPort := freePort(t)
 	documentPort := freePort(t)
 	towerPort := freePort(t)
+	billingPort := freePort(t)
 	rfxURL := fmt.Sprintf("http://127.0.0.1:%d", rfxPort)
 	orderURL := fmt.Sprintf("http://127.0.0.1:%d", orderPort)
 	rateURL := fmt.Sprintf("http://127.0.0.1:%d", ratePort)
 	shipmentURL := fmt.Sprintf("http://127.0.0.1:%d", shipmentPort)
 	documentURL := fmt.Sprintf("http://127.0.0.1:%d", documentPort)
 	towerURL := fmt.Sprintf("http://127.0.0.1:%d", towerPort)
+	billingURL := fmt.Sprintf("http://127.0.0.1:%d", billingPort)
 
 	env := &flowEnv{pool: pool, brokers: brokers}
 	env.rates = startService(t, filepath.Join(root, "services", "contract-rate-service"), filepath.Join(binDir, "contract-rate.exe"), map[string]string{
@@ -168,6 +175,15 @@ func newFlowEnv(t *testing.T) *flowEnv {
 		"LOG_LEVEL":             "error",
 		"ENVIRONMENT":           "test",
 	})
+	env.billing = startService(t, filepath.Join(root, "services", "billing-register-service"), filepath.Join(binDir, "billing-register.exe"), map[string]string{
+		"DATABASE_URL":                        testURL,
+		"BILLING_REGISTER_SERVICE_PORT":       fmt.Sprintf("%d", billingPort),
+		"HTTP_PORT":                           fmt.Sprintf("%d", billingPort),
+		"INTERNAL_SERVICE_TOKEN":              internalToken,
+		"BILLING_FREIGHT_COST_OUTBOX_ENABLED": "false",
+		"LOG_LEVEL":                           "error",
+		"ENVIRONMENT":                         "test",
+	})
 	env.tower = startService(t, filepath.Join(root, "services", "control-tower-read-model-service"), filepath.Join(binDir, "control-tower.exe"), map[string]string{
 		"DATABASE_URL":                          testURL,
 		"CONTROL_TOWER_DATABASE_URL":            testURL,
@@ -190,12 +206,14 @@ func newFlowEnv(t *testing.T) *flowEnv {
 	env.shipment.base = shipmentURL
 	env.documents.base = documentURL
 	env.tower.base = towerURL
+	env.billing.base = billingURL
 	waitReady(t, env.rates)
 	waitReady(t, env.orders)
 	waitReady(t, env.rfx)
 	waitReady(t, env.shipment)
 	waitReady(t, env.documents)
 	waitReady(t, env.tower)
+	waitReady(t, env.billing)
 	return env
 }
 
@@ -332,25 +350,29 @@ func seedFlowFixture(t *testing.T, pool *pgxpool.Pool) flowFixture {
 	t.Helper()
 	ctx := context.Background()
 	fix := flowFixture{
-		TenantID:          uuid.New(),
-		ShipperID:         uuid.New(),
-		CarrierID:         uuid.New(),
-		OtherCarrier:      uuid.New(),
-		BuyerUser:         uuid.New(),
-		CarrierUser:       uuid.New(),
-		DriverUser:        uuid.New(),
-		OtherDriverUser:   uuid.New(),
-		ForeignDriverUser: uuid.New(),
-		OriginID:          uuid.New(),
-		DestID:            uuid.New(),
-		DriverID:          uuid.New(),
-		VehicleID:         uuid.New(),
-		OtherDriver:       uuid.New(),
-		OtherVehicle:      uuid.New(),
-		ForeignTenant:     uuid.New(),
-		ForeignCarrier:    uuid.New(),
-		ForeignDriver:     uuid.New(),
-		ForeignVehicle:    uuid.New(),
+		TenantID:           uuid.New(),
+		ShipperID:          uuid.New(),
+		CarrierID:          uuid.New(),
+		OtherCarrier:       uuid.New(),
+		OtherShipper:       uuid.New(),
+		BuyerUser:          uuid.New(),
+		CarrierUser:        uuid.New(),
+		OtherCarrierUser:   uuid.New(),
+		OtherBuyerUser:     uuid.New(),
+		ForeignCarrierUser: uuid.New(),
+		DriverUser:         uuid.New(),
+		OtherDriverUser:    uuid.New(),
+		ForeignDriverUser:  uuid.New(),
+		OriginID:           uuid.New(),
+		DestID:             uuid.New(),
+		DriverID:           uuid.New(),
+		VehicleID:          uuid.New(),
+		OtherDriver:        uuid.New(),
+		OtherVehicle:       uuid.New(),
+		ForeignTenant:      uuid.New(),
+		ForeignCarrier:     uuid.New(),
+		ForeignDriver:      uuid.New(),
+		ForeignVehicle:     uuid.New(),
 	}
 	mustExec(t, pool, `INSERT INTO core.tenants (id, code, name) VALUES ($1,$2,$3), ($4,$5,$6)`,
 		fix.TenantID, "t-"+fix.TenantID.String()[:8], "BINTRANS Shipper Tenant",
@@ -360,6 +382,7 @@ func seedFlowFixture(t *testing.T, pool *pgxpool.Pool) flowFixture {
 		name, typ  string
 	}{
 		{fix.ShipperID, fix.TenantID, "Shipper Co", "SHIPPER"},
+		{fix.OtherShipper, fix.TenantID, "Other Shipper", "SHIPPER"},
 		{fix.CarrierID, fix.TenantID, "Awarded Carrier", "CARRIER"},
 		{fix.OtherCarrier, fix.TenantID, "Other Carrier", "CARRIER"},
 		{fix.ForeignCarrier, fix.ForeignTenant, "Foreign Carrier", "CARRIER"},
@@ -372,10 +395,16 @@ func seedFlowFixture(t *testing.T, pool *pgxpool.Pool) flowFixture {
 		fix.CarrierUser, "carrier-"+fix.CarrierUser.String()[:8]+"@bintrans.test", "Carrier User",
 		fix.DriverUser, "driver-"+fix.DriverUser.String()[:8]+"@bintrans.test", "Awarded Driver User",
 		fix.OtherDriverUser, "other-driver-"+fix.OtherDriverUser.String()[:8]+"@bintrans.test", "Other Driver User")
-	mustExec(t, pool, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1,$2,$3,$4)`,
-		fix.ForeignDriverUser, fix.ForeignTenant, "foreign-driver-"+fix.ForeignDriverUser.String()[:8]+"@bintrans.test", "Foreign Driver User")
-	mustExec(t, pool, `INSERT INTO core.company_memberships (tenant_id, company_id, user_id) VALUES ($1,$2,$3), ($1,$4,$5)`,
-		fix.TenantID, fix.ShipperID, fix.BuyerUser, fix.CarrierID, fix.CarrierUser)
+	mustExec(t, pool, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1,$2,$3,$4), ($5,$2,$6,$7)`,
+		fix.OtherCarrierUser, fix.TenantID, "other-carrier-"+fix.OtherCarrierUser.String()[:8]+"@bintrans.test", "Other Carrier User",
+		fix.OtherBuyerUser, "other-buyer-"+fix.OtherBuyerUser.String()[:8]+"@bintrans.test", "Other Buyer")
+	mustExec(t, pool, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1,$2,$3,$4), ($5,$2,$6,$7)`,
+		fix.ForeignDriverUser, fix.ForeignTenant, "foreign-driver-"+fix.ForeignDriverUser.String()[:8]+"@bintrans.test", "Foreign Driver User",
+		fix.ForeignCarrierUser, "foreign-carrier-"+fix.ForeignCarrierUser.String()[:8]+"@bintrans.test", "Foreign Carrier User")
+	mustExec(t, pool, `INSERT INTO core.company_memberships (tenant_id, company_id, user_id) VALUES ($1,$2,$3), ($1,$4,$5), ($1,$6,$7), ($1,$8,$9)`,
+		fix.TenantID, fix.ShipperID, fix.BuyerUser, fix.CarrierID, fix.CarrierUser, fix.OtherCarrier, fix.OtherCarrierUser, fix.OtherShipper, fix.OtherBuyerUser)
+	mustExec(t, pool, `INSERT INTO core.company_memberships (tenant_id, company_id, user_id) VALUES ($1,$2,$3)`,
+		fix.ForeignTenant, fix.ForeignCarrier, fix.ForeignCarrierUser)
 	var buyerRole, carrierRole uuid.UUID
 	if err := pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'PROCUREMENT_MANAGER' LIMIT 1`).Scan(&buyerRole); err != nil {
 		t.Fatalf("buyer role: %v", err)
@@ -383,8 +412,11 @@ func seedFlowFixture(t *testing.T, pool *pgxpool.Pool) flowFixture {
 	if err := pool.QueryRow(ctx, `SELECT id FROM core.roles WHERE tenant_id IS NULL AND code = 'CARRIER_DISPATCHER' LIMIT 1`).Scan(&carrierRole); err != nil {
 		t.Fatalf("carrier role: %v", err)
 	}
-	mustExec(t, pool, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id) VALUES ($1,$2,$3,$4), ($1,$5,$6,$7)`,
-		fix.TenantID, fix.BuyerUser, fix.ShipperID, buyerRole, fix.CarrierUser, fix.CarrierID, carrierRole)
+	mustExec(t, pool, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id) VALUES ($1,$2,$3,$4), ($1,$5,$6,$7), ($1,$8,$9,$7), ($1,$10,$11,$4)`,
+		fix.TenantID, fix.BuyerUser, fix.ShipperID, buyerRole, fix.CarrierUser, fix.CarrierID, carrierRole,
+		fix.OtherCarrierUser, fix.OtherCarrier, fix.OtherBuyerUser, fix.OtherShipper)
+	mustExec(t, pool, `INSERT INTO core.user_roles (tenant_id, user_id, company_id, role_id) VALUES ($1,$2,$3,$4)`,
+		fix.ForeignTenant, fix.ForeignCarrierUser, fix.ForeignCarrier, carrierRole)
 	for _, loc := range []struct {
 		id   uuid.UUID
 		name string
@@ -601,6 +633,9 @@ func (e *flowEnv) logs() string {
 	if e.tower != nil {
 		parts = append(parts, "control-tower:\n"+tail(e.tower.log.String()))
 	}
+	if e.billing != nil {
+		parts = append(parts, "billing:\n"+tail(e.billing.log.String()))
+	}
 	return strings.Join(parts, "\n")
 }
 
@@ -624,6 +659,15 @@ func actorHeaders(tenantID, userID uuid.UUID) map[string]string {
 	return map[string]string{
 		"X-Tenant-ID": tenantID.String(),
 		"X-User-ID":   userID.String(),
+	}
+}
+
+func billingHeaders(tenantID, userID, companyID uuid.UUID, actorKind string) map[string]string {
+	return map[string]string{
+		"X-Tenant-ID":  tenantID.String(),
+		"X-User-ID":    userID.String(),
+		"X-Company-ID": companyID.String(),
+		"X-Actor-Kind": actorKind,
 	}
 }
 
