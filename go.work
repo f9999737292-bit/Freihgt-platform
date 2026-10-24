@@ -1,6 +1,7 @@
 go 1.25.0
 
 use (
+	./tests/bintrans-e2e-transport-flow
 	./packages/shared-go
 	./packages/statussnapshot
 	./scripts/openapi
