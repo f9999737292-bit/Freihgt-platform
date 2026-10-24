@@ -71,6 +71,17 @@ func (s *PODUploadService) CreateUploadIntent(ctx context.Context, in CreatePODU
 			return existing, nil
 		}
 	}
+	var assigned bool
+	if err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM transport.shipments
+			WHERE id = $1 AND tenant_id = $2 AND driver_id = $3 AND deleted_at IS NULL
+		)`, in.ShipmentID, in.TenantID, in.DriverID).Scan(&assigned); err != nil {
+		return nil, err
+	}
+	if !assigned {
+		return nil, apperrors.NotFound("shipment not found")
+	}
 
 	shipmentType := domain.RelatedEntityTypeShipment
 	uploadID := uuid.New()

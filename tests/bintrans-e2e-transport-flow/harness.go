@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/twmb/franz-go/pkg/kfake"
 )
 
 const internalToken = "bintrans-e2e-transport-flow-v0.1b"
@@ -34,30 +35,36 @@ type serviceProc struct {
 }
 
 type flowEnv struct {
-	pool     *pgxpool.Pool
-	rfx      *serviceProc
-	orders   *serviceProc
-	shipment *serviceProc
-	rates    *serviceProc
+	pool      *pgxpool.Pool
+	brokers   string
+	rfx       *serviceProc
+	orders    *serviceProc
+	shipment  *serviceProc
+	rates     *serviceProc
+	documents *serviceProc
+	tower     *serviceProc
 }
 
 type flowFixture struct {
-	TenantID       uuid.UUID
-	ShipperID      uuid.UUID
-	CarrierID      uuid.UUID
-	OtherCarrier   uuid.UUID
-	BuyerUser      uuid.UUID
-	CarrierUser    uuid.UUID
-	OriginID       uuid.UUID
-	DestID         uuid.UUID
-	DriverID       uuid.UUID
-	VehicleID      uuid.UUID
-	OtherDriver    uuid.UUID
-	OtherVehicle   uuid.UUID
-	ForeignTenant  uuid.UUID
-	ForeignCarrier uuid.UUID
-	ForeignDriver  uuid.UUID
-	ForeignVehicle uuid.UUID
+	TenantID          uuid.UUID
+	ShipperID         uuid.UUID
+	CarrierID         uuid.UUID
+	OtherCarrier      uuid.UUID
+	BuyerUser         uuid.UUID
+	CarrierUser       uuid.UUID
+	DriverUser        uuid.UUID
+	OtherDriverUser   uuid.UUID
+	ForeignDriverUser uuid.UUID
+	OriginID          uuid.UUID
+	DestID            uuid.UUID
+	DriverID          uuid.UUID
+	VehicleID         uuid.UUID
+	OtherDriver       uuid.UUID
+	OtherVehicle      uuid.UUID
+	ForeignTenant     uuid.UUID
+	ForeignCarrier    uuid.UUID
+	ForeignDriver     uuid.UUID
+	ForeignVehicle    uuid.UUID
 }
 
 func newFlowEnv(t *testing.T) *flowEnv {
@@ -91,16 +98,21 @@ func newFlowEnv(t *testing.T) *flowEnv {
 
 	root := repoRoot(t)
 	binDir := t.TempDir()
+	brokers := startKafka(t)
 	rfxPort := freePort(t)
 	orderPort := freePort(t)
 	ratePort := freePort(t)
 	shipmentPort := freePort(t)
+	documentPort := freePort(t)
+	towerPort := freePort(t)
 	rfxURL := fmt.Sprintf("http://127.0.0.1:%d", rfxPort)
 	orderURL := fmt.Sprintf("http://127.0.0.1:%d", orderPort)
 	rateURL := fmt.Sprintf("http://127.0.0.1:%d", ratePort)
 	shipmentURL := fmt.Sprintf("http://127.0.0.1:%d", shipmentPort)
+	documentURL := fmt.Sprintf("http://127.0.0.1:%d", documentPort)
+	towerURL := fmt.Sprintf("http://127.0.0.1:%d", towerPort)
 
-	env := &flowEnv{pool: pool}
+	env := &flowEnv{pool: pool, brokers: brokers}
 	env.rates = startService(t, filepath.Join(root, "services", "contract-rate-service"), filepath.Join(binDir, "contract-rate.exe"), map[string]string{
 		"DATABASE_URL":               testURL,
 		"CONTRACT_RATE_SERVICE_PORT": fmt.Sprintf("%d", ratePort),
@@ -135,20 +147,73 @@ func newFlowEnv(t *testing.T) *flowEnv {
 		"HTTP_PORT":                           fmt.Sprintf("%d", shipmentPort),
 		"INTERNAL_SERVICE_TOKEN":              internalToken,
 		"DRIVER_NOTIFICATION_ENABLED":         "false",
-		"SHIPMENT_OUTBOX_ENABLED":             "false",
+		"SHIPMENT_OUTBOX_ENABLED":             "true",
+		"SHIPMENT_OUTBOX_TRANSPORT":           "kafka",
+		"SHIPMENT_KAFKA_BROKERS":              brokers,
+		"SHIPMENT_KAFKA_TOPIC":                "shipment.status.v1",
+		"SHIPMENT_KAFKA_DRIVER_TOPIC":         "driver.events.v1",
+		"SHIPMENT_KAFKA_CLIENT_ID":            "shipment-service",
+		"SHIPMENT_OUTBOX_POLL_INTERVAL":       "500ms",
+		"SHIPMENT_OUTBOX_PUBLISH_TIMEOUT":     "5s",
+		"SHIPMENT_OUTBOX_LEASE_TIMEOUT":       "30s",
 		"TMS_RELATIONSHIP_ACTIVATION_ENABLED": "false",
 		"LOG_LEVEL":                           "error",
 		"ENVIRONMENT":                         "test",
+	})
+	env.documents = startService(t, filepath.Join(root, "services", "document-service"), filepath.Join(binDir, "document.exe"), map[string]string{
+		"DATABASE_URL":          testURL,
+		"DOCUMENT_SERVICE_PORT": fmt.Sprintf("%d", documentPort),
+		"HTTP_PORT":             fmt.Sprintf("%d", documentPort),
+		"DOCUMENT_STORAGE_ROOT": t.TempDir(),
+		"LOG_LEVEL":             "error",
+		"ENVIRONMENT":           "test",
+	})
+	env.tower = startService(t, filepath.Join(root, "services", "control-tower-read-model-service"), filepath.Join(binDir, "control-tower.exe"), map[string]string{
+		"DATABASE_URL":                          testURL,
+		"CONTROL_TOWER_DATABASE_URL":            testURL,
+		"CONTROL_TOWER_READ_MODEL_SERVICE_PORT": fmt.Sprintf("%d", towerPort),
+		"CONTROL_TOWER_HTTP_PORT":               fmt.Sprintf("%d", towerPort),
+		"CONTROL_TOWER_CONSUMER_ENABLED":        "true",
+		"CONTROL_TOWER_KAFKA_BROKERS":           brokers,
+		"CONTROL_TOWER_KAFKA_TOPIC":             "shipment.status.v1",
+		"CONTROL_TOWER_KAFKA_GROUP_ID":          "control-tower-e2e-" + uuid.NewString(),
+		"CONTROL_TOWER_KAFKA_CLIENT_ID":         "control-tower-e2e",
+		"CONTROL_TOWER_DRIVER_EVENTS_ENABLED":   "false",
+		"SHIPMENT_SERVICE_URL":                  shipmentURL,
+		"INTERNAL_SERVICE_TOKEN":                internalToken,
+		"LOG_LEVEL":                             "error",
+		"ENVIRONMENT":                           "test",
 	})
 	env.rates.base = rateURL
 	env.orders.base = orderURL
 	env.rfx.base = rfxURL
 	env.shipment.base = shipmentURL
+	env.documents.base = documentURL
+	env.tower.base = towerURL
 	waitReady(t, env.rates)
 	waitReady(t, env.orders)
 	waitReady(t, env.rfx)
 	waitReady(t, env.shipment)
+	waitReady(t, env.documents)
+	waitReady(t, env.tower)
 	return env
+}
+
+func startKafka(t *testing.T) string {
+	t.Helper()
+	cluster, err := kfake.NewCluster(
+		kfake.NumBrokers(1),
+		kfake.SeedTopics(1, "shipment.status.v1", "driver.events.v1"),
+	)
+	if err != nil {
+		t.Fatalf("kafka cluster: %v", err)
+	}
+	t.Cleanup(func() { cluster.Close() })
+	addrs := cluster.ListenAddrs()
+	if len(addrs) == 0 {
+		t.Fatal("kafka cluster has no listen address")
+	}
+	return strings.Join(addrs, ",")
 }
 
 func startService(t *testing.T, moduleDir, binPath string, environment map[string]string) *serviceProc {
@@ -267,22 +332,25 @@ func seedFlowFixture(t *testing.T, pool *pgxpool.Pool) flowFixture {
 	t.Helper()
 	ctx := context.Background()
 	fix := flowFixture{
-		TenantID:       uuid.New(),
-		ShipperID:      uuid.New(),
-		CarrierID:      uuid.New(),
-		OtherCarrier:   uuid.New(),
-		BuyerUser:      uuid.New(),
-		CarrierUser:    uuid.New(),
-		OriginID:       uuid.New(),
-		DestID:         uuid.New(),
-		DriverID:       uuid.New(),
-		VehicleID:      uuid.New(),
-		OtherDriver:    uuid.New(),
-		OtherVehicle:   uuid.New(),
-		ForeignTenant:  uuid.New(),
-		ForeignCarrier: uuid.New(),
-		ForeignDriver:  uuid.New(),
-		ForeignVehicle: uuid.New(),
+		TenantID:          uuid.New(),
+		ShipperID:         uuid.New(),
+		CarrierID:         uuid.New(),
+		OtherCarrier:      uuid.New(),
+		BuyerUser:         uuid.New(),
+		CarrierUser:       uuid.New(),
+		DriverUser:        uuid.New(),
+		OtherDriverUser:   uuid.New(),
+		ForeignDriverUser: uuid.New(),
+		OriginID:          uuid.New(),
+		DestID:            uuid.New(),
+		DriverID:          uuid.New(),
+		VehicleID:         uuid.New(),
+		OtherDriver:       uuid.New(),
+		OtherVehicle:      uuid.New(),
+		ForeignTenant:     uuid.New(),
+		ForeignCarrier:    uuid.New(),
+		ForeignDriver:     uuid.New(),
+		ForeignVehicle:    uuid.New(),
 	}
 	mustExec(t, pool, `INSERT INTO core.tenants (id, code, name) VALUES ($1,$2,$3), ($4,$5,$6)`,
 		fix.TenantID, "t-"+fix.TenantID.String()[:8], "BINTRANS Shipper Tenant",
@@ -299,9 +367,13 @@ func seedFlowFixture(t *testing.T, pool *pgxpool.Pool) flowFixture {
 		mustExec(t, pool, `INSERT INTO core.companies (id, tenant_id, legal_name, company_type) VALUES ($1,$2,$3,$4)`,
 			company.id, company.tenant, company.name, company.typ)
 	}
-	mustExec(t, pool, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1,$2,$3,$4), ($5,$2,$6,$7)`,
+	mustExec(t, pool, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1,$2,$3,$4), ($5,$2,$6,$7), ($8,$2,$9,$10), ($11,$2,$12,$13)`,
 		fix.BuyerUser, fix.TenantID, "buyer-"+fix.BuyerUser.String()[:8]+"@bintrans.test", "Buyer",
-		fix.CarrierUser, "carrier-"+fix.CarrierUser.String()[:8]+"@bintrans.test", "Carrier User")
+		fix.CarrierUser, "carrier-"+fix.CarrierUser.String()[:8]+"@bintrans.test", "Carrier User",
+		fix.DriverUser, "driver-"+fix.DriverUser.String()[:8]+"@bintrans.test", "Awarded Driver User",
+		fix.OtherDriverUser, "other-driver-"+fix.OtherDriverUser.String()[:8]+"@bintrans.test", "Other Driver User")
+	mustExec(t, pool, `INSERT INTO core.users (id, tenant_id, email, full_name) VALUES ($1,$2,$3,$4)`,
+		fix.ForeignDriverUser, fix.ForeignTenant, "foreign-driver-"+fix.ForeignDriverUser.String()[:8]+"@bintrans.test", "Foreign Driver User")
 	mustExec(t, pool, `INSERT INTO core.company_memberships (tenant_id, company_id, user_id) VALUES ($1,$2,$3), ($1,$4,$5)`,
 		fix.TenantID, fix.ShipperID, fix.BuyerUser, fix.CarrierID, fix.CarrierUser)
 	var buyerRole, carrierRole uuid.UUID
@@ -323,9 +395,11 @@ func seedFlowFixture(t *testing.T, pool *pgxpool.Pool) flowFixture {
 		mustExec(t, pool, `INSERT INTO transport.locations (id, tenant_id, company_id, location_type, name, country_code, city)
 			VALUES ($1,$2,$3,'WAREHOUSE',$4,'RU','Moscow')`, loc.id, fix.TenantID, fix.ShipperID, loc.name)
 	}
-	mustExec(t, pool, `INSERT INTO transport.drivers (id, tenant_id, carrier_company_id, full_name, status)
-		VALUES ($1,$2,$3,'Awarded Driver','ACTIVE'), ($4,$2,$5,'Other Driver','ACTIVE'), ($6,$7,$8,'Foreign Driver','ACTIVE')`,
-		fix.DriverID, fix.TenantID, fix.CarrierID, fix.OtherDriver, fix.OtherCarrier, fix.ForeignDriver, fix.ForeignTenant, fix.ForeignCarrier)
+	mustExec(t, pool, `INSERT INTO transport.drivers (id, tenant_id, carrier_company_id, user_id, full_name, status)
+		VALUES ($1,$2,$3,$4,'Awarded Driver','ACTIVE'), ($5,$2,$6,$7,'Other Driver','ACTIVE'), ($8,$9,$10,$11,'Foreign Driver','ACTIVE')`,
+		fix.DriverID, fix.TenantID, fix.CarrierID, fix.DriverUser,
+		fix.OtherDriver, fix.OtherCarrier, fix.OtherDriverUser,
+		fix.ForeignDriver, fix.ForeignTenant, fix.ForeignCarrier, fix.ForeignDriverUser)
 	mustExec(t, pool, `INSERT INTO transport.vehicles (id, tenant_id, carrier_company_id, plate_number, vehicle_type, status)
 		VALUES ($1,$2,$3,'A111AA77','TRUCK','ACTIVE'), ($4,$2,$5,'B222BB77','TRUCK','ACTIVE'), ($6,$7,$8,'C333CC77','TRUCK','ACTIVE')`,
 		fix.VehicleID, fix.TenantID, fix.CarrierID, fix.OtherVehicle, fix.OtherCarrier, fix.ForeignVehicle, fix.ForeignTenant, fix.ForeignCarrier)
@@ -477,6 +551,25 @@ func (e *flowEnv) patch(t *testing.T, proc *serviceProc, path string, body any, 
 	return resp.StatusCode, payload
 }
 
+func (e *flowEnv) putRaw(t *testing.T, proc *serviceProc, path string, body []byte, headers map[string]string) (int, []byte) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPut, proc.base+path, bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("put %s: %v\n%s", path, err, e.logs())
+	}
+	defer resp.Body.Close()
+	payload, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	return resp.StatusCode, payload
+}
+
 func (e *flowEnv) get(t *testing.T, proc *serviceProc, path string, headers map[string]string) (int, []byte) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, proc.base+path, nil)
@@ -496,7 +589,19 @@ func (e *flowEnv) get(t *testing.T, proc *serviceProc, path string, headers map[
 }
 
 func (e *flowEnv) logs() string {
-	return "rfx:\n" + tail(e.rfx.log.String()) + "\norders:\n" + tail(e.orders.log.String()) + "\nrates:\n" + tail(e.rates.log.String()) + "\nshipment:\n" + tail(e.shipment.log.String())
+	parts := []string{
+		"rfx:\n" + tail(e.rfx.log.String()),
+		"orders:\n" + tail(e.orders.log.String()),
+		"rates:\n" + tail(e.rates.log.String()),
+		"shipment:\n" + tail(e.shipment.log.String()),
+	}
+	if e.documents != nil {
+		parts = append(parts, "documents:\n"+tail(e.documents.log.String()))
+	}
+	if e.tower != nil {
+		parts = append(parts, "control-tower:\n"+tail(e.tower.log.String()))
+	}
+	return strings.Join(parts, "\n")
 }
 
 func tail(text string) string {
@@ -543,6 +648,7 @@ type shipmentView struct {
 	CarrierCompanyID *string `json:"carrier_company_id"`
 	DriverID         *string `json:"driver_id"`
 	VehicleID        *string `json:"vehicle_id"`
+	Status           string  `json:"status"`
 }
 
 type executeView struct {
