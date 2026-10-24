@@ -2,6 +2,7 @@ package transportorderrbac
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -358,5 +359,77 @@ func TestTransportOrderMutateCarrierDenied(t *testing.T) {
 	rec := serveThroughAuth(t, handler.WithPolicy(PolicyMutate), req, "secret")
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("carrier mutate expected 403, got %d", rec.Code)
+	}
+}
+
+func TestTransportOrderCreateBodyTenantMismatchDenied(t *testing.T) {
+	t.Parallel()
+	tenantA := uuid.New().String()
+	tenantB := uuid.New().String()
+	userID := uuid.New().String()
+	companyID := uuid.New().String()
+	identityServer := newIdentityServer(t, []map[string]any{
+		{"company_id": companyID, "company_type": "SHIPPER", "roles": []map[string]any{{"code": "SHIPPER_ADMIN"}}},
+	}, nil)
+	defer identityServer.Close()
+
+	handler := NewGuard(config.Config{
+		AuthEnabled: true, ProxyTimeoutSeconds: 5,
+		Services: config.ServiceURLs{Identity: identityServer.URL},
+	}, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Fatal("mismatched body tenant must not be proxied")
+	}))
+
+	token := signTestToken(t, "secret", userID, tenantA)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/transport-orders", strings.NewReader(`{"tenant_id":"`+tenantB+`","order_number":"TO-1"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Company-ID", companyID)
+	req.Header.Set("X-Tenant-ID", tenantB)
+	req.Header.Set("Idempotency-Key", "idem-body-mismatch")
+	rec := serveThroughAuth(t, handler.WithPolicy(PolicyCreate), req, "secret")
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("body tenant mismatch expected 403, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestTransportOrderCreateMatchingBodyKeepsVerifiedTenant(t *testing.T) {
+	t.Parallel()
+	tenantA := uuid.New().String()
+	tenantB := uuid.New().String()
+	userID := uuid.New().String()
+	companyID := uuid.New().String()
+	identityServer := newIdentityServer(t, []map[string]any{
+		{"company_id": companyID, "company_type": "SHIPPER", "roles": []map[string]any{{"code": "SHIPPER_ADMIN"}}},
+	}, nil)
+	defer identityServer.Close()
+
+	var gotTenant, gotBody string
+	handler := NewGuard(config.Config{
+		AuthEnabled: true, ProxyTimeoutSeconds: 5,
+		Services: config.ServiceURLs{Identity: identityServer.URL},
+	}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotTenant = r.Header.Get("X-Tenant-ID")
+		raw, _ := io.ReadAll(r.Body)
+		gotBody = string(raw)
+		w.WriteHeader(http.StatusCreated)
+	}))
+
+	token := signTestToken(t, "secret", userID, tenantA)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/transport-orders", strings.NewReader(`{"tenant_id":"`+tenantA+`","order_number":"TO-1"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Company-ID", companyID)
+	req.Header.Set("X-Tenant-ID", tenantB)
+	req.Header.Set("Idempotency-Key", "idem-body-match")
+	rec := serveThroughAuth(t, handler.WithPolicy(PolicyCreate), req, "secret")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("matching body tenant expected 201, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if gotTenant != tenantA {
+		t.Fatalf("downstream tenant=%q want verified %q", gotTenant, tenantA)
+	}
+	if !strings.Contains(gotBody, tenantA) || strings.Contains(gotBody, tenantB) {
+		t.Fatalf("downstream body=%s", gotBody)
 	}
 }
