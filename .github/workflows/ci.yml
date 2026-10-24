@@ -686,7 +686,7 @@ jobs:
         working-directory: services/rfx-service
         run: go test -tags=integration ./internal/integration/enterprise/... -count=1 -run 'AwardedConversion|ConversionDenied|RepeatedConversion|ConcurrentConversion|MultiLotPrice|ConversionAudit|CompetitorDataIsolationAfterConversion|BuyerOwnAwarded|SameTenantForeign|CrossTenant|NonAwarded' -v
 
-  bintrans-e2e-transport-flow-v0.1b:
+  bintrans-e2e-transport-flow:
     name: bintrans-e2e-transport-flow-v0.1b
     runs-on: ubuntu-latest
     timeout-minutes: 20
