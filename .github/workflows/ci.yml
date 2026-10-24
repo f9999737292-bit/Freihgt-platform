@@ -708,6 +708,8 @@ jobs:
       CI: true
       TEST_DATABASE_URL: postgres://rfx_test:rfx_test@localhost:5432/freight_test?sslmode=disable
       REQUIRE_TEST_DATABASE: "1"
+      BINTRANS_E2E_STAND_MODE: ci
+      BINTRANS_E2E_KFAKE_ALLOW: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -726,6 +728,10 @@ jobs:
             services/control-tower-read-model-service/go.sum
             services/billing-register-service/go.sum
             tests/bintrans-e2e-transport-flow/go.sum
+
+      - name: Run isolated stand contract tests
+        working-directory: tests/bintrans-e2e-transport-flow
+        run: go test -count=1 -timeout 5m -run '^(TestBroker|TestStand)' .
 
       - name: Run BINTRANS award-to-closing chain
         working-directory: tests/bintrans-e2e-transport-flow

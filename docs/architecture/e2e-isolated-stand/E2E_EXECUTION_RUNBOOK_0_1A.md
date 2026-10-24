@@ -1,5 +1,7 @@
 # BINTRANS E2E Isolated Stand 0.1A — Execution Runbook
 
+The 0.1B implementation of this contract is [E2E_EXECUTION_RUNBOOK_0_1B.md](E2E_EXECUTION_RUNBOOK_0_1B.md). The blocker below describes the discovery revision before that implementation.
+
 Stage: `BINTRANS-E2E-ISOLATED-STAND-0.1A-DISCOVERY`
 
 Baseline: `fb9dc6c409f048c4b9f913bb40f315c2a11b4d6a`. Do not run this runbook in the discovery stage. `docker compose up`, `docker compose down`, and migration against any existing database are out of scope until a later authorized stage.
