@@ -469,8 +469,12 @@ printf '%s\n' 'SECRET-TOKEN-DO-NOT-PRINT' | "$python" scripts/ops/bintrans_e2e_s
 	if err := os.Remove(envFile); err != nil {
 		t.Fatal(err)
 	}
-	replaced := []byte("replaced-bytes\n")
-	if err := os.WriteFile(envFile, replaced, 0o600); err != nil {
+	foreign := filepath.Join(parent, "foreign")
+	foreignBytes := []byte("foreign-bytes-v1\n")
+	if err := os.WriteFile(foreign, foreignBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(foreign, envFile); err != nil {
 		t.Fatal(err)
 	}
 	cleanup := "bash scripts/ops/bintrans_e2e_stand/session-cleanup.sh --env-file \"$ENV_FILE\" --resources-started no --env-dev " + dev + " --env-ino " + ino + "\n"
@@ -481,9 +485,13 @@ printf '%s\n' 'SECRET-TOKEN-DO-NOT-PRINT' | "$python" scripts/ops/bintrans_e2e_s
 	if strings.Contains(output, "SECRET-TOKEN-DO-NOT-PRINT") {
 		t.Fatalf("cleanup printed the secret\n%s", output)
 	}
-	got, err := os.ReadFile(envFile)
-	if err != nil || !bytes.Equal(got, replaced) {
-		t.Fatalf("replaced env bytes %v %q", err, got)
+	got, err := os.ReadFile(foreign)
+	if err != nil || !bytes.Equal(got, foreignBytes) {
+		t.Fatalf("foreign bytes changed: %v %q", err, got)
+	}
+	link, err := os.Lstat(envFile)
+	if err != nil || link.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("replacement symlink was removed: %v", err)
 	}
 }
 
@@ -773,6 +781,13 @@ func runSessionUpSignal(t *testing.T, envFile, record, logFile, marker, signal, 
 	dir := writeSessionFakes(t, extra)
 	script := `set +e
 trap 'HARNESS_SIGNAL=1' INT TERM
+cleanup_bystander() {
+  if [ -n "${bystander:-}" ]; then
+    kill "$bystander" 2>/dev/null || true
+    wait "$bystander" 2>/dev/null || true
+  fi
+}
+trap cleanup_bystander EXIT
 set -m
 sleep 120 &
 bystander=$!
@@ -800,11 +815,15 @@ while ! grep -q '^CHILD_GROUP=ISOLATED$' "$SESSION_MARKER" 2>/dev/null || ! grep
     cat "$SESSION_MARKER" >&2 || true
     echo "LOG" >&2
     cat "$SESSION_LOG" >&2 || true
+    kill "$bystander" 2>/dev/null || true
+    wait "$bystander" 2>/dev/null || true
     exit 1
   fi
   if ! kill -0 "$pid" 2>/dev/null; then
     echo "runner exited before up" >&2
     cat "$SESSION_LOG" >&2 || true
+    kill "$bystander" 2>/dev/null || true
+    wait "$bystander" 2>/dev/null || true
     exit 1
   fi
   sleep 0.1

@@ -102,8 +102,16 @@ def assert_private_parent(parent):
     info = require_real_directory(parent, "env directory")
     if hasattr(os, "geteuid") and info.st_uid != os.geteuid():
         fail("env directory owner is not the current user")
-    if modes_enforced() and stat.S_IMODE(info.st_mode) != 0o700:
-        fail("env directory permissions are not 0700")
+    if modes_enforced():
+        mode = stat.S_IMODE(info.st_mode)
+        # A private directory can inherit the setgid bit. Group and other
+        # must have no access. Clear the extra bits when we own that directory.
+        if mode != 0o700 and (mode & 0o077) == 0 and hasattr(os, "geteuid") and info.st_uid == os.geteuid():
+            os.chmod(parent, 0o700)
+            info = os.lstat(parent)
+            mode = stat.S_IMODE(info.st_mode)
+        if mode != 0o700:
+            fail("env directory permissions are not 0700 (%04o)" % mode)
     return info
 
 
