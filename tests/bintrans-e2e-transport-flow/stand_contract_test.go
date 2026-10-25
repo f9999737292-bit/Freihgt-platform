@@ -44,7 +44,7 @@ func TestStandComposeIsolation(t *testing.T) {
 		t.Fatalf("services %v", services)
 	}
 	required := []string{
-		"name: bintrans-e2e-stand-v0.1a",
+		"name: bintrans-e2e-stand-v01a",
 		"image: mirror.gcr.io/library/postgres:16",
 		"image: docker.redpanda.com/redpandadata/redpanda:v24.2.8",
 		"image: migrate/migrate:v4.17.1",
@@ -83,6 +83,7 @@ func TestStandComposeIsolation(t *testing.T) {
 		"BINTRANS_E2E_KFAKE_ALLOW",
 		"tms_activation_enforcement_gate",
 		"127.0.0.1",
+		"bintrans-e2e-stand-v0.1a",
 		"docker-compose.yml",
 		"docker-compose.bintrans-ct-staging.yml",
 	}
@@ -139,7 +140,7 @@ func TestStandCleanupIsProjectScoped(t *testing.T) {
 	for _, token := range []string{
 		"--env-file",
 		"-p \"$project\"",
-		"bintrans-e2e-stand-v0.1a",
+		"project=\"bintrans-e2e-stand-v01a\"",
 		"docker-compose.bintrans-e2e-stand-v0.1a.yml",
 		"down -v --remove-orphans",
 		"project-guard.sh",
@@ -166,8 +167,16 @@ func TestStandCleanupIsProjectScoped(t *testing.T) {
 		t.Fatal("ephemeral env script contains a platform credential")
 	}
 	guard := readStandFile(t, filepath.Join(root, "scripts", "ops", "bintrans_e2e_stand", "project-guard.sh"))
-	if !strings.Contains(guard, "bintrans-e2e-stand-v0.1a") || !strings.Contains(guard, "COMPOSE_PROJECT_NAME") {
+	if !strings.Contains(guard, "expected=\"bintrans-e2e-stand-v01a\"") || !strings.Contains(guard, "COMPOSE_PROJECT_NAME") {
 		t.Fatal("project guard does not check the stand project")
+	}
+	guardProject := strings.ReplaceAll(guard, "docker-compose.bintrans-e2e-stand-v0.1a.yml", "")
+	if strings.Contains(guardProject, "bintrans-e2e-stand-v0.1a") {
+		t.Fatal("project guard still accepts the dotted project name")
+	}
+	cleanupProject := strings.ReplaceAll(script, "docker-compose.bintrans-e2e-stand-v0.1a.yml", "")
+	if strings.Contains(cleanupProject, "bintrans-e2e-stand-v0.1a") {
+		t.Fatal("cleanup still selects the dotted project name")
 	}
 	for _, token := range []string{"docker compose", "volume prune", "system prune", "bintrans-ct-staging"} {
 		if strings.Contains(guard, token) {
@@ -239,8 +248,11 @@ func TestStandOptInWorkflowIsManual(t *testing.T) {
 			t.Fatalf("opt-in workflow loads a protected environment file: %s", strings.TrimSpace(line))
 		}
 	}
-	if !strings.Contains(text, "-p bintrans-e2e-stand-v0.1a") || !strings.Contains(text, "down.sh --env-file") || !strings.Contains(text, "project-guard.sh") {
+	if !strings.Contains(text, "-p bintrans-e2e-stand-v01a") || !strings.Contains(text, "down.sh --env-file") || !strings.Contains(text, "project-guard.sh") {
 		t.Fatal("opt-in cleanup is not project scoped")
+	}
+	if strings.Contains(text, "-p bintrans-e2e-stand-v0.1a") || strings.Contains(text, "--project bintrans-e2e-stand-v0.1a") {
+		t.Fatal("opt-in workflow still selects the dotted project name")
 	}
 }
 

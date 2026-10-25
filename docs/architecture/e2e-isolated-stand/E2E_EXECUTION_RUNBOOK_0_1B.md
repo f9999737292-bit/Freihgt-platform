@@ -10,7 +10,7 @@ This stage adds the stand files and the fail-closed broker switch. It does not s
 
 | Piece | Path |
 | --- | --- |
-| Compose project `bintrans-e2e-stand-v0.1a` | `infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml` |
+| Compose project `bintrans-e2e-stand-v01a` | `infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml` |
 | Runner image | `infrastructure/docker/bintrans-e2e-stand/Dockerfile` |
 | Runner entrypoint | `infrastructure/docker/bintrans-e2e-stand/runner-entrypoint.sh` |
 | Topic creation | `infrastructure/docker/bintrans-e2e-stand/topic-init.sh` |
@@ -20,6 +20,8 @@ This stage adds the stand files and the fail-closed broker switch. It does not s
 | Opt-in workflow | `.github/workflows/bintrans-e2e-stand-opt-in.yml` |
 
 The Compose project has five services: `postgres`, `redpanda`, `topic-init`, `migrate`, and `runner`. contract-rate, transport-order, rfx, shipment, document, billing, and control-tower stay child processes of the existing harness inside the runner. They are not Compose services.
+
+The Compose project id is `bintrans-e2e-stand-v01a`. Compose rejects a project name that contains `.`, so this id is the canonical project name. The compose filename stays `docker-compose.bintrans-e2e-stand-v0.1a.yml`, and the implementation label stays 0.1. `name:`, `-p`, and `COMPOSE_PROJECT_NAME` must all be `bintrans-e2e-stand-v01a`. The previous id `bintrans-e2e-stand-v0.1a` is rejected before Docker.
 
 ## Boundaries
 
@@ -49,15 +51,15 @@ Do not run these commands in stage 0.1B.
 2. Confirm the project before any Compose command:
 
 ```text
-bash scripts/ops/bintrans_e2e_stand/project-guard.sh --project bintrans-e2e-stand-v0.1a
+bash scripts/ops/bintrans_e2e_stand/project-guard.sh --project bintrans-e2e-stand-v01a
 ```
 
-The guard reads `name:` from the stand Compose file, `COMPOSE_PROJECT_NAME` when it is set, and the `--project` argument. The resolved project must be `bintrans-e2e-stand-v0.1a`. Any other name, including a staging project name, exits before Docker.
+The guard reads `name:` from the stand Compose file, `COMPOSE_PROJECT_NAME` when it is set, and the `--project` argument. The resolved project must be `bintrans-e2e-stand-v01a`. Any other name, including a staging project name, exits before Docker.
 
 3. Build and run only this project:
 
 ```text
-docker compose --env-file <ephemeral-file> -p bintrans-e2e-stand-v0.1a -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml up --build --abort-on-container-exit --exit-code-from runner
+docker compose --env-file <ephemeral-file> -p bintrans-e2e-stand-v01a -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml up --build --abort-on-container-exit --exit-code-from runner
 ```
 
 4. Remove only this project with the same ephemeral file:
@@ -66,7 +68,7 @@ docker compose --env-file <ephemeral-file> -p bintrans-e2e-stand-v0.1a -f infras
 bash scripts/ops/bintrans_e2e_stand/down.sh --env-file <ephemeral-file>
 ```
 
-`down.sh` checks that the file exists and is readable, requires the three ephemeral database keys without printing them, runs the project guard, and then executes `docker compose --env-file <ephemeral-file> -p bintrans-e2e-stand-v0.1a -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml down -v --remove-orphans`. A missing file, an unreadable file, or a different project exits before that command. The script does not accept a caller project override and does not prune volumes, networks, or another project.
+`down.sh` checks that the file exists and is readable, requires the three ephemeral database keys without printing them, runs the project guard, and then executes `docker compose --env-file <ephemeral-file> -p bintrans-e2e-stand-v01a -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml down -v --remove-orphans`. A missing file, an unreadable file, or a different project exits before that command. The script does not accept a caller project override and does not prune volumes, networks, or another project.
 
 In stand mode the harness sets `SHIPMENT_HTTP_LISTEN_HOST=127.0.0.1` and `CONTROL_TOWER_HTTP_LISTEN_HOST=127.0.0.1`. An empty host keeps the existing `:<port>` bind used by normal deployment. Any other host is rejected.
 

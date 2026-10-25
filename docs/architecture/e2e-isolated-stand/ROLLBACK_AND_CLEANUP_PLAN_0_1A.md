@@ -6,11 +6,11 @@ Baseline: `fb9dc6c409f048c4b9f913bb40f315c2a11b4d6a`. Nothing was deployed in th
 
 ## Scope of cleanup
 
-Cleanup may remove only resources whose Compose project is `bintrans-e2e-stand-v0.1a`.
+Cleanup may remove only resources whose Compose project is `bintrans-e2e-stand-v01a`.
 
 | Resource | Allowed action | Forbidden action |
 | --- | --- | --- |
-| Stand containers | `docker compose -p bintrans-e2e-stand-v0.1a -f <stand-file> down -v --remove-orphans` | `down` without `-p`, or `-f infrastructure/docker-compose/docker-compose.yml` |
+| Stand containers | `docker compose -p bintrans-e2e-stand-v01a -f <stand-file> down -v --remove-orphans` | `down` without `-p`, or `-f infrastructure/docker-compose/docker-compose.yml` |
 | Stand network `bintrans-e2e-stand` | Removed by that `down` | `docker network rm freight-platform-network` |
 | Stand Postgres volume | Removed by `down -v` | `docker volume rm freight_postgres_data` |
 | Stand document volume | Removed by `down -v` | Deleting a host directory used by staging or the dev stack |
@@ -28,8 +28,8 @@ Cleanup may remove only resources whose Compose project is `bintrans-e2e-stand-v
 2. `stand` mode does not create `bintrans_e2e_flow_<id>`. Do not run `DROP DATABASE` against the stand to compensate. If a `ci` mode database of that name exists on the CI server, that mode's existing cleanup may drop it there only.
 3. Run the project `down -v` command above once.
 4. Confirm:
-   - `docker compose -p bintrans-e2e-stand-v0.1a ps` lists nothing;
-   - no container name starts with `bintrans-e2e-stand-v0.1a`;
+   - `docker compose -p bintrans-e2e-stand-v01a ps` lists nothing;
+   - no container name starts with `bintrans-e2e-stand-v01a`;
    - volume list has no `bintrans-e2e-stand` volume;
    - `freight_postgres` and `bintrans-ct-staging` containers, if they were already running, still have the same ids as before the stand run.
 5. Confirm no stand process remains bound to a published host port. The stand should not have published one.

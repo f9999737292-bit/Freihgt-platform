@@ -30,10 +30,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/ops/bintrans_e2e_stand/project-guard.sh --project bintrans-e2e-stand-v0.1a
+          bash scripts/ops/bintrans_e2e_stand/project-guard.sh --project bintrans-e2e-stand-v01a
           docker compose \
             --env-file "$RUNNER_TEMP/bintrans-e2e-stand.env" \
-            -p bintrans-e2e-stand-v0.1a \
+            -p bintrans-e2e-stand-v01a \
             -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml \
             config > "$RUNNER_TEMP/bintrans-e2e-stand.config.yml"
           python3 - <<'PY'
@@ -58,6 +58,10 @@ jobs:
               raise SystemExit("rendered config publishes host bindings")
           if "internal: true" not in text:
               raise SystemExit("stand network is not internal")
+          if "name: bintrans-e2e-stand-v01a" not in text:
+              raise SystemExit("rendered project is not bintrans-e2e-stand-v01a")
+          if "bintrans-e2e-stand-v0.1a" in text:
+              raise SystemExit("rendered project still uses the dotted name")
           print("stand config boundaries ok")
           PY
 
@@ -65,10 +69,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/ops/bintrans_e2e_stand/project-guard.sh --project bintrans-e2e-stand-v0.1a
+          bash scripts/ops/bintrans_e2e_stand/project-guard.sh --project bintrans-e2e-stand-v01a
           docker compose \
             --env-file "$RUNNER_TEMP/bintrans-e2e-stand.env" \
-            -p bintrans-e2e-stand-v0.1a \
+            -p bintrans-e2e-stand-v01a \
             -f infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml \
             up --build --abort-on-container-exit --exit-code-from runner
 

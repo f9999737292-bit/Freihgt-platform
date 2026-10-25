@@ -18,7 +18,7 @@ The later implementation adds `BINTRANS_E2E_STAND_MODE` and does not change that
 
 1. Worktree is this scenario's implementation branch, not the dirty Control Tower checkout and not `bintrans-ct-staging`.
 2. Docker is local. The target is not the staging VM.
-3. Project name is `bintrans-e2e-stand-v0.1a`. The runner container is attached only to network `bintrans-e2e-stand`.
+3. Project name is `bintrans-e2e-stand-v01a`. The runner container is attached only to network `bintrans-e2e-stand`.
 4. No published host ports. Child processes bind `127.0.0.1` only inside the runner container.
 5. Ephemeral Postgres credentials exist only in the process environment. `TEST_DATABASE_URL` host is exactly `postgres`.
 6. Staging env file is not loaded. The stand file does not import the staging overlay.

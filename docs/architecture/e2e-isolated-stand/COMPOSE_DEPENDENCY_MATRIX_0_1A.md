@@ -2,7 +2,7 @@
 
 Stage: `BINTRANS-E2E-ISOLATED-STAND-0.1A-DISCOVERY`
 
-Baseline: `fb9dc6c409f048c4b9f913bb40f315c2a11b4d6a`. This matrix describes the future project `bintrans-e2e-stand-v0.1a`. Remediation R1 adds the fail-closed `STAND_MODE` contract and corrects the tracking port. It does not change `infrastructure/docker-compose/docker-compose.yml`.
+Baseline: `fb9dc6c409f048c4b9f913bb40f315c2a11b4d6a`. This matrix describes the future project `bintrans-e2e-stand-v01a`. Remediation R1 adds the fail-closed `STAND_MODE` contract and corrects the tracking port. It does not change `infrastructure/docker-compose/docker-compose.yml`.
 
 ## Why the current Compose file is not the stand
 
@@ -107,7 +107,7 @@ Ready order is the startup list above. A failed `/ready`, or a failed `stand` br
 Stop and remove only this project:
 
 ```text
-docker compose -p bintrans-e2e-stand-v0.1a -f <future-stand-file> down -v --remove-orphans
+docker compose -p bintrans-e2e-stand-v01a -f <future-stand-file> down -v --remove-orphans
 ```
 
 That command is specified here and is not run in this stage. It must not be pointed at `docker-compose.yml`, `docker-compose.bintrans-ct-staging.yml`, or project `bintrans-ct-staging`. Do not run `docker volume prune`, `docker system prune`, or `docker network rm freight-platform-network`.

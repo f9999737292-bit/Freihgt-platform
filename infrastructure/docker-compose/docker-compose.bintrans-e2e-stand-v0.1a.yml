@@ -1,4 +1,4 @@
-name: bintrans-e2e-stand-v0.1a
+name: bintrans-e2e-stand-v01a
 
 # Isolated BINTRANS E2E stand. Postgres, Redpanda, topic creation, one migrate
 # container, and the Go test runner. The seven HTTP binaries stay child
