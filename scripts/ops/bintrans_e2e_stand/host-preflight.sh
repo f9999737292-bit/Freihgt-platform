@@ -6,8 +6,10 @@ set -euo pipefail
 
 expected_project="bintrans-e2e-stand-v01a"
 min_vcpu=4
-min_ram_bytes=$((16 * 1024 * 1024 * 1024))
-min_disk_bytes=$((50 * 1024 * 1024 * 1024))
+# Controller thresholds. Decimal GB for total RAM, GiB for available RAM and Docker disk.
+min_total_ram_bytes=16000000000
+min_available_ram_bytes=6442450944
+min_disk_bytes=53687091200
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
 compose="$root/infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml"
 
@@ -29,10 +31,34 @@ require_uint() {
   esac
 }
 
+# Run a Docker metadata or daemon command and keep its output only after a zero status.
+# A failing command substitution must not be hidden inside a heredoc.
+capture_lines() {
+  dest=$1
+  label=$2
+  shift 2
+  output=""
+  if ! output=$("$@"); then
+    fail "$label failed"
+  fi
+  printf -v "$dest" '%s' "$output"
+}
+
+reject_remote_endpoint() {
+  label=$1
+  value=${2%$'\r'}
+  case "$value" in
+    unix:///*) ;;
+    tcp://*|ssh://*) fail "$label is remote" ;;
+    *) fail "$label is not a local unix socket" ;;
+  esac
+}
+
 echo "PREFLIGHT_MODE=READ_ONLY"
 echo "EXPECTED_PROJECT=$expected_project"
 echo "MIN_VCPU=$min_vcpu"
-echo "MIN_TOTAL_RAM_BYTES=$min_ram_bytes"
+echo "MIN_TOTAL_RAM_BYTES=$min_total_ram_bytes"
+echo "MIN_AVAILABLE_RAM_BYTES=$min_available_ram_bytes"
 echo "MIN_DOCKER_DISK_FREE_BYTES=$min_disk_bytes"
 echo "RECOMMENDED_DISK_GB=100"
 
@@ -75,9 +101,13 @@ require_uint "total RAM" "$ram_total"
 require_uint "available RAM" "$ram_avail"
 echo "RAM_TOTAL_BYTES=$ram_total"
 echo "RAM_AVAILABLE_BYTES=$ram_avail"
-if [ "$ram_total" -lt "$min_ram_bytes" ]; then
-  fail "total RAM is below ${min_ram_bytes} bytes"
+if [ "$ram_total" -lt "$min_total_ram_bytes" ]; then
+  fail "total RAM is below ${min_total_ram_bytes} bytes"
 fi
+if [ "$ram_avail" -lt "$min_available_ram_bytes" ]; then
+  fail "available RAM is below ${min_available_ram_bytes} bytes"
+fi
+echo "RAM_THRESHOLDS=PASS"
 
 for cmd in git openssl awk; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -86,37 +116,71 @@ for cmd in git openssl awk; do
 done
 echo "HOST_TOOLS=PRESENT"
 
-if ! docker info >/dev/null 2>&1; then
+# Docker CLI v28 uses a set DOCKER_HOST to force the default context, which
+# hides DOCKER_CONTEXT. This preflight does the opposite selection: a set
+# DOCKER_CONTEXT names the endpoint, and DOCKER_HOST must be empty or the same
+# unix socket. Remote tcp:// and ssh:// values fail before any daemon call.
+# Later commands pass --host with that socket so they reach the same daemon.
+host_env=${DOCKER_HOST-}
+context_env=${DOCKER_CONTEXT-}
+if [ -n "$host_env" ]; then
+  reject_remote_endpoint "DOCKER_HOST" "$host_env"
+fi
+
+context_name=""
+if [ -n "$context_env" ]; then
+  context_name=$context_env
+else
+  capture_lines context_name "docker context show" docker context show
+fi
+context_name=$(printf '%s' "$context_name" | tr -d '[:space:]')
+if [ -z "$context_name" ]; then
+  fail "docker context name is empty"
+fi
+
+context_endpoint=""
+capture_lines context_endpoint "docker context inspect" docker context inspect "$context_name" --format '{{.Endpoints.docker.Host}}'
+context_endpoint=$(printf '%s' "$context_endpoint" | tr -d '[:space:]')
+reject_remote_endpoint "docker context endpoint" "$context_endpoint"
+if [ -n "$host_env" ] && [ "$host_env" != "$context_endpoint" ]; then
+  fail "DOCKER_HOST contradicts the selected docker context endpoint"
+fi
+
+effective=$context_endpoint
+sock=${effective#unix://}
+if ! env test -S "$sock"; then
+  block "docker unix socket is not available"
+fi
+echo "DOCKER_CONTEXT_NAME=$context_name"
+echo "DOCKER_ENDPOINT=$effective"
+scheme=${effective%%://*}
+echo "DOCKER_ENDPOINT_SCHEME=$scheme"
+
+if ! docker --host "$effective" info >/dev/null 2>&1; then
   block "docker daemon is not available"
 fi
 echo "DOCKER_DAEMON=AVAILABLE"
 
-engine=$(docker version --format '{{.Server.Version}}')
-engine=${engine%$'\r'}
+engine=""
+capture_lines engine "docker version" docker --host "$effective" version --format '{{.Server.Version}}'
+engine=$(printf '%s' "$engine" | tr -d '[:space:]')
 if [ -z "$engine" ]; then
   fail "docker engine version is empty"
 fi
 echo "DOCKER_ENGINE_VERSION=$engine"
 
 compose_version=""
-if ! compose_version=$(docker compose version); then
+capture_lines compose_version "docker compose version" docker --host "$effective" compose version
+compose_version=${compose_version%$'\r'}
+if [ -z "$compose_version" ]; then
   fail "docker compose plugin is not available"
 fi
-compose_version=${compose_version%$'\r'}
 echo "DOCKER_COMPOSE_VERSION=$compose_version"
 echo "DOCKER_COMPOSE_PLUGIN=PRESENT"
 
-endpoint=$(docker context inspect --format '{{.Endpoints.docker.Host}}')
-endpoint=${endpoint%$'\r'}
-scheme=${endpoint%%://*}
-echo "DOCKER_ENDPOINT_SCHEME=$scheme"
-case "$endpoint" in
-  unix://*) ;;
-  *) fail "docker API endpoint is not a local unix socket" ;;
-esac
-
-docker_root=$(docker info --format '{{.DockerRootDir}}')
-docker_root=${docker_root%$'\r'}
+docker_root=""
+capture_lines docker_root "docker info" docker --host "$effective" info --format '{{.DockerRootDir}}'
+docker_root=$(printf '%s' "$docker_root" | tr -d '[:space:]')
 if [ -z "$docker_root" ]; then
   fail "docker data root is empty"
 fi
@@ -129,7 +193,9 @@ if [ "$disk_free" -lt "$min_disk_bytes" ]; then
   fail "docker filesystem free space is below ${min_disk_bytes} bytes"
 fi
 
-while IFS= read -r name; do
+compose_projects=""
+capture_lines compose_projects "docker compose ls" docker --host "$effective" compose ls -a -q
+while IFS= read -r name || [ -n "$name" ]; do
   name=${name%$'\r'}
   [ -n "$name" ] || continue
   case "$name" in
@@ -138,11 +204,13 @@ while IFS= read -r name; do
       ;;
   esac
 done <<EOF
-$(docker compose ls -a --format '{{.Name}}')
+$compose_projects
 EOF
 echo "COMPOSE_PROJECT_CONFLICT=NONE"
 
-while IFS= read -r name; do
+networks=""
+capture_lines networks "docker network ls" docker --host "$effective" network ls --format '{{.Name}}'
+while IFS= read -r name || [ -n "$name" ]; do
   name=${name%$'\r'}
   [ -n "$name" ] || continue
   case "$name" in
@@ -151,10 +219,12 @@ while IFS= read -r name; do
       ;;
   esac
 done <<EOF
-$(docker network ls --format '{{.Name}}')
+$networks
 EOF
 
-while IFS= read -r name; do
+volumes=""
+capture_lines volumes "docker volume ls" docker --host "$effective" volume ls --format '{{.Name}}'
+while IFS= read -r name || [ -n "$name" ]; do
   name=${name%$'\r'}
   [ -n "$name" ] || continue
   case "$name" in
@@ -163,11 +233,13 @@ while IFS= read -r name; do
       ;;
   esac
 done <<EOF
-$(docker volume ls --format '{{.Name}}')
+$volumes
 EOF
 echo "SHARED_DOCKER_RESOURCES=ABSENT"
 
-while IFS= read -r row; do
+ps_rows=""
+capture_lines ps_rows "docker ps" docker --host "$effective" ps -a --format '{{.Label "com.docker.compose.project"}}|{{.Ports}}'
+while IFS= read -r row || [ -n "$row" ]; do
   row=${row%$'\r'}
   [ -n "$row" ] || continue
   project=${row%%|*}
@@ -176,7 +248,7 @@ while IFS= read -r row; do
     fail "stand project publishes host ports"
   fi
 done <<EOF
-$(docker ps -a --format '{{.Label "com.docker.compose.project"}}|{{.Ports}}')
+$ps_rows
 EOF
 
 if [ ! -f "$compose" ]; then

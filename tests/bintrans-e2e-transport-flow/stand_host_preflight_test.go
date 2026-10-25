@@ -20,8 +20,10 @@ func TestStandHostPreflightPassesHealthyHost(t *testing.T) {
 		"ARCH=x86_64",
 		"KERNEL=Linux",
 		"VCPU=4",
+		"RAM_THRESHOLDS=PASS",
 		"DOCKER_DAEMON=AVAILABLE",
 		"DOCKER_COMPOSE_PLUGIN=PRESENT",
+		"DOCKER_ENDPOINT=unix://",
 		"DOCKER_ENDPOINT_SCHEME=unix",
 		"COMPOSE_FILE_PROJECT=bintrans-e2e-stand-v01a",
 		"COMPOSE_HOST_PORTS=ABSENT",
@@ -32,10 +34,13 @@ func TestStandHostPreflightPassesHealthyHost(t *testing.T) {
 		}
 	}
 	args := readStandFile(t, record)
-	for _, token := range []string{" up", "pull", "build", "prune", "systemctl"} {
+	for _, token := range []string{" up", "pull", "build", "prune", "systemctl", "compose ls -a --format"} {
 		if strings.Contains(args, token) {
 			t.Fatalf("preflight invoked %q\n%s", token, args)
 		}
+	}
+	if !strings.Contains(args, "compose ls -a -q") || !strings.Contains(args, "--host") {
+		t.Fatalf("preflight did not pin the daemon or list projects quietly\n%s", args)
 	}
 }
 
@@ -105,7 +110,126 @@ func TestStandHostPreflightRejectsSharedVolume(t *testing.T) {
 }
 
 func TestStandHostPreflightRejectsPublishedDockerAPI(t *testing.T) {
-	assertHostPreflightFail(t, map[string]string{"DOCKER_ENDPOINT": "tcp://0.0.0.0:2375"}, "unix socket")
+	assertHostPreflightFail(t, map[string]string{"DOCKER_ENDPOINT": "tcp://0.0.0.0:2375"}, "remote")
+}
+
+func TestStandHostPreflightRejectsRemoteDockerHostBeforeDaemon(t *testing.T) {
+	record := filepath.Join(t.TempDir(), "docker-args")
+	output, err := runHostPreflight(t, record, map[string]string{
+		"DOCKER_HOST":     "tcp://203.0.113.10:2375",
+		"DOCKER_CONTEXT":  "default",
+		"DOCKER_ENDPOINT": "unix:///var/run/docker.sock",
+	})
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("remote DOCKER_HOST exit %v\n%s", err, output)
+	}
+	if !strings.Contains(output, "PREFLIGHT_RESULT=FAIL") || !strings.Contains(output, "DOCKER_HOST") {
+		t.Fatalf("remote DOCKER_HOST result %s", output)
+	}
+	if _, statErr := os.Stat(record); statErr == nil {
+		t.Fatalf("remote DOCKER_HOST invoked docker\n%s", readStandFile(t, record))
+	}
+}
+
+func TestStandHostPreflightRejectsRemoteContextOverLocalDockerHost(t *testing.T) {
+	record := filepath.Join(t.TempDir(), "docker-args")
+	output, err := runHostPreflight(t, record, map[string]string{
+		"DOCKER_HOST":             "unix:///var/run/docker.sock",
+		"DOCKER_CONTEXT":          "remote",
+		"DOCKER_CONTEXT_ENDPOINT": "ssh://builder.example/var/run/docker.sock",
+	})
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("remote context exit %v\n%s", err, output)
+	}
+	if !strings.Contains(output, "PREFLIGHT_RESULT=FAIL") || !strings.Contains(output, "remote") {
+		t.Fatalf("remote context result %s", output)
+	}
+	if args := readStandFile(t, record); strings.Contains(args, "info") {
+		t.Fatalf("remote context contacted the daemon\n%s", args)
+	}
+}
+
+func TestStandHostPreflightRejectsComposeLsFailure(t *testing.T) {
+	assertHostPreflightFail(t, map[string]string{"DOCKER_COMPOSE_LS_RC": "1"}, "docker compose ls failed")
+}
+
+func TestStandHostPreflightRejectsNetworkLsFailure(t *testing.T) {
+	assertHostPreflightFail(t, map[string]string{"DOCKER_NETWORK_LS_RC": "1"}, "docker network ls failed")
+}
+
+func TestStandHostPreflightRejectsVolumeLsFailure(t *testing.T) {
+	assertHostPreflightFail(t, map[string]string{"DOCKER_VOLUME_LS_RC": "1"}, "docker volume ls failed")
+}
+
+func TestStandHostPreflightRejectsPsFailure(t *testing.T) {
+	assertHostPreflightFail(t, map[string]string{"DOCKER_PS_RC": "1"}, "docker ps failed")
+}
+
+func TestStandHostPreflightRejectsOneMiBAvailableRam(t *testing.T) {
+	record := filepath.Join(t.TempDir(), "docker-args")
+	output, err := runHostPreflight(t, record, map[string]string{
+		"FREE_TOTAL_BYTES": "16000000000",
+		"FREE_AVAIL_BYTES": "1048576",
+	})
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("low available RAM exit %v\n%s", err, output)
+	}
+	if !strings.Contains(output, "PREFLIGHT_RESULT=FAIL") || !strings.Contains(output, "available RAM") {
+		t.Fatalf("low available RAM result %s", output)
+	}
+	if _, statErr := os.Stat(record); statErr == nil {
+		t.Fatalf("low available RAM invoked docker\n%s", readStandFile(t, record))
+	}
+}
+
+func TestStandHostPreflightRejectsAvailableRamBelowSixGiB(t *testing.T) {
+	assertHostPreflightFail(t, map[string]string{
+		"FREE_TOTAL_BYTES": "16000000000",
+		"FREE_AVAIL_BYTES": "6442450943",
+	}, "available RAM")
+}
+
+func TestStandHostPreflightAcceptsExactRamThresholds(t *testing.T) {
+	record := filepath.Join(t.TempDir(), "docker-args")
+	output, err := runHostPreflight(t, record, map[string]string{
+		"FREE_TOTAL_BYTES": "16000000000",
+		"FREE_AVAIL_BYTES": "6442450944",
+	})
+	if err != nil {
+		t.Fatalf("exact RAM thresholds failed: %v\n%s", err, output)
+	}
+	for _, token := range []string{
+		"MIN_TOTAL_RAM_BYTES=16000000000",
+		"MIN_AVAILABLE_RAM_BYTES=6442450944",
+		"MIN_DOCKER_DISK_FREE_BYTES=53687091200",
+		"RAM_THRESHOLDS=PASS",
+		"PREFLIGHT_RESULT=PASS",
+	} {
+		if !strings.Contains(output, token) {
+			t.Fatalf("exact RAM result missing %q\n%s", token, output)
+		}
+	}
+}
+
+func TestStandHostPreflightRejectsTotalRamBelowSixteenDecimalGB(t *testing.T) {
+	record := filepath.Join(t.TempDir(), "docker-args")
+	output, err := runHostPreflight(t, record, map[string]string{
+		"FREE_TOTAL_BYTES": "15999999999",
+		"FREE_AVAIL_BYTES": "6442450944",
+	})
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("low total RAM exit %v\n%s", err, output)
+	}
+	if !strings.Contains(output, "PREFLIGHT_RESULT=FAIL") || !strings.Contains(output, "total RAM") {
+		t.Fatalf("low total RAM result %s", output)
+	}
+	if _, statErr := os.Stat(record); statErr == nil {
+		t.Fatalf("low total RAM invoked docker\n%s", readStandFile(t, record))
+	}
 }
 
 func TestStandHostPreflightRejectsPublishedStandPorts(t *testing.T) {
@@ -115,7 +239,29 @@ func TestStandHostPreflightRejectsPublishedStandPorts(t *testing.T) {
 }
 
 func TestStandHostPreflightRejectsMissingComposePlugin(t *testing.T) {
-	assertHostPreflightFail(t, map[string]string{"DOCKER_COMPOSE": "missing"}, "compose plugin")
+	assertHostPreflightFail(t, map[string]string{"DOCKER_COMPOSE": "missing"}, "docker compose version failed")
+}
+
+func TestStandHostPreflightUsesControllerUnits(t *testing.T) {
+	text := readStandFile(t, filepath.Join(standRepoRoot(t), "scripts", "ops", "bintrans_e2e_stand", "host-preflight.sh"))
+	for _, token := range []string{"16000000000", "6442450944", "53687091200", "compose ls -a -q", "env test -S"} {
+		if !strings.Contains(text, token) {
+			t.Fatalf("preflight source missing %q", token)
+		}
+	}
+	for _, token := range []string{"16 * 1024 * 1024 * 1024", "17179869184", "$(docker"} {
+		if strings.Contains(text, token) {
+			t.Fatalf("preflight source still contains %q", token)
+		}
+	}
+	for _, doc := range []string{"DEDICATED_HOST_SECURITY_RUNBOOK_0_1F.md", "DEDICATED_HOST_EXECUTION_RUNBOOK_0_1F.md"} {
+		body := readStandFile(t, filepath.Join(standRepoRoot(t), "docs", "architecture", "e2e-isolated-stand", doc))
+		for _, token := range []string{"16000000000", "16 decimal GB", "6442450944", "6 GiB", "53687091200", "50 GiB"} {
+			if !strings.Contains(body, token) {
+				t.Fatalf("%s missing %q", doc, token)
+			}
+		}
+	}
 }
 
 func TestStandHostPreflightSourceDoesNotMutateHost(t *testing.T) {
@@ -156,7 +302,11 @@ esac
 export PATH="$fake:$PATH"
 shift
 exec bash "$@"`, "preflight", fakeDir, scriptPath)
-	overrides := map[string]string{"DOCKER_RECORD": toBashPath(record)}
+	overrides := map[string]string{
+		"DOCKER_RECORD":  toBashPath(record),
+		"DOCKER_HOST":    "",
+		"DOCKER_CONTEXT": "",
+	}
 	for key, value := range extra {
 		overrides[key] = value
 	}
@@ -184,14 +334,26 @@ printf 'Mem: %s 1 1 0 0 %s\n' "${FREE_TOTAL_BYTES:-17179869184}" "${FREE_AVAIL_B
 printf '%s\n' "Filesystem 1024-blocks Used Available Capacity Mounted"
 printf 'overlay 1 1 %s 1%% /\n' "${DF_AVAILABLE_BYTES:-64424509440}"
 `)
+	writeFakeCommand(t, dir, "test", `#!/bin/sh
+if [ "$1" = "-S" ]; then
+  if [ "${TEST_SOCKET_EXISTS:-yes}" = "yes" ]; then
+    exit 0
+  fi
+  exit 1
+fi
+exec /usr/bin/test "$@"
+`)
 	writeFakeCommand(t, dir, "docker", `#!/bin/sh
 printf '%s\n' "$*" >> "$DOCKER_RECORD"
-if [ "${DOCKER_DAEMON:-up}" != "up" ]; then
+while [ "${1:-}" = "--host" ] || [ "${1:-}" = "-H" ]; do
+  shift 2
+done
+cmd=${1:-}
+shift || true
+if [ "$cmd" != "context" ] && [ "${DOCKER_DAEMON:-up}" != "up" ]; then
   echo "docker daemon is not running" >&2
   exit 1
 fi
-cmd=$1
-shift || true
 case "$cmd" in
   info)
     if [ "${1:-}" = "--format" ]; then
@@ -202,19 +364,49 @@ case "$cmd" in
     printf '%s\n' "${DOCKER_ENGINE_VERSION:-29.5.3}"
     ;;
   context)
-    printf '%s\n' "${DOCKER_ENDPOINT:-unix:///var/run/docker.sock}"
+    action=${1:-}
+    shift || true
+    case "$action" in
+      show)
+        printf '%s\n' "${DOCKER_CURRENT_CONTEXT:-default}"
+        ;;
+      inspect)
+        name=${1:-}
+        if [ -n "${DOCKER_CONTEXT_ENDPOINT:-}" ] && [ -n "${DOCKER_CONTEXT:-}" ] && [ "$name" = "$DOCKER_CONTEXT" ]; then
+          printf '%s\n' "$DOCKER_CONTEXT_ENDPOINT"
+        else
+          printf '%s\n' "${DOCKER_ENDPOINT:-unix:///var/run/docker.sock}"
+        fi
+        ;;
+      *)
+        echo "unsupported context command" >&2
+        exit 1
+        ;;
+    esac
     ;;
   network)
+    if [ "${1:-}" = "ls" ] && [ "${DOCKER_NETWORK_LS_RC:-0}" != "0" ]; then
+      echo "network ls failed" >&2
+      exit 1
+    fi
     if [ -n "${DOCKER_NETWORKS:-}" ]; then
       printf '%s\n' $DOCKER_NETWORKS
     fi
     ;;
   volume)
+    if [ "${1:-}" = "ls" ] && [ "${DOCKER_VOLUME_LS_RC:-0}" != "0" ]; then
+      echo "volume ls failed" >&2
+      exit 1
+    fi
     if [ -n "${DOCKER_VOLUMES:-}" ]; then
       printf '%s\n' $DOCKER_VOLUMES
     fi
     ;;
   ps)
+    if [ "${DOCKER_PS_RC:-0}" != "0" ]; then
+      echo "ps failed" >&2
+      exit 1
+    fi
     if [ -n "${DOCKER_PS:-}" ]; then
       printf '%s\n' "$DOCKER_PS"
     fi
@@ -230,6 +422,10 @@ case "$cmd" in
       exit 0
     fi
     if [ "$sub" = "ls" ]; then
+      if [ "${DOCKER_COMPOSE_LS_RC:-0}" != "0" ]; then
+        echo "compose ls failed" >&2
+        exit 1
+      fi
       if [ -n "${DOCKER_PROJECTS:-}" ]; then
         printf '%s\n' $DOCKER_PROJECTS
       fi

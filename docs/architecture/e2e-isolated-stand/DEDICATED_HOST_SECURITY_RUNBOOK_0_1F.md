@@ -2,7 +2,20 @@
 
 Stage: `BINTRANS-E2E-STAND-0.1F-DEDICATED-HOST-READINESS`
 
-Baseline: `0005a659429404fe5a30425e4bbdbba899b6daa0` (`origin/main`, merge of PR #308). This document prepares the host procedure. It does not provision a server, register a runner, or start the stand.
+Baseline of this branch: `0005a659429404fe5a30425e4bbdbba899b6daa0` (`origin/main`, merge of PR #308). This document prepares the host procedure. It does not provision a server, register a runner, or start the stand.
+
+## Host profile
+
+The preflight thresholds are fixed by the controller:
+
+| Check | Threshold | Unit |
+| --- | --- | --- |
+| Total RAM | `16000000000` bytes | 16 decimal GB (`16 × 10^9`) |
+| Available RAM | `6442450944` bytes | 6 GiB (`6 × 1024^3`) |
+| vCPU | `4` | processors reported by `nproc` |
+| Free space on the Docker data filesystem | `53687091200` bytes | 50 GiB (`50 × 1024^3`) |
+
+Recommended disk capacity is 100 decimal GB. That figure is planning guidance. The gate is the 50 GiB free-space check on the filesystem that holds Docker's data root.
 
 ## Boundary
 
@@ -20,19 +33,24 @@ The stand Compose project remains `bintrans-e2e-stand-v01a`. Its network is `bin
 
 ## Docker API
 
-The engine listens on the local Unix socket only. `tcp://` endpoints, `0.0.0.0:2375`, and published Docker TLS ports are rejected by `scripts/ops/bintrans_e2e_stand/host-preflight.sh`. Do not set `DOCKER_HOST` to a remote daemon.
+The engine listens on one local Unix socket. `scripts/ops/bintrans_e2e_stand/host-preflight.sh` resolves that socket before `docker info`:
+
+- A set `DOCKER_CONTEXT` selects the context whose endpoint is checked. This selection wins over `DOCKER_HOST`.
+- `DOCKER_HOST` must be empty or the same `unix://` value as that context. `tcp://` and `ssh://` fail closed.
+- The socket path must exist. A missing socket is `BLOCKED`. The script does not start the Docker service.
+- Preflight then calls Docker only with `--host` set to that socket. The execution runbook exports the printed `DOCKER_ENDPOINT` as `DOCKER_HOST` and unsets `DOCKER_CONTEXT` for every later command, including `down.sh`.
 
 ## Ports and cleanup
 
 The stand file publishes no host ports. Preflight fails if a `ports:` key appears in that file or if an existing container of project `bintrans-e2e-stand-v01a` has a published port.
 
-Cleanup is `scripts/ops/bintrans_e2e_stand/down.sh --env-file <ephemeral-file>`. That command removes only project `bintrans-e2e-stand-v01a`. `docker system prune`, `docker volume prune`, and `docker network prune` are forbidden.
+Cleanup is `scripts/ops/bintrans_e2e_stand/down.sh --env-file <ephemeral-file>`, invoked from the EXIT trap in the execution runbook when stand resources may exist. That command removes only project `bintrans-e2e-stand-v01a`. `docker system prune`, `docker volume prune`, and `docker network prune` are forbidden. A failed cleanup prints `CLEANUP_FAILED` and keeps the env file for a retry.
 
 ## Ephemeral secrets
 
 `scripts/ops/bintrans_e2e_stand/ephemeral-env.sh` prints a new database user and password. Write that output outside the repository with mode `0600`, for example `/var/tmp/bintrans-e2e-stand/stand.env`. Do not commit it, do not copy it into the transcript, and do not reuse a staging or production password.
 
-After `down.sh` finishes, delete the env file. A failed run deletes it as well, once any allowed log collection is done.
+The EXIT trap removes the file on success and on error when no stand resources were created, and after a successful `down.sh` when they were. `CLEANUP_FAILED` leaves the file in place. Do not delete it before `down.sh` succeeds, and do not report the resources as removed.
 
 ## Egress
 
@@ -52,7 +70,7 @@ Apply OS security updates before the run window, then freeze Docker Engine and t
 ## Prohibited on this host
 
 - Staging or production credentials and kubeconfigs.
-- A published Docker API.
+- A published or remote Docker API (`tcp://`, `ssh://`).
 - A GitHub self-hosted runner registration.
 - Host port bindings for the stand.
 - Shared Compose projects, networks, or volumes.
