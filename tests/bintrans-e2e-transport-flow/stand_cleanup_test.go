@@ -32,7 +32,7 @@ func TestStandDownPassesEnvFile(t *testing.T) {
 		t.Fatalf("down.sh failed: %v\n%s", err, output)
 	}
 	args := readStandFile(t, record)
-	for _, token := range []string{"--env-file", "stand.env", "-p", "bintrans-e2e-stand-v0.1a", "down", "-v", "--remove-orphans"} {
+	for _, token := range []string{"--env-file", "stand.env", "-p", "bintrans-e2e-stand-v01a", "down", "-v", "--remove-orphans"} {
 		if !strings.Contains(args, token) {
 			t.Fatalf("docker args missing %q\n%s", token, args)
 		}
@@ -49,7 +49,7 @@ func TestStandDownRejectsForeignProjectBeforeDocker(t *testing.T) {
 	const secret = "super-secret-value"
 	envFile := writeStandEnvFile(t, secret)
 	record := filepath.Join(t.TempDir(), "docker-args")
-	for _, project := range []string{"bintrans-ct-staging", "freight-platform", "bintrans-e2e-stand-v0.1b"} {
+	for _, project := range []string{"bintrans-ct-staging", "freight-platform", "bintrans-e2e-stand-v0.1b", "bintrans-e2e-stand-v0.1a"} {
 		output, err := runStandBash(t, map[string]string{
 			"PATH":                 fakeDockerPath(t, record),
 			"DOCKER_RECORD":        record,
@@ -97,12 +97,23 @@ func TestStandDownMissingEnvFileBeforeDocker(t *testing.T) {
 }
 
 func TestStandProjectGuardRejectsForeignExplicitProject(t *testing.T) {
-	output, err := runStandBash(t, nil, "project-guard.sh", "--project", "bintrans-ct-staging")
-	if err == nil {
-		t.Fatalf("foreign project was accepted\n%s", output)
+	for _, project := range []string{"bintrans-ct-staging", "bintrans-e2e-stand-v0.1a"} {
+		output, err := runStandBash(t, nil, "project-guard.sh", "--project", project)
+		if err == nil {
+			t.Fatalf("project %s was accepted\n%s", project, output)
+		}
+		if strings.Contains(output, "docker compose") {
+			t.Fatalf("guard attempted compose: %s", output)
+		}
 	}
-	if strings.Contains(output, "docker compose") {
-		t.Fatalf("guard attempted compose: %s", output)
+}
+
+func TestStandProjectGuardAcceptsCanonicalSelectors(t *testing.T) {
+	output, err := runStandBash(t, map[string]string{
+		"COMPOSE_PROJECT_NAME": "bintrans-e2e-stand-v01a",
+	}, "project-guard.sh", "--project", "bintrans-e2e-stand-v01a")
+	if err != nil {
+		t.Fatalf("canonical project was rejected: %v\n%s", err, output)
 	}
 }
 

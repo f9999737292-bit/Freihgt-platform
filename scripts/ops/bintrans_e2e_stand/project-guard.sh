@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Fail closed unless every Compose project selector is bintrans-e2e-stand-v0.1a.
+# Fail closed unless every Compose project selector is bintrans-e2e-stand-v01a.
 # This script does not invoke Docker.
 set -euo pipefail
 
-expected="bintrans-e2e-stand-v0.1a"
+expected="bintrans-e2e-stand-v01a"
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
 file="$root/infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml"
 

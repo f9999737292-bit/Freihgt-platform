@@ -47,7 +47,7 @@ One Compose project, used only by this stand:
 
 | Contract item | Value |
 | --- | --- |
-| Project name | `bintrans-e2e-stand-v0.1a` |
+| Project name | `bintrans-e2e-stand-v01a` |
 | Compose file | Future file. Not `infrastructure/docker-compose/docker-compose.yml`. |
 | Network | Project network `bintrans-e2e-stand`. `internal: true`. No `name: freight-platform-network`. |
 | Postgres volume | Project volume `bintrans-e2e-stand-postgres`. Anonymous or project-scoped. Never `freight_postgres_data`. |

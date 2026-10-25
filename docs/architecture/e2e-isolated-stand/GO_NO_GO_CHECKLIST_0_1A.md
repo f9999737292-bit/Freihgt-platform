@@ -20,7 +20,7 @@ All of the following are required before anyone calls a future stand run success
 
 | # | Gate | Pass condition |
 | --- | --- | --- |
-| 1 | Project identity | Compose project is `bintrans-e2e-stand-v0.1a`. Staging project `bintrans-ct-staging` is untouched. |
+| 1 | Project identity | Compose project is `bintrans-e2e-stand-v01a`. Staging project `bintrans-ct-staging` is untouched. |
 | 2 | Network | Network is internal. `docker compose port` shows no published ports. Postgres is not reachable from the host network. |
 | 3 | Volume | Postgres data volume name contains `bintrans-e2e-stand` and is not `freight_postgres_data`. |
 | 4 | Postgres | `pg_isready` succeeds inside the container. Image is PostgreSQL 16. `TEST_DATABASE_URL` host is exactly `postgres`. |
@@ -43,7 +43,7 @@ All of the following are required before anyone calls a future stand run success
 | 21 | No duplicates | Order, shipment, award link, POD, settlement, register, package, act, and VAT invoice counts stay at one after every replay. |
 | 22 | Negative tests | The foreign-tenant and other-company denials in the test pass, including the transport-order tenant mismatch HTTP 403. |
 | 23 | Secrets | Logs and the PR diff contain no database URL with a password, no staging env, and no newly created credential. |
-| 24 | Cleanup | Only project `bintrans-e2e-stand-v0.1a` is removed, with its volumes. Staging containers and `freight_postgres_data` remain. |
+| 24 | Cleanup | Only project `bintrans-e2e-stand-v01a` is removed, with its volumes. Staging containers and `freight_postgres_data` remain. |
 
 ## No-Go conditions
 
@@ -60,7 +60,7 @@ Stop the later run, do not retry against another database, and leave the stand u
 - A shipment, POD, or settlement row appears before the matching HTTP call.
 - Control-tower shows `DELIVERED` while the independent topic read found no `DELIVERED` record.
 - A payment obligation appears.
-- Cleanup would select a project other than `bintrans-e2e-stand-v0.1a`.
+- Cleanup would select a project other than `bintrans-e2e-stand-v01a`.
 
 ## Agent I
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Removes only Compose project bintrans-e2e-stand-v0.1a.
+# Removes only Compose project bintrans-e2e-stand-v01a.
 # Usage: down.sh --env-file PATH
 # The env file is passed to Compose and is never printed.
 set -euo pipefail
@@ -52,7 +52,7 @@ require_key BINTRANS_E2E_STAND_POSTGRES_DB
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$root"
 
-project="bintrans-e2e-stand-v0.1a"
+project="bintrans-e2e-stand-v01a"
 file="infrastructure/docker-compose/docker-compose.bintrans-e2e-stand-v0.1a.yml"
 
 bash "$root/scripts/ops/bintrans_e2e_stand/project-guard.sh" --project "$project"
