@@ -114,6 +114,9 @@ for cmd in git openssl awk; do
     fail "required command $cmd is missing"
   fi
 done
+if ! bash "$root/scripts/ops/bintrans_e2e_stand/python-bin.sh" >/dev/null; then
+  fail "required command python3 is missing"
+fi
 echo "HOST_TOOLS=PRESENT"
 
 # Docker CLI v28 uses a set DOCKER_HOST to force the default context, which

@@ -48,7 +48,7 @@ Cleanup is `scripts/ops/bintrans_e2e_stand/down.sh --env-file <ephemeral-file>`,
 
 ## Ephemeral secrets
 
-`scripts/ops/bintrans_e2e_stand/ephemeral-env.sh` prints a new database user and password. Write that output outside the repository with mode `0600`, for example `/var/tmp/bintrans-e2e-stand/stand.env`. Do not commit it, do not copy it into the transcript, and do not reuse a staging or production password.
+`scripts/ops/bintrans_e2e_stand/ephemeral-env.sh` prints a new database user and password. `run-session.sh` writes that output through an exclusive file descriptor into a new `0600` file in a `0700` directory outside the repository. It does not follow a symbolic link, replace an existing file, or reuse a path inside the checkout. Do not commit the file, do not copy it into the transcript, and do not reuse a staging or production password.
 
 The EXIT trap removes the file on success and on error when no stand resources were created, and after a successful `down.sh` when they were. `CLEANUP_FAILED` leaves the file in place. Do not delete it before `down.sh` succeeds, and do not report the resources as removed.
 

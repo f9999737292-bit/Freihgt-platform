@@ -463,9 +463,26 @@ case "$cmd" in
       exit 0
     fi
     if [ "$sub" = "up" ]; then
+      if [ -n "${DOCKER_UP_SLEEP:-}" ]; then
+        if [ -n "${DOCKER_UP_LOCK:-}" ]; then
+          printf '%s\n' "$$" > "$DOCKER_UP_LOCK"
+        fi
+        trap 'if [ -n "${DOCKER_UP_LOCK:-}" ]; then rm -f "$DOCKER_UP_LOCK"; fi; printf "%s\n" UP_SIGNALLED >> "$DOCKER_RECORD"; exit 143' TERM INT
+        sleep "$DOCKER_UP_SLEEP" &
+        sleeper=$!
+        printf 'UP_SLEEPER=%s\n' "$sleeper" >> "$DOCKER_RECORD"
+        wait "$sleeper"
+        printf '%s\n' UP_FINISHED >> "$DOCKER_RECORD"
+        if [ -n "${DOCKER_UP_LOCK:-}" ]; then
+          rm -f "$DOCKER_UP_LOCK"
+        fi
+      fi
       exit "${DOCKER_UP_RC:-0}"
     fi
     if [ "$sub" = "down" ]; then
+      if [ -n "${DOCKER_UP_LOCK:-}" ] && [ -f "$DOCKER_UP_LOCK" ]; then
+        echo UP_STILL_RUNNING >> "$DOCKER_RECORD"
+      fi
       if [ -n "$envfile" ] && [ -f "$envfile" ]; then
         echo ENV_STILL_PRESENT >> "$DOCKER_RECORD"
       fi

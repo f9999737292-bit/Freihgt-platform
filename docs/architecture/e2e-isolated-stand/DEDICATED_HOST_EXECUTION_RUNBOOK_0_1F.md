@@ -54,7 +54,7 @@ That single process:
 2. Runs `host-preflight.sh` and reads `DOCKER_ENDPOINT=unix://...`.
 3. Exports that value as `DOCKER_HOST` and unsets `DOCKER_CONTEXT`.
 4. Installs the EXIT trap, and the same cleanup for SIGINT and SIGTERM, before creating the env file.
-5. Writes the ephemeral env outside the repository with mode `0600`.
+5. Creates a new ephemeral env outside the repository. The directory is mode `0700` and owned by the current user. The file is created with `O_CREAT | O_EXCL | O_NOFOLLOW` and mode `0600`, and the password is written through that file descriptor. An existing file, a symbolic link, a path inside the checkout, or a parent that is a link or is not mode `0700` stops the session. A leftover env file is not replaced or deleted.
 6. Runs the project guard and `docker compose config` without printing the password.
 7. Exits without `docker compose up`.
 
@@ -74,11 +74,11 @@ The process repeats the check-only sequence. After config passes, it sets `resou
 docker compose up --build --abort-on-container-exit --exit-code-from runner
 ```
 
-with the pinned `DOCKER_HOST` and the same env file. Success and failure both enter the trap. The trap calls `down.sh --env-file` for project `bintrans-e2e-stand-v01a` only, using the same `DOCKER_HOST` and the same env file. After `down.sh` exits 0, the trap deletes the env file and returns the `up` status, so a failed run is not reported as success.
+with the pinned `DOCKER_HOST` and the same env file. `up` runs in its own process group. The session records that group id. The group is not the session's group, and every member is the `up` process or its descendant. Success and failure both enter the trap. The trap calls `down.sh --env-file` for project `bintrans-e2e-stand-v01a` only, using the same `DOCKER_HOST` and the same env file. After `down.sh` exits 0, the trap deletes the env file only when its device and inode still match the file this session created, then returns the `up` status, so a failed run is not reported as success.
 
 If `down.sh` fails, the trap prints `CLEANUP_FAILED`, leaves the env file in place, and exits 1. Do not report the project as removed. Retry with the same file and the same `DOCKER_HOST`. Do not run `docker system prune`, `docker volume prune`, or `docker network prune`.
 
-SIGINT and SIGTERM exit through that same trap. No second shell is required to pin the endpoint, create or delete the env file, or run `up` or `down`.
+SIGINT and SIGTERM are handled by this same Bash process. It signals the verified child group, waits until those processes exit, and only then runs the EXIT trap. The wait is bounded. If the child is still running, the session escalates to SIGKILL for that same verified group and no other process. A successful cleanup preserves exit code 130 for SIGINT and 143 for SIGTERM. No second shell is required to pin the endpoint, create or delete the env file, or run `up` or `down`. `down` does not start while `up` is still running.
 
 ## 6. Evidence
 
@@ -93,3 +93,16 @@ docker network ls
 ```
 
 No volume or network name starts with `bintrans-e2e-stand-v01a`. The later execution report records the host profile, the approved SHA, the runner exit code, and either removal or `CLEANUP_FAILED`. Stage 0.1F does not produce that execution report.
+
+## 7. Recovery after SIGKILL or a host crash
+
+Bash cannot trap SIGKILL. A killed session, or a host that lost power, does not run the EXIT trap. Do not read a missing process as proof that the stand was removed, and do not claim the env file was cleaned up.
+
+1. Export the local socket recorded for that attempt as `DOCKER_HOST=unix://...` and unset `DOCKER_CONTEXT`. Do not select another daemon, context, or host.
+2. Confirm the only Compose project under inspection is `bintrans-e2e-stand-v01a`.
+3. With that `DOCKER_HOST`, run `docker compose ls -a -q`, `docker volume ls`, and `docker network ls`. If a list command fails, the result is BLOCKED. Keep the output. Do not guess which objects exist.
+4. If that project is present, or a volume or network name starts with `bintrans-e2e-stand-v01a`, resources may exist. Run `bash scripts/ops/bintrans_e2e_stand/down.sh --env-file` with the env file the session left behind and the same `DOCKER_HOST`. Do not substitute another env file or another project.
+5. Delete that env file only after `down.sh` exits 0 and a second list shows the project is gone. If `down.sh` fails, keep the file and record `CLEANUP_FAILED`.
+6. If the lists are ambiguous, the preserved env file is missing, or the endpoint is not the recorded local socket, stop. The result is BLOCKED. Keep the command output.
+
+Do not remove any other Compose project. Do not run `docker system prune`, `docker volume prune`, or `docker network prune`.

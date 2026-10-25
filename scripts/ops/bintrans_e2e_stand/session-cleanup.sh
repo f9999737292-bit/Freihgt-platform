@@ -2,10 +2,13 @@
 # EXIT-trap helper for one dedicated-host attempt.
 # When resources were started, down.sh runs before the env file is removed.
 # A failed down.sh prints CLEANUP_FAILED, keeps the env file, and leaves every other Docker object untouched.
+# The env file is removed only when its device and inode still match the file this session created.
 set -euo pipefail
 
 env_file=""
 started="no"
+env_dev=""
+env_ino=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --env-file)
@@ -26,6 +29,24 @@ while [ $# -gt 0 ]; do
       fi
       shift
       ;;
+    --env-dev)
+      shift
+      env_dev=${1:-}
+      if [ -z "$env_dev" ]; then
+        echo "env device is required" >&2
+        exit 1
+      fi
+      shift
+      ;;
+    --env-ino)
+      shift
+      env_ino=${1:-}
+      if [ -z "$env_ino" ]; then
+        echo "env inode is required" >&2
+        exit 1
+      fi
+      shift
+      ;;
     *)
       echo "unknown session cleanup argument" >&2
       exit 1
@@ -39,17 +60,40 @@ if [ -z "$env_file" ]; then
 fi
 
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
+ops="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1091
+. "$ops/session-common.sh"
+
+cleanup_failed() {
+  echo "CLEANUP_FAILED" >&2
+  exit 1
+}
+
 if [ "$started" = "yes" ]; then
-  if [ ! -f "$env_file" ]; then
-    echo "CLEANUP_FAILED" >&2
-    echo "ephemeral env file is missing" >&2
-    exit 1
+  if [ -z "$env_dev" ] || [ -z "$env_ino" ]; then
+    echo "ephemeral env identity is missing" >&2
+    cleanup_failed
+  fi
+  python=$(stand_python)
+  native_env=$(to_native_path "$env_file")
+  if ! "$python" "$ops/private-env.py" verify "$native_env" "$env_dev" "$env_ino"; then
+    cleanup_failed
   fi
   if ! bash "$root/scripts/ops/bintrans_e2e_stand/down.sh" --env-file "$env_file"; then
-    echo "CLEANUP_FAILED" >&2
-    exit 1
+    cleanup_failed
   fi
 fi
 
-rm -f "$env_file"
+if [ -z "$env_dev" ] || [ -z "$env_ino" ]; then
+  if [ "$started" = "yes" ]; then
+    cleanup_failed
+  fi
+  exit 0
+fi
+
+python=${python:-$(stand_python)}
+native_env=${native_env:-$(to_native_path "$env_file")}
+if ! "$python" "$ops/private-env.py" remove "$native_env" "$env_dev" "$env_ino"; then
+  cleanup_failed
+fi
 echo "EPHEMERAL_ENV=REMOVED"

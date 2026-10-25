@@ -1,12 +1,16 @@
 package bintranse2e
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestStandCheckoutGuardRejectsWrongSha(t *testing.T) {
@@ -241,6 +245,343 @@ func TestStandSessionRunnerTrapRunsOnTerm(t *testing.T) {
 	}
 }
 
+func TestStandSessionRunnerRejectsEnvSymlink(t *testing.T) {
+	dir := t.TempDir()
+	foreign := filepath.Join(dir, "foreign")
+	original := []byte("foreign-bytes-v1\n")
+	if err := os.WriteFile(foreign, original, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Lstat(foreign)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envFile := filepath.Join(dir, "stand.env")
+	if err := os.Symlink(foreign, envFile); err != nil {
+		t.Fatal(err)
+	}
+	record := filepath.Join(dir, "docker-args")
+	output, err := runSession(t, envFile, record, nil, "--sha", approvedSessionSHA)
+	if err == nil || !strings.Contains(output, "symbolic link") {
+		t.Fatalf("symlink env result %v\n%s", err, output)
+	}
+	assertSessionSecretHidden(t, output)
+	assertBytesAndMode(t, foreign, original, before.Mode())
+	link, err := os.Lstat(envFile)
+	if err != nil || link.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("env symlink was replaced: %v", err)
+	}
+	assertNoComposeLaunch(t, record)
+}
+
+func TestStandSessionRunnerRejectsRepoEnvPath(t *testing.T) {
+	envFile := filepath.Join(standRepoRoot(t), "bintrans-e2e-stand-env-rejected.env")
+	t.Cleanup(func() { _ = os.Remove(envFile) })
+	record := filepath.Join(t.TempDir(), "docker-args")
+	output, err := runSession(t, envFile, record, nil, "--sha", approvedSessionSHA)
+	if err == nil || !strings.Contains(output, "inside the repository") {
+		t.Fatalf("repo env result %v\n%s", err, output)
+	}
+	assertSessionSecretHidden(t, output)
+	if _, statErr := os.Lstat(envFile); !os.IsNotExist(statErr) {
+		t.Fatalf("repo path created an env file: %v", statErr)
+	}
+	assertNoComposeLaunch(t, record)
+}
+
+func TestStandSessionRunnerRejectsExistingEnvFile(t *testing.T) {
+	envFile := filepath.Join(t.TempDir(), "stand.env")
+	original := []byte("ORIGINAL-ENV-BYTES\n")
+	if err := os.WriteFile(envFile, original, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Lstat(envFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := filepath.Join(t.TempDir(), "docker-args")
+	output, err := runSession(t, envFile, record, nil, "--sha", approvedSessionSHA)
+	if err == nil || !strings.Contains(output, "already exists") {
+		t.Fatalf("existing env result %v\n%s", err, output)
+	}
+	assertSessionSecretHidden(t, output)
+	assertBytesAndMode(t, envFile, original, before.Mode())
+	assertNoComposeLaunch(t, record)
+}
+
+func TestStandSessionRunnerRejectsParentSymlink(t *testing.T) {
+	root := t.TempDir()
+	real := filepath.Join(root, "real")
+	if err := os.Mkdir(real, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	marker := []byte("marker-bytes\n")
+	markerPath := filepath.Join(real, "marker")
+	if err := os.WriteFile(markerPath, marker, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	envFile := filepath.Join(link, "stand.env")
+	record := filepath.Join(root, "docker-args")
+	output, err := runSession(t, envFile, record, nil, "--sha", approvedSessionSHA)
+	if err == nil || !strings.Contains(output, "symbolic link") {
+		t.Fatalf("parent symlink result %v\n%s", err, output)
+	}
+	assertSessionSecretHidden(t, output)
+	got, err := os.ReadFile(markerPath)
+	if err != nil || !bytes.Equal(got, marker) {
+		t.Fatalf("parent target changed: %v %q", err, got)
+	}
+	if _, statErr := os.Lstat(filepath.Join(real, "stand.env")); !os.IsNotExist(statErr) {
+		t.Fatalf("file was created through the parent symlink: %v", statErr)
+	}
+	assertNoComposeLaunch(t, record)
+}
+
+func TestStandSessionRunnerRejectsUnsafeParentPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this host does not store unix directory modes")
+	}
+	parent := filepath.Join(t.TempDir(), "open")
+	if err := os.Mkdir(parent, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(parent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Fatalf("directory mode %o is not 0755", info.Mode().Perm())
+	}
+	envFile := filepath.Join(parent, "stand.env")
+	record := filepath.Join(t.TempDir(), "docker-args")
+	output, err := runSession(t, envFile, record, nil, "--sha", approvedSessionSHA)
+	if err == nil || !strings.Contains(output, "permissions are not 0700") {
+		t.Fatalf("unsafe directory result %v\n%s", err, output)
+	}
+	assertSessionSecretHidden(t, output)
+	if _, statErr := os.Lstat(envFile); !os.IsNotExist(statErr) {
+		t.Fatalf("unsafe directory created an env file: %v", statErr)
+	}
+	assertNoComposeLaunch(t, record)
+}
+
+func TestStandSessionRunnerCreatesPrivateEnv0600(t *testing.T) {
+	parent := filepath.Join(t.TempDir(), "priv")
+	if err := os.Mkdir(parent, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	envFile := filepath.Join(parent, "stand.env")
+	record := filepath.Join(t.TempDir(), "docker-args")
+	modeCh := make(chan os.FileMode, 1)
+	go func() {
+		deadline := time.Now().Add(20 * time.Second)
+		for time.Now().Before(deadline) {
+			info, err := os.Lstat(envFile)
+			if err == nil && info.Mode().IsRegular() {
+				modeCh <- info.Mode().Perm()
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	output, err := runSession(t, envFile, record, map[string]string{"DOCKER_CONFIG_SLEEP": "2"}, "--sha", approvedSessionSHA)
+	if err != nil {
+		t.Fatalf("private env create failed: %v\n%s", err, output)
+	}
+	select {
+	case mode := <-modeCh:
+		if runtime.GOOS != "windows" && mode != 0o600 {
+			t.Fatalf("env mode %o", mode)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("private env file was not observed")
+	}
+	if runtime.GOOS != "windows" {
+		info, statErr := os.Stat(parent)
+		if statErr != nil || info.Mode().Perm() != 0o700 {
+			t.Fatalf("private directory mode %v", statErr)
+		}
+		if !strings.Contains(output, "ENV_MODE=0600") {
+			t.Fatalf("creator did not report mode 0600\n%s", output)
+		}
+	}
+	assertSessionSecretHidden(t, output)
+	assertSameProcessCleanup(t, output)
+	if !strings.Contains(output, "SESSION_RESULT=CHECK_ONLY_PASS") || !strings.Contains(output, "EPHEMERAL_ENV=REMOVED") {
+		t.Fatalf("private env result %s", output)
+	}
+	args := readStandFile(t, record)
+	if strings.Contains(args, " up ") || strings.Contains(args, " down ") {
+		t.Fatalf("private env create invoked up or down\n%s", args)
+	}
+	if _, statErr := os.Lstat(envFile); !os.IsNotExist(statErr) {
+		t.Fatalf("private env file remained: %v", statErr)
+	}
+}
+
+func TestStandSessionRunnerCreateErrorDoesNotLaunchCompose(t *testing.T) {
+	parent := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(parent, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	envFile := filepath.Join(parent, "stand.env")
+	record := filepath.Join(t.TempDir(), "docker-args")
+	output, err := runSession(t, envFile, record, nil, "--sha", approvedSessionSHA)
+	if err == nil {
+		t.Fatalf("create error was accepted\n%s", output)
+	}
+	assertSessionSecretHidden(t, output)
+	if strings.Contains(output, "SESSION_RESULT=CHECK_ONLY_PASS") || strings.Contains(output, " up ") {
+		t.Fatalf("create error continued\n%s", output)
+	}
+	assertNoComposeLaunch(t, record)
+}
+
+func TestStandSessionCleanupKeepsReplacedEnvFile(t *testing.T) {
+	parent := filepath.Join(t.TempDir(), "priv")
+	if err := os.Mkdir(parent, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	envFile := filepath.Join(parent, "stand.env")
+	script := `
+. scripts/ops/bintrans_e2e_stand/session-common.sh
+python=$(stand_python)
+native=$(to_native_path "$ENV_FILE")
+root=$(to_native_path "$PWD")
+printf '%s\n' 'SECRET-TOKEN-DO-NOT-PRINT' | "$python" scripts/ops/bintrans_e2e_stand/private-env.py create "$native" "$root"
+`
+	output, err := runRepoBash(t, t.TempDir(), map[string]string{"ENV_FILE": toBashPath(envFile)}, script)
+	if err != nil {
+		t.Fatalf("private env create failed: %v\n%s", err, output)
+	}
+	if strings.Contains(output, "SECRET-TOKEN-DO-NOT-PRINT") {
+		t.Fatalf("creator printed the secret\n%s", output)
+	}
+	dev := sessionField(t, output, "ENV_DEV")
+	ino := sessionField(t, output, "ENV_INO")
+	if dev == "" || ino == "" {
+		t.Fatalf("identity %s", output)
+	}
+	if err := os.Remove(envFile); err != nil {
+		t.Fatal(err)
+	}
+	replaced := []byte("replaced-bytes\n")
+	if err := os.WriteFile(envFile, replaced, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cleanup := "bash scripts/ops/bintrans_e2e_stand/session-cleanup.sh --env-file \"$ENV_FILE\" --resources-started no --env-dev " + dev + " --env-ino " + ino + "\n"
+	output, err = runRepoBash(t, t.TempDir(), map[string]string{"ENV_FILE": toBashPath(envFile)}, cleanup)
+	if err == nil || !strings.Contains(output, "CLEANUP_FAILED") || strings.Contains(output, "EPHEMERAL_ENV=REMOVED") {
+		t.Fatalf("replaced env cleanup %v\n%s", err, output)
+	}
+	if strings.Contains(output, "SECRET-TOKEN-DO-NOT-PRINT") {
+		t.Fatalf("cleanup printed the secret\n%s", output)
+	}
+	got, err := os.ReadFile(envFile)
+	if err != nil || !bytes.Equal(got, replaced) {
+		t.Fatalf("replaced env bytes %v %q", err, got)
+	}
+}
+
+func TestStandSessionRunnerSigintStopsUpBeforeDown(t *testing.T) {
+	assertInterruptedUp(t, "INT", "pid", 130, false)
+}
+
+func TestStandSessionRunnerSigtermStopsUpBeforeDown(t *testing.T) {
+	assertInterruptedUp(t, "TERM", "pid", 143, false)
+}
+
+func TestStandSessionRunnerGroupSigtermStopsUpBeforeDown(t *testing.T) {
+	assertInterruptedUp(t, "TERM", "group", 143, false)
+}
+
+func TestStandSessionRunnerSignalKeepsEnvWhenDownFails(t *testing.T) {
+	assertInterruptedUp(t, "TERM", "pid", 1, true)
+}
+
+func assertInterruptedUp(t *testing.T, signal, scope string, want int, downFails bool) {
+	t.Helper()
+	envFile := filepath.Join(t.TempDir(), "stand.env")
+	record := filepath.Join(t.TempDir(), "docker-args")
+	logFile := filepath.Join(t.TempDir(), "session.log")
+	marker := filepath.Join(t.TempDir(), "marker")
+	lock := filepath.Join(t.TempDir(), "up.lock")
+	extra := map[string]string{
+		"DOCKER_UP_SLEEP": "25",
+		"DOCKER_UP_LOCK":  toBashPath(lock),
+	}
+	if downFails {
+		extra["DOCKER_DOWN_RC"] = "1"
+	}
+	output, err := runSessionUpSignal(t, envFile, record, logFile, marker, signal, scope, extra)
+	if err != nil {
+		t.Fatalf("signal harness failed: %v\n%s", err, output)
+	}
+	if !strings.Contains(output, "SIGNAL_STATUS="+strconv.Itoa(want)) {
+		t.Fatalf("signal status %s", output)
+	}
+	assertSessionSecretHidden(t, output)
+	assertSameProcessCleanup(t, output)
+	if !strings.Contains(output, "CHILD_GROUP=ISOLATED") || !strings.Contains(output, "BYSTANDER=ALIVE") || !strings.Contains(output, "CHILD=DEAD") || !strings.Contains(output, "SLEEPER=DEAD") {
+		t.Fatalf("signal isolation result %s", output)
+	}
+	sessionPGID := sessionField(t, output, "SESSION_PGID")
+	childPGID := sessionField(t, output, "CHILD_PGID")
+	if sessionPGID == "" || sessionPGID == childPGID {
+		t.Fatalf("child group %q is not isolated from session %q", childPGID, sessionPGID)
+	}
+	args := readStandFile(t, record)
+	if strings.Contains(args, "UP_FINISHED") || strings.Contains(args, "UP_STILL_RUNNING") || strings.Contains(args, "prune") {
+		t.Fatalf("up was still running at cleanup\n%s", args)
+	}
+	if strings.Index(args, " down ") < strings.Index(args, " up ") || !strings.Contains(args, "ENV_STILL_PRESENT") {
+		t.Fatalf("scoped down did not follow the stopped up\n%s", args)
+	}
+	assertPinnedDockerHost(t, args)
+	if downFails {
+		if !strings.Contains(output, "CLEANUP_FAILED") || strings.Contains(output, "EPHEMERAL_ENV=REMOVED") {
+			t.Fatalf("failed signal cleanup %s", output)
+		}
+		if _, statErr := os.Stat(envFile); statErr != nil {
+			t.Fatalf("failed signal cleanup removed the env file: %v", statErr)
+		}
+		return
+	}
+	if strings.Contains(output, "CLEANUP_FAILED") || !strings.Contains(output, "EPHEMERAL_ENV=REMOVED") {
+		t.Fatalf("signal cleanup %s", output)
+	}
+	if _, statErr := os.Stat(envFile); !os.IsNotExist(statErr) {
+		t.Fatalf("signal cleanup left the env file: %v", statErr)
+	}
+}
+
+func assertBytesAndMode(t *testing.T, path string, original []byte, mode os.FileMode) {
+	t.Helper()
+	got, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(got, original) {
+		t.Fatalf("file bytes changed: %v %q", err, got)
+	}
+	info, err := os.Lstat(path)
+	if err != nil || info.Mode() != mode {
+		t.Fatalf("file mode changed: %v", err)
+	}
+}
+
+func assertNoComposeLaunch(t *testing.T, record string) {
+	t.Helper()
+	if _, err := os.Stat(record); err != nil {
+		return
+	}
+	args := readStandFile(t, record)
+	if strings.Contains(args, " up ") || strings.Contains(args, " config") {
+		t.Fatalf("compose was launched\n%s", args)
+	}
+}
+
 func TestStandExecutionRunbookUsesOneSessionProcess(t *testing.T) {
 	body := readStandFile(t, filepath.Join(standRepoRoot(t), "docs", "architecture", "e2e-isolated-stand", "DEDICATED_HOST_EXECUTION_RUNBOOK_0_1F.md"))
 	check := "bash scripts/ops/bintrans_e2e_stand/run-session.sh --sha <CONTROLLER_APPROVED_SHA>"
@@ -254,6 +595,7 @@ func TestStandExecutionRunbookUsesOneSessionProcess(t *testing.T) {
 		execute,
 		"resources_started=yes",
 		"CLEANUP_FAILED",
+		"Bash cannot trap SIGKILL",
 	}
 	last := -1
 	for _, marker := range markers {
@@ -279,6 +621,18 @@ func TestStandExecutionRunbookUsesOneSessionProcess(t *testing.T) {
 	up := strings.Index(script, "up --build --abort-on-container-exit --exit-code-from runner")
 	if started < 0 || up < started {
 		t.Fatal("resources_started is not set immediately before up")
+	}
+	if strings.Contains(script, "ephemeral-env.sh\" >") || strings.Contains(script, "chmod 0600") {
+		t.Fatal("session runner creates the env file by shell redirection")
+	}
+	creator := readStandFile(t, filepath.Join(standRepoRoot(t), "scripts", "ops", "bintrans_e2e_stand", "private-env.py"))
+	for _, token := range []string{"O_CREAT", "O_EXCL", "O_NOFOLLOW"} {
+		if !strings.Contains(creator, token) {
+			t.Fatalf("private env creator missing %s", token)
+		}
+	}
+	if !strings.Contains(body, "O_CREAT | O_EXCL | O_NOFOLLOW") || !strings.Contains(body, "does not run the EXIT trap") {
+		t.Fatal("runbook does not describe exclusive env creation and SIGKILL recovery")
 	}
 }
 
@@ -378,17 +732,17 @@ func runSessionSignal(t *testing.T, envFile, record, logFile string) (string, er
 	script := `bash scripts/ops/bintrans_e2e_stand/run-session.sh --sha ` + approvedSessionSHA + ` --env-file "$ENV_FILE" >"$SESSION_LOG" 2>&1 &
 pid=$!
 i=0
-while [ ! -f "$ENV_FILE" ]; do
+while ! grep -q ' config' "$DOCKER_RECORD" 2>/dev/null; do
   i=$((i+1))
   if [ "$i" -gt 100 ]; then
-    echo "env file was not created" >&2
+    echo "compose config did not start" >&2
     kill -TERM "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
     cat "$SESSION_LOG" >&2
     exit 1
   fi
   if ! kill -0 "$pid" 2>/dev/null; then
-    echo "runner exited before the env file existed" >&2
+    echo "runner exited before compose config" >&2
     cat "$SESSION_LOG" >&2
     exit 1
   fi
@@ -412,6 +766,102 @@ cat "$SESSION_LOG"
 		"GIT_HEAD":            approvedSessionSHA,
 		"GIT_STATUS":          "",
 	}, script)
+}
+
+func runSessionUpSignal(t *testing.T, envFile, record, logFile, marker, signal, scope string, extra map[string]string) (string, error) {
+	t.Helper()
+	dir := writeSessionFakes(t, extra)
+	script := `set +e
+trap 'HARNESS_SIGNAL=1' INT TERM
+set -m
+sleep 120 &
+bystander=$!
+if [ "$SIGNAL_SCOPE" = "group" ]; then
+  set +m
+fi
+bash scripts/ops/bintrans_e2e_stand/run-session.sh --sha ` + approvedSessionSHA + ` --execute --env-file "$ENV_FILE" >"$SESSION_LOG" 2>&1 &
+pid=$!
+if [ "$SIGNAL_SCOPE" != "group" ]; then
+  set +m
+fi
+if ps -o pid= -p "$pid" >/dev/null 2>&1; then
+  runner_pgid=$(ps -o pgid= -p "$pid" | tr -d '[:space:]')
+else
+  runner_pgid=$(ps -p "$pid" | awk 'NR>1 {print $3; exit}')
+fi
+i=0
+while ! grep -q '^CHILD_GROUP=ISOLATED$' "$SESSION_MARKER" 2>/dev/null || ! grep -q '^UP_SLEEPER=' "$DOCKER_RECORD" 2>/dev/null; do
+  i=$((i+1))
+  if [ "$i" -gt 200 ]; then
+    echo "up did not become interruptible" >&2
+    kill -TERM "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    echo "MARKER" >&2
+    cat "$SESSION_MARKER" >&2 || true
+    echo "LOG" >&2
+    cat "$SESSION_LOG" >&2 || true
+    exit 1
+  fi
+  if ! kill -0 "$pid" 2>/dev/null; then
+    echo "runner exited before up" >&2
+    cat "$SESSION_LOG" >&2 || true
+    exit 1
+  fi
+  sleep 0.1
+done
+if [ "$SIGNAL_SCOPE" = "group" ]; then
+  if ps -o pid= -p $$ >/dev/null 2>&1; then
+    self_pgid=$(ps -o pgid= -p $$ | tr -d '[:space:]')
+  else
+    self_pgid=$(ps -p $$ | awk 'NR>1 {print $3; exit}')
+  fi
+  kill -s TERM -- "-$self_pgid" || true
+else
+  kill -s "$SIGNAL_NAME" -- "-$runner_pgid" || true
+fi
+status=0
+while kill -0 "$pid" 2>/dev/null; do
+  wait "$pid"
+  status=$?
+done
+echo "SIGNAL_STATUS=$status"
+if kill -0 "$bystander" 2>/dev/null; then
+  echo BYSTANDER=ALIVE
+else
+  echo BYSTANDER=DEAD
+fi
+kill "$bystander" 2>/dev/null || true
+wait "$bystander" 2>/dev/null || true
+sleeper=$(awk -F= '$1=="UP_SLEEPER" {print $2}' "$DOCKER_RECORD" | tail -n 1 | tr -d '[:space:]')
+if [ -n "$sleeper" ] && kill -0 "$sleeper" 2>/dev/null; then
+  echo SLEEPER=ALIVE
+else
+  echo SLEEPER=DEAD
+fi
+child=$(awk -F= '$1=="CHILD_PID" {print $2}' "$SESSION_MARKER" | tail -n 1 | tr -d '[:space:]')
+if [ -n "$child" ] && kill -0 "$child" 2>/dev/null; then
+  echo CHILD=ALIVE
+else
+  echo CHILD=DEAD
+fi
+cat "$SESSION_LOG"
+`
+	env := map[string]string{
+		"ENV_FILE":       toBashPath(envFile),
+		"DOCKER_RECORD":  toBashPath(record),
+		"SESSION_LOG":    toBashPath(logFile),
+		"SESSION_MARKER": toBashPath(marker),
+		"DOCKER_HOST":    "",
+		"DOCKER_CONTEXT": "",
+		"SIGNAL_NAME":    signal,
+		"SIGNAL_SCOPE":   scope,
+		"GIT_HEAD":       approvedSessionSHA,
+		"GIT_STATUS":     "",
+	}
+	for key, value := range extra {
+		env[key] = value
+	}
+	return runRepoBash(t, dir, env, script)
 }
 
 func writeSessionFakes(t *testing.T, extra map[string]string) string {
