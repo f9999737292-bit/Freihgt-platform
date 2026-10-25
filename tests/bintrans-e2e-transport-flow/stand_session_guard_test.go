@@ -849,6 +849,17 @@ if [ "$SIGNAL_SCOPE" = "group" ]; then
   else
     self_pgid=$(ps -p $$ | awk 'NR>1 {print $3; exit}')
   fi
+  if [ -z "$self_pgid" ] || [ "$self_pgid" -le 1 ]; then
+    echo "refusing to signal an invalid process group" >&2
+    exit 1
+  fi
+  if ! command -v cygpath >/dev/null 2>&1; then
+    parent_pgid=$(ps -o pgid= -p "$PPID" | tr -d '[:space:]')
+    if [ -z "$parent_pgid" ] || [ "$self_pgid" = "$parent_pgid" ]; then
+      echo "refusing to signal the parent process group" >&2
+      exit 1
+    fi
+  fi
   kill -s TERM -- "-$self_pgid" || true
 else
   kill -s "$SIGNAL_NAME" -- "-$runner_pgid" || true
@@ -895,7 +906,7 @@ cat "$SESSION_LOG"
 	for key, value := range extra {
 		env[key] = value
 	}
-	return runRepoBash(t, dir, env, script)
+	return startRepoBash(t, dir, env, script, scope == "group" && runtime.GOOS != "windows")
 }
 
 func writeSessionFakes(t *testing.T, extra map[string]string) string {
@@ -968,13 +979,28 @@ exit 1
 
 func runRepoBash(t *testing.T, fakeDir string, extra map[string]string, script string) (string, error) {
 	t.Helper()
-	cmd := exec.Command(standBash(t), "-c", `fake=$1
+	return startRepoBash(t, fakeDir, extra, script, false)
+}
+
+func startRepoBash(t *testing.T, fakeDir string, extra map[string]string, script string, ownSession bool) (string, error) {
+	t.Helper()
+	args := []string{"-c", `fake=$1
 case "$fake" in
   [A-Za-z]:*) fake=$(cygpath -u "$fake") ;;
 esac
 export PATH="$fake:$PATH"
 shift
-exec bash -s -- "$@"`, "session", fakeDir)
+exec bash -s -- "$@"`, "session", fakeDir}
+	var cmd *exec.Cmd
+	if ownSession {
+		setsidPath, err := exec.LookPath("setsid")
+		if err != nil {
+			t.Fatalf("setsid is required to isolate the test process group: %v", err)
+		}
+		cmd = exec.Command(setsidPath, append([]string{"-w", standBash(t)}, args...)...)
+	} else {
+		cmd = exec.Command(standBash(t), args...)
+	}
 	cmd.Dir = standRepoRoot(t)
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Env = standScriptEnv(extra)
