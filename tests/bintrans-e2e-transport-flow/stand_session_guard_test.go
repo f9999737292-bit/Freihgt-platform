@@ -37,7 +37,7 @@ func TestStandCheckoutGuardAcceptsApprovedSha(t *testing.T) {
 }
 
 func TestStandSessionRunnerCheckOnlyRemovesEnvWithoutUp(t *testing.T) {
-	envFile := filepath.Join(t.TempDir(), "stand.env")
+	envFile := filepath.Join(t.TempDir(), "session", "stand.env")
 	record := filepath.Join(t.TempDir(), "docker-args")
 	output, err := runSession(t, envFile, record, nil, "--sha", approvedSessionSHA)
 	if err != nil {
@@ -62,7 +62,7 @@ func TestStandSessionRunnerCheckOnlyRemovesEnvWithoutUp(t *testing.T) {
 }
 
 func TestStandSessionRunnerStopsWhenPreflightFails(t *testing.T) {
-	envFile := filepath.Join(t.TempDir(), "stand.env")
+	envFile := filepath.Join(t.TempDir(), "session", "stand.env")
 	record := filepath.Join(t.TempDir(), "docker-args")
 	output, err := runSession(t, envFile, record, map[string]string{"UNAME_MACHINE": "aarch64"}, "--sha", approvedSessionSHA)
 	var exitErr *exec.ExitError
@@ -81,7 +81,7 @@ func TestStandSessionRunnerStopsWhenPreflightFails(t *testing.T) {
 }
 
 func TestStandSessionRunnerRemovesEnvWhenProjectGuardFails(t *testing.T) {
-	envFile := filepath.Join(t.TempDir(), "stand.env")
+	envFile := filepath.Join(t.TempDir(), "session", "stand.env")
 	record := filepath.Join(t.TempDir(), "docker-args")
 	count := filepath.Join(t.TempDir(), "guard-count")
 	output, err := runSession(t, envFile, record, map[string]string{
@@ -105,7 +105,7 @@ func TestStandSessionRunnerRemovesEnvWhenProjectGuardFails(t *testing.T) {
 }
 
 func TestStandSessionRunnerRemovesEnvWhenComposeConfigFails(t *testing.T) {
-	envFile := filepath.Join(t.TempDir(), "stand.env")
+	envFile := filepath.Join(t.TempDir(), "session", "stand.env")
 	record := filepath.Join(t.TempDir(), "docker-args")
 	output, err := runSession(t, envFile, record, map[string]string{"DOCKER_CONFIG_RC": "1"}, "--sha", approvedSessionSHA)
 	var exitErr *exec.ExitError
@@ -126,7 +126,7 @@ func TestStandSessionRunnerRemovesEnvWhenComposeConfigFails(t *testing.T) {
 }
 
 func TestStandSessionRunnerExecuteCleansUpAfterSuccessfulUp(t *testing.T) {
-	envFile := filepath.Join(t.TempDir(), "stand.env")
+	envFile := filepath.Join(t.TempDir(), "session", "stand.env")
 	record := filepath.Join(t.TempDir(), "docker-args")
 	output, err := runSession(t, envFile, record, nil, "--sha", approvedSessionSHA, "--execute")
 	if err != nil {
@@ -151,7 +151,7 @@ func TestStandSessionRunnerExecuteCleansUpAfterSuccessfulUp(t *testing.T) {
 }
 
 func TestStandSessionRunnerExecutePreservesUpStatus(t *testing.T) {
-	envFile := filepath.Join(t.TempDir(), "stand.env")
+	envFile := filepath.Join(t.TempDir(), "session", "stand.env")
 	record := filepath.Join(t.TempDir(), "docker-args")
 	output, err := runSession(t, envFile, record, map[string]string{"DOCKER_UP_RC": "7"}, "--sha", approvedSessionSHA, "--execute")
 	var exitErr *exec.ExitError
@@ -170,7 +170,7 @@ func TestStandSessionRunnerExecutePreservesUpStatus(t *testing.T) {
 }
 
 func TestStandSessionRunnerKeepsEnvWhenDownFails(t *testing.T) {
-	envFile := filepath.Join(t.TempDir(), "stand.env")
+	envFile := filepath.Join(t.TempDir(), "session", "stand.env")
 	record := filepath.Join(t.TempDir(), "docker-args")
 	output, err := runSession(t, envFile, record, map[string]string{"DOCKER_DOWN_RC": "1"}, "--sha", approvedSessionSHA, "--execute")
 	var exitErr *exec.ExitError
@@ -191,7 +191,7 @@ func TestStandSessionRunnerKeepsEnvWhenDownFails(t *testing.T) {
 }
 
 func TestStandSessionRunnerRejectsRemoteContextBeforeUp(t *testing.T) {
-	envFile := filepath.Join(t.TempDir(), "stand.env")
+	envFile := filepath.Join(t.TempDir(), "session", "stand.env")
 	record := filepath.Join(t.TempDir(), "docker-args")
 	output, err := runSession(t, envFile, record, map[string]string{
 		"DOCKER_CONTEXT":          "remote",
@@ -218,14 +218,14 @@ func TestStandSessionRunnerRejectsRemoteContextBeforeUp(t *testing.T) {
 }
 
 func TestStandSessionRunnerRejectsShortSha(t *testing.T) {
-	output, err := runSession(t, filepath.Join(t.TempDir(), "stand.env"), filepath.Join(t.TempDir(), "docker-args"), nil, "--sha", "abc")
+	output, err := runSession(t, filepath.Join(t.TempDir(), "session", "stand.env"), filepath.Join(t.TempDir(), "docker-args"), nil, "--sha", "abc")
 	if err == nil || !strings.Contains(output, "40-character") {
 		t.Fatalf("short sha result %v\n%s", err, output)
 	}
 }
 
 func TestStandSessionRunnerTrapRunsOnTerm(t *testing.T) {
-	envFile := filepath.Join(t.TempDir(), "stand.env")
+	envFile := filepath.Join(t.TempDir(), "session", "stand.env")
 	record := filepath.Join(t.TempDir(), "docker-args")
 	logFile := filepath.Join(t.TempDir(), "session.log")
 	output, err := runSessionSignal(t, envFile, record, logFile)
@@ -290,8 +290,11 @@ func TestStandSessionRunnerRejectsRepoEnvPath(t *testing.T) {
 }
 
 func TestStandSessionRunnerRejectsExistingEnvFile(t *testing.T) {
-	envFile := filepath.Join(t.TempDir(), "stand.env")
+	envFile := filepath.Join(t.TempDir(), "session", "stand.env")
 	original := []byte("ORIGINAL-ENV-BYTES\n")
+	if err := os.MkdirAll(filepath.Dir(envFile), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(envFile, original, 0o640); err != nil {
 		t.Fatal(err)
 	}
@@ -374,6 +377,7 @@ func TestStandSessionRunnerCreatesPrivateEnv0600(t *testing.T) {
 	if err := os.Mkdir(parent, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	chmodPrivate(t, parent)
 	envFile := filepath.Join(parent, "stand.env")
 	record := filepath.Join(t.TempDir(), "docker-args")
 	modeCh := make(chan os.FileMode, 1)
@@ -446,6 +450,7 @@ func TestStandSessionCleanupKeepsReplacedEnvFile(t *testing.T) {
 	if err := os.Mkdir(parent, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	chmodPrivate(t, parent)
 	envFile := filepath.Join(parent, "stand.env")
 	script := `
 . scripts/ops/bintrans_e2e_stand/session-common.sh
@@ -513,7 +518,7 @@ func TestStandSessionRunnerSignalKeepsEnvWhenDownFails(t *testing.T) {
 
 func assertInterruptedUp(t *testing.T, signal, scope string, want int, downFails bool) {
 	t.Helper()
-	envFile := filepath.Join(t.TempDir(), "stand.env")
+	envFile := filepath.Join(t.TempDir(), "session", "stand.env")
 	record := filepath.Join(t.TempDir(), "docker-args")
 	logFile := filepath.Join(t.TempDir(), "session.log")
 	marker := filepath.Join(t.TempDir(), "marker")
@@ -564,6 +569,16 @@ func assertInterruptedUp(t *testing.T, signal, scope string, want int, downFails
 	}
 	if _, statErr := os.Stat(envFile); !os.IsNotExist(statErr) {
 		t.Fatalf("signal cleanup left the env file: %v", statErr)
+	}
+}
+
+func chmodPrivate(t *testing.T, dir string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		return
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		t.Fatal(err)
 	}
 }
 

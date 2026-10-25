@@ -77,7 +77,13 @@ def ensure_parent(path):
     grand_info = require_real_directory(grand, "env directory")
     if not ancestor_allows_create(grand_info):
         fail("env directory is not a private directory")
-    os.mkdir(path, 0o700)
+    previous = os.umask(0)
+    try:
+        os.mkdir(path, 0o700)
+    finally:
+        os.umask(previous)
+    if modes_enforced():
+        os.chmod(path, 0o700)
 
 
 def assert_lexical_outside(path, repo_root):
