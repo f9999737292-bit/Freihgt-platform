@@ -344,7 +344,8 @@ fi
 exec /usr/bin/test "$@"
 `)
 	writeFakeCommand(t, dir, "docker", `#!/bin/sh
-printf '%s\n' "$*" >> "$DOCKER_RECORD"
+context_marker=${DOCKER_CONTEXT-<unset>}
+printf 'ENV_DOCKER_HOST=%s ENV_DOCKER_CONTEXT=%s ARGS=%s\n' "${DOCKER_HOST-}" "$context_marker" "$*" >> "$DOCKER_RECORD"
 while [ "${1:-}" = "--host" ] || [ "${1:-}" = "-H" ]; do
   shift 2
 done
@@ -412,7 +413,20 @@ case "$cmd" in
     fi
     ;;
   compose)
-    sub=${1:-}
+    sub=""
+    prev=""
+    envfile=""
+    quiet=0
+    for arg in "$@"; do
+      if [ "$prev" = "--env-file" ]; then
+        envfile=$arg
+      fi
+      case "$arg" in
+        --quiet) quiet=1 ;;
+        version|ls|config|up|down) sub=$arg ;;
+      esac
+      prev=$arg
+    done
     if [ "$sub" = "version" ]; then
       if [ "${DOCKER_COMPOSE:-present}" != "present" ]; then
         echo "compose plugin missing" >&2
@@ -430,6 +444,32 @@ case "$cmd" in
         printf '%s\n' $DOCKER_PROJECTS
       fi
       exit 0
+    fi
+    if [ "$sub" = "config" ]; then
+      if [ -n "${DOCKER_CONFIG_SLEEP:-}" ]; then
+        sleep "$DOCKER_CONFIG_SLEEP"
+      fi
+      if [ "${DOCKER_CONFIG_RC:-0}" != "0" ]; then
+        echo "config failed" >&2
+        exit 1
+      fi
+      if [ "$quiet" -eq 1 ]; then
+        exit 0
+      fi
+      printf '%s\n' "name: bintrans-e2e-stand-v01a"
+      if [ -n "$envfile" ] && [ -f "$envfile" ]; then
+        grep '^BINTRANS_E2E_STAND_POSTGRES_PASSWORD=' "$envfile" || true
+      fi
+      exit 0
+    fi
+    if [ "$sub" = "up" ]; then
+      exit "${DOCKER_UP_RC:-0}"
+    fi
+    if [ "$sub" = "down" ]; then
+      if [ -n "$envfile" ] && [ -f "$envfile" ]; then
+        echo ENV_STILL_PRESENT >> "$DOCKER_RECORD"
+      fi
+      exit "${DOCKER_DOWN_RC:-0}"
     fi
     echo "unsupported compose command: $*" >> "$DOCKER_RECORD"
     exit 1
