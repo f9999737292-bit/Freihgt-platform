@@ -193,35 +193,219 @@ func TestE7REM007IdempotencyFailureRollsBackExpiryAndCreate(t *testing.T) {
 }
 
 func TestE7REM008SubmitInValidWindowNotBrokenByConcurrentRerequestAfterSeparateExpiry(t *testing.T) {
-	env, fix, event, q, saved := seedApprovedLateWindow(t)
+	fixup := prepareOpenLateWindowSubmission(t)
 	ctx := context.Background()
-	now := time.Now().UTC()
-	_, _ = env.crSvc.SaveAnswers(ctx, fix.CarrierAct, event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
-		ExpectedSaveVersion: saved.SaveVersion,
-		Answers:             []domain.AnswerPatchItem{{QuestionID: q.ID, Value: json.RawMessage(`"ok"`)}},
-	})
-	ws, _ := env.crSvc.GetWorkspace(ctx, fix.CarrierAct, event.ID, fix.CarrierID)
-	key := uuid.NewString()
 	var wg sync.WaitGroup
-	var submitErr, createErr error
+	var submitResult *domain.SubmitResult
+	var submitErr error
+	var created *domain.LateSubmissionRequest
+	var createErr error
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_, submitErr = env.crSvc.Submit(ctx, fix.CarrierAct, event.ID, fix.CarrierID, ws.Response.SaveVersion, key)
+		submitResult, submitErr = fixup.env.crSvc.Submit(ctx, fixup.fix.CarrierAct, fixup.event.ID, fixup.fix.CarrierID, fixup.saveVersion, uuid.NewString())
 	}()
 	go func() {
 		defer wg.Done()
-		_, createErr = env.lateSvc.CreateRequest(ctx, fix.CarrierAct, event.ID, fix.CarrierID, uuid.NewString(), domain.CreateLateSubmissionRequestInput{
-			ReasonCode: domain.LateSubmissionReasonOther, ReasonText: "late", RequestedUntil: now.Add(24 * time.Hour),
-		})
+		created, createErr = fixup.env.lateSvc.CreateRequest(ctx, fixup.fix.CarrierAct, fixup.event.ID, fixup.fix.CarrierID, uuid.NewString(), lateCreateInput(fixup.now))
 	}()
 	wg.Wait()
-	if submitErr != nil {
-		t.Fatalf("submit in valid window failed: %v", submitErr)
+	assertOpenWindowSubmitAndCreateOutcome(t, fixup, submitResult, submitErr, created, createErr)
+}
+
+func TestE7REM008SequentialSubmitThenCreateAllowsRequested(t *testing.T) {
+	fixup := prepareOpenLateWindowSubmission(t)
+	ctx := context.Background()
+	submitResult, submitErr := fixup.env.crSvc.Submit(ctx, fixup.fix.CarrierAct, fixup.event.ID, fixup.fix.CarrierID, fixup.saveVersion, uuid.NewString())
+	created, createErr := fixup.env.lateSvc.CreateRequest(ctx, fixup.fix.CarrierAct, fixup.event.ID, fixup.fix.CarrierID, uuid.NewString(), lateCreateInput(fixup.now))
+	assertOpenWindowSubmitAndCreateOutcome(t, fixup, submitResult, submitErr, created, createErr)
+	if createErr != nil || created == nil {
+		t.Fatal("sequential create after a consumed permission must succeed")
+	}
+}
+
+func TestE7REM008SequentialApprovedCreateConflictsThenSubmit(t *testing.T) {
+	fixup := prepareOpenLateWindowSubmission(t)
+	ctx := context.Background()
+	created, createErr := fixup.env.lateSvc.CreateRequest(ctx, fixup.fix.CarrierAct, fixup.event.ID, fixup.fix.CarrierID, uuid.NewString(), lateCreateInput(fixup.now))
+	if created != nil {
+		t.Fatalf("create while APPROVED returned a request and error=%v", createErr)
+	}
+	assertAppErrorCode(t, createErr, apperrors.CodeConflict)
+	if countTenantActiveLateRequests(t, fixup.env, fixup.fix.TenantID, fixup.event.ID, fixup.fix.CarrierID) != 1 {
+		t.Fatal("rejected create changed the active request count")
+	}
+	stillActive, err := fixup.env.lateRepo.GetActiveByEventAndCarrier(ctx, fixup.fix.TenantID, fixup.event.ID, fixup.fix.CarrierID)
+	if err != nil {
+		t.Fatalf("active lookup after rejected create: %v", err)
+	}
+	if stillActive == nil || stillActive.ID != fixup.original.ID || stillActive.Status != domain.LateSubmissionStatusApproved {
+		t.Fatalf("original APPROVED permission changed before submit: %+v", stillActive)
+	}
+	submitResult, submitErr := fixup.env.crSvc.Submit(ctx, fixup.fix.CarrierAct, fixup.event.ID, fixup.fix.CarrierID, fixup.saveVersion, uuid.NewString())
+	assertOpenWindowSubmitAndCreateOutcome(t, fixup, submitResult, submitErr, nil, createErr)
+}
+
+type openLateWindowSubmission struct {
+	env         *testEnv
+	fix         buyerFixture
+	event       *domain.RfxEvent
+	original    *domain.LateSubmissionRequest
+	saveVersion int64
+	now         time.Time
+}
+
+func prepareOpenLateWindowSubmission(t *testing.T) openLateWindowSubmission {
+	t.Helper()
+	env, fix, event, q, saved := seedApprovedLateWindow(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if _, err := env.crSvc.SaveAnswers(ctx, fix.CarrierAct, event.ID, fix.CarrierID, domain.AnswerBatchPatchInput{
+		ExpectedSaveVersion: saved.SaveVersion,
+		Answers:             []domain.AnswerPatchItem{{QuestionID: q.ID, Value: json.RawMessage(`"ok"`)}},
+	}); err != nil {
+		t.Fatalf("save answers: %v", err)
+	}
+	ws, err := env.crSvc.GetWorkspace(ctx, fix.CarrierAct, event.ID, fix.CarrierID)
+	if err != nil {
+		t.Fatalf("workspace: %v", err)
+	}
+	original, err := env.lateRepo.GetActiveByEventAndCarrier(ctx, fix.TenantID, event.ID, fix.CarrierID)
+	if err != nil {
+		t.Fatalf("load approved permission: %v", err)
+	}
+	if original == nil || original.Status != domain.LateSubmissionStatusApproved || original.CarrierCompanyID != fix.CarrierID {
+		t.Fatalf("expected one APPROVED permission, got %+v", original)
+	}
+	if status := tenantLateRequestStatus(t, env, original.ID, fix.TenantID, event.ID, fix.CarrierID); status != string(domain.LateSubmissionStatusApproved) {
+		t.Fatalf("tenant-scoped status before race=%s", status)
+	}
+	return openLateWindowSubmission{env: env, fix: fix, event: event, original: original, saveVersion: ws.Response.SaveVersion, now: now}
+}
+
+func lateCreateInput(now time.Time) domain.CreateLateSubmissionRequestInput {
+	return domain.CreateLateSubmissionRequestInput{
+		ReasonCode: domain.LateSubmissionReasonOther, ReasonText: "late", RequestedUntil: now.Add(24 * time.Hour),
+	}
+}
+
+func assertOpenWindowSubmitAndCreateOutcome(t *testing.T, fixup openLateWindowSubmission, submitResult *domain.SubmitResult, submitErr error, created *domain.LateSubmissionRequest, createErr error) {
+	t.Helper()
+	if submitErr != nil || submitResult == nil {
+		t.Fatalf("submit in valid window failed: result=%v err=%v", submitResult, submitErr)
+	}
+	ctx := context.Background()
+	stored, err := fixup.env.lateRepo.GetByID(ctx, fixup.original.ID, fixup.fix.TenantID, fixup.event.ID)
+	if err != nil {
+		t.Fatalf("reload original permission: %v", err)
+	}
+	if stored.Status != domain.LateSubmissionStatusConsumed || stored.CarrierCompanyID != fixup.fix.CarrierID || stored.TenantID != fixup.fix.TenantID {
+		t.Fatalf("original permission after submit: status=%s tenant=%s carrier=%s", stored.Status, stored.TenantID, stored.CarrierCompanyID)
+	}
+	if status := tenantLateRequestStatus(t, fixup.env, fixup.original.ID, fixup.fix.TenantID, fixup.event.ID, fixup.fix.CarrierID); status != string(domain.LateSubmissionStatusConsumed) {
+		t.Fatalf("tenant-scoped original status=%s", status)
+	}
+	activeCount := countTenantActiveLateRequests(t, fixup.env, fixup.fix.TenantID, fixup.event.ID, fixup.fix.CarrierID)
+	if activeCount > 1 {
+		t.Fatalf("active REQUESTED/APPROVED count=%d", activeCount)
+	}
+	listed, err := fixup.env.lateRepo.ListOwnByEventAndCarrier(ctx, fixup.fix.TenantID, fixup.event.ID, fixup.fix.CarrierID)
+	if err != nil {
+		t.Fatalf("list own requests: %v", err)
+	}
+
+	switch {
+	case createErr == nil && created != nil:
+		if created.ID == fixup.original.ID {
+			t.Fatal("new request reuses the consumed permission id")
+		}
+		if created.Status != domain.LateSubmissionStatusRequested || created.CarrierCompanyID != fixup.fix.CarrierID || created.TenantID != fixup.fix.TenantID {
+			t.Fatalf("created request status=%s tenant=%s carrier=%s", created.Status, created.TenantID, created.CarrierCompanyID)
+		}
+		row, err := fixup.env.lateRepo.GetByID(ctx, created.ID, fixup.fix.TenantID, fixup.event.ID)
+		if err != nil {
+			t.Fatalf("created request missing from repository: %v", err)
+		}
+		if row.Status != domain.LateSubmissionStatusRequested {
+			t.Fatalf("stored created status=%s", row.Status)
+		}
+		if status := tenantLateRequestStatus(t, fixup.env, created.ID, fixup.fix.TenantID, fixup.event.ID, fixup.fix.CarrierID); status != string(domain.LateSubmissionStatusRequested) {
+			t.Fatalf("tenant-scoped created status=%s", status)
+		}
+		if activeCount != 1 {
+			t.Fatalf("successful create left %d active requests", activeCount)
+		}
+		active, err := fixup.env.lateRepo.GetActiveByEventAndCarrier(ctx, fixup.fix.TenantID, fixup.event.ID, fixup.fix.CarrierID)
+		if err != nil {
+			t.Fatalf("active lookup: %v", err)
+		}
+		if active == nil || active.ID != created.ID || active.Status != domain.LateSubmissionStatusRequested {
+			t.Fatalf("active request=%+v", active)
+		}
+		if !lateRequestListContains(listed, created.ID, domain.LateSubmissionStatusRequested) || !lateRequestListContains(listed, fixup.original.ID, domain.LateSubmissionStatusConsumed) {
+			t.Fatalf("repository list missing consumed permission or new request: %+v", listed)
+		}
+	case createErr != nil && created == nil:
+		assertAppErrorCode(t, createErr, apperrors.CodeConflict)
+		if activeCount != 0 {
+			t.Fatalf("rejected create left %d active requests", activeCount)
+		}
+		active, err := fixup.env.lateRepo.GetActiveByEventAndCarrier(ctx, fixup.fix.TenantID, fixup.event.ID, fixup.fix.CarrierID)
+		if err != nil {
+			t.Fatalf("active lookup after conflict: %v", err)
+		}
+		if active != nil {
+			t.Fatalf("rejected create left active request %s", active.ID)
+		}
+		if len(listed) != 1 || !lateRequestListContains(listed, fixup.original.ID, domain.LateSubmissionStatusConsumed) {
+			t.Fatalf("rejected create persisted an extra request: %+v", listed)
+		}
+	default:
+		t.Fatalf("unexpected create outcome: created=%v err=%v", created != nil, createErr)
 	}
 	if createErr == nil {
-		t.Fatal("concurrent create must fail while permission is consumed or active")
+		t.Log("late-create-outcome=REQUESTED_AFTER_CONSUMED")
+	} else {
+		t.Log("late-create-outcome=CONFLICT")
 	}
+}
+
+func countTenantActiveLateRequests(t *testing.T, env *testEnv, tenantID, eventID, carrierID uuid.UUID) int {
+	t.Helper()
+	var count int
+	err := env.pool.QueryRow(context.Background(), `
+		SELECT count(*)
+		FROM rfx.rfx_late_submission_requests
+		WHERE tenant_id = $1 AND rfx_event_id = $2 AND carrier_company_id = $3
+			AND status IN ('REQUESTED', 'APPROVED')
+	`, tenantID, eventID, carrierID).Scan(&count)
+	if err != nil {
+		t.Fatalf("count active late requests: %v", err)
+	}
+	return count
+}
+
+func tenantLateRequestStatus(t *testing.T, env *testEnv, id, tenantID, eventID, carrierID uuid.UUID) string {
+	t.Helper()
+	var status string
+	err := env.pool.QueryRow(context.Background(), `
+		SELECT status
+		FROM rfx.rfx_late_submission_requests
+		WHERE id = $1 AND tenant_id = $2 AND rfx_event_id = $3 AND carrier_company_id = $4
+	`, id, tenantID, eventID, carrierID).Scan(&status)
+	if err != nil {
+		t.Fatalf("tenant-scoped late request %s: %v", id, err)
+	}
+	return status
+}
+
+func lateRequestListContains(items []domain.LateSubmissionRequest, id uuid.UUID, status domain.LateSubmissionStatus) bool {
+	for _, item := range items {
+		if item.ID == id && item.Status == status {
+			return true
+		}
+	}
+	return false
 }
 
 func seedExpiredApprovedPermission(t *testing.T) (*testEnv, buyerFixture, *domain.RfxEvent) {
