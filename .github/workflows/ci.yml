@@ -9,6 +9,23 @@ on:
       - main
 
 jobs:
+  bintrans-autopilot-unit:
+    name: bintrans-autopilot-unit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Autopilot dispatcher unit tests
+        env:
+          PYTHONPATH: tools
+        run: python -m unittest discover -s tools/bintrans_autopilot/tests -v
+
   repository-safety:
     name: repository-safety
     runs-on: ubuntu-latest

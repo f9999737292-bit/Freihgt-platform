@@ -11,7 +11,7 @@ Model-independent orchestration rules for multi-agent work via Git worktrees and
 
 Before any edit:
 
-1. Run `git rev-parse --show-toplevel` and confirm you are in the assigned worktree.
+1. Run `git rev-parse --show-toplevel` and `git branch --show-current`. For a local task, confirm the assigned worktree. For a cloud task whose contract sets execution to cloud, confirm the assigned feature branch and base SHA. A Windows staging-pack path is not required for that cloud task.
 2. Run `git branch --show-current` and confirm the assigned branch.
 3. Run `git status --short` and report dirty state; do not discard foreign changes.
 4. Never use destructive Git: `reset --hard`, `clean -fd`, `clean -fdx`, `checkout -- .`, `restore .`, `push --force`, `push --force-with-lease`.

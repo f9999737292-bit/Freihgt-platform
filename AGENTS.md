@@ -126,6 +126,14 @@ Distinguish:
 
 Do not convert `NOT_RUN` into `PASS`.
 
+## Autopilot
+
+The 24/7 dispatcher in `tools/bintrans_autopilot` is off by default. Do not set `AUTOPILOT_ENABLED`, do not call the Cursor Cloud Agents API, and do not merge to `main` unless the current task explicitly allows that exact action.
+
+GitHub Issues that use the autopilot task template are the execution queue for an existing Task Contract. They are not a second task system. The planning registry remains `docs/engineering/parallel/tasks/`.
+
+A cloud task uses the feature branch named in its contract. Do not require `D:\Projects\freight-platform-staging-pack` unless that checkout is the one `git rev-parse --show-toplevel` actually reports.
+
 ## Agent roles
 
 Follow the role declared by the current task.

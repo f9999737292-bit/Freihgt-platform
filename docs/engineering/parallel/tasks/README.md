@@ -53,6 +53,10 @@ Before starting task B, confirm no other `IN_PROGRESS` or `READY` task lists ove
 
 Future automation may grep this directory; keep format consistent.
 
+## Autopilot queue
+
+This directory remains the planning registry. Approved contracts that are allowed to run unattended are copied into GitHub Issues with `.github/ISSUE_TEMPLATE/bintrans-autopilot-task.yml`. The dispatcher reads those issues. It does not read this directory as a second queue, and it does not launch while autopilot is disabled.
+
 ## Related
 
 - Task Contract: `../TASK_CONTRACT_TEMPLATE.md`

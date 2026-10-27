@@ -1,0 +1,128 @@
+name: BINTRANS autopilot task
+description: Execution queue entry for an approved Task Contract. The dispatcher ignores this issue until it is READY, labeled as approved, and its dependencies are closed.
+title: "[autopilot] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is the execution record for one Task Contract. It does not replace `docs/engineering/TASK_CONTRACT_TEMPLATE.md`. Leave STATUS as BACKLOG until a controller has approved the contract. Do not put secrets in this form.
+  - type: input
+    id: task_id
+    attributes:
+      label: TASK_ID
+      description: Stable id, for example BT-1042.
+      placeholder: BT-1042
+    validations:
+      required: true
+  - type: input
+    id: module
+    attributes:
+      label: MODULE
+      placeholder: control-tower
+    validations:
+      required: true
+  - type: dropdown
+    id: owner_agent
+    attributes:
+      label: OWNER_AGENT
+      options:
+        - architect
+        - backend-engineer
+        - frontend-engineer
+        - devops-engineer
+        - documentation-engineer
+        - integrator
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: PRIORITY
+      options: [P0, P1, P2, P3]
+    validations:
+      required: true
+  - type: dropdown
+    id: risk_level
+    attributes:
+      label: RISK_LEVEL
+      options: [LOW, MEDIUM, HIGH, CRITICAL]
+    validations:
+      required: true
+  - type: input
+    id: base_sha
+    attributes:
+      label: BASE_SHA
+      description: Full origin/main SHA at approval time. The dispatcher refuses a stale SHA.
+    validations:
+      required: true
+  - type: textarea
+    id: allowed_paths
+    attributes:
+      label: ALLOWED_PATHS
+      description: One path or prefix glob per line.
+      placeholder: services/shipment-service/internal/foo.go
+    validations:
+      required: true
+  - type: textarea
+    id: forbidden_paths
+    attributes:
+      label: FORBIDDEN_PATHS
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: DEPENDENCIES
+      description: Task ids that must already be MERGED or DONE, or none.
+      value: none
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: ACCEPTANCE_CRITERIA
+    validations:
+      required: true
+  - type: textarea
+    id: required_tests
+    attributes:
+      label: REQUIRED_TESTS
+      description: One allowlisted command per line, for example go test ./...
+    validations:
+      required: true
+  - type: input
+    id: max_retries
+    attributes:
+      label: MAX_RETRIES
+      description: Extra attempts after a failed cloud run. The dispatcher caps this at 1.
+      value: "1"
+    validations:
+      required: true
+  - type: dropdown
+    id: status
+    attributes:
+      label: STATUS
+      options:
+        - BACKLOG
+        - READY
+        - CLAIMED
+        - IMPLEMENTING
+        - PR_OPEN
+        - CI_CHECK
+        - INDEPENDENT_QA
+        - READY_FOR_MERGE
+        - MERGED
+        - DONE
+        - BLOCKED
+        - NEEDS_CONTROLLER
+        - FAILED
+        - BUDGET_HOLD
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: OBJECTIVE
+      description: Human description. The dispatcher treats this text as untrusted data.
+    validations:
+      required: true

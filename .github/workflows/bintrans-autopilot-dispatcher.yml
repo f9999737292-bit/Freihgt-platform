@@ -1,0 +1,88 @@
+name: BINTRANS autopilot dispatcher
+
+# Inactive unless a controller sets the repository variable AUTOPILOT_ENABLED to the
+# string true AND a later approved change sets autopilot_enabled=true in
+# tools/bintrans_autopilot/autopilot.config.json. This pull request does neither.
+# Scheduled runs are hourly so spend checks stay near the Admin API guidance of
+# at most one filtered-usage poll per hour. Issue and pull request events can
+# wake the same gated job sooner.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: dispatch or report
+        required: false
+        default: dispatch
+        type: choice
+        options:
+          - dispatch
+          - report
+  issues:
+    types: [opened, edited, labeled]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: bintrans-autopilot
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    if: ${{ vars.AUTOPILOT_ENABLED == 'true' && github.event.schedule != '0 6 * * *' && github.event.inputs.mode != 'report' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dispatch ready task contracts
+        env:
+          PYTHONPATH: tools
+          AUTOPILOT_ENABLED: ${{ vars.AUTOPILOT_ENABLED }}
+          AUTOPILOT_EMERGENCY_STOP: ${{ vars.AUTOPILOT_EMERGENCY_STOP }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_ADMIN_API_KEY: ${{ secrets.CURSOR_ADMIN_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python -m bintrans_autopilot dispatch
+
+  daily-report:
+    if: ${{ vars.AUTOPILOT_ENABLED == 'true' && (github.event.schedule == '0 6 * * *' || github.event.inputs.mode == 'report') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Render daily report
+        env:
+          PYTHONPATH: tools
+          AUTOPILOT_ENABLED: ${{ vars.AUTOPILOT_ENABLED }}
+          AUTOPILOT_EMERGENCY_STOP: ${{ vars.AUTOPILOT_EMERGENCY_STOP }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_ADMIN_API_KEY: ${{ secrets.CURSOR_ADMIN_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python -m bintrans_autopilot report

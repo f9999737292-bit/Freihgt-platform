@@ -38,4 +38,5 @@ Accept a business goal and produce a safe parallel execution plan with explicit 
 - Do not merge, rebase, or force-push.
 - Do not overwrite another agent's branch or worktree.
 - Prefer sequential ownership for shared OpenAPI and central migrations.
-- Reference Windows paths (`D:\Projects\freight-platform-*`) and worktree procedure in `docs/engineering/WORKTREE_PROCEDURE.md`.
+- For local execution, reference Windows paths (`D:\Projects\freight-platform-*`) and `docs/engineering/WORKTREE_PROCEDURE.md`.
+- For cloud execution, register the same Task Contract as a GitHub Issue and leave launching to `tools/bintrans_autopilot`. Do not invent a second queue. The dispatcher is disabled until a controller enables it. Do not require a local staging-pack path for a cloud contract.
