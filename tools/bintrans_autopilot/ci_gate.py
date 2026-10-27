@@ -1,4 +1,13 @@
-"""Exact-SHA CI gate. skipped and pending are not success."""
+"""Exact-SHA CI gate. skipped and pending are not success.
+
+Three deterministic layers:
+- task CI: checks selected from the changed paths
+- repository CI: repository-safety and bintrans-autopilot-unit, always
+- release gates: required before READY_FOR_MERGE even when task CI is green
+
+A release gate that completed with failure, cancellation, or skipped does not
+pass. Path success does not hide that result.
+"""
 
 from __future__ import annotations
 
@@ -31,7 +40,9 @@ INTEGRATION_BY_PREFIX = {
     "services/network-optimizer-service/": ("network-optimizer-race-gate",),
 }
 
-ALWAYS_REQUIRED = ("repository-safety", "bintrans-autopilot-unit")
+REPOSITORY_CI = ("repository-safety", "bintrans-autopilot-unit")
+RELEASE_GATES = ("scripts-check",)
+ALWAYS_REQUIRED = REPOSITORY_CI
 
 
 def required_checks(paths: list[str] | tuple[str, ...]) -> tuple[str, ...]:
@@ -45,6 +56,11 @@ def required_checks(paths: list[str] | tuple[str, ...]) -> tuple[str, ...]:
             if normalized.startswith(prefix):
                 names.extend(extras)
     return tuple(dict.fromkeys(names))
+
+
+def merge_checks(paths: list[str] | tuple[str, ...]) -> tuple[str, ...]:
+    """Task CI, repository CI, and release gates. Used before READY_FOR_MERGE."""
+    return tuple(dict.fromkeys((*required_checks(paths), *RELEASE_GATES)))
 
 
 def _latest(runs: list[dict]) -> dict:

@@ -90,6 +90,7 @@ class FakeGithub:
         self.approval_actor = ""
         self.approval_digest = None
         self.comment_user = ""
+        self.pull_files_error = None
 
     def list_issues(self):
         with self.lock:
@@ -124,6 +125,8 @@ class FakeGithub:
         return self.main_sha
 
     def pull_files(self, pr_number):
+        if self.pull_files_error:
+            raise self.pull_files_error
         return self.files.get(pr_number, [])
 
     def pull(self, pr_number):
@@ -174,6 +177,9 @@ class FakeCursor:
         self.spend_calls = []
         self.has_admin_key = True
         self.spend_error = None
+        self.fail_follow = None
+        self.follow_body = None
+        self.follow_attempts = 0
         self.lock = threading.Lock()
 
     def cloud_charged_cents(self, start, end):
@@ -208,6 +214,12 @@ class FakeCursor:
 
     def follow_up(self, agent_id, text):
         with self.lock:
+            self.follow_attempts += 1
+            if self.fail_follow:
+                raise self.fail_follow
+            if self.follow_body is not None:
+                self.follows.append((agent_id, text))
+                return self.follow_body
             self.follows.append((agent_id, text))
             run_id = f"run-retry-{len(self.follows)}"
             self.runs[(agent_id, run_id)] = {"id": run_id, "agentId": agent_id, "status": "RUNNING"}

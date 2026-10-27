@@ -14,7 +14,7 @@ from contextlib import redirect_stdout
 from datetime import datetime, timezone
 
 from bintrans_autopilot.budget import BudgetWindows, assess_budget, budget_windows
-from bintrans_autopilot.ci_gate import evaluate_ci, required_checks
+from bintrans_autopilot.ci_gate import evaluate_ci, merge_checks, required_checks
 from bintrans_autopilot.config import load_config
 from bintrans_autopilot.pr_identity import pr_identity_error
 from bintrans_autopilot.qa_gate import DiffFile, format_review_diff
@@ -50,49 +50,74 @@ def green(sha: str) -> list[dict]:
             "conclusion": "success",
             "started_at": "2026-10-27T00:00:00Z",
         }
-        for name in required_checks([PATH])
+        for name in merge_checks([PATH])
     ]
 
 
-def finished_issue(cursor, github, *, patch=PATCH, checks=None, pr_url=PR_URL, head_repo=REPO, number=311, head_sha=HEAD):
+def finished_issue(
+    cursor,
+    github,
+    *,
+    patch=PATCH,
+    checks=None,
+    pr_url=None,
+    head_repo=REPO,
+    number=311,
+    head_sha=HEAD,
+    task_id="BT-100",
+    agent=AGENT,
+    branch="autopilot/bt-100",
+    run_id="run-1",
+    git_branch=None,
+    pr_head=None,
+    install=True,
+    launch_dates=None,
+):
+    claimed_url = pr_url or f"https://github.com/{REPO}/pull/{number}"
     state = {
-        "agent_id": AGENT,
+        "agent_id": agent,
         "allowed_paths": [PATH],
         "base_sha": MAIN,
-        "branch": "autopilot/bt-100",
+        "branch": branch,
+        "claimed_branch": branch,
+        "claimed_base_sha": MAIN,
+        "expected_pr_head": branch,
+        "expected_repository": REPO,
         "counted_failure_run_ids": [],
         "forbidden_paths": ["services/identity-service/**"],
         "last_error": "",
-        "launch_dates": [],
+        "launch_dates": list(launch_dates or []),
         "max_retries": 1,
         "required_tests": ["go test ./..."],
         "risk_level": "LOW",
-        "run_id": "run-1",
+        "run_id": run_id,
         "status": "IMPLEMENTING",
-        "task_id": "BT-100",
+        "task_id": task_id,
     }
-    issue = ready_issue()
+    issue = ready_issue(number=number, TASK_ID=task_id)
     issue.body += "\n<!-- bintrans-autopilot-state\n" + json.dumps(state) + "\n-->\n"
     issue.labels = ["autopilot", "autopilot-contract-approved", "autopilot:IMPLEMENTING"]
-    cursor.runs[(AGENT, "run-1")] = {
-        "id": "run-1",
+    cursor.runs[(agent, run_id)] = {
+        "id": run_id,
         "status": "FINISHED",
-        "git": {"branches": [{"branch": "autopilot/bt-100", "prUrl": pr_url}]},
+        "git": {"branches": [{"branch": git_branch or branch, "prUrl": claimed_url}]},
     }
     github.files[number] = [DiffFile(PATH, patch)]
     github.pulls[number] = {
         "number": number,
         "repo": REPO,
         "head_repo": head_repo,
-        "head_branch": "autopilot/bt-100",
+        "head_branch": pr_head or branch,
         "head_sha": head_sha,
         "base_sha": MAIN,
         "draft": True,
         "node_id": "PR_NODE",
-        "html_url": pr_url,
+        "html_url": claimed_url,
     }
-    github.checks[head_sha] = list(checks if checks is not None else [])
-    github.issues = [issue]
+    if checks is not None:
+        github.checks[head_sha] = list(checks)
+    if install:
+        github.issues = [issue]
     return issue
 
 

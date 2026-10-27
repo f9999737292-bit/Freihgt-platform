@@ -85,6 +85,7 @@ class TaskContract:
             "required_tests": list(self.required_tests),
             "max_retries": self.max_retries,
             "status": self.status,
+            "objective": self.objective,
         }
 
     @property

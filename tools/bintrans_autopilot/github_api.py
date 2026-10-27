@@ -16,6 +16,12 @@ class GithubError(Exception):
         self.status = status
 
 
+# One hundred files is one page. A pull request with more files is read in full.
+# More than this many pages is incomplete data and fails closed.
+MAX_PULL_FILE_PAGES = 5
+PULL_FILE_PAGE_SIZE = 100
+
+
 class GithubRest:
     def __init__(self, token: str, repository: str):
         if not token:
@@ -124,11 +130,34 @@ class GithubRest:
         return self.get_ref_sha("refs/heads/main")
 
     def pull_files(self, pr_number: int):
-        _status, body = self._request(
-            "GET",
-            f"https://api.github.com/repos/{self._owner}/{self._name}/pulls/{pr_number}/files?per_page=100",
-        )
-        return [DiffFile(path=item["filename"], patch=item.get("patch") or "") for item in body]
+        """Every changed file. A short or failed page is not treated as the whole PR."""
+        collected: list[DiffFile] = []
+        seen: set[str] = set()
+        for page in range(1, MAX_PULL_FILE_PAGES + 1):
+            try:
+                _status, body = self._request(
+                    "GET",
+                    "https://api.github.com/repos/"
+                    f"{self._owner}/{self._name}/pulls/{pr_number}/files"
+                    f"?per_page={PULL_FILE_PAGE_SIZE}&page={page}",
+                )
+            except GithubError as exc:
+                raise GithubError(exc.status, "pull files api error") from exc
+            if not isinstance(body, list):
+                raise GithubError(0, "pull files incomplete")
+            for item in body:
+                if not isinstance(item, dict):
+                    raise GithubError(0, "pull files incomplete")
+                name = str(item.get("filename") or "")
+                if not name or name in seen:
+                    raise GithubError(0, "pull files incomplete")
+                seen.add(name)
+                patch = item.get("patch")
+                # A missing or non-text patch cannot be reviewed safely. Callers reject it.
+                collected.append(DiffFile(path=name, patch=patch if isinstance(patch, str) else ""))
+            if len(body) < PULL_FILE_PAGE_SIZE:
+                return collected
+        raise GithubError(0, "pull files truncated")
 
     def pull(self, pr_number: int) -> dict:
         _status, body = self._request(
