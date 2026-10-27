@@ -74,6 +74,25 @@ def failed_run_issue():
     return issue
 
 
+def claimed_without_run(number: int = 1, task_id: str = "BT-100", agent: str = AGENT) -> object:
+    issue = ready_issue(number=number, TASK_ID=task_id)
+    issue.body += "\n<!-- bintrans-autopilot-state\n" + json.dumps({
+        "agent_id": agent,
+        "allowed_paths": [PATH],
+        "base_sha": MAIN,
+        "branch": f"autopilot/{task_id.lower()}",
+        "counted_failure_run_ids": [],
+        "last_error": "",
+        "launch_dates": ["2026-10-27"],
+        "max_retries": 1,
+        "run_id": "",
+        "status": "CLAIMED",
+        "task_id": task_id,
+    }) + "\n-->\n"
+    issue.labels = ["autopilot", "autopilot-contract-approved", "autopilot:CLAIMED"]
+    return issue
+
+
 class R3Tests(unittest.TestCase):
     def test_pull_files_reads_past_the_first_page_and_fails_closed(self):
         pages = [file_page(0, 100), file_page(100, 1)]
@@ -297,17 +316,21 @@ class R3Tests(unittest.TestCase):
         while_running = run_dispatch(github, cursor)
         self.assertEqual(len(cursor.creates), 1)
         self.assertIn("qa_still_active:BT-100", while_running.skipped)
+        self.assertEqual(state_of(github.issues[0])["status"], "INDEPENDENT_QA")
         qa_state = state_of(github.issues[0])
         cursor.runs[(qa_state["qa_agent_id"], qa_state["qa_run_id"])]["status"] = "FINISHED"
         cursor.runs[(qa_state["qa_agent_id"], qa_state["qa_run_id"])]["result"] = "BINTRANS_QA_VERDICT: PASS\n"
         after = run_dispatch(github, cursor)
+        saved = state_of(github.issues[0])
         self.assertEqual(len(cursor.creates), 1)
-        self.assertNotEqual(state_of(github.issues[0])["status"], "READY_FOR_MERGE")
+        self.assertEqual(saved["status"], "NEEDS_CONTROLLER")
+        self.assertEqual(saved.get("qa_verdict") or "", "")
+        self.assertIn(f"head_sha_changed:{HEAD}:{moved}", saved["last_error"])
         self.assertTrue(any("head_sha_changed" in item for item in after.skipped))
         restarted = run_dispatch(github, cursor)
         self.assertEqual(len(cursor.creates), 1)
-        self.assertNotEqual(state_of(github.issues[0])["status"], "READY_FOR_MERGE")
-        self.assertTrue(any("head_sha_changed" in item for item in restarted.skipped))
+        self.assertEqual(state_of(github.issues[0])["status"], "NEEDS_CONTROLLER")
+        self.assertIn("not_ready:BT-100:NEEDS_CONTROLLER", restarted.skipped)
 
     def test_uncertain_follow_up_does_not_burn_or_repeat_the_retry(self):
         cursor = FakeCursor()
@@ -368,6 +391,143 @@ class R3Tests(unittest.TestCase):
         self.assertNotIn("\n  pull_request:\n", "\n" + workflow)
         self.assertIn("workflow_guard_main", workflow)
         self.assertLess(workflow.find("workflow_guard_main"), workflow.find("secrets.CURSOR_API_KEY"))
+
+    def test_finished_stale_qa_releases_the_openapi_slot(self):
+        qa_agent = "bc-dddddddd-dddd-dddd-dddd-dddddddddddd"
+        moved = "d" * 40
+        labels = ["autopilot", "autopilot-contract-approved", "autopilot-shared-path-approved"]
+        holder = ready_issue(
+            number=311,
+            TASK_ID="BT-100",
+            RISK_LEVEL="HIGH",
+            ALLOWED_PATHS="- packages/openapi/openapi.yaml",
+            labels=labels + ["autopilot:INDEPENDENT_QA"],
+        )
+        holder.body += "\n<!-- bintrans-autopilot-state\n" + json.dumps({
+            "agent_id": AGENT,
+            "allowed_paths": ["packages/openapi/openapi.yaml"],
+            "base_sha": MAIN,
+            "branch": "autopilot/bt-100",
+            "claimed_base_sha": MAIN,
+            "claimed_branch": "autopilot/bt-100",
+            "expected_pr_head": "autopilot/bt-100",
+            "expected_repository": REPO,
+            "handled_run_id": "run-1",
+            "launch_dates": [],
+            "max_retries": 1,
+            "pr_number": 311,
+            "pr_url": f"https://github.com/{REPO}/pull/311",
+            "qa_agent_id": qa_agent,
+            "qa_head_sha": HEAD,
+            "qa_run_id": "qa-run",
+            "qa_verdict": "",
+            "risk_level": "HIGH",
+            "run_id": "run-1",
+            "status": "INDEPENDENT_QA",
+            "task_id": "BT-100",
+        }) + "\n-->\n"
+        waiting = ready_issue(
+            number=2,
+            TASK_ID="BT-200",
+            RISK_LEVEL="HIGH",
+            ALLOWED_PATHS="- packages/openapi/schemas/foo.yaml",
+            labels=labels + ["autopilot:READY"],
+        )
+        cursor = FakeCursor()
+        cursor.runs[(AGENT, "run-1")] = {"id": "run-1", "status": "FINISHED"}
+        cursor.runs[(qa_agent, "qa-run")] = {"id": "qa-run", "status": "RUNNING", "result": "BINTRANS_QA_VERDICT: PASS\n"}
+        github = FakeGithub([holder, waiting])
+        github.pulls[311] = {
+            "number": 311,
+            "repo": REPO,
+            "head_repo": REPO,
+            "head_branch": "autopilot/bt-100",
+            "head_sha": moved,
+            "base_sha": MAIN,
+            "draft": True,
+            "html_url": f"https://github.com/{REPO}/pull/311",
+        }
+        held = run_dispatch(github, cursor)
+        self.assertEqual(cursor.creates, [])
+        self.assertEqual(state_of(github.issues[0])["status"], "INDEPENDENT_QA")
+        self.assertIn("qa_still_active:BT-100", held.skipped)
+        self.assertIn("domain_cap:BT-200", held.skipped)
+
+        cursor.runs[(qa_agent, "qa-run")]["status"] = "FINISHED"
+        released = run_dispatch(github, cursor)
+        saved = state_of(github.issues[0])
+        self.assertEqual(saved["status"], "NEEDS_CONTROLLER")
+        self.assertEqual(saved.get("qa_verdict") or "", "")
+        self.assertIn(f"head_sha_changed:{HEAD}:{moved}", saved["last_error"])
+        self.assertNotEqual(saved["status"], "READY_FOR_MERGE")
+        self.assertEqual(len(cursor.creates), 1)
+        self.assertIn("BT-200", released.launched)
+        self.assertNotIn("qa:BT-100", released.launched)
+        self.assertNotIn("qa:BT-200", released.launched)
+        self.assertEqual(cursor.creates[0]["mode"], "agent")
+
+    def test_claim_retry_checks_budget_without_counting_its_own_slot(self):
+        cursor = FakeCursor()
+        github = FakeGithub([claimed_without_run()])
+        result = run_dispatch(github, cursor, enabled_config(max_parallel_agents=1, max_launches_per_day=1))
+        self.assertEqual(len(cursor.creates), 1)
+        self.assertEqual(cursor.create_attempts, 1)
+        self.assertEqual(state_of(github.issues[0])["status"], "IMPLEMENTING")
+        self.assertIn("BT-100", result.launched)
+
+        other = ready_issue(number=2, TASK_ID="BT-200")
+        other.body += "\n<!-- bintrans-autopilot-state\n" + json.dumps({
+            "agent_id": "bc-eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+            "launch_dates": ["2026-10-27"],
+            "run_id": "run-other",
+            "status": "IMPLEMENTING",
+            "task_id": "BT-200",
+        }) + "\n-->\n"
+        other.labels = ["autopilot", "autopilot-contract-approved", "autopilot:IMPLEMENTING"]
+        cursor = FakeCursor()
+        cursor.runs[("bc-eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", "run-other")] = {"id": "run-other", "status": "RUNNING"}
+        github = FakeGithub([claimed_without_run(), other])
+        blocked = run_dispatch(github, cursor, enabled_config(max_parallel_agents=1, max_launches_per_day=2))
+        self.assertEqual(cursor.creates, [])
+        self.assertIn("concurrency_cap:BT-100", blocked.skipped)
+        self.assertEqual(state_of(github.issues[0])["status"], "CLAIMED")
+
+        cursor = FakeCursor()
+
+        def fail_later(start, end, original=cursor.cloud_charged_cents):
+            if len(cursor.spend_calls) >= 2:
+                raise CursorApiError(503, "spend", "unavailable")
+            return original(start, end)
+
+        cursor.cloud_charged_cents = fail_later
+        github = FakeGithub([claimed_without_run()])
+        denied = run_dispatch(github, cursor)
+        self.assertEqual(cursor.create_attempts, 0)
+        self.assertIn("spend_api_error:BT-100", denied.skipped)
+        self.assertEqual(state_of(github.issues[0])["status"], "CLAIMED")
+
+        cursor = FakeCursor()
+        cursor.fail_create = CursorApiError(503, "unavailable", "maybe sent")
+        github = FakeGithub([claimed_without_run()])
+        uncertain = run_dispatch(github, cursor)
+        self.assertEqual(cursor.create_attempts, 1)
+        self.assertEqual(cursor.creates, [])
+        self.assertEqual(state_of(github.issues[0])["status"], "NEEDS_CONTROLLER")
+        self.assertIn("claim_retry_uncertain:BT-100", uncertain.skipped)
+        cursor.fail_create = None
+        run_dispatch(github, cursor)
+        self.assertEqual(cursor.create_attempts, 1)
+
+        cursor = FakeCursor()
+        cursor.create_body = {"agent": {"id": AGENT}, "run": {}}
+        github = FakeGithub([claimed_without_run()])
+        empty = run_dispatch(github, cursor)
+        self.assertEqual(cursor.create_attempts, 1)
+        self.assertEqual(state_of(github.issues[0])["status"], "NEEDS_CONTROLLER")
+        self.assertIn("claim_retry_uncertain:BT-100", empty.skipped)
+        cursor.create_body = None
+        run_dispatch(github, cursor)
+        self.assertEqual(cursor.create_attempts, 1)
 
 
 if __name__ == "__main__":

@@ -610,6 +610,14 @@ class Dispatcher:
             self._save(issue, state, NEEDS_CONTROLLER)
             return
         stale = self._stale_qa_head(state)
+        if stale.startswith("head_sha_changed:"):
+            # The finished review belongs to the previous HEAD. Drop the verdict and
+            # the critical-domain slot; a later dispatch must not launch another QA.
+            state["last_error"] = stale
+            state["qa_verdict"] = ""
+            self._save(issue, state, NEEDS_CONTROLLER)
+            result.skipped.append(f"{stale}:{task_id}")
+            return
         if stale:
             state["last_error"] = stale
             self._save(issue, state, INDEPENDENT_QA)
@@ -700,19 +708,48 @@ class Dispatcher:
         result.skipped.append(f"retry:{task_id}")
 
     def _retry_same_agent(self, issue, state: dict, result: DispatchResult) -> None:
-        """A create that never produced an agent is retried with the same agent id."""
+        """Retry one create that never produced an agent. The claim already holds its slot."""
         task_id = state.get("task_id") or "?"
         branch = state.get("branch") or ""
+        if state.get("claim_retry_uncertain"):
+            state["last_error"] = state.get("last_error") or "cursor_follow_uncertain_result"
+            self._save(issue, state, NEEDS_CONTROLLER)
+            result.skipped.append(f"claim_retry_uncertain:{task_id}")
+            return
+        paid_block = self._paid_block_reason(exclude_task_id=task_id)
+        if paid_block:
+            state["last_error"] = paid_block
+            self._save(issue, state, CLAIMED)
+            result.skipped.append(f"{paid_block}:{task_id}")
+            return
         try:
             contract = _contract_from_state(issue.body, state)
             assert_feature_branch(self.config, branch)
             created = self.cursor.create_agent(implementation_body(self.config, contract, branch, state["agent_id"]))
-        except (CursorApiError, ValueError) as exc:
-            state["last_error"] = f"cursor_retry_held:{getattr(exc, 'status', 'invalid')}"
+        except CursorApiError as exc:
+            if _follow_is_uncertain(exc):
+                state["claim_retry_uncertain"] = True
+                state["last_error"] = f"cursor_follow_uncertain_{exc.status}"
+                self._save(issue, state, NEEDS_CONTROLLER)
+                result.skipped.append(f"claim_retry_uncertain:{task_id}")
+                return
+            state["last_error"] = f"cursor_retry_held:{exc.status}"
             self._save(issue, state, CLAIMED)
             result.preserved.append(task_id)
             return
-        state["run_id"] = (created.get("run") or {}).get("id") or created.get("latestRunId") or ""
+        except ValueError as exc:
+            state["last_error"] = f"cursor_retry_held:{exc}"
+            self._save(issue, state, CLAIMED)
+            result.preserved.append(task_id)
+            return
+        run_id = (created.get("run") or {}).get("id") or created.get("latestRunId") or ""
+        if not run_id:
+            state["claim_retry_uncertain"] = True
+            state["last_error"] = "cursor_follow_uncertain_result"
+            self._save(issue, state, NEEDS_CONTROLLER)
+            result.skipped.append(f"claim_retry_uncertain:{task_id}")
+            return
+        state["run_id"] = run_id
         self._save(issue, state, IMPLEMENTING)
         result.launched.append(task_id)
 
@@ -765,11 +802,13 @@ class Dispatcher:
             index[contract.task_id] = (state or {}).get("status") or contract.status
         return index
 
-    def _launches_today(self, issues) -> int:
+    def _launches_today(self, issues, exclude_task_id: str = "") -> int:
         day = _day(self.now_iso)
         count = 0
         for issue in issues:
             state = read_state(issue.body) or {}
+            if exclude_task_id and state.get("task_id") == exclude_task_id:
+                continue
             count += sum(1 for item in state.get("launch_dates") or [] if item == day)
         return count
 
@@ -778,11 +817,16 @@ class Dispatcher:
         dates.append(_day(self.now_iso))
         state["launch_dates"] = dates
 
-    def _paid_block_reason(self) -> str:
-        """Empty when another paid Cloud Agent run is allowed. Budget failure blocks the launch."""
-        if self._launches_today(self.github.list_issues()) >= self.config.max_launches_per_day:
+    def _paid_block_reason(self, exclude_task_id: str = "") -> str:
+        """Empty when another paid Cloud Agent run is allowed. Budget failure blocks the launch.
+
+        exclude_task_id omits a claim that already occupies the slot being retried.
+        Counting that same claim again would block its own retry.
+        """
+        issues = self.github.list_issues()
+        if self._launches_today(issues, exclude_task_id) >= self.config.max_launches_per_day:
             return "daily_launch_cap"
-        active = self._paid_agent_count()
+        active = self._paid_agent_count(exclude_task_id)
         if active >= self.config.max_parallel_agents:
             return "concurrency_cap"
         now = datetime.fromisoformat(self.now_iso.replace("Z", "+00:00"))
@@ -793,11 +837,13 @@ class Dispatcher:
             return decision.reason
         return ""
 
-    def _paid_agent_count(self) -> int:
+    def _paid_agent_count(self, exclude_task_id: str = "") -> int:
         """Running Cloud Agent runs, not issue labels whose runs have already finished."""
         count = 0
         for issue in self.github.list_issues():
             state = read_state(issue.body) or {}
+            if exclude_task_id and state.get("task_id") == exclude_task_id:
+                continue
             if self._cloud_run_active(state.get("agent_id") or "", state.get("run_id") or "", state.get("status") in {CLAIMED, IMPLEMENTING}):
                 count += 1
             if self._cloud_run_active(state.get("qa_agent_id") or "", state.get("qa_run_id") or "", False):
@@ -829,8 +875,9 @@ class Dispatcher:
         except GithubError:
             return "github_read_failed"
         head_sha = str(pr.get("head_sha") or "")
-        if head_sha != (state.get("qa_head_sha") or ""):
-            return "head_sha_changed"
+        pinned = state.get("qa_head_sha") or ""
+        if head_sha != pinned:
+            return f"head_sha_changed:{pinned}:{head_sha}"
         identity = pr_identity_error(
             pr,
             repo=repo_full_name(self.config.repo_url),

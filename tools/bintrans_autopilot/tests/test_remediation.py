@@ -298,7 +298,12 @@ class RemediationTests(unittest.TestCase):
         github.pulls[311]["head_sha"] = moved
         github.checks[moved] = green(moved)
         result = run_dispatch(github, cursor)
-        self.assertEqual(state_of(github.issues[0])["status"], "INDEPENDENT_QA")
+        saved = state_of(github.issues[0])
+        self.assertEqual(saved["status"], "NEEDS_CONTROLLER")
+        self.assertNotEqual(saved["status"], "READY_FOR_MERGE")
+        self.assertEqual(saved.get("qa_verdict") or "", "")
+        self.assertIn(f"head_sha_changed:{HEAD}:{moved}", saved["last_error"])
+        self.assertEqual(len(cursor.creates), 1)
         self.assertTrue(any("head_sha_changed" in item for item in result.skipped))
 
     def test_changes_required_does_not_mark_ready(self):

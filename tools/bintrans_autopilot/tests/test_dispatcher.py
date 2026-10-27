@@ -180,6 +180,8 @@ class FakeCursor:
         self.fail_follow = None
         self.follow_body = None
         self.follow_attempts = 0
+        self.create_attempts = 0
+        self.create_body = None
         self.lock = threading.Lock()
 
     def cloud_charged_cents(self, start, end):
@@ -192,8 +194,12 @@ class FakeCursor:
 
     def create_agent(self, payload):
         with self.lock:
+            self.create_attempts += 1
             if self.fail_create:
                 raise self.fail_create
+            if self.create_body is not None:
+                self.creates.append(payload)
+                return self.create_body
             self.creates.append(payload)
             agent_id = payload["agentId"]
             run_id = f"run-{len(self.creates)}"
