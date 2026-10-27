@@ -11,6 +11,11 @@
   "budget_launch_reserve_cents": 0,
   "budget_reserve_per_active_agent_cents": 0,
   "cursor_plan": "",
+  "pricing": {
+    "source": "unverified",
+    "billing_class": "unknown",
+    "catalog_is_price_source": false
+  },
   "contract_approvers": [],
   "require_admin_spend_check": true,
   "repo_url": "https://github.com/f9999737292-bit/Freihgt-platform",

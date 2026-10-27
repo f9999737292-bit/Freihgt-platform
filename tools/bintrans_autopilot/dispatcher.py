@@ -13,7 +13,7 @@ from bintrans_autopilot.config import AutopilotConfig, runtime_enabled
 from bintrans_autopilot.contract import parse_contract, read_state, write_state
 from bintrans_autopilot.cursor_api import ACTIVE_RUN_STATUSES, FAILED_RUN_STATUSES, TERMINAL_RUN_STATUSES, CursorApiError
 from bintrans_autopilot.github_api import GithubError
-from bintrans_autopilot.models import ModelPolicyError, prepare_model_choice
+from bintrans_autopilot.models import ModelPolicyError, prepare_model_choice, unpaid_model_reason
 from bintrans_autopilot.policy import (
     assert_feature_branch,
     base_is_current,
@@ -199,6 +199,7 @@ class Dispatcher:
             return
         try:
             choice = self._prepare_model(contract, "implementation", state or {})
+            self._require_priced(choice)
         except ModelPolicyError as exc:
             if exc.code == "model_catalog_unavailable":
                 result.skipped.append(f"{exc.code}:{contract.task_id}")
@@ -531,6 +532,12 @@ class Dispatcher:
         if paid_block:
             result.skipped.append(f"{paid_block}:{task_id}")
             return
+        unpriced = self._unpriced_follow()
+        if unpriced:
+            state["last_error"] = unpriced
+            self._save(issue, state, NEEDS_CONTROLLER)
+            result.skipped.append(f"{unpriced}:{task_id}")
+            return
         try:
             follow = self.cursor.follow_up(state["agent_id"], fix_prompt(findings))
         except CursorApiError as exc:
@@ -578,6 +585,7 @@ class Dispatcher:
         qa_agent_id = _new_agent_id()
         try:
             choice = self._prepare_model(contract, "qa", state)
+            self._require_priced(choice)
         except ModelPolicyError as exc:
             state["last_error"] = exc.code
             keep = CI_CHECK if exc.code == "model_catalog_unavailable" else NEEDS_CONTROLLER
@@ -698,6 +706,12 @@ class Dispatcher:
         if paid_block:
             result.skipped.append(f"{paid_block}:{task_id}")
             return
+        unpriced = self._unpriced_follow()
+        if unpriced:
+            state["last_error"] = unpriced
+            self._save(issue, state, NEEDS_CONTROLLER)
+            result.skipped.append(f"{unpriced}:{task_id}")
+            return
         try:
             follow = self.cursor.follow_up(
                 state["agent_id"],
@@ -750,6 +764,7 @@ class Dispatcher:
             contract = _contract_from_state(issue.body, state)
             assert_feature_branch(self.config, branch)
             choice = self._prepare_model(contract, "implementation", state)
+            self._require_priced(choice)
             state["model_pin"] = choice.pin()
             created = self.cursor.create_agent(
                 implementation_body(self.config, contract, branch, state["agent_id"], choice.as_api())
@@ -918,6 +933,16 @@ class Dispatcher:
             claimed_url=state.get("pr_url") or "",
         )
         return identity
+
+    def _require_priced(self, choice) -> None:
+        reason = unpaid_model_reason(self.config, choice)
+        if reason:
+            raise ModelPolicyError(reason)
+
+    def _unpriced_follow(self) -> str:
+        if self.config.test_model_spend_harness:
+            return ""
+        return "unknown_cost"
 
     def _prepare_model(self, contract, kind: str, state: dict):
         try:

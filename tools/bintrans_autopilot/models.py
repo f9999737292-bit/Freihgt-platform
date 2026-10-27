@@ -12,7 +12,18 @@ from dataclasses import dataclass
 from bintrans_autopilot.config import MODEL_ROLES, ModelRoute, ModelRouting
 from bintrans_autopilot.contract import TaskContract
 
-COST_RANK = {"default": 0, "standard": 1, "expensive": 2}
+# "default" and "unknown" are not prices. They are not free and not the cheap rank.
+COST_RANK = {"standard": 1, "expensive": 2}
+UNKNOWN_COST = "UNKNOWN"
+PROVIDER_UNVERIFIED = "PROVIDER_UNVERIFIED"
+_UNPRICED = {"", "default", "unknown"}
+FINANCE_PREFIXES = (
+    "services/billing-register-service/",
+    "services/payment-service/",
+    "services/freight-cost-service/",
+    "services/contract-rate-service/",
+)
+FINANCE_MODULES = frozenset({"finance", "billing", "billing-register", "payment", "freight-cost", "contract-rate"})
 
 
 class ModelPolicyError(Exception):
@@ -56,6 +67,13 @@ class ModelCatalog:
                 return model
         return None
 
+    def find_canonical(self, model_id: str) -> CatalogModel | None:
+        """Pinned ids match items[].id only. An alias must not retarget the pin."""
+        wanted = model_id.strip()
+        if not wanted:
+            return None
+        return self.by_id.get(wanted)
+
 
 @dataclass(frozen=True)
 class ModelChoice:
@@ -65,6 +83,10 @@ class ModelChoice:
     provider: str
     cost_class: str
     source: str
+    cost_status: str = UNKNOWN_COST
+    cost_rank: int | None = None
+    provider_status: str = PROVIDER_UNVERIFIED
+    verified_provider: str = ""
 
     def as_api(self) -> dict | None:
         if self.omit:
@@ -79,8 +101,10 @@ class ModelChoice:
             "omit": self.omit,
             "id": self.model_id,
             "params": [{"id": key, "value": value} for key, value in self.params],
-            "provider": self.provider,
+            "provider_status": self.provider_status,
+            "verified_provider": self.verified_provider,
             "cost_class": self.cost_class,
+            "cost_status": self.cost_status,
         }
 
 
@@ -135,6 +159,15 @@ def parse_model_catalog(body: dict) -> ModelCatalog:
     return ModelCatalog(found)
 
 
+def _under_prefix(path: str, prefix: str) -> bool:
+    root = prefix.rstrip("/")
+    return path == root or path.startswith(root + "/")
+
+
+def _finance_path(path: str) -> bool:
+    return any(_under_prefix(path, prefix) for prefix in FINANCE_PREFIXES)
+
+
 def role_for(contract: TaskContract) -> str:
     """Role comes from the approved contract, never from free text in the issue."""
     paths = tuple(path.replace("\\", "/").lower() for path in contract.allowed_paths)
@@ -145,7 +178,7 @@ def role_for(contract: TaskContract) -> str:
         return "nlo_optimizer"
     if any("document-service" in path for path in paths) or module in {"edo", "documents"}:
         return "edo"
-    if any(token in path for path in paths for token in ("billing", "payment-service", "freight-cost")) or module in {"finance", "billing"}:
+    if any(_finance_path(path) for path in paths) or module in FINANCE_MODULES:
         return "finance"
     if any("analytics-service" in path for path in paths) or module == "analytics":
         return "analytics"
@@ -157,10 +190,10 @@ def role_for(contract: TaskContract) -> str:
 def task_class_for(contract: TaskContract, kind: str) -> str:
     if kind == "qa":
         return "INDEPENDENT_QA"
-    paths = tuple(path.replace("\\", "/") for path in contract.allowed_paths)
+    paths = tuple(path.replace("\\", "/").lower() for path in contract.allowed_paths)
     if any(path.startswith("services/identity-service/") or path.startswith("services/api-gateway/") for path in paths):
         return "SECURITY_CRITICAL"
-    if any(token in path for path in paths for token in ("billing-register", "payment-service", "freight-cost")):
+    if any(_finance_path(path) for path in paths):
         return "FINANCIAL_CRITICAL"
     if contract.risk_level in {"HIGH", "CRITICAL"}:
         return "COMPLEX"
@@ -169,14 +202,32 @@ def task_class_for(contract: TaskContract, kind: str) -> str:
     return "ROUTINE"
 
 
-def _rank(cost_class: str) -> int:
+def _known_rank(cost_class: str) -> int | None:
+    """None means the class has no price. That is not rank 0 and not a free class."""
+    if cost_class in _UNPRICED:
+        return None
     if cost_class not in COST_RANK:
         raise ModelPolicyError("model_cost_unknown")
     return COST_RANK[cost_class]
 
 
 def _cursor_default(source: str) -> ModelChoice:
-    return ModelChoice(True, "", (), "", "default", source)
+    return ModelChoice(True, "", (), "", "unknown", source, UNKNOWN_COST, None, PROVIDER_UNVERIFIED, "")
+
+
+def _explicit(model: CatalogModel, params, cost_class: str, source: str) -> ModelChoice:
+    return ModelChoice(
+        False,
+        model.id,
+        params,
+        "",
+        cost_class,
+        source,
+        UNKNOWN_COST,
+        _known_rank(cost_class),
+        PROVIDER_UNVERIFIED,
+        "",
+    )
 
 
 def _pin_params(pin: dict) -> tuple[tuple[str, str], ...]:
@@ -213,9 +264,15 @@ def _route(routing: ModelRouting, contract: TaskContract, kind: str) -> ModelRou
 
 
 def _fallback(route: ModelRoute, routing: ModelRouting, catalog: ModelCatalog, attempted_cost: str) -> ModelChoice:
-    if _rank(route.fallback_cost_class) > _rank(attempted_cost):
+    if route.require_distinct_provider:
+        raise ModelPolicyError("provider_unverified")
+    fallback_rank = _known_rank(route.fallback_cost_class)
+    attempted_rank = _known_rank(attempted_cost)
+    if fallback_rank is not None and attempted_rank is not None and fallback_rank > attempted_rank:
         raise ModelPolicyError("expensive_fallback_rejected")
     if route.fallback == "cursor_default":
+        if attempted_rank is not None and fallback_rank is None:
+            raise ModelPolicyError("unknown_cost")
         if not routing.cursor_default_allowed:
             raise ModelPolicyError("cursor_default_not_allowed")
         return _cursor_default("fallback_cursor_default")
@@ -229,14 +286,13 @@ def _fallback(route: ModelRoute, routing: ModelRouting, catalog: ModelCatalog, a
     params = route.params or model.default_params
     if not model.accepts(params):
         raise ModelPolicyError("model_params_rejected")
-    return ModelChoice(False, model.id, params, route.provider, route.fallback_cost_class, "fallback")
+    return _explicit(model, params, route.fallback_cost_class, "fallback")
 
 
 def _from_route(route: ModelRoute, routing: ModelRouting, catalog: ModelCatalog, implementation_pin: dict | None) -> ModelChoice:
-    if route.require_distinct_provider and implementation_pin:
-        same_provider = route.provider and route.provider == str(implementation_pin.get("provider") or "")
-        if same_provider:
-            return _fallback(route, routing, catalog, route.cost_class)
+    del implementation_pin
+    if route.require_distinct_provider:
+        raise ModelPolicyError("provider_unverified")
     if not route.model_id:
         if not routing.cursor_default_allowed:
             raise ModelPolicyError("cursor_default_not_allowed")
@@ -249,32 +305,42 @@ def _from_route(route: ModelRoute, routing: ModelRouting, catalog: ModelCatalog,
     params = route.params or model.default_params
     if not model.accepts(params):
         raise ModelPolicyError("model_params_rejected")
-    return ModelChoice(False, model.id, params, route.provider, route.cost_class, "policy")
+    return _explicit(model, params, route.cost_class, "policy")
 
 
 def _from_pin(pin: dict, route: ModelRoute, routing: ModelRouting, catalog: ModelCatalog) -> ModelChoice:
     """A later config change cannot raise the model that was already pinned."""
+    del route, routing
     if pin.get("omit") or not str(pin.get("id") or ""):
         return _cursor_default("pinned_cursor_default")
-    model = catalog.find(str(pin["id"]))
-    pinned_cost = str(pin.get("cost_class") or "default")
+    model = catalog.find_canonical(str(pin["id"]))
     if model is None:
-        held = route.__class__(
-            model_id="",
-            params=(),
-            fallback=route.fallback,
-            cost_class=pinned_cost,
-            cost_approved=route.cost_approved,
-            provider=str(pin.get("provider") or ""),
-            fallback_cost_class=route.fallback_cost_class,
-            fallback_cost_approved=route.fallback_cost_approved,
-            require_distinct_provider=False,
-        )
-        return _fallback(held, routing, catalog, pinned_cost)
+        raise ModelPolicyError("pinned_model_unavailable")
     params = _pin_params(pin)
     if not model.accepts(params):
         raise ModelPolicyError("model_params_rejected")
-    return ModelChoice(False, model.id, params, str(pin.get("provider") or ""), pinned_cost, "pinned")
+    pinned_cost = str(pin.get("cost_class") or "unknown")
+    return _explicit(model, params, pinned_cost, "pinned")
+
+
+def distinct_provider_status(left_id: str, right_id: str, left_verified: str = "", right_verified: str = "") -> str:
+    """Different model ids are not different providers. An unverified side cannot pass."""
+    del left_id, right_id
+    if not left_verified or not right_verified:
+        return PROVIDER_UNVERIFIED
+    if left_verified == right_verified:
+        return "SAME_PROVIDER"
+    return "DISTINCT"
+
+
+def unpaid_model_reason(config, choice: ModelChoice) -> str:
+    """Selecting a model does not authorize its spend. Catalog JSON is not a price."""
+    if getattr(config, "test_model_spend_harness", False):
+        return ""
+    source = getattr(getattr(config, "pricing", None), "source", "unverified")
+    if source != "verified_pricing_api" or choice.cost_status != "VERIFIED":
+        return "unknown_cost"
+    return ""
 
 
 def resolve_model(

@@ -126,7 +126,7 @@ class CursorClient:
         return self._call("POST", agent_endpoint(), body)
 
     def list_models(self) -> dict:
-        # GET /v1/models — ids and params the account can pass as model.id.
+        # GET /v1/models — ids and params only. The payload has no price and no provider.
         return self._call("GET", "/v1/models")
 
     def get_agent(self, agent_id: str) -> dict:
@@ -151,6 +151,8 @@ class CursorClient:
 
         POST /teams/filtered-usage-events with the documented filters
         cloudAgentId=* and hostingType=CLOUD. Pages follow hasNextPage.
+        The Admin API documents hourly aggregation, so this sum can be late.
+        It is not a provider-side hard cap, and a personal plan has no team route.
         """
         if not self._admin_api_key:
             raise CursorApiError(401, "missing_admin_api_key", "CURSOR_ADMIN_API_KEY is required for spend checks")
