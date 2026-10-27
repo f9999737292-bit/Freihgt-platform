@@ -27,6 +27,12 @@ class AutopilotConfig:
     max_retries_cap: int
     max_qa_fix_cycles: int
     budget_max_charged_cents: float
+    budget_max_charged_cents_daily: float
+    budget_max_charged_cents_monthly: float
+    budget_launch_reserve_cents: float
+    budget_reserve_per_active_agent_cents: float
+    cursor_plan: str
+    contract_approvers: tuple[str, ...]
     require_admin_spend_check: bool
     repo_url: str
     protected_branches: tuple[str, ...]
@@ -62,6 +68,14 @@ def load_config(path: Path | None = None) -> AutopilotConfig:
         max_retries_cap=int(raw["max_retries_cap"]),
         max_qa_fix_cycles=int(raw["max_qa_fix_cycles"]),
         budget_max_charged_cents=float(raw["budget_max_charged_cents"]),
+        budget_max_charged_cents_daily=float(raw.get("budget_max_charged_cents_daily", 0)),
+        budget_max_charged_cents_monthly=float(raw.get("budget_max_charged_cents_monthly", 0)),
+        budget_launch_reserve_cents=float(raw.get("budget_launch_reserve_cents", 0)),
+        budget_reserve_per_active_agent_cents=float(raw.get("budget_reserve_per_active_agent_cents", 0)),
+        cursor_plan=str(raw.get("cursor_plan", "")).strip().lower(),
+        contract_approvers=tuple(
+            item for item in (str(name).strip() for name in raw.get("contract_approvers", [])) if item
+        ),
         require_admin_spend_check=bool(raw.get("require_admin_spend_check", True)),
         repo_url=str(raw["repo_url"]),
         protected_branches=tuple(raw["protected_branches"]),

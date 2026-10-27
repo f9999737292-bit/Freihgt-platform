@@ -50,7 +50,17 @@ def ready_issue(number=1, **overrides) -> QueueIssue:
 
 
 def enabled_config(**kwargs):
-    return replace(load_config(), autopilot_enabled=True, budget_max_charged_cents=10000, **kwargs)
+    defaults = dict(
+        autopilot_enabled=True,
+        budget_max_charged_cents=10000,
+        budget_max_charged_cents_daily=100_000_000,
+        budget_max_charged_cents_monthly=100_000_000,
+        budget_launch_reserve_cents=1,
+        budget_reserve_per_active_agent_cents=1,
+        contract_approvers=("controller",),
+    )
+    defaults.update(kwargs)
+    return replace(load_config(), **defaults)
 
 
 def env(**extra):
@@ -73,8 +83,13 @@ class FakeGithub:
         self.drafts = []
         self.files = {}
         self.pulls = {}
+        self.checks = {}
         self.truncated = False
         self.merge_calls = []
+        self.approver = "controller"
+        self.approval_actor = ""
+        self.approval_digest = None
+        self.comment_user = ""
 
     def list_issues(self):
         with self.lock:
@@ -117,6 +132,35 @@ class FakeGithub:
     def ensure_draft(self, pr_number):
         self.drafts.append(pr_number)
 
+    def _issue(self, number):
+        with self.lock:
+            for current in self.issues:
+                if current.number == number:
+                    return current
+        raise KeyError(number)
+
+    def issue_events(self, number):
+        issue = self._issue(number)
+        if "autopilot-contract-approved" not in issue.labels:
+            return []
+        actor = self.approval_actor or self.approver
+        return [{"event": "labeled", "actor": actor, "label": "autopilot-contract-approved"}]
+
+    def issue_comments(self, number):
+        issue = self._issue(number)
+        actor = self.comment_user or self.approval_actor or self.approver
+        if self.approval_digest is not None:
+            digest = self.approval_digest
+        else:
+            contract, error = parse_contract(issue.body)
+            digest = "" if error or contract is None else contract.digest
+        if not digest:
+            return []
+        return [{"user": actor, "body": f"AUTOPILOT_CONTRACT_SHA256={digest}"}]
+
+    def check_runs(self, sha):
+        return list(self.checks.get(sha, []))
+
 
 class FakeCursor:
     def __init__(self):
@@ -126,13 +170,18 @@ class FakeCursor:
         self.agents = {}
         self.fail_create = None
         self.charged = 0.0
+        self.charged_by_window = None
+        self.spend_calls = []
         self.has_admin_key = True
         self.spend_error = None
         self.lock = threading.Lock()
 
-    def cloud_charged_cents(self, _start, _end):
+    def cloud_charged_cents(self, start, end):
+        self.spend_calls.append((start, end))
         if self.spend_error:
             raise self.spend_error
+        if self.charged_by_window and (start, end) in self.charged_by_window:
+            return self.charged_by_window[(start, end)]
         return self.charged
 
     def create_agent(self, payload):

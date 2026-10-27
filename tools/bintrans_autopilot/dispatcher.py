@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
-from bintrans_autopilot.budget import assess_budget
+from bintrans_autopilot.approval import trusted_approval
+from bintrans_autopilot.budget import assess_budget, budget_windows
+from bintrans_autopilot.ci_gate import evaluate_ci, required_checks
 from bintrans_autopilot.config import AutopilotConfig, runtime_enabled
 from bintrans_autopilot.contract import parse_contract, read_state, write_state
 from bintrans_autopilot.cursor_api import ACTIVE_RUN_STATUSES, FAILED_RUN_STATUSES, CursorApiError
+from bintrans_autopilot.github_api import GithubError
 from bintrans_autopilot.policy import (
     assert_feature_branch,
     base_is_current,
@@ -18,8 +22,10 @@ from bintrans_autopilot.policy import (
     shared_path_allowed,
     validate_scope,
 )
+from bintrans_autopilot.pr_identity import parse_pull_url, pr_identity_error, repo_full_name
 from bintrans_autopilot.prompts import fix_prompt, implementation_body, qa_body
-from bintrans_autopilot.qa_gate import merge_allowed, review_diff
+from bintrans_autopilot.qa_gate import format_review_diff, merge_allowed, review_diff
+from bintrans_autopilot.verdict import parse_verdict
 from bintrans_autopilot.states import (
     ACTIVE,
     BLOCKED,
@@ -84,7 +90,12 @@ class Dispatcher:
             return DispatchResult(enabled=False, reason=reason)
         if not self.env.get("CURSOR_API_KEY", "").strip():
             return DispatchResult(enabled=True, reason="missing_api_key", fail_closed="missing_api_key")
-        budget = assess_budget(self.config, self.cursor, self.window[0], self.window[1])
+        now = datetime.fromisoformat(self.now_iso.replace("Z", "+00:00"))
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        # Spend windows come from now, including the UTC month. The constructor
+        # window is not a substitute: a same-day window would hide earlier charges.
+        budget = assess_budget(self.config, self.cursor, budget_windows(now), now, self._active_count())
         issues = self.github.list_issues()
         if getattr(self.github, "truncated", False):
             return DispatchResult(
@@ -137,8 +148,21 @@ class Dispatcher:
         if current != READY:
             result.skipped.append(f"not_ready:{contract.task_id}:{current}")
             return
-        if "autopilot-contract-approved" not in issue.labels:
-            result.skipped.append(f"contract_not_approved:{contract.task_id}")
+        try:
+            events = self.github.issue_events(issue.number)
+            comments = self.github.issue_comments(issue.number)
+        except GithubError:
+            result.skipped.append(f"approval_lookup_failed:{contract.task_id}")
+            return
+        approval_error = trusted_approval(
+            contract.digest,
+            issue.labels,
+            events,
+            comments,
+            self.config.contract_approvers,
+        )
+        if approval_error:
+            result.skipped.append(f"{approval_error}:{contract.task_id}")
             return
         scope_error = validate_scope(contract, self.config)
         if scope_error:
@@ -235,7 +259,16 @@ class Dispatcher:
             result.skipped.append(f"agent_still_active:{task_id}")
             return
         if status == "FINISHED":
-            self._on_finished(issue, state, run, result)
+            run_id = run.get("id") or state.get("run_id") or ""
+            task_status = state.get("status") or ""
+            already = task_status in {PR_OPEN, CI_CHECK, INDEPENDENT_QA} or (
+                bool(run_id) and state.get("handled_run_id") == run_id
+            )
+            if already:
+                state["handled_run_id"] = run_id
+                self._continue_after_finish(issue, state, result)
+                return
+            self._consume_finished_run(issue, state, run, result)
             return
         if status in FAILED_RUN_STATUSES:
             self._on_failed_run(issue, state, run, result)
@@ -249,8 +282,9 @@ class Dispatcher:
         self._save(issue, state, state.get("status") or CLAIMED)
         result.preserved.append(task_id)
 
-    def _on_finished(self, issue, state: dict, run: dict, result: DispatchResult) -> None:
+    def _consume_finished_run(self, issue, state: dict, run: dict, result: DispatchResult) -> None:
         task_id = state["task_id"]
+        run_id = run.get("id") or state.get("run_id") or ""
         git = run.get("git") or {}
         branches = git.get("branches") or []
         pr_url = ""
@@ -260,26 +294,88 @@ class Dispatcher:
                 branch_name = item["branch"]
             if item.get("prUrl"):
                 pr_url = item["prUrl"]
+        state["handled_run_id"] = run_id
         if branch_name in self.config.protected_branches:
             state["last_error"] = "protected_branch_push"
             self._save(issue, state, BLOCKED)
             result.skipped.append(f"protected_branch_push:{task_id}")
             return
-        state["pr_url"] = pr_url
-        self._save(issue, state, PR_OPEN)
-        if not pr_url:
-            state["last_error"] = "missing_pr"
+        repo = repo_full_name(self.config.repo_url)
+        parsed = parse_pull_url(pr_url)
+        if parsed is None or parsed[0] != repo:
+            state["pr_url"] = pr_url
+            if not pr_url:
+                state["last_error"] = "missing_pr"
+            elif parsed is None:
+                state["last_error"] = "pr_url_invalid"
+            else:
+                state["last_error"] = "pr_repo_mismatch"
             self._save(issue, state, NEEDS_CONTROLLER)
-            result.skipped.append(f"missing_pr:{task_id}")
+            result.skipped.append(f"{state['last_error']}:{task_id}")
             return
-        pr_number = _pr_number(pr_url)
-        state["pr_number"] = pr_number
-        self._save(issue, state, CI_CHECK)
-        self.github.ensure_draft(pr_number)
-        files = self.github.pull_files(pr_number)
-        contract = _contract_from_state(issue.body, state)
-        qa = review_diff(files, contract, self.config, issue.labels)
-        pr = self.github.pull(pr_number)
+        state["pr_url"] = pr_url
+        state["pr_number"] = parsed[1]
+        state["branch"] = branch_name or state.get("branch") or ""
+        try:
+            self.github.ensure_draft(parsed[1])
+        except GithubError:
+            state["handled_run_id"] = ""
+            state["last_error"] = "github_read_failed"
+            self._save(issue, state, state.get("status") or IMPLEMENTING)
+            result.preserved.append(task_id)
+            return
+        self._continue_after_finish(issue, state, result)
+
+    def _continue_after_finish(self, issue, state: dict, result: DispatchResult) -> None:
+        status = state.get("status") or ""
+        if status in {CLAIMED, IMPLEMENTING}:
+            if not state.get("pr_number"):
+                state["last_error"] = "missing_pr"
+                self._save(issue, state, NEEDS_CONTROLLER)
+                return
+            self._save(issue, state, PR_OPEN)
+            if state.get("status") != PR_OPEN:
+                return
+            self._save(issue, state, CI_CHECK)
+            if state.get("status") != CI_CHECK:
+                return
+        elif status == PR_OPEN:
+            self._save(issue, state, CI_CHECK)
+            if state.get("status") != CI_CHECK:
+                return
+        status = state.get("status") or ""
+        if status == CI_CHECK:
+            self._gate_ci_and_maybe_launch_qa(issue, state, result)
+            return
+        if status == INDEPENDENT_QA:
+            self._poll_qa_agent(issue, state, result)
+            return
+        result.skipped.append(f"finish_already_handled:{state.get('task_id')}")
+
+    def _gate_ci_and_maybe_launch_qa(self, issue, state: dict, result: DispatchResult) -> None:
+        task_id = state["task_id"]
+        pr_number = int(state.get("pr_number") or 0)
+        try:
+            pr = self.github.pull(pr_number)
+            files = self.github.pull_files(pr_number)
+            head_sha = str(pr.get("head_sha") or "")
+            checks = self.github.check_runs(head_sha) if len(head_sha) == 40 else []
+        except GithubError:
+            state["last_error"] = "github_read_failed"
+            self._save(issue, state, CI_CHECK)
+            result.preserved.append(task_id)
+            return
+        identity = pr_identity_error(
+            pr,
+            repo=repo_full_name(self.config.repo_url),
+            branch=state.get("branch") or "",
+            claimed_url=state.get("pr_url") or "",
+        )
+        if identity:
+            state["last_error"] = identity
+            self._save(issue, state, NEEDS_CONTROLLER)
+            result.skipped.append(f"{identity}:{task_id}")
+            return
         allowed = merge_allowed(
             pr.get("base_sha", ""),
             self.github.origin_main_sha(),
@@ -287,6 +383,9 @@ class Dispatcher:
             self.config.protected_branches,
         )
         state["merge_allowed"] = allowed
+        state["head_sha"] = str(pr.get("head_sha") or "")
+        contract = _contract_from_state(issue.body, state)
+        qa = review_diff(files, contract, self.config, issue.labels)
         if not qa.ok:
             self._request_fix_or_block(issue, state, qa.failures, result)
             return
@@ -295,10 +394,56 @@ class Dispatcher:
             self._save(issue, state, NEEDS_CONTROLLER)
             result.skipped.append(f"stale_pr:{task_id}")
             return
-        if state.get("qa_agent_id"):
+        head_sha = state["head_sha"]
+        ok, reason = evaluate_ci(checks, required_checks([item.path for item in files]), head_sha)
+        if not ok:
+            state["last_error"] = reason
+            self._save(issue, state, CI_CHECK)
+            result.skipped.append(f"ci_not_ready:{task_id}:{reason}")
+            return
+        if state.get("qa_agent_id") and state.get("qa_head_sha") == head_sha:
+            self._save(issue, state, INDEPENDENT_QA)
             self._poll_qa_agent(issue, state, result)
             return
-        self._launch_qa(issue, state, contract, files, result)
+        if state.get("qa_agent_id"):
+            self._clear_qa(state)
+        diff_text, diff_error = format_review_diff(files)
+        if diff_error:
+            state["last_error"] = diff_error
+            self._save(issue, state, NEEDS_CONTROLLER)
+            result.skipped.append(f"{diff_error}:{task_id}")
+            return
+        self._launch_qa(issue, state, contract, diff_text, head_sha, result)
+
+    def _ready_merge_gate(self, state: dict) -> tuple[bool, str]:
+        pr_number = int(state.get("pr_number") or 0)
+        try:
+            pr = self.github.pull(pr_number)
+            files = self.github.pull_files(pr_number)
+            head_sha = str(pr.get("head_sha") or "")
+            checks = self.github.check_runs(head_sha) if len(head_sha) == 40 else []
+        except GithubError:
+            return False, "github_read_failed"
+        identity = pr_identity_error(
+            pr,
+            repo=repo_full_name(self.config.repo_url),
+            branch=state.get("branch") or "",
+            claimed_url=state.get("pr_url") or "",
+        )
+        if identity:
+            return False, identity
+        if head_sha != (state.get("qa_head_sha") or ""):
+            return False, "head_sha_changed"
+        allowed = merge_allowed(
+            pr.get("base_sha", ""),
+            self.github.origin_main_sha(),
+            pr.get("head_branch", ""),
+            self.config.protected_branches,
+        )
+        state["merge_allowed"] = allowed
+        if not allowed:
+            return False, "stale_pr"
+        return evaluate_ci(checks, required_checks([item.path for item in files]), head_sha)
 
     def _request_fix_or_block(self, issue, state: dict, failures: list[str], result: DispatchResult) -> None:
         task_id = state["task_id"]
@@ -318,16 +463,26 @@ class Dispatcher:
             result.preserved.append(task_id)
             return
         state["qa_cycles"] = cycles + 1
-        state["run_id"] = (follow.get("run") or {}).get("id") or state.get("run_id")
+        new_run = (follow.get("run") or {}).get("id") or state.get("run_id")
+        if new_run != state.get("handled_run_id"):
+            state["handled_run_id"] = ""
+        state["run_id"] = new_run
+        self._clear_qa(state)
         state["status"] = IMPLEMENTING
         self._save(issue, state, IMPLEMENTING)
         result.skipped.append(f"qa_fix_cycle:{task_id}")
 
-    def _launch_qa(self, issue, state: dict, contract, files, result: DispatchResult) -> None:
-        summary = "\n".join(item.path for item in files)
+    def _clear_qa(self, state: dict) -> None:
+        state["qa_agent_id"] = ""
+        state["qa_run_id"] = ""
+        state["qa_head_sha"] = ""
+        state["qa_verdict"] = ""
+        state["qa_reported"] = False
+
+    def _launch_qa(self, issue, state: dict, contract, diff_text: str, head_sha: str, result: DispatchResult) -> None:
         qa_agent_id = _new_agent_id()
         try:
-            created = self.cursor.create_agent(qa_body(contract, qa_agent_id, summary))
+            created = self.cursor.create_agent(qa_body(contract, qa_agent_id, diff_text))
         except CursorApiError as exc:
             state["last_error"] = f"cursor_http_{exc.status}"
             self._save(issue, state, CI_CHECK)
@@ -335,37 +490,52 @@ class Dispatcher:
             return
         state["qa_agent_id"] = created.get("agent", {}).get("id") or qa_agent_id
         state["qa_run_id"] = (created.get("run") or {}).get("id") or ""
+        state["qa_head_sha"] = head_sha
+        state["qa_verdict"] = ""
+        state["qa_reported"] = False
         state["status"] = INDEPENDENT_QA
         self._save(issue, state, INDEPENDENT_QA)
         result.launched.append(f"qa:{state['task_id']}")
 
     def _poll_qa_agent(self, issue, state: dict, result: DispatchResult) -> None:
+        task_id = state["task_id"]
         try:
             run = self.cursor.get_run(state["qa_agent_id"], state.get("qa_run_id") or "")
         except CursorApiError as exc:
             state["last_error"] = f"cursor_http_{exc.status}"
             self._save(issue, state, INDEPENDENT_QA)
-            result.preserved.append(state["task_id"])
+            result.preserved.append(task_id)
             return
         status = run.get("status") or ""
         if status in ACTIVE_RUN_STATUSES:
-            result.skipped.append(f"qa_still_active:{state['task_id']}")
+            result.skipped.append(f"qa_still_active:{task_id}")
             return
         if status != "FINISHED":
             state["last_error"] = f"qa_run_{status}"
             self._save(issue, state, NEEDS_CONTROLLER)
             return
         findings = run.get("result") or ""
-        if "BLOCKING" in findings.upper() or findings.strip().startswith("FAIL"):
+        verdict = parse_verdict(findings)
+        state["qa_verdict"] = verdict
+        if verdict == "CHANGES_REQUIRED":
             self._request_fix_or_block(issue, state, [findings], result)
             return
-        self.github.comment(issue.number, "Agent I findings (read-only, not applied by Agent I):\n" + findings)
-        if state.get("merge_allowed"):
-            self._save(issue, state, READY_FOR_MERGE)
-        else:
-            state["last_error"] = "stale_pr"
+        if verdict not in {"PASS", "PASS_WITH_NITS"}:
+            state["last_error"] = "qa_verdict_rejected" if verdict == "BLOCKED" else "qa_verdict_missing"
             self._save(issue, state, NEEDS_CONTROLLER)
-        result.skipped.append(f"qa_complete:{state['task_id']}")
+            result.skipped.append(f"{state['last_error']}:{task_id}")
+            return
+        ready, reason = self._ready_merge_gate(state)
+        if not ready:
+            state["last_error"] = reason
+            self._save(issue, state, INDEPENDENT_QA)
+            result.skipped.append(f"ci_blocked_ready:{task_id}:{reason}")
+            return
+        if not state.get("qa_reported"):
+            self.github.comment(issue.number, "Agent I findings (read-only, not applied by Agent I):\n" + findings)
+            state["qa_reported"] = True
+        self._save(issue, state, READY_FOR_MERGE)
+        result.skipped.append(f"qa_complete:{task_id}")
 
     def _on_failed_run(self, issue, state: dict, run: dict, result: DispatchResult) -> None:
         task_id = state["task_id"]
@@ -392,7 +562,11 @@ class Dispatcher:
             self._save(issue, state, state.get("status") or IMPLEMENTING)
             result.preserved.append(task_id)
             return
-        state["run_id"] = (follow.get("run") or {}).get("id") or state.get("run_id")
+        new_run = (follow.get("run") or {}).get("id") or state.get("run_id")
+        if new_run != state.get("handled_run_id"):
+            state["handled_run_id"] = ""
+        state["run_id"] = new_run
+        self._clear_qa(state)
         state["status"] = IMPLEMENTING
         self._save(issue, state, IMPLEMENTING)
         result.skipped.append(f"retry:{task_id}")
@@ -495,10 +669,6 @@ class Dispatcher:
             if counts[domain] >= limit:
                 return True
         return False
-
-
-def _pr_number(pr_url: str) -> int:
-    return int(pr_url.rstrip("/").split("/")[-1])
 
 
 def _contract_from_state(body: str, state: dict):

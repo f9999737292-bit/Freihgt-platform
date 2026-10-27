@@ -4,8 +4,11 @@ name: BINTRANS autopilot dispatcher
 # string true AND a later approved change sets autopilot_enabled=true in
 # tools/bintrans_autopilot/autopilot.config.json. This pull request does neither.
 # Scheduled runs are hourly so spend checks stay near the Admin API guidance of
-# at most one filtered-usage poll per hour. Issue and pull request events can
-# wake the same gated job sooner.
+# at most one filtered-usage poll per hour.
+#
+# pull_request and pull_request_target are intentionally absent. A pull request
+# must not be able to run this file, or any copy of it, with Cursor secrets.
+# Checkout is pinned to main, and the trust guard runs before those secrets exist.
 
 on:
   schedule:
@@ -23,8 +26,6 @@ on:
           - report
   issues:
     types: [opened, edited, labeled]
-  pull_request:
-    types: [opened, synchronize, reopened]
 
 concurrency:
   group: bintrans-autopilot
@@ -35,20 +36,34 @@ permissions:
 
 jobs:
   dispatch:
-    if: ${{ vars.AUTOPILOT_ENABLED == 'true' && github.event.schedule != '0 6 * * *' && github.event.inputs.mode != 'report' }}
+    if: ${{ vars.AUTOPILOT_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.event_name != 'pull_request_target' && github.event.schedule != '0 6 * * *' && github.event.inputs.mode != 'report' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       issues: write
       pull-requests: write
     steps:
-      - name: Checkout
+      - name: Checkout trusted main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Reject untrusted workflow before secrets
+        env:
+          PYTHONPATH: tools
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+        run: python -m bintrans_autopilot.workflow_guard_main
 
       - name: Dispatch ready task contracts
         env:
@@ -62,19 +77,33 @@ jobs:
         run: python -m bintrans_autopilot dispatch
 
   daily-report:
-    if: ${{ vars.AUTOPILOT_ENABLED == 'true' && (github.event.schedule == '0 6 * * *' || github.event.inputs.mode == 'report') }}
+    if: ${{ vars.AUTOPILOT_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.event_name != 'pull_request_target' && (github.event.schedule == '0 6 * * *' || github.event.inputs.mode == 'report') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: read
     steps:
-      - name: Checkout
+      - name: Checkout trusted main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Reject untrusted workflow before secrets
+        env:
+          PYTHONPATH: tools
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+        run: python -m bintrans_autopilot.workflow_guard_main
 
       - name: Render daily report
         env:

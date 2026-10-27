@@ -11,6 +11,7 @@ from bintrans_autopilot.cursor_api import CursorClient, UrllibTransport
 from bintrans_autopilot.dispatcher import Dispatcher
 from bintrans_autopilot.github_api import GithubRest
 from bintrans_autopilot.report import render_report
+from bintrans_autopilot.workflow_guard import context_from_environ, evaluate_workflow_context
 
 
 def _now() -> str:
@@ -23,6 +24,12 @@ def _window(now: datetime) -> tuple[int, int]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true":
+        trusted, untrusted_reason = evaluate_workflow_context(context_from_environ(os.environ))
+        if not trusted:
+            print(f"UNTRUSTED_WORKFLOW={untrusted_reason}")
+            print("PAID_AGENTS_LAUNCHED=NO")
+            return 2
     args = list(sys.argv[1:] if argv is None else argv)
     command = args[0] if args else "dispatch"
     config = load_config()

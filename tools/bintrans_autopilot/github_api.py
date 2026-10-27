@@ -135,12 +135,88 @@ class GithubRest:
             "GET",
             f"https://api.github.com/repos/{self._owner}/{self._name}/pulls/{pr_number}",
         )
+        head = body.get("head") or {}
+        base = body.get("base") or {}
+        head_repo = head.get("repo") or {}
+        base_repo = base.get("repo") or {}
         return {
-            "base_sha": body["base"]["sha"],
-            "head_branch": body["head"]["ref"],
+            "number": body.get("number", pr_number),
+            "base_sha": base.get("sha") or "",
+            "head_sha": head.get("sha") or "",
+            "head_branch": head.get("ref") or "",
+            "head_repo": head_repo.get("full_name") or "",
+            "repo": base_repo.get("full_name") or f"{self._owner}/{self._name}",
+            "html_url": body.get("html_url") or "",
             "draft": body.get("draft", False),
-            "node_id": body["node_id"],
+            "node_id": body.get("node_id"),
         }
+
+    def issue_events(self, number: int) -> list[dict]:
+        collected = []
+        for page in range(1, 6):
+            _status, body = self._request(
+                "GET",
+                "https://api.github.com/repos/"
+                f"{self._owner}/{self._name}/issues/{number}/events?per_page=100&page={page}",
+            )
+            if not isinstance(body, list):
+                raise GithubError(0, "issue events malformed")
+            for item in body:
+                label = item.get("label") or {}
+                actor = item.get("actor") or {}
+                collected.append(
+                    {
+                        "event": item.get("event") or "",
+                        "actor": actor.get("login") or "",
+                        "label": label.get("name") or "",
+                    }
+                )
+            if len(body) < 100:
+                return collected
+        raise GithubError(0, "issue events truncated")
+
+    def issue_comments(self, number: int) -> list[dict]:
+        collected = []
+        for page in range(1, 6):
+            _status, body = self._request(
+                "GET",
+                "https://api.github.com/repos/"
+                f"{self._owner}/{self._name}/issues/{number}/comments?per_page=100&page={page}",
+            )
+            if not isinstance(body, list):
+                raise GithubError(0, "issue comments malformed")
+            for item in body:
+                user = item.get("user") or {}
+                collected.append({"user": user.get("login") or "", "body": item.get("body") or ""})
+            if len(body) < 100:
+                return collected
+        raise GithubError(0, "issue comments truncated")
+
+    def check_runs(self, sha: str) -> list[dict]:
+        collected = []
+        for page in range(1, 6):
+            _status, body = self._request(
+                "GET",
+                "https://api.github.com/repos/"
+                f"{self._owner}/{self._name}/commits/{sha}/check-runs?per_page=100&page={page}",
+            )
+            runs = body.get("check_runs") or []
+            if not isinstance(runs, list):
+                raise GithubError(0, "check runs malformed")
+            for item in runs:
+                collected.append(
+                    {
+                        "name": item.get("name") or "",
+                        "head_sha": item.get("head_sha") or "",
+                        "status": item.get("status") or "",
+                        "conclusion": item.get("conclusion") or "",
+                        "started_at": item.get("started_at") or "",
+                        "completed_at": item.get("completed_at") or "",
+                    }
+                )
+            if len(runs) < 100:
+                return collected
+        raise GithubError(0, "check runs truncated")
 
     def ensure_draft(self, pr_number: int) -> None:
         current = self.pull(pr_number)

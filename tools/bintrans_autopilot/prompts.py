@@ -63,9 +63,12 @@ def qa_prompt(contract: TaskContract, diff_summary: str) -> str:
 Do not edit files. Do not commit. Do not push. Do not open or modify a pull request.
 Do not fix findings. Report them.
 
-Review the diff summary below against the Task Contract.
+Review the unified diff below. File names alone are not the diff. Quote the changed lines as evidence.
 Report severity, file, evidence, expected behavior, actual behavior, and whether the finding blocks merge.
 If the pull request base is not the current origin/main SHA, report STALE_BASE=YES.
+The report is accepted only when it contains exactly one line of the form
+BINTRANS_QA_VERDICT: followed by PASS, PASS_WITH_NITS, CHANGES_REQUIRED, or BLOCKED.
+Do not emit that line more than once.
 
 Allowed paths:
 {chr(10).join("- " + path for path in contract.allowed_paths)}

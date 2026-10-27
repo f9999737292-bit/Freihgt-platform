@@ -41,6 +41,25 @@ class QaResult:
     failures: list[str] = field(default_factory=list)
 
 
+MAX_REVIEW_DIFF_CHARS = 120_000
+
+
+def format_review_diff(files: list[DiffFile]) -> tuple[str, str]:
+    """Full patch text for Agent I. A missing hunk is not replaced by the file name."""
+    if not files:
+        return "", "empty_diff"
+    parts: list[str] = []
+    for item in files:
+        patch = item.patch or ""
+        if not patch.strip():
+            return "", f"diff_patch_missing:{item.path}"
+        parts.append(f"--- {item.path}\n{patch}")
+    text = "\n".join(parts)
+    if len(text) > MAX_REVIEW_DIFF_CHARS:
+        return "", "diff_too_large"
+    return text, ""
+
+
 def added_lines(patch: str) -> list[str]:
     lines = []
     for line in patch.splitlines():
