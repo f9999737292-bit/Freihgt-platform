@@ -40,6 +40,22 @@ COST_CLASSES = ("default", "standard", "expensive")
 
 
 @dataclass(frozen=True)
+class PricingRecord:
+    """Price and billing class are not fields of GET /v1/models.
+
+    Committed JSON cannot flip this record to verified. There is no price here.
+    """
+
+    source: str = "unverified"
+    billing_class: str = "unknown"
+    catalog_is_price_source: bool = False
+
+
+def load_pricing(_raw: dict | None) -> PricingRecord:
+    return PricingRecord()
+
+
+@dataclass(frozen=True)
 class ModelRoute:
     """One approved selection. An empty model_id means Cursor's configured default."""
 
@@ -135,6 +151,9 @@ class AutopilotConfig:
     hard_forbidden_prefixes: tuple[str, ...]
     critical_domains: tuple[DomainLimit, ...] = field(default_factory=tuple)
     model_routing: ModelRouting = field(default_factory=load_model_routing)
+    pricing: PricingRecord = field(default_factory=PricingRecord)
+    test_budget_harness: bool = False
+    test_model_spend_harness: bool = False
 
     def domain_for_path(self, path: str) -> str | None:
         normalized = path.replace("\\", "/").lstrip("./")
@@ -179,6 +198,9 @@ def load_config(path: Path | None = None) -> AutopilotConfig:
         hard_forbidden_prefixes=tuple(raw["hard_forbidden_prefixes"]),
         critical_domains=domains,
         model_routing=load_model_routing(raw.get("model_routing")),
+        pricing=load_pricing(raw.get("pricing")),
+        test_budget_harness=False,
+        test_model_spend_harness=False,
     )
 
 

@@ -58,6 +58,8 @@ def enabled_config(**kwargs):
         budget_launch_reserve_cents=1,
         budget_reserve_per_active_agent_cents=1,
         contract_approvers=("controller",),
+        test_budget_harness=True,
+        test_model_spend_harness=True,
     )
     defaults.update(kwargs)
     return replace(load_config(), **defaults)

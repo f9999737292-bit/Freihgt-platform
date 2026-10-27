@@ -193,7 +193,22 @@ class ModelRoutingTests(unittest.TestCase):
         defaulted = routing({"tms.ROUTINE": {"model_id": "fixture-routine", "cost_class": "standard", "cost_approved": True}})
         self.assertEqual(resolve_model(defaulted, contract(), "implementation", catalog).as_api()["params"], [{"id": "fast", "value": "true"}])
 
-        qa_policy = routing({
+        qa_open = routing({
+            "independent_qa.INDEPENDENT_QA": {
+                "model_id": "fixture-qa",
+                "cost_class": "standard",
+                "cost_approved": True,
+                "provider": "other",
+                "require_distinct_provider": False,
+            }
+        })
+        state = {"model_pin": {"omit": False, "id": "fixture-routine", "params": [], "provider": "cursor", "cost_class": "standard"}}
+        qa = resolve_model(qa_open, contract(), "qa", catalog, state)
+        self.assertEqual(qa.model_id, "fixture-qa")
+        self.assertEqual(qa.provider_status, "PROVIDER_UNVERIFIED")
+        self.assertEqual(qa.verified_provider, "")
+        self.assertNotEqual(qa.model_id, state["model_pin"]["id"])
+        qa_required = routing({
             "independent_qa.INDEPENDENT_QA": {
                 "model_id": "fixture-qa",
                 "cost_class": "standard",
@@ -202,14 +217,13 @@ class ModelRoutingTests(unittest.TestCase):
                 "require_distinct_provider": True,
             }
         })
-        state = {"model_pin": {"omit": False, "id": "fixture-routine", "params": [], "provider": "cursor", "cost_class": "standard"}}
-        qa = resolve_model(qa_policy, contract(), "qa", catalog, state)
-        self.assertEqual(qa.model_id, "fixture-qa")
-        self.assertNotEqual(qa.provider, state["model_pin"]["provider"])
         missing = parse_model_catalog({"items": [{"id": "fixture-routine", "variants": [{"params": [], "isDefault": True}]}]})
-        fallback = resolve_model(qa_policy, contract(), "qa", missing, state)
-        self.assertTrue(fallback.omit)
-        self.assertEqual(fallback.source, "fallback_cursor_default")
+        with self.assertRaises(ModelPolicyError) as raised:
+            resolve_model(qa_required, contract(), "qa", catalog, state)
+        self.assertEqual(raised.exception.code, "provider_unverified")
+        with self.assertRaises(ModelPolicyError) as missing_provider:
+            resolve_model(qa_required, contract(), "qa", missing, state)
+        self.assertEqual(missing_provider.exception.code, "provider_unverified")
 
     def test_dispatcher_does_not_create_an_agent_for_a_rejected_model(self):
         config = load_config()

@@ -3,6 +3,12 @@
 The spend API is lagged, so a zero reading is not treated as proof that the
 next launch fits. A configured reserve is added before either cap is checked.
 A personal Ultra plan cannot call the Team Admin spend API; that stays fail-closed.
+
+Team usage events are aggregated hourly and can arrive after the launch
+decision. The sum in this process is not a provider-side hard cap. Cursor's
+documented spend-limit enforcement is not instant, and the personal plans do
+not expose the Team Admin API. Without a confirmed provider cap, launch stays
+blocked. The test harness flag is not read from JSON.
 """
 
 from __future__ import annotations
@@ -67,6 +73,8 @@ def assess_budget(
         if config.cursor_plan == "ultra":
             return BudgetDecision(False, "personal_ultra_no_team_admin_api", preserve_task_state=True)
         return BudgetDecision(False, "admin_api_key_missing", preserve_task_state=True)
+    if not config.test_budget_harness and not config.cursor_plan:
+        return BudgetDecision(False, "cursor_plan_unverified", preserve_task_state=True)
     try:
         daily = float(cursor.cloud_charged_cents(windows.daily_start_ms, windows.daily_end_ms))
         monthly = float(cursor.cloud_charged_cents(windows.monthly_start_ms, windows.monthly_end_ms))
@@ -74,6 +82,8 @@ def assess_budget(
         return BudgetDecision(False, "spend_api_error", preserve_task_state=True)
     if monthly + 1e-9 < daily:
         return BudgetDecision(False, "spend_inconsistent", preserve_task_state=True)
+    if getattr(cursor, "spend_events_lagged", False):
+        return BudgetDecision(False, "spend_observation_stale", preserve_task_state=True)
     reserve = config.budget_launch_reserve_cents + (
         config.budget_reserve_per_active_agent_cents * max(active_agents, 0)
     )
@@ -85,4 +95,6 @@ def assess_budget(
         return BudgetDecision(False, "monthly_budget_exceeded", projected_monthly)
     if config.budget_max_charged_cents > 0 and projected_daily >= config.budget_max_charged_cents:
         return BudgetDecision(False, "budget_exceeded", projected_daily)
+    if not config.test_budget_harness:
+        return BudgetDecision(False, "provider_spend_cap_unconfirmed", projected_monthly, preserve_task_state=True)
     return BudgetDecision(True, "within_budget", projected_monthly)
