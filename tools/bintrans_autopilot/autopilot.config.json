@@ -1,0 +1,54 @@
+{
+  "autopilot_enabled": false,
+  "emergency_stop": false,
+  "max_parallel_agents": 3,
+  "max_launches_per_day": 8,
+  "max_retries_cap": 1,
+  "max_qa_fix_cycles": 2,
+  "budget_max_charged_cents": 0,
+  "budget_max_charged_cents_daily": 0,
+  "budget_max_charged_cents_monthly": 0,
+  "budget_launch_reserve_cents": 0,
+  "budget_reserve_per_active_agent_cents": 0,
+  "cursor_plan": "",
+  "contract_approvers": [],
+  "require_admin_spend_check": true,
+  "repo_url": "https://github.com/f9999737292-bit/Freihgt-platform",
+  "protected_branches": ["main", "master"],
+  "feature_branch_prefix": "autopilot/",
+  "approved_path_prefixes": [
+    "apps/",
+    "services/",
+    "packages/",
+    "docs/",
+    "scripts/dev/"
+  ],
+  "critical_domains": {
+    "openapi": {
+      "max_parallel": 1,
+      "prefixes": ["packages/openapi/"]
+    },
+    "migrations": {
+      "max_parallel": 1,
+      "prefixes": ["infrastructure/migrations/"]
+    },
+    "security": {
+      "max_parallel": 1,
+      "prefixes": ["services/identity-service/", "services/api-gateway/"]
+    },
+    "shared": {
+      "max_parallel": 1,
+      "prefixes": ["packages/shared-go/"]
+    }
+  },
+  "hard_forbidden_prefixes": [
+    ".github/workflows/bintrans-autopilot-dispatcher.yml",
+    "tools/bintrans_autopilot/autopilot.config.json",
+    ".cursor/permissions.json",
+    ".cursor/cli.json",
+    ".env",
+    "ops/",
+    "infrastructure/docker-compose/",
+    "scripts/ops/"
+  ]
+}

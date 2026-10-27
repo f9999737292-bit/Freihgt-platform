@@ -114,6 +114,23 @@ Commands:
 
 ---
 
+## Autopilot execution fields
+
+When a controller sends the same contract to the autopilot queue, copy it into a GitHub Issue from `.github/ISSUE_TEMPLATE/bintrans-autopilot-task.yml`. Do not create a second contract.
+
+| Field | Rule |
+| --- | --- |
+| MODULE | Service or app area |
+| OWNER_AGENT | architect, backend-engineer, frontend-engineer, devops-engineer, documentation-engineer, or integrator. Agent I is not an owner. |
+| PRIORITY | P0, P1, P2, or P3 |
+| RISK_LEVEL | LOW, MEDIUM, HIGH, or CRITICAL. Shared OpenAPI, migrations, identity/gateway, and shared-go require HIGH or CRITICAL. |
+| REQUIRED_TESTS | One allowlisted command per line |
+| MAX_RETRIES | Extra cloud-run attempts. The dispatcher caps this at 1. |
+| STATUS | BACKLOG until a controller approves. Only READY with label `autopilot-contract-approved` can launch. |
+| Execution | `local` uses the worktree above. `cloud` uses branch `autopilot/<task-id>` and does not require a Windows staging-pack path. |
+
+The dispatcher is disabled by default. See `docs/engineering/autopilot/ARCHITECTURE.md`.
+
 ## Related templates
 
 - Agent prompt: `AGENT_PROMPT_TEMPLATE.md`

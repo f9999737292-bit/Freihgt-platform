@@ -1,22 +1,29 @@
 ---
-description: BINTRANS staging-pack autonomous local scope and live-action gates
+description: BINTRANS autonomous scope — assigned checkout and live-action gates
 alwaysApply: true
 ---
 
 # BINTRANS autonomous scope
 
-Work only in `D:\Projects\freight-platform-staging-pack` on branch `ops/bintrans-ct-staging-pack` unless the operator directs otherwise.
+Determine the checkout from `git rev-parse --show-toplevel` and `git branch --show-current`. Do not assume a machine path.
 
-This repository may be worked on autonomously for local development, static analysis, tests, documentation, and **local commits**.
+A local staging-pack checkout at `D:\Projects\freight-platform-staging-pack` on branch `ops/bintrans-ct-staging-pack` stays limited to that checkout. That path is not the GitHub repository root and is not a cloud agent workspace.
 
-Any action that changes remote infrastructure, staging runtime, database, registry, protected secrets, production, Control Tower primary mode, or remote Git state requires explicit operator authorization.
+A cloud or feature-branch checkout of this repository follows the active Task Contract: assigned branch, base SHA, allowed paths, and forbidden paths. Do not require the staging-pack path there.
+
+This repository may be worked on autonomously for local development, static analysis, tests, documentation, and local commits on the assigned branch.
+
+Any action that changes remote infrastructure, staging runtime, database, registry, protected secrets, production, Control Tower primary mode, or protected Git branches requires explicit operator authorization.
+
+The 24/7 autopilot is off by default. Do not set `AUTOPILOT_ENABLED`, do not call the Cursor Cloud Agents API, and do not merge to `main` unless the current task explicitly allows that exact action.
 
 ## Autonomous (local, no prompt expected when Run Mode + allowlists are active)
 
 - Repository inspection: `git status`, `git diff`, `git log`, `git show`, `git branch`, `grep`, `rg`
 - Static validation: `bash -n`, offline `*_selfcheck.sh`, `docker compose config`
-- Local tests: `go test`, `go vet`, applicable `npm` scripts
-- Edits under this worktree; `git add` + `git commit` when requested
+- Local tests: `go test`, `go vet`, applicable `npm` scripts, `python -m unittest` for `tools/bintrans_autopilot`
+- Edits inside the assigned checkout and Task Contract allowed paths; `git add` + `git commit` when requested
+- Scoped feature-branch work for an approved Task Contract. This does not authorize infrastructure, staging, or production edits.
 
 ## Stop at live gates (require operator approval)
 
@@ -26,7 +33,10 @@ Any action that changes remote infrastructure, staging runtime, database, regist
 - `docker compose up` (runtime or observability)
 - Cohort approval / Day 0 observation
 - `CONTROL_TOWER_READ_MODEL_MODE=primary`
-- `git push`, merge, force push
+- `git push` to `main`, `master`, or any protected branch
+- force-push on any branch
+- merge to `main`
+- enabling autopilot or launching a paid Cloud Agent
 
 ## Never autonomous
 
@@ -34,3 +44,5 @@ Any action that changes remote infrastructure, staging runtime, database, regist
 - Create cohort manifests or fabricate tenant IDs
 - Touch production or old shared VPS
 - Modify `/protected/` staging env or print secrets
+- Push directly to `main`
+- Weaken branch protection, rulesets, or autopilot kill switches from a product task

@@ -745,6 +745,9 @@ full-flow-smoke-test:
 system-test-design-check:
 	"$(BASH)" scripts/test/system-test-design-check.sh
 
+check-bintrans-autopilot:
+	PYTHONPATH=tools python -m unittest discover -s tools/bintrans_autopilot/tests -v
+
 check-active-bintrans-naming:
 	"$(BASH)" scripts/test/check-active-bintrans-naming.sh
 

@@ -37,7 +37,8 @@
   ],
   "autoRun": {
     "allow_instructions": [
-      "Local read-only inspection and static validation inside D:\\Projects\\freight-platform-staging-pack is allowed.",
+      "Local read-only inspection and static validation of the current assigned checkout is allowed. The staging-pack path applies only when that checkout is actually D:\\Projects\\freight-platform-staging-pack.",
+      "Scoped edits on the assigned feature branch are limited to Task Contract allowed paths. That scope does not include infrastructure, staging, production, secrets, branch protection, or the autopilot kill switch.",
       "Offline BINTRANS selfcheck scripts under scripts/ops/bintrans_ct_staging/*_selfcheck.sh and bintrans_ct_staging_preflight.sh (with test-only env files) are allowed.",
       "docker compose config static rendering without starting containers is allowed."
     ],
@@ -53,7 +54,9 @@
       "Block reading or printing protected secrets: paths under /protected/, populated staging.env, JWT_SECRET, POSTGRES_PASSWORD, JWT_TOKEN, registry credentials, DATABASE_URL/CONTROL_TOWER_DATABASE_URL with credentials.",
       "Block set -x on secret-bearing workflows.",
       "Block CONTROL_TOWER_READ_MODEL_MODE=primary, cohort creation/approval, and fabricated tenant IDs.",
-      "Block production, old shared VPS, and live staging runtime/observability deployment."
+      "Block production, old shared VPS, and live staging runtime/observability deployment.",
+      "Block treating a scoped feature-branch Task Contract as permission to edit infrastructure, staging, production, secrets, branch protection, or the autopilot kill switch.",
+      "Block enabling AUTOPILOT_ENABLED or calling the Cursor Cloud Agents API unless the current task explicitly allows that launch."
     ]
   }
 }
