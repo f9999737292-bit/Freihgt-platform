@@ -13,6 +13,7 @@ from bintrans_autopilot.config import AutopilotConfig, runtime_enabled
 from bintrans_autopilot.contract import parse_contract, read_state, write_state
 from bintrans_autopilot.cursor_api import ACTIVE_RUN_STATUSES, FAILED_RUN_STATUSES, TERMINAL_RUN_STATUSES, CursorApiError
 from bintrans_autopilot.github_api import GithubError
+from bintrans_autopilot.models import ModelPolicyError, prepare_model_choice
 from bintrans_autopilot.policy import (
     assert_feature_branch,
     base_is_current,
@@ -196,6 +197,16 @@ class Dispatcher:
         if self._domain_blocked(domains):
             result.skipped.append(f"domain_cap:{contract.task_id}")
             return
+        try:
+            choice = self._prepare_model(contract, "implementation", state or {})
+        except ModelPolicyError as exc:
+            if exc.code == "model_catalog_unavailable":
+                result.skipped.append(f"{exc.code}:{contract.task_id}")
+                result.preserved.append(contract.task_id)
+                return
+            self._save(issue, self._state_from(contract, NEEDS_CONTROLLER, reason=exc.code), NEEDS_CONTROLLER)
+            result.skipped.append(f"{exc.code}:{contract.task_id}")
+            return
         if self.github.ref_exists(claim_ref):
             if state and state.get("agent_id"):
                 self._reconcile(issue, state, result)
@@ -215,9 +226,10 @@ class Dispatcher:
         agent_id = _new_agent_id()
         frozen = self._state_from(contract, CLAIMED, agent_id=agent_id, branch=branch, reason="")
         frozen["launch_dates"] = [self.now_iso[:10]]
+        frozen["model_pin"] = choice.pin()
         self._save(issue, frozen, CLAIMED)
         try:
-            created = self.cursor.create_agent(implementation_body(self.config, contract, branch, agent_id))
+            created = self.cursor.create_agent(implementation_body(self.config, contract, branch, agent_id, choice.as_api()))
         except CursorApiError as exc:
             if exc.status == 409 and "agent_id_conflict" in (exc.code or "agent_id_conflict"):
                 created = self.cursor.get_agent(agent_id)
@@ -565,7 +577,19 @@ class Dispatcher:
             return
         qa_agent_id = _new_agent_id()
         try:
-            created = self.cursor.create_agent(qa_body(contract, qa_agent_id, diff_text))
+            choice = self._prepare_model(contract, "qa", state)
+        except ModelPolicyError as exc:
+            state["last_error"] = exc.code
+            keep = CI_CHECK if exc.code == "model_catalog_unavailable" else NEEDS_CONTROLLER
+            self._save(issue, state, keep)
+            if keep == CI_CHECK:
+                result.preserved.append(task_id)
+            else:
+                result.skipped.append(f"{exc.code}:{task_id}")
+            return
+        state["qa_model_pin"] = choice.pin()
+        try:
+            created = self.cursor.create_agent(qa_body(contract, qa_agent_id, diff_text, choice.as_api()))
         except CursorApiError as exc:
             if _follow_is_uncertain(exc):
                 state["last_error"] = f"cursor_follow_uncertain_{exc.status}"
@@ -725,7 +749,16 @@ class Dispatcher:
         try:
             contract = _contract_from_state(issue.body, state)
             assert_feature_branch(self.config, branch)
-            created = self.cursor.create_agent(implementation_body(self.config, contract, branch, state["agent_id"]))
+            choice = self._prepare_model(contract, "implementation", state)
+            state["model_pin"] = choice.pin()
+            created = self.cursor.create_agent(
+                implementation_body(self.config, contract, branch, state["agent_id"], choice.as_api())
+            )
+        except ModelPolicyError as exc:
+            state["last_error"] = exc.code
+            self._save(issue, state, NEEDS_CONTROLLER)
+            result.skipped.append(f"{exc.code}:{task_id}")
+            return
         except CursorApiError as exc:
             if _follow_is_uncertain(exc):
                 state["claim_retry_uncertain"] = True
@@ -885,6 +918,12 @@ class Dispatcher:
             claimed_url=state.get("pr_url") or "",
         )
         return identity
+
+    def _prepare_model(self, contract, kind: str, state: dict):
+        try:
+            return prepare_model_choice(self.config.model_routing, contract, kind, state, self.cursor.list_models)
+        except CursorApiError as exc:
+            raise ModelPolicyError("model_catalog_unavailable") from exc
 
     def _domain_blocked(self, domains: set[str]) -> bool:
         if not domains:

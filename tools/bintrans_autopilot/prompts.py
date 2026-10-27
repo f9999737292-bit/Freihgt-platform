@@ -85,13 +85,13 @@ def fix_prompt(findings: str) -> str:
     )
 
 
-def implementation_body(config: AutopilotConfig, contract: TaskContract, branch: str, agent_id: str) -> dict:
+def implementation_body(config: AutopilotConfig, contract: TaskContract, branch: str, agent_id: str, model: dict | None = None) -> dict:
     assert_feature_branch(config, branch)
     # workOnCurrentBranch true pushes to startingRef. startingRef is the pre-created
     # autopilot/<task> branch, never main. autoCreatePR is documented; draft is not
     # a Cloud Agents field, so the dispatcher marks the GitHub PR draft afterwards.
     # agentId is documented for idempotent create. envVars must not be combined with it.
-    return {
+    body = {
         "prompt": {"text": implementation_prompt(contract, branch)},
         "name": f"BINTRANS {contract.task_id}"[:100],
         "agentId": agent_id,
@@ -106,14 +106,20 @@ def implementation_body(config: AutopilotConfig, contract: TaskContract, branch:
         "skipReviewerRequest": True,
         "mode": "agent",
     }
+    if model:
+        body["model"] = model
+    return body
 
 
-def qa_body(contract: TaskContract, agent_id: str, diff_summary: str) -> dict:
+def qa_body(contract: TaskContract, agent_id: str, diff_summary: str, model: dict | None = None) -> dict:
     # Omit repos and env so this is a no-repo agent. mode=plan does not implement.
-    return {
+    body = {
         "prompt": {"text": qa_prompt(contract, diff_summary)},
         "name": f"BINTRANS QA {contract.task_id}"[:100],
         "agentId": agent_id,
         "mode": "plan",
         "autoCreatePR": False,
     }
+    if model:
+        body["model"] = model
+    return body
