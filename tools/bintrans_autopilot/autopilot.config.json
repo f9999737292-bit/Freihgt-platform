@@ -50,5 +50,59 @@
     "ops/",
     "infrastructure/docker-compose/",
     "scripts/ops/"
-  ]
+  ],
+  "model_routing": {
+    "cursor_default_allowed": true,
+    "default_route": {
+      "model_id": "",
+      "params": [],
+      "fallback": "cursor_default",
+      "cost_class": "default",
+      "cost_approved": false,
+      "provider": "",
+      "fallback_cost_class": "default",
+      "fallback_cost_approved": false,
+      "require_distinct_provider": false
+    },
+    "routes": {
+      "platform_backend.ROUTINE": {},
+      "platform_backend.STANDARD": {},
+      "platform_backend.COMPLEX": {},
+      "platform_backend.SECURITY_CRITICAL": {},
+      "platform_backend.FINANCIAL_CRITICAL": {},
+      "tms.ROUTINE": {},
+      "tms.STANDARD": {},
+      "tms.COMPLEX": {},
+      "tms.SECURITY_CRITICAL": {},
+      "tms.FINANCIAL_CRITICAL": {},
+      "nlo_optimizer.ROUTINE": {},
+      "nlo_optimizer.STANDARD": {},
+      "nlo_optimizer.COMPLEX": {},
+      "nlo_optimizer.SECURITY_CRITICAL": {},
+      "nlo_optimizer.FINANCIAL_CRITICAL": {},
+      "edo.ROUTINE": {},
+      "edo.STANDARD": {},
+      "edo.COMPLEX": {},
+      "edo.SECURITY_CRITICAL": {},
+      "edo.FINANCIAL_CRITICAL": {},
+      "finance.ROUTINE": {},
+      "finance.STANDARD": {},
+      "finance.COMPLEX": {},
+      "finance.SECURITY_CRITICAL": {},
+      "finance.FINANCIAL_CRITICAL": {},
+      "analytics.ROUTINE": {},
+      "analytics.STANDARD": {},
+      "analytics.COMPLEX": {},
+      "analytics.SECURITY_CRITICAL": {},
+      "analytics.FINANCIAL_CRITICAL": {},
+      "frontend.ROUTINE": {},
+      "frontend.STANDARD": {},
+      "frontend.COMPLEX": {},
+      "frontend.SECURITY_CRITICAL": {},
+      "frontend.FINANCIAL_CRITICAL": {},
+      "independent_qa.INDEPENDENT_QA": {
+        "require_distinct_provider": false
+      }
+    }
+  }
 }

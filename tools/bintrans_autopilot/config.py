@@ -18,6 +18,100 @@ class DomainLimit:
     prefixes: tuple[str, ...]
 
 
+MODEL_ROLES = (
+    "platform_backend",
+    "tms",
+    "nlo_optimizer",
+    "edo",
+    "finance",
+    "analytics",
+    "frontend",
+    "independent_qa",
+)
+MODEL_TASK_CLASSES = (
+    "ROUTINE",
+    "STANDARD",
+    "COMPLEX",
+    "SECURITY_CRITICAL",
+    "FINANCIAL_CRITICAL",
+    "INDEPENDENT_QA",
+)
+COST_CLASSES = ("default", "standard", "expensive")
+
+
+@dataclass(frozen=True)
+class ModelRoute:
+    """One approved selection. An empty model_id means Cursor's configured default."""
+
+    model_id: str = ""
+    params: tuple[tuple[str, str], ...] = ()
+    fallback: str = "cursor_default"
+    cost_class: str = "default"
+    cost_approved: bool = False
+    provider: str = ""
+    fallback_cost_class: str = "default"
+    fallback_cost_approved: bool = False
+    require_distinct_provider: bool = False
+
+
+def _cursor_default_route() -> ModelRoute:
+    return ModelRoute()
+
+
+@dataclass(frozen=True)
+class ModelRouting:
+    cursor_default_allowed: bool = True
+    routes: dict[str, ModelRoute] = field(default_factory=dict)
+
+    def route_for(self, role: str, task_class: str) -> ModelRoute:
+        return self.routes.get(f"{role}.{task_class}", self.routes.get("default", _cursor_default_route()))
+
+
+def _param_pairs(raw) -> tuple[tuple[str, str], ...]:
+    pairs = []
+    for item in raw or []:
+        if not isinstance(item, dict):
+            raise ValueError("model param must be an object")
+        pairs.append((str(item.get("id") or ""), str(item.get("value") or "")))
+    return tuple(pairs)
+
+
+def _route_from(raw: dict | None, base: ModelRoute) -> ModelRoute:
+    item = raw or {}
+    cost_class = str(item.get("cost_class", base.cost_class))
+    fallback_cost = str(item.get("fallback_cost_class", base.fallback_cost_class))
+    if cost_class not in COST_CLASSES or fallback_cost not in COST_CLASSES:
+        raise ValueError("unknown model cost class")
+    fallback = str(item.get("fallback", base.fallback))
+    return ModelRoute(
+        model_id=str(item["model_id"]).strip() if "model_id" in item else base.model_id,
+        params=_param_pairs(item["params"]) if "params" in item else base.params,
+        fallback=fallback,
+        cost_class=cost_class,
+        cost_approved=bool(item.get("cost_approved", base.cost_approved)),
+        provider=str(item.get("provider", base.provider)).strip(),
+        fallback_cost_class=fallback_cost,
+        fallback_cost_approved=bool(item.get("fallback_cost_approved", base.fallback_cost_approved)),
+        require_distinct_provider=bool(item.get("require_distinct_provider", base.require_distinct_provider)),
+    )
+
+
+def load_model_routing(raw: dict | None) -> ModelRouting:
+    """Explicit model ids are off until a controller writes an approved route."""
+    payload = raw or {}
+    default = _route_from(payload.get("default_route"), _cursor_default_route())
+    routes = {"default": default}
+    for key, value in (payload.get("routes") or {}).items():
+        role, _, task_class = str(key).partition(".")
+        if role not in MODEL_ROLES or task_class not in MODEL_TASK_CLASSES:
+            raise ValueError(f"unknown model route {key}")
+        routes[str(key)] = _route_from(value if isinstance(value, dict) else {}, default)
+    return ModelRouting(
+        cursor_default_allowed=bool(payload.get("cursor_default_allowed", True)),
+        routes=routes,
+    )
+
+
 @dataclass(frozen=True)
 class AutopilotConfig:
     autopilot_enabled: bool
@@ -40,6 +134,7 @@ class AutopilotConfig:
     approved_path_prefixes: tuple[str, ...]
     hard_forbidden_prefixes: tuple[str, ...]
     critical_domains: tuple[DomainLimit, ...] = field(default_factory=tuple)
+    model_routing: ModelRouting = field(default_factory=load_model_routing)
 
     def domain_for_path(self, path: str) -> str | None:
         normalized = path.replace("\\", "/").lstrip("./")
@@ -83,6 +178,7 @@ def load_config(path: Path | None = None) -> AutopilotConfig:
         approved_path_prefixes=tuple(raw["approved_path_prefixes"]),
         hard_forbidden_prefixes=tuple(raw["hard_forbidden_prefixes"]),
         critical_domains=domains,
+        model_routing=load_model_routing(raw.get("model_routing")),
     )
 
 

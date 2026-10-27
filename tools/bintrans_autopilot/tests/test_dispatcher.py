@@ -182,6 +182,7 @@ class FakeCursor:
         self.follow_attempts = 0
         self.create_attempts = 0
         self.create_body = None
+        self.model_catalog = {"items": []}
         self.lock = threading.Lock()
 
     def cloud_charged_cents(self, start, end):
@@ -206,6 +207,9 @@ class FakeCursor:
             self.agents[agent_id] = {"id": agent_id, "latestRunId": run_id, "status": "ACTIVE"}
             self.runs[(agent_id, run_id)] = {"id": run_id, "agentId": agent_id, "status": "RUNNING"}
             return {"agent": self.agents[agent_id], "run": {"id": run_id, "status": "CREATING"}}
+
+    def list_models(self):
+        return self.model_catalog
 
     def get_agent(self, agent_id):
         if agent_id not in self.agents:

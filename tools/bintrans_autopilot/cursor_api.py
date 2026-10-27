@@ -125,6 +125,10 @@ class CursorClient:
         # POST /v1/agents — create the agent and enqueue the initial run.
         return self._call("POST", agent_endpoint(), body)
 
+    def list_models(self) -> dict:
+        # GET /v1/models — ids and params the account can pass as model.id.
+        return self._call("GET", "/v1/models")
+
     def get_agent(self, agent_id: str) -> dict:
         return self._call("GET", agent_endpoint(agent_id))
 
@@ -133,6 +137,7 @@ class CursorClient:
 
     def follow_up(self, agent_id: str, text: str) -> dict:
         # POST /v1/agents/{id}/runs — new run on the same agent. No steer, no extra fields.
+        # Model is not repeated here, so a failed run cannot move to a richer model.
         return self._call("POST", agent_endpoint(agent_id, "/runs"), {"prompt": {"text": text}})
 
     def cancel_run(self, agent_id: str, run_id: str) -> dict:
