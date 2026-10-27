@@ -67,6 +67,13 @@ class ModelCatalog:
                 return model
         return None
 
+    def find_canonical(self, model_id: str) -> CatalogModel | None:
+        """Pinned ids match items[].id only. An alias must not retarget the pin."""
+        wanted = model_id.strip()
+        if not wanted:
+            return None
+        return self.by_id.get(wanted)
+
 
 @dataclass(frozen=True)
 class ModelChoice:
@@ -306,7 +313,7 @@ def _from_pin(pin: dict, route: ModelRoute, routing: ModelRouting, catalog: Mode
     del route, routing
     if pin.get("omit") or not str(pin.get("id") or ""):
         return _cursor_default("pinned_cursor_default")
-    model = catalog.find(str(pin["id"]))
+    model = catalog.find_canonical(str(pin["id"]))
     if model is None:
         raise ModelPolicyError("pinned_model_unavailable")
     params = _pin_params(pin)

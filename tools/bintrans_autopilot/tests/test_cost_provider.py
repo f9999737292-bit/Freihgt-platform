@@ -101,6 +101,98 @@ class CostProviderTests(unittest.TestCase):
         self.assertIn("pinned_model_unavailable:BT-100", result.skipped)
         self.assertEqual(state_of(github.issues[0])["status"], "NEEDS_CONTROLLER")
 
+    def test_pin_rejects_an_alias_that_points_at_another_model(self):
+        catalog = parse_model_catalog({
+            "items": [
+                {
+                    "id": "fixture-expensive",
+                    "aliases": ["fixture-routine-old"],
+                    "variants": [{"params": [], "isDefault": True}],
+                },
+                {
+                    "id": "fixture-routine",
+                    "variants": [{"params": [{"id": "fast", "value": "true"}], "isDefault": True}],
+                },
+            ]
+        })
+        self.assertEqual(catalog.find("fixture-routine-old").id, "fixture-expensive")
+        self.assertIsNone(catalog.find_canonical("fixture-routine-old"))
+        upgraded = routing({
+            "tms.ROUTINE": {
+                "model_id": "fixture-expensive",
+                "cost_class": "expensive",
+                "cost_approved": True,
+                "provider": "cursor",
+            }
+        })
+        alias_pin = {
+            "omit": False,
+            "id": "fixture-routine-old",
+            "params": [],
+            "cost_class": "standard",
+            "cost_status": "UNKNOWN",
+        }
+        with self.assertRaises(ModelPolicyError) as raised:
+            resolve_model(upgraded, contract(), "implementation", catalog, {"model_pin": alias_pin})
+        self.assertEqual(raised.exception.code, "pinned_model_unavailable")
+        exact = resolve_model(
+            upgraded,
+            contract(),
+            "implementation",
+            catalog,
+            {"model_pin": {"omit": False, "id": "fixture-routine", "params": [{"id": "fast", "value": "true"}], "cost_class": "standard"}},
+        )
+        self.assertEqual(exact.model_id, "fixture-routine")
+        self.assertEqual(exact.source, "pinned")
+        self.assertEqual(exact.cost_class, "standard")
+        self.assertEqual(exact.cost_status, UNKNOWN_COST)
+        self.assertEqual(unpaid_model_reason(load_config(), exact), "unknown_cost")
+        distinct = routing({
+            "independent_qa.INDEPENDENT_QA": {
+                "model_id": "fixture-expensive",
+                "provider": "anthropic",
+                "require_distinct_provider": True,
+                "cost_class": "standard",
+                "cost_approved": True,
+            }
+        })
+        with self.assertRaises(ModelPolicyError) as provider_error:
+            resolve_model(distinct, contract(), "qa", catalog, {"model_pin": alias_pin})
+        self.assertEqual(provider_error.exception.code, "provider_unverified")
+        issue = ready_issue()
+        issue.body += "\n<!-- bintrans-autopilot-state\n" + json.dumps({
+            "agent_id": AGENT,
+            "allowed_paths": ["services/shipment-service/internal/foo.go"],
+            "base_sha": MAIN,
+            "branch": "autopilot/bt-100",
+            "model_pin": alias_pin,
+            "run_id": "",
+            "status": "CLAIMED",
+            "task_id": "BT-100",
+        }) + "\n-->\n"
+        issue.labels = ["autopilot", "autopilot-contract-approved", "autopilot:CLAIMED"]
+        cursor = FakeCursor()
+        cursor.model_catalog = {
+            "items": [
+                {
+                    "id": "fixture-expensive",
+                    "aliases": ["fixture-routine-old"],
+                    "variants": [{"params": [], "isDefault": True}],
+                }
+            ]
+        }
+        github = FakeGithub([issue])
+        result = run_dispatch(github, cursor, enabled_config(model_routing=upgraded))
+        saved = state_of(github.issues[0])
+        self.assertEqual(cursor.creates, [])
+        self.assertEqual(cursor.follows, [])
+        self.assertEqual(cursor.follow_attempts, 0)
+        self.assertEqual(result.launched, [])
+        self.assertIn("pinned_model_unavailable:BT-100", result.skipped)
+        self.assertEqual(saved["status"], "NEEDS_CONTROLLER")
+        self.assertEqual(saved["model_pin"]["id"], "fixture-routine-old")
+        self.assertEqual(saved["last_error"], "pinned_model_unavailable")
+
     def test_expensive_fallback_stays_rejected(self):
         catalog = parse_model_catalog(fixture_catalog())
         policy = routing({
