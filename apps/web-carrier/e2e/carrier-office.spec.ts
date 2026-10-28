@@ -384,6 +384,20 @@ async function chooseCompany(page: Page) {
   await expect(page.getByTestId('home-shell')).toBeVisible()
 }
 
+/** Gate appears only after layout refreshMemberships() refetches companies post-reload. */
+async function reloadAndExpectCompanyGate(page: Page) {
+  const membershipRefresh = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return url.pathname === '/api/v1/users/user-1/companies'
+      && url.searchParams.get('tenant_id') === 'tenant-1'
+      && response.ok()
+  })
+  await page.reload()
+  await membershipRefresh
+  await expect(page.getByTestId('company-gate')).toBeVisible()
+  await expect(page.getByTestId('home-shell')).toHaveCount(0)
+}
+
 test('carrier office journey covers tenders, award, transport orders, and fleet', async ({ page }) => {
   const calls = await installGateway(page, ['CARRIER_DISPATCHER'])
   await signIn(page)
@@ -441,8 +455,7 @@ test('tampered selected company is cleared before business calls', async ({ page
     sessionStorage.setItem(key, JSON.stringify(raw))
   })
   const marked = calls.length
-  await page.reload()
-  await expect(page.getByTestId('company-gate')).toBeVisible()
+  await reloadAndExpectCompanyGate(page)
   const afterReload = calls.slice(marked)
   expect(afterReload.some((call) => call.includes('co-spoof'))).toBe(false)
   expect(afterReload.some((call) => call.includes('/api/v1/drivers') || call.includes('/api/v1/vehicles') || call.includes('/api/v1/carrier/'))).toBe(false)
