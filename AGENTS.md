@@ -209,3 +209,12 @@ Never invent:
 - deployment status
 
 If exact evidence is unavailable, explicitly state that it is unknown or not verified.
+
+## Cursor Cloud specific instructions
+
+- Go 1.25, Node 22, and pnpm 9.15.0 are already on the default image. Login shells see `pnpm` via nvm. Do not upgrade pnpm; the repo pins `packageManager` to 9.15.0.
+- Boot brings up Docker and PostgreSQL 16, then applies `make migrate-up`. Postgres listens on `localhost:5432`. Database names and the local development password are the Makefile defaults from `.env.example`. Do not print those values.
+- Container-to-container traffic needs `iptables-legacy` FORWARD set to ACCEPT and flushed. Docker programs nftables, and a leftover legacy FORWARD DROP policy times out bridge connections (including `make migrate-up`) even when the host port is open. The boot script already does this.
+- `make run-identity-service`, `make run-company-service`, and `AUTH_ENABLED=true make run-api-gateway` are enough to log in and create a company. Gateway `/health` is ok in that slice. Gateway `/ready` stays `not_ready` until the other backend services in `infrastructure/docker-compose/docker-compose.yml` are up.
+- Start web-admin with `NUXT_TELEMETRY_DISABLED=1 pnpm --filter @freight-platform/web-admin dev -- --host 0.0.0.0 --port 3000`. Open `http://localhost:3000`, not `http://127.0.0.1:3000`. The default API base is `http://localhost:8080`, and the browser treats `127.0.0.1` as a different origin.
+- Nuxt waits on an anonymous telemetry prompt unless `NUXT_TELEMETRY_DISABLED=1` is set. That prompt blocks the dev server from finishing startup.
