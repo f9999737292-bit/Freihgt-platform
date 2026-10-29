@@ -73,3 +73,4 @@ No approved numeric completion model exists on this base SHA. The daily report p
 - Stop: `EMERGENCY_STOP.md`
 - Money and limits: `COST_AND_LIMITS.md`
 - Branch protection proposal, not applied: `BRANCH_PROTECTION_PROPOSAL.md`
+- Dry-run planning queue, phase 0.3A: `SCHEDULER_0_3A.md`
