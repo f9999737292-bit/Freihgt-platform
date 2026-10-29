@@ -9,7 +9,9 @@ NFS, multi-host leasing, or a 24/7 distributed worker.
 
 from __future__ import annotations
 
+import os
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -99,21 +101,63 @@ def components_under(prefix: tuple[str, ...], path: tuple[str, ...]) -> bool:
 
 
 def resolve_task_path(root: Path, relative: str) -> Path | None:
-    """Resolve a task path and reject symlink escapes outside ``root``.
+    """Resolve a task path against the canonical workspace root.
 
-    The result is the path to use for a later local file read. A symlink or
-    junction that leaves the workspace root is rejected.
+    Textual checks happen first. Each component is then resolved so a symlink
+    or junction in any parent is rejected when it leaves the root. A relative
+    root is not joined to the current directory.
     """
     parts = task_path_components(relative)
-    if parts is None:
+    if parts is None or not root.is_absolute():
         return None
     try:
         root_real = root.resolve()
-        resolved = root.joinpath(*parts).resolve()
-        resolved.relative_to(root_real)
+        if not root_real.is_dir():
+            return None
+        current = root_real
+        for part in parts:
+            current = (current / part).resolve()
+            current.relative_to(root_real)
     except (OSError, ValueError):
         return None
-    return resolved
+    return current
+
+
+def trusted_workspace_root(env: Mapping[str, str] | None = None) -> Path:
+    """Return the checkout that contains this package.
+
+    Local runs use that checkout only. They do not use the process current
+    directory. In GitHub Actions, ``GITHUB_WORKSPACE`` is accepted only when
+    it is the same canonical directory. Any other value is refused.
+    """
+    source = os.environ if env is None else env
+    checkout = Path(__file__).resolve().parent.parent.parent
+    if not _is_package_checkout(checkout):
+        raise SchedulerModeError("workspace_root_unavailable")
+    canonical = checkout.resolve()
+    if (source.get("GITHUB_ACTIONS") or "").strip().lower() == "true":
+        raw = (source.get("GITHUB_WORKSPACE") or "").strip()
+        if not raw:
+            raise SchedulerModeError("workspace_root_unavailable")
+        try:
+            actions_root = Path(raw).resolve()
+        except OSError as exc:
+            raise SchedulerModeError("workspace_root_unavailable") from exc
+        if actions_root != canonical:
+            raise SchedulerModeError("workspace_root_unavailable")
+    return canonical
+
+
+def _is_package_checkout(root: Path) -> bool:
+    config = root / "tools" / "bintrans_autopilot" / "autopilot.config.json"
+    git_entry = root / ".git"
+    try:
+        if not config.is_file() or not (git_entry.is_dir() or git_entry.is_file()):
+            return False
+        config.resolve().relative_to(root.resolve())
+    except (OSError, ValueError):
+        return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -361,6 +405,8 @@ class Scheduler:
             return "invalid_base_sha"
         if not task.allowed_paths:
             return "missing_paths"
+        if self._workspace_root_block():
+            return "workspace_root_unavailable"
         for path in task.allowed_paths:
             parts = task_path_components(path)
             if parts is None:
@@ -371,7 +417,7 @@ class Scheduler:
                 self.policy.approved_prefixes, parts, invalid_matches=False
             ):
                 return "unapproved_path"
-            if self.policy.workspace_root and resolve_task_path(Path(self.policy.workspace_root), path) is None:
+            if resolve_task_path(Path(self.policy.workspace_root), path) is None:
                 return "path_escape"
         if task.max_budget_cents is None:
             return "unknown_budget"
@@ -389,6 +435,20 @@ class Scheduler:
             if components_under(parsed, parts):
                 return True
         return False
+
+    def _workspace_root_block(self) -> str:
+        raw = self.policy.workspace_root.strip()
+        if not raw:
+            return "workspace_root_unavailable"
+        root = Path(raw)
+        if not root.is_absolute():
+            return "workspace_root_unavailable"
+        try:
+            if not root.resolve().is_dir():
+                return "workspace_root_unavailable"
+        except OSError:
+            return "workspace_root_unavailable"
+        return ""
 
     def _paid_block(self, task: Task) -> str:
         if not task.requires_cloud_agent:
@@ -463,10 +523,10 @@ class Scheduler:
 
 def policy_from_config(env: dict[str, str] | None = None) -> Policy:
     """Read committed limits. Paid automation stays off in this phase."""
-    del env
     config = load_config()
     if config.autopilot_enabled:
         raise SchedulerModeError("config_autopilot_enabled")
+    root = trusted_workspace_root(env)
     return Policy(
         mode="DRY_RUN",
         autopilot_enabled=False,
@@ -475,6 +535,7 @@ def policy_from_config(env: dict[str, str] | None = None) -> Policy:
         observed_charged_cents=None,
         approved_prefixes=config.approved_path_prefixes,
         forbidden_prefixes=config.hard_forbidden_prefixes,
+        workspace_root=str(root),
     )
 
 
@@ -499,6 +560,7 @@ def dry_run_main(argv: list[str] | None = None) -> int:
     print("PAID_LAUNCH=BLOCKED")
     print("MERGE=BLOCKED")
     print("DEPLOY=BLOCKED")
-    print(f"HOST_LOCK=LOCAL_ONLY")
-    print(f"NFS_LOCK=NO")
+    print("HOST_LOCK=LOCAL_ONLY")
+    print("NFS_LOCK=NO")
+    print("WORKSPACE_ROOT=TRUSTED")
     return 0

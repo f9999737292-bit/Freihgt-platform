@@ -18,6 +18,7 @@ from bintrans_autopilot.scheduler import (
     Scheduler,
     SchedulerModeError,
     dry_run_main,
+    policy_from_config,
     resolve_task_path,
 )
 from bintrans_autopilot.task_queue import FileLock, QueueError, Task, TaskStore
@@ -70,16 +71,44 @@ def task(**overrides) -> Task:
     return Task(**raw)
 
 
+def prepare_workspace(directory: Path) -> Path:
+    root = directory / "workspace"
+    allowed = root / "docs" / "engineering" / "autopilot" / "SCHEDULER_0_3A.md"
+    allowed.parent.mkdir(parents=True)
+    allowed.write_text("dry-run\n", encoding="utf-8")
+    return root.resolve()
+
+
+def link_directory(link: Path, target: Path) -> bool:
+    link.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.symlink(target, link, target_is_directory=True)
+        return True
+    except OSError:
+        pass
+    if os.name != "nt":
+        return False
+    completed = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return completed.returncode == 0 and link.exists()
+
+
 class SchedulerTests(unittest.TestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
         self.clock = Clock()
         self.store = TaskStore(Path(self.directory.name) / "queue.json")
+        self.workspace = prepare_workspace(Path(self.directory.name))
 
     def tearDown(self) -> None:
         self.directory.cleanup()
 
     def scheduler(self, name: str = "s1", **overrides) -> Scheduler:
+        overrides.setdefault("workspace_root", str(self.workspace))
         return Scheduler(self.store, name, policy(**overrides), self.clock.now, lease_seconds=30)
 
     def test_two_schedulers_cannot_claim_one_task(self) -> None:
@@ -211,10 +240,16 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual(dry_run_main([]), 0)
 
 
-def _claim_in_process(store_path: str, name: str, stamp: str) -> None:
+def _claim_in_process(store_path: str, name: str, stamp: str, workspace: str) -> None:
     moment = datetime(2026, 10, 29, 12, 0, tzinfo=timezone.utc)
     store = TaskStore(Path(store_path))
-    result = Scheduler(store, name, policy(), lambda: moment, lease_seconds=30).tick(stop_after="claimed")
+    result = Scheduler(
+        store,
+        name,
+        policy(workspace_root=workspace),
+        lambda: moment,
+        lease_seconds=30,
+    ).tick(stop_after="claimed")
     Path(stamp).write_text(result.reason, encoding="ascii")
 
 
@@ -233,11 +268,13 @@ class RemediationTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.clock = Clock()
         self.store = TaskStore(Path(self.directory.name) / "queue.json")
+        self.workspace = prepare_workspace(Path(self.directory.name))
 
     def tearDown(self) -> None:
         self.directory.cleanup()
 
     def scheduler(self, name: str = "s1", **overrides) -> Scheduler:
+        overrides.setdefault("workspace_root", str(self.workspace))
         return Scheduler(self.store, name, policy(**overrides), self.clock.now, lease_seconds=30)
 
     def test_path_traversal_and_allowlist_bypass_are_rejected(self) -> None:
@@ -277,16 +314,8 @@ class RemediationTests(unittest.TestCase):
         outside.mkdir()
         (outside / "secret.txt").write_text("secret", encoding="utf-8")
         link = root / "docs"
-        try:
-            os.symlink(outside, link, target_is_directory=True)
-        except OSError:
-            completed = subprocess.run(
-                ["cmd", "/c", "mklink", "/J", str(link), str(outside)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertEqual(completed.returncode, 0, completed.stderr or completed.stdout)
+        if not link_directory(link, outside):
+            self.skipTest("symlink_unavailable")
         self.assertIsNone(resolve_task_path(root, "docs/secret.txt"))
         safe = root / "notes"
         safe.mkdir()
@@ -307,7 +336,10 @@ class RemediationTests(unittest.TestCase):
         context = multiprocessing.get_context("spawn")
         stamps = [Path(self.directory.name) / "s1.txt", Path(self.directory.name) / "s2.txt"]
         processes = [
-            context.Process(target=_claim_in_process, args=(str(self.store.path), name, str(stamp)))
+            context.Process(
+                target=_claim_in_process,
+                args=(str(self.store.path), name, str(stamp), str(self.workspace)),
+            )
             for name, stamp in zip(("s1", "s2"), stamps)
         ]
         for process in processes:
@@ -490,6 +522,69 @@ class RemediationTests(unittest.TestCase):
         logged = {entry["action"] for entry in self.store.journal(self.clock.now())}
         self.assertTrue(logged.isdisjoint(set(refused)))
         self.assertIn("refused", logged)
+
+    def test_nested_symlink_escape_is_blocked(self) -> None:
+        root = Path(self.directory.name) / "nested-root"
+        outside = Path(self.directory.name) / "nested-outside"
+        outside.mkdir()
+        (outside / "secret.txt").write_text("secret", encoding="utf-8")
+        docs = root / "docs"
+        docs.mkdir(parents=True)
+        if not link_directory(docs / "linked", outside):
+            self.skipTest("symlink_unavailable")
+        self.store.enqueue(
+            task(id="nested-escape", allowed_paths=("docs/linked/secret.txt",)),
+            self.clock.now(),
+            "s1",
+        )
+        result = self.scheduler(workspace_root=str(root.resolve())).tick()
+        self.assertEqual(result.reason, "path_escape")
+        self.assertEqual(result.status, "BLOCKED")
+        self.assertNotEqual(result.status, "REVIEW_REQUIRED")
+        self.assertEqual(result.cloud_agents_started, 0)
+
+    def test_file_inside_workspace_reaches_dry_run_review(self) -> None:
+        self.store.enqueue(task(id="inside"), self.clock.now(), "s1")
+        result = self.scheduler().tick()
+        self.assertEqual(result.reason, "review_required")
+        self.assertEqual(result.status, "REVIEW_REQUIRED")
+        self.assertEqual(result.cloud_agents_started, 0)
+        self.assertFalse(result.merge_attempted)
+        self.assertFalse(result.deploy_attempted)
+
+    def test_empty_or_unavailable_workspace_root_blocks(self) -> None:
+        cases = {
+            "empty-root": "",
+            "missing-root": str(Path(self.directory.name) / "missing-root"),
+            "relative-root": "docs",
+        }
+        for task_id, root in cases.items():
+            self.store.enqueue(task(id=task_id), self.clock.now(), "s1")
+            result = self.scheduler(workspace_root=root).tick()
+            stored = self.store.get(task_id, self.clock.now())
+            self.assertEqual(result.reason, "workspace_root_unavailable", task_id)
+            self.assertEqual(stored.status, "BLOCKED", task_id)
+            self.assertNotEqual(stored.status, "REVIEW_REQUIRED", task_id)
+
+    def test_trusted_root_comes_from_the_checkout_not_cwd(self) -> None:
+        previous = os.getcwd()
+        os.chdir(self.directory.name)
+        try:
+            loaded = policy_from_config({})
+        finally:
+            os.chdir(previous)
+        root = Path(loaded.workspace_root)
+        self.assertTrue(root.is_absolute())
+        self.assertTrue((root / "tools" / "bintrans_autopilot" / "autopilot.config.json").is_file())
+        self.assertNotEqual(root.resolve(), Path(self.directory.name).resolve())
+        self.assertFalse(loaded.autopilot_enabled)
+        self.assertFalse(loaded.paid_automation_enabled)
+        for workspace in ("", self.directory.name):
+            with self.assertRaises(SchedulerModeError) as raised:
+                policy_from_config({"GITHUB_ACTIONS": "true", "GITHUB_WORKSPACE": workspace})
+            self.assertEqual(raised.exception.code, "workspace_root_unavailable")
+        matched = policy_from_config({"GITHUB_ACTIONS": "true", "GITHUB_WORKSPACE": str(root)})
+        self.assertEqual(Path(matched.workspace_root).resolve(), root.resolve())
 
     def test_queue_command_does_not_construct_cursor_client(self) -> None:
         import bintrans_autopilot.__main__ as entry

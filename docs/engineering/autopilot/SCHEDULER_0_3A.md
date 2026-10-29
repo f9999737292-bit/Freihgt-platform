@@ -16,13 +16,16 @@ Side states: `BLOCKED`, `FAILED`, `CANCELLED`. Every move is appended to the tas
 
 `tools/bintrans_autopilot/scheduler.py` runs only in `DRY_RUN`. A live mode value is rejected. The scheduler does not import the Cursor client. It does not merge, deploy, or write staging or production. `python -m bintrans_autopilot queue-dry-run` prints the closed switches and returns before any Cursor or GitHub client is constructed.
 
+The trusted workspace root is the checkout that contains `tools/bintrans_autopilot/autopilot.config.json` and a `.git` file or directory. Local runs take that path from the scheduler module. They do not use the process current directory. In GitHub Actions, `GITHUB_WORKSPACE` is accepted only when `GITHUB_ACTIONS=true` and its canonical path is that same checkout. A different value leaves the root unavailable. An unavailable root blocks the task. Pull-request workflows still stop earlier with `UNTRUSTED_WORKFLOW` and do not reach this scheduler.
+
 A task is blocked, and not claimed, when any of these are true:
 
 - the assigned agent is outside A–I
 - the base SHA, acceptance criteria, or allowed paths are missing or outside the committed path catalog
 - a path is absolute, a drive path, a UNC path, or contains `.`, `..`, or an empty component; prefixes are matched by path components, not by string prefix
 - a path is on the hard-forbidden list, checked before the allowlist
-- a later local file read would follow a symlink or junction outside the workspace root
+- the workspace root is empty, relative, or not an existing directory
+- a path, or any parent component, resolves through a symlink or junction outside the canonical workspace root
 - a requested action is not on the explicit dry-run allowlist; that allowlist is empty, so merge, deploy, `cloud_agent_create`, `production_change`, and unknown actions are refused and not executed
 - `max_budget_cents` is null or negative
 - the task requires a Cloud Agent
