@@ -27,10 +27,10 @@ A task is blocked, and not claimed, when any of these are true:
 - `max_budget_cents` is null or negative
 - the task requires a Cloud Agent
 
-A configured launch cap of `0` blocks a paid task with `paid_budget_zero`. A missing observed charge is `null`. It is not stored as `0`. When the cap is positive and no charge has been read, the reason is `unknown_spend`. The 0.2E pilot charge remains unknown and is not used as a zero balance.
+A configured launch cap of `0` blocks a paid task with `paid_budget_zero`. A missing observed charge is `null`. It is not stored as `0`. When the cap is positive and no charge has been read, the reason is `unknown_spend`. The first pilot run is recorded in `tools/bintrans_autopilot/usage_journal.json`. That record is not a launch balance. A later run with no recorded charge stays unknown.
 
 An expired task lease on `CLAIMED` or `RUNNING` returns the task to `READY`. Each claim stores a new `lease_generation`. Only the scheduler that observed that generation can finish the task. A previous owner, including one that reused the same scheduler id, cannot finish it after a new claim. A missing lease on an active task becomes `BLOCKED`.
 
 `COMPLETED` and `CANCELLED` do not change status. A late CI failure after `SUCCESS` then `COMPLETED` keeps `COMPLETED`, records the failure in the journal and task history, and sets `ci_confirmation` to `LOST`. That does not reopen the task, restore a pass, or permit merge or launch. A failed or unknown CI result cannot move a task to `COMPLETED` and is not recorded as `PASS`.
 
-This phase does not read or store Cloud Agent charges. A missing charge stays null and is not written as zero.
+The scheduler does not call Cursor. A missing charge stays null and is not written as zero. The usage journal is a historical record, not a launch authorization.

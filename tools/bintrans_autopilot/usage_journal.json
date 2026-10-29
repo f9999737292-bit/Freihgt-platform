@@ -1,0 +1,18 @@
+{
+  "records": [
+    {
+      "agent_id": "bc-33a0edbc-8fed-47fa-85b7-cc139e900375",
+      "cache_read_tokens": 1144992,
+      "cache_write_tokens": 0,
+      "charged_cents": "0",
+      "input_tokens": 39535,
+      "output_tokens": 12668,
+      "raw_cost_cents": "86.83995",
+      "run_id": "run-a51658e1-665d-4f7c-9135-c0d720b2210b",
+      "source": "GET /v1/agents/{id}/usage",
+      "source_http_status": 200,
+      "total_tokens": 1197195
+    }
+  ],
+  "version": 1
+}
