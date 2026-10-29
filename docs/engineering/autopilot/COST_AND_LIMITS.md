@@ -1,6 +1,6 @@
 # Cost and operating limits
 
-No Cloud Agent was launched for this phase, so there is no measured spend. The figures below are caps, not a price list. Cursor's published Cloud Agents docs do not fix a per-model dollar rate in the endpoints this client uses. Do not invent one.
+The figures below are caps, not a price list. Cursor's published Cloud Agents docs do not fix a per-model dollar rate in the endpoints this client uses. Do not invent one.
 
 ## Caps in `autopilot.config.json`
 
@@ -21,6 +21,10 @@ The Admin API text recommends polling filtered usage at most once per hour. The 
 ## GitHub Actions
 
 While `AUTOPILOT_ENABLED` is not `true`, the job-level `if` skips the job before a runner starts. Skipped jobs do not call Cursor. GitHub may delay or drop a cron, and a repository with no Actions activity for 60 days stops scheduled workflows until a repository event wakes them. Event triggers cover that gap once the controller has enabled the variable.
+
+## Historical usage journal
+
+`tools/bintrans_autopilot/usage_journal.json` is the only stored Cloud Agent usage record. `raw_cost_cents` is the undiscounted model cost. `charged_cents` is the amount billed for that run. A JSON `null` means the amount was not read and is not zero. A recorded `0` is the server value for that run. Recording the same agent id and run id again does not add a second row. This file does not change the caps above. The live stop remains `POST /teams/filtered-usage-events`. The scheduler does not launch from the journal and does not treat a missing charge as zero.
 
 ## What the report shows
 

@@ -32,6 +32,10 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     args = list(sys.argv[1:] if argv is None else argv)
     command = args[0] if args else "dispatch"
+    if command == "queue-dry-run":
+        from bintrans_autopilot.scheduler import dry_run_main
+
+        return dry_run_main(args[1:])
     config = load_config()
     enabled, reason = runtime_enabled(config, os.environ)
     if command == "report" and not enabled:
