@@ -2,6 +2,9 @@
 
 Mode is fixed to DRY_RUN. This module does not import the Cursor client and
 does not call merge or deployment commands. Unknown spend stays unknown.
+
+Path checks and the file lock are local to one host. They do not authorize
+NFS, multi-host leasing, or a 24/7 distributed worker.
 """
 
 from __future__ import annotations
@@ -9,19 +12,21 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from bintrans_autopilot.config import load_config
 from bintrans_autopilot.task_queue import (
     ACTIVE,
     BLOCKED,
-    CANCELLED,
+    CI_CONFIRMED,
+    CI_LOST,
     CLAIMED,
     COMPLETED,
     CREATED,
-    FAILED,
     READY,
     REVIEW_REQUIRED,
     RUNNING,
+    TERMINAL,
     QueueError,
     Task,
     TaskStore,
@@ -31,12 +36,84 @@ from bintrans_autopilot.task_queue import (
 )
 
 _SHA = re.compile(r"^[0-9a-f]{40}$")
-_FORBIDDEN_ACTIONS = frozenset({"merge", "deploy", "staging", "production", "production_secrets"})
-_SIDE_EFFECTS = frozenset({"merge", "deploy", "staging_change", "production_change", "cloud_agent_create"})
+_DRIVE = re.compile(r"^[A-Za-z]:")
+# Dry-run records no executable action. An action is forbidden until it is
+# added here. This set is not an executor.
+_ALLOWED_REQUESTED_ACTIONS = frozenset()
+_ALLOWED_JOURNAL_ACTIONS = frozenset(
+    {
+        "idle",
+        "waiting",
+        "dry_run_planned",
+        "ci_recorded",
+        "ci_confirmation_lost",
+        "transition",
+        "refused",
+    }
+)
 
 
 class SchedulerModeError(QueueError):
     pass
+
+
+def task_path_components(path: str) -> tuple[str, ...] | None:
+    """Return relative components, or None when the path is rejected.
+
+    ``.`` and empty components are rejected rather than collapsed. ``..`` is
+    rejected as its own component. Absolute paths, drive paths, and UNC paths
+    are rejected. Character stripping is not used as normalization.
+    """
+    if not isinstance(path, str) or path == "" or "\x00" in path:
+        return None
+    if path != path.strip():
+        return None
+    normalized = path.replace("\\", "/")
+    if normalized.startswith("/") or _DRIVE.match(normalized):
+        return None
+    parts = tuple(normalized.split("/"))
+    if any(part in {"", ".", ".."} for part in parts):
+        return None
+    return parts
+
+
+def prefix_components(prefix: str) -> tuple[str, ...] | None:
+    """Parse a catalog prefix. One trailing slash marks a directory prefix."""
+    if not isinstance(prefix, str) or prefix == "" or "\x00" in prefix:
+        return None
+    normalized = prefix.replace("\\", "/")
+    if normalized.startswith("/") or _DRIVE.match(normalized):
+        return None
+    if normalized.endswith("/"):
+        normalized = normalized[:-1]
+    if normalized == "":
+        return None
+    parts = tuple(normalized.split("/"))
+    if any(part in {"", ".", ".."} for part in parts):
+        return None
+    return parts
+
+
+def components_under(prefix: tuple[str, ...], path: tuple[str, ...]) -> bool:
+    return len(path) >= len(prefix) and path[: len(prefix)] == prefix
+
+
+def resolve_task_path(root: Path, relative: str) -> Path | None:
+    """Resolve a task path and reject symlink escapes outside ``root``.
+
+    The result is the path to use for a later local file read. A symlink or
+    junction that leaves the workspace root is rejected.
+    """
+    parts = task_path_components(relative)
+    if parts is None:
+        return None
+    try:
+        root_real = root.resolve()
+        resolved = root.joinpath(*parts).resolve()
+        resolved.relative_to(root_real)
+    except (OSError, ValueError):
+        return None
+    return resolved
 
 
 @dataclass(frozen=True)
@@ -48,6 +125,7 @@ class Policy:
     observed_charged_cents: float | None = None
     approved_prefixes: tuple[str, ...] = ()
     forbidden_prefixes: tuple[str, ...] = ()
+    workspace_root: str = ""
 
     def __post_init__(self) -> None:
         if self.mode != "DRY_RUN":
@@ -81,6 +159,7 @@ class Scheduler:
         self.policy = policy
         self.now = now
         self.lease_seconds = lease_seconds
+        self._fences: dict[str, int] = {}
 
     def tick(self, stop_after: str = "review") -> TickResult:
         moment = self.now()
@@ -109,22 +188,22 @@ class Scheduler:
         return self.store.update(moment, apply)
 
     def finish(self, task_id: str) -> TickResult:
-        """Continue a claimed task only while its lease still belongs to this scheduler."""
+        """Continue a claimed task only for the fence this scheduler observed."""
         moment = self.now()
 
         def apply(data: dict) -> TickResult:
             task = self._task(data, task_id)
             if task is None:
                 return TickResult(False, "missing_task", task_id)
+            if task.status in TERMINAL:
+                return TickResult(False, "terminal_immutable", task_id, task.status)
             if task.status not in {CLAIMED, RUNNING}:
                 return TickResult(False, "not_leased", task_id, task.status)
-            if task.lease_owner != self.scheduler_id or self._expired(task, moment):
-                if task.status in ACTIVE and self._expired(task, moment):
-                    self._move(data, task, READY, moment, "lease_expired")
-                    task.lease_owner = ""
-                    task.lease_expires_at = ""
-                    data["tasks"][task.id] = task.to_dict()
-                return TickResult(False, "lease_lost", task_id, data["tasks"][task.id]["status"])
+            if self._fences.get(task.id) != task.lease_generation or task.lease_owner != self.scheduler_id:
+                return TickResult(False, "lease_lost", task_id, task.status)
+            if self._expired(task, moment):
+                self._move(data, task, READY, moment, "lease_expired")
+                return TickResult(False, "lease_lost", task_id, READY)
             if task.status == CLAIMED:
                 self._move(data, task, RUNNING, moment, "dry_run_started")
             self._log(data, moment, task.id, "dry_run_planned", "no_side_effects")
@@ -141,17 +220,40 @@ class Scheduler:
             task = self._task(data, task_id)
             if task is None:
                 return TickResult(False, "missing_task", task_id)
+            if task.status in TERMINAL:
+                return self._record_terminal_ci(data, task, moment, verdict)
             if not verdict:
                 self._move(data, task, BLOCKED, moment, "ci_unknown")
                 return TickResult(False, "ci_unknown", task_id, BLOCKED)
             task.ci_verdict = verdict
             data["tasks"][task.id] = task.to_dict()
             self._log(data, moment, task_id, "ci_recorded", verdict)
-            if verdict != "SUCCESS" and task.status == COMPLETED:
-                self._move(data, task, BLOCKED, moment, "ci_not_pass")
             return TickResult(verdict == "SUCCESS", verdict, task_id, task.status)
 
         return self.store.update(moment, apply)
+
+    def _record_terminal_ci(self, data: dict, task: Task, moment: datetime, verdict: str) -> TickResult:
+        """Terminal status stays put. A late failure withdraws CI confirmation."""
+        self._log(data, moment, task.id, "ci_recorded", verdict or "UNKNOWN")
+        if task.status != COMPLETED or verdict not in {"FAIL", ""}:
+            return TickResult(False, "terminal_immutable", task.id, task.status)
+        if task.ci_confirmation != CI_LOST or (verdict == "FAIL" and task.ci_verdict != "FAIL"):
+            if verdict == "FAIL":
+                task.ci_verdict = "FAIL"
+            task.ci_confirmation = CI_LOST
+            task.history.append(
+                {
+                    "at": _iso(moment),
+                    "actor": self.scheduler_id,
+                    "from": task.status,
+                    "to": task.status,
+                    "reason": "ci_confirmation_lost" if verdict == "FAIL" else "ci_unknown",
+                }
+            )
+            data["tasks"][task.id] = task.to_dict()
+        reason = "ci_confirmation_lost" if verdict == "FAIL" else "ci_unknown"
+        self._log(data, moment, task.id, "ci_confirmation_lost", "status_unchanged")
+        return TickResult(False, reason, task.id, task.status)
 
     def accept_review(self, task_id: str) -> TickResult:
         moment = self.now()
@@ -160,12 +262,17 @@ class Scheduler:
             task = self._task(data, task_id)
             if task is None:
                 return TickResult(False, "missing_task", task_id)
+            if task.status in TERMINAL:
+                return TickResult(False, "terminal_immutable", task_id, task.status)
             if task.status != REVIEW_REQUIRED:
                 return TickResult(False, "not_in_review", task_id, task.status)
+            if task.ci_confirmation == CI_LOST:
+                return TickResult(False, "ci_confirmation_lost", task_id, task.status)
             if task.ci_verdict != "SUCCESS":
                 reason = "ci_unknown" if not task.ci_verdict else "ci_not_pass"
                 self._move(data, task, BLOCKED, moment, reason)
                 return TickResult(False, reason, task_id, BLOCKED)
+            task.ci_confirmation = CI_CONFIRMED
             self._move(data, task, COMPLETED, moment, "review_accepted")
             return TickResult(True, "completed", task_id, COMPLETED)
 
@@ -212,6 +319,10 @@ class Scheduler:
         identity = self._identity_block(task)
         if identity:
             return identity
+        if task.ci_confirmation == CI_LOST:
+            return "ci_confirmation_lost"
+        if any(action not in _ALLOWED_REQUESTED_ACTIONS for action in task.requested_actions):
+            return "forbidden_action"
         for dep in task.depends_on:
             other = data["tasks"].get(dep)
             if other is None:
@@ -224,7 +335,9 @@ class Scheduler:
         identity = self._identity_block(task)
         if identity:
             return identity
-        if _FORBIDDEN_ACTIONS.intersection(task.requested_actions):
+        if task.ci_confirmation == CI_LOST:
+            return "ci_confirmation_lost"
+        if any(action not in _ALLOWED_REQUESTED_ACTIONS for action in task.requested_actions):
             return "forbidden_action"
         paid = self._paid_block(task)
         if paid:
@@ -249,20 +362,33 @@ class Scheduler:
         if not task.allowed_paths:
             return "missing_paths"
         for path in task.allowed_paths:
-            normalized = path.replace("\\", "/").lstrip("./")
-            if not normalized or normalized.startswith("/") or ".." in normalized.split("/"):
+            parts = task_path_components(path)
+            if parts is None:
                 return "invalid_path"
-            if any(normalized == prefix.rstrip("/") or normalized.startswith(prefix) for prefix in self.policy.forbidden_prefixes):
+            if self._prefix_hit(self.policy.forbidden_prefixes, parts, invalid_matches=True):
                 return "forbidden_path"
-            if self.policy.approved_prefixes and not any(
-                normalized == prefix.rstrip("/") or normalized.startswith(prefix) for prefix in self.policy.approved_prefixes
+            if self.policy.approved_prefixes and not self._prefix_hit(
+                self.policy.approved_prefixes, parts, invalid_matches=False
             ):
                 return "unapproved_path"
+            if self.policy.workspace_root and resolve_task_path(Path(self.policy.workspace_root), path) is None:
+                return "path_escape"
         if task.max_budget_cents is None:
             return "unknown_budget"
         if task.max_budget_cents < 0:
             return "invalid_budget"
         return ""
+
+    def _prefix_hit(self, prefixes: tuple[str, ...], parts: tuple[str, ...], *, invalid_matches: bool) -> bool:
+        for prefix in prefixes:
+            parsed = prefix_components(prefix)
+            if parsed is None:
+                if invalid_matches:
+                    return True
+                continue
+            if components_under(parsed, parts):
+                return True
+        return False
 
     def _paid_block(self, task: Task) -> str:
         if not task.requires_cloud_agent:
@@ -278,8 +404,10 @@ class Scheduler:
         return "dry_run_refuses_paid_launch"
 
     def _lease(self, data: dict, task: Task, moment: datetime) -> None:
+        task.lease_generation += 1
         task.lease_owner = self.scheduler_id
         task.lease_expires_at = _iso(moment + timedelta(seconds=self.lease_seconds))
+        self._fences[task.id] = task.lease_generation
         self._move(data, task, CLAIMED, moment, "claimed")
 
     def _expired(self, task: Task, moment: datetime) -> bool:
@@ -292,6 +420,8 @@ class Scheduler:
         return Task.from_dict(raw) if raw else None
 
     def _move(self, data: dict, task: Task, target: str, moment: datetime, reason: str) -> None:
+        if task.status in TERMINAL:
+            return
         if not can_transition(task.status, target):
             target_reason = f"illegal_transition:{task.status}->{target}"
             if task.status != BLOCKED and can_transition(task.status, BLOCKED):
@@ -317,7 +447,7 @@ class Scheduler:
         self._log(data, moment, task.id, "transition", f"{previous}->{target}:{reason}")
 
     def _log(self, data: dict, moment: datetime, task_id: str, action: str, detail: str) -> None:
-        if action in _SIDE_EFFECTS:
+        if action not in _ALLOWED_JOURNAL_ACTIONS:
             action = "refused"
             detail = "side_effect_refused"
         data["journal"].append(
@@ -369,4 +499,6 @@ def dry_run_main(argv: list[str] | None = None) -> int:
     print("PAID_LAUNCH=BLOCKED")
     print("MERGE=BLOCKED")
     print("DEPLOY=BLOCKED")
+    print(f"HOST_LOCK=LOCAL_ONLY")
+    print(f"NFS_LOCK=NO")
     return 0
