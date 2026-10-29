@@ -46,7 +46,139 @@ _ADVISORY_LOCK = 831703
 _TEST_DATABASE = re.compile(r"[a-z0-9_]+_test")
 _UNSAFE_DATABASE = re.compile(r"prod|stag|freight|platform|postgres")
 _EXPECTED_TABLES = ["jobs", "schema_migrations", "tenant_principals"]
-_EXPECTED_FUNCTIONS = ["bound_tenant", "reject_tenant_change"]
+_EXPECTED_COLUMNS = {
+    "jobs": (
+        ("job_id", "text", True, ""),
+        ("tenant_id", "text", True, ""),
+        ("job_type", "text", True, ""),
+        ("payload_version", "integer", True, ""),
+        ("payload", "jsonb", True, ""),
+        ("payload_digest", "text", True, ""),
+        ("status", "text", True, ""),
+        ("priority", "integer", True, ""),
+        ("created_at", "timestamp with time zone", True, ""),
+        ("available_at", "timestamp with time zone", True, ""),
+        ("attempt_count", "integer", True, ""),
+        ("max_attempts", "integer", True, ""),
+        ("backoff_seconds", "integer", True, ""),
+        ("lease_owner", "text", False, ""),
+        ("lease_token", "text", False, ""),
+        ("lease_expires_at", "timestamp with time zone", False, ""),
+        ("last_error", "text", False, ""),
+        ("idempotency_key", "text", True, ""),
+        ("updated_at", "timestamp with time zone", True, ""),
+    ),
+    "schema_migrations": (
+        ("version", "integer", True, ""),
+        ("name", "text", True, ""),
+        ("applied_at", "timestamp with time zone", True, "clock_timestamp()"),
+    ),
+    "tenant_principals": (
+        ("tenant_id", "text", True, ""),
+        ("role_name", "text", True, ""),
+    ),
+}
+_EXPECTED_CONSTRAINTS = {
+    ("jobs", "jobs_attempts_check"): (
+        "c",
+        "CHECK (((attempt_count >= 0) AND (max_attempts >= 1) AND (attempt_count <= max_attempts)))",
+    ),
+    ("jobs", "jobs_lease_token_unique"): ("u", "UNIQUE (lease_token)"),
+    ("jobs", "jobs_payload_version_check"): ("c", "CHECK ((payload_version >= 1))"),
+    ("jobs", "jobs_pkey"): ("p", "PRIMARY KEY (job_id)"),
+    ("jobs", "jobs_status_check"): (
+        "c",
+        "CHECK ((status = ANY (ARRAY['PENDING'::text, 'RUNNING'::text, 'SUCCEEDED'::text, 'FAILED'::text, 'DEAD'::text])))",
+    ),
+    ("jobs", "jobs_tenant_idem"): ("u", "UNIQUE (tenant_id, idempotency_key)"),
+    ("schema_migrations", "schema_migrations_pkey"): ("p", "PRIMARY KEY (version)"),
+    ("tenant_principals", "tenant_principals_pkey"): ("p", "PRIMARY KEY (tenant_id)"),
+    ("tenant_principals", "tenant_principals_role_check"): (
+        "c",
+        "CHECK ((role_name ~ '^[A-Za-z_][A-Za-z0-9_]{0,62}$'::text))",
+    ),
+    ("tenant_principals", "tenant_principals_role_name_key"): ("u", "UNIQUE (role_name)"),
+    ("tenant_principals", "tenant_principals_tenant_check"): (
+        "c",
+        "CHECK ((tenant_id ~ '^[A-Za-z0-9._:-]{1,80}$'::text))",
+    ),
+}
+_EXPECTED_INDEXES = {
+    "jobs_claim_idx": (
+        "CREATE INDEX jobs_claim_idx ON autopilot_queue.jobs USING btree "
+        "(tenant_id, priority, created_at, job_id) WHERE (status = 'PENDING'::text)"
+    ),
+    "jobs_lease_token_unique": (
+        "CREATE UNIQUE INDEX jobs_lease_token_unique ON autopilot_queue.jobs USING btree (lease_token)"
+    ),
+    "jobs_pkey": "CREATE UNIQUE INDEX jobs_pkey ON autopilot_queue.jobs USING btree (job_id)",
+    "jobs_tenant_idem": (
+        "CREATE UNIQUE INDEX jobs_tenant_idem ON autopilot_queue.jobs USING btree (tenant_id, idempotency_key)"
+    ),
+    "schema_migrations_pkey": (
+        "CREATE UNIQUE INDEX schema_migrations_pkey ON autopilot_queue.schema_migrations USING btree (version)"
+    ),
+    "tenant_principals_pkey": (
+        "CREATE UNIQUE INDEX tenant_principals_pkey ON autopilot_queue.tenant_principals USING btree (tenant_id)"
+    ),
+    "tenant_principals_role_name_key": (
+        "CREATE UNIQUE INDEX tenant_principals_role_name_key ON autopilot_queue.tenant_principals "
+        "USING btree (role_name)"
+    ),
+}
+_EXPECTED_TRIGGERS = {
+    ("jobs", "jobs_tenant_immutable"): (
+        "CREATE TRIGGER jobs_tenant_immutable BEFORE UPDATE OF tenant_id ON autopilot_queue.jobs "
+        "FOR EACH ROW EXECUTE FUNCTION autopilot_queue.reject_tenant_change()"
+    ),
+}
+_EXPECTED_POLICIES = {
+    "jobs_insert": ("a", "", "(tenant_id = autopilot_queue.bound_tenant())"),
+    "jobs_select": ("r", "(tenant_id = autopilot_queue.bound_tenant())", ""),
+    "jobs_update": (
+        "w",
+        "(tenant_id = autopilot_queue.bound_tenant())",
+        "(tenant_id = autopilot_queue.bound_tenant())",
+    ),
+}
+_EXPECTED_RLS = {
+    "jobs": (True, True),
+    "schema_migrations": (False, False),
+    "tenant_principals": (False, False),
+}
+_EXPECTED_ROUTINES = {
+    "bound_tenant": {
+        "kind": "f",
+        "language": "sql",
+        "arguments": "",
+        "result": "text",
+        "volatile": "s",
+        "definer": True,
+        "config": "search_path=pg_catalog",
+        "source": (
+            "SELECT principals.tenant_id "
+            "FROM autopilot_queue.tenant_principals AS principals "
+            "WHERE principals.role_name = session_user"
+        ),
+    },
+    "reject_tenant_change": {
+        "kind": "f",
+        "language": "plpgsql",
+        "arguments": "",
+        "result": "trigger",
+        "volatile": "v",
+        "definer": False,
+        "config": "search_path=pg_catalog",
+        "source": (
+            "BEGIN "
+            "IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id THEN "
+            "RAISE EXCEPTION 'tenant_immutable' USING ERRCODE = '42501'; "
+            "END IF; "
+            "RETURN NEW; "
+            "END;"
+        ),
+    },
+}
 _PAYLOAD_SCHEMAS = {
     "docs": {"marker": "marker", "n": "count"},
     "ping": {"n": "count"},
@@ -295,10 +427,16 @@ def _same_execution(existing: dict, expected: dict) -> bool:
     return True
 
 
+def _normalize(value) -> str:
+    return " ".join(str(value or "").split())
+
+
 class MigrationRunner:
     """Applies SQL files in the queue schema only.
 
-    The platform migration table is not read or written.
+    The platform migration table is not read or written. down() compares the
+    catalogs and drops objects in one transaction. pg_depend does not show
+    dynamic SQL, so schema rollback stays limited to an isolated test database.
     """
 
     def __init__(self, connect):
@@ -346,10 +484,10 @@ class MigrationRunner:
                 return 0
             if applied != {1}:
                 raise QueueError("migration_blocked")
+            self._lock_queue_tables(cursor)
             self._assert_down_inventory(cursor)
-            if allow_destructive_test:
-                self._assert_isolated_test_database(cursor)
-            elif self._job_count(cursor):
+            self._assert_isolated_test_database(cursor)
+            if not allow_destructive_test and self._job_count(cursor):
                 raise QueueError("migration_blocked")
             matches = [path for path in files if int(path.name.split("_", 1)[0]) == 1]
             if len(matches) != 1:
@@ -433,29 +571,290 @@ class MigrationRunner:
         if session["session_user"] != owner and not (attributes and attributes["rolsuper"]):
             raise QueueError("store_unauthorized")
 
+    def _lock_queue_tables(self, cursor) -> None:
+        for name in _EXPECTED_TABLES:
+            cursor.execute("SELECT to_regclass(%s) AS name", (f"autopilot_queue.{name}",))
+            found = _one(cursor)
+            if not found or not found["name"]:
+                raise QueueError("migration_blocked")
+        cursor.execute(
+            "LOCK TABLE autopilot_queue.jobs, autopilot_queue.schema_migrations, "
+            "autopilot_queue.tenant_principals IN ACCESS EXCLUSIVE MODE"
+        )
+
     def _assert_down_inventory(self, cursor) -> None:
+        """Refuse rollback unless version 1 still has exactly its own structure.
+
+        Catalog matches are structural: names alone are not enough. Sequences
+        are read from pg_class and from pg_depend, including ownership
+        (deptype a) and internal sequence dependencies. Dynamic SQL and names
+        buried in strings are not treated as detected. Those references are
+        why down() also requires an isolated test database.
+        """
+        if not self._relations_match(cursor):
+            raise QueueError("migration_blocked")
+        if not self._columns_match(cursor):
+            raise QueueError("migration_blocked")
+        if not self._constraints_match(cursor):
+            raise QueueError("migration_blocked")
+        if not self._indexes_match(cursor):
+            raise QueueError("migration_blocked")
+        if not self._triggers_match(cursor):
+            raise QueueError("migration_blocked")
+        if not self._policies_match(cursor):
+            raise QueueError("migration_blocked")
+        if not self._routines_match(cursor):
+            raise QueueError("migration_blocked")
+        if not self._types_match(cursor):
+            raise QueueError("migration_blocked")
+        if not self._sequences_match(cursor):
+            raise QueueError("migration_blocked")
+        if self._external_dependencies(cursor):
+            raise QueueError("migration_blocked")
+
+    def _relations_match(self, cursor) -> bool:
         cursor.execute(
             """
-            SELECT c.relname AS relname
+            SELECT c.relkind AS relkind, c.relname AS relname
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'autopilot_queue'
+            """
+        )
+        relations = {(row["relkind"], row["relname"]) for row in _rows(cursor)}
+        expected = {("r", name) for name in _EXPECTED_TABLES}
+        expected.update(("i", name) for name in _EXPECTED_INDEXES)
+        return relations == expected
+
+    def _columns_match(self, cursor) -> bool:
+        cursor.execute(
+            """
+            SELECT c.relname AS relname,
+                   a.attnum AS attnum,
+                   a.attname AS attname,
+                   format_type(a.atttypid, a.atttypmod) AS type_name,
+                   a.attnotnull AS attnotnull,
+                   pg_get_expr(d.adbin, d.adrelid) AS default_expr
+            FROM pg_attribute a
+            JOIN pg_class c ON c.oid = a.attrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+            WHERE n.nspname = 'autopilot_queue'
+              AND c.relkind = 'r'
+              AND a.attnum > 0
+              AND NOT a.attisdropped
+            ORDER BY c.relname, a.attnum
+            """
+        )
+        actual: dict[str, list[tuple]] = {name: [] for name in _EXPECTED_COLUMNS}
+        for row in _rows(cursor):
+            bucket = actual.get(row["relname"])
+            if bucket is None:
+                return False
+            bucket.append(
+                (
+                    row["attname"],
+                    _normalize(row["type_name"]),
+                    bool(row["attnotnull"]),
+                    _normalize(row["default_expr"]),
+                )
+            )
+        return actual == {name: list(columns) for name, columns in _EXPECTED_COLUMNS.items()}
+
+    def _constraints_match(self, cursor) -> bool:
+        cursor.execute(
+            """
+            SELECT c.relname AS relname,
+                   con.conname AS conname,
+                   con.contype AS contype,
+                   pg_get_constraintdef(con.oid) AS definition
+            FROM pg_constraint con
+            JOIN pg_class c ON c.oid = con.conrelid
+            JOIN pg_namespace n ON n.oid = con.connamespace
+            WHERE n.nspname = 'autopilot_queue'
+            """
+        )
+        actual = {
+            (row["relname"], row["conname"]): (_normalize(row["contype"]), _normalize(row["definition"]))
+            for row in _rows(cursor)
+        }
+        expected = {
+            key: (_normalize(kind), _normalize(definition))
+            for key, (kind, definition) in _EXPECTED_CONSTRAINTS.items()
+        }
+        return actual == expected
+
+    def _indexes_match(self, cursor) -> bool:
+        cursor.execute(
+            """
+            SELECT c.relname AS relname, pg_get_indexdef(c.oid) AS definition
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'autopilot_queue' AND c.relkind = 'i'
+            """
+        )
+        actual = {row["relname"]: _normalize(row["definition"]) for row in _rows(cursor)}
+        expected = {name: _normalize(definition) for name, definition in _EXPECTED_INDEXES.items()}
+        return actual == expected
+
+    def _triggers_match(self, cursor) -> bool:
+        cursor.execute(
+            """
+            SELECT c.relname AS relname,
+                   t.tgname AS tgname,
+                   t.tgisinternal AS tgisinternal,
+                   pg_get_triggerdef(t.oid) AS definition
+            FROM pg_trigger t
+            JOIN pg_class c ON c.oid = t.tgrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'autopilot_queue'
+            """
+        )
+        rows = _rows(cursor)
+        if any(row["tgisinternal"] for row in rows):
+            return False
+        actual = {(row["relname"], row["tgname"]): _normalize(row["definition"]) for row in rows}
+        expected = {key: _normalize(definition) for key, definition in _EXPECTED_TRIGGERS.items()}
+        return actual == expected
+
+    def _policies_match(self, cursor) -> bool:
+        cursor.execute(
+            """
+            SELECT c.relname AS relname,
+                   c.relrowsecurity AS relrowsecurity,
+                   c.relforcerowsecurity AS relforcerowsecurity
             FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname = 'autopilot_queue' AND c.relkind = 'r'
             """
         )
-        tables = sorted(row["relname"] for row in _rows(cursor))
+        rls = {
+            row["relname"]: (bool(row["relrowsecurity"]), bool(row["relforcerowsecurity"]))
+            for row in _rows(cursor)
+        }
+        if rls != _EXPECTED_RLS:
+            return False
         cursor.execute(
             """
-            SELECT p.proname AS proname
-            FROM pg_proc p
-            JOIN pg_namespace n ON n.oid = p.pronamespace
+            SELECT c.relname AS relname,
+                   pol.polname AS polname,
+                   pol.polcmd AS polcmd,
+                   pg_get_expr(pol.polqual, pol.polrelid) AS using_expr,
+                   pg_get_expr(pol.polwithcheck, pol.polrelid) AS check_expr
+            FROM pg_policy pol
+            JOIN pg_class c ON c.oid = pol.polrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname = 'autopilot_queue'
             """
         )
-        functions = sorted(row["proname"] for row in _rows(cursor))
-        if tables != _EXPECTED_TABLES or functions != _EXPECTED_FUNCTIONS:
-            raise QueueError("migration_blocked")
-        if self._external_dependencies(cursor):
-            raise QueueError("migration_blocked")
+        rows = _rows(cursor)
+        if any(row["relname"] != "jobs" for row in rows):
+            return False
+        actual = {
+            row["polname"]: (
+                _normalize(row["polcmd"]),
+                _normalize(row["using_expr"]),
+                _normalize(row["check_expr"]),
+            )
+            for row in rows
+        }
+        expected = {
+            name: (_normalize(command), _normalize(using), _normalize(check))
+            for name, (command, using, check) in _EXPECTED_POLICIES.items()
+        }
+        return actual == expected
+
+    def _routines_match(self, cursor) -> bool:
+        cursor.execute(
+            """
+            SELECT p.proname AS proname,
+                   p.prokind AS prokind,
+                   l.lanname AS lanname,
+                   pg_get_function_identity_arguments(p.oid) AS arguments,
+                   pg_get_function_result(p.oid) AS result,
+                   p.provolatile AS provolatile,
+                   p.prosecdef AS prosecdef,
+                   p.proconfig AS proconfig,
+                   p.prosrc AS prosrc
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            JOIN pg_language l ON l.oid = p.prolang
+            WHERE n.nspname = 'autopilot_queue'
+            """
+        )
+        actual = {}
+        for row in _rows(cursor):
+            config = row["proconfig"] or []
+            actual[row["proname"]] = {
+                "kind": _normalize(row["prokind"]),
+                "language": _normalize(row["lanname"]),
+                "arguments": _normalize(row["arguments"]),
+                "result": _normalize(row["result"]),
+                "volatile": _normalize(row["provolatile"]),
+                "definer": bool(row["prosecdef"]),
+                "config": _normalize(" ".join(str(item) for item in config)),
+                "source": _normalize(row["prosrc"]),
+            }
+        expected = {
+            name: {**routine, "source": _normalize(routine["source"]), "config": _normalize(routine["config"])}
+            for name, routine in _EXPECTED_ROUTINES.items()
+        }
+        return actual == expected
+
+    def _types_match(self, cursor) -> bool:
+        cursor.execute(
+            """
+            SELECT rowtype.typname AS row_name, arraytype.typname AS array_name
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            JOIN pg_type rowtype ON rowtype.oid = c.reltype
+            LEFT JOIN pg_type arraytype ON arraytype.oid = rowtype.typarray
+            WHERE n.nspname = 'autopilot_queue' AND c.relkind = 'r'
+            """
+        )
+        allowed = set()
+        for row in _rows(cursor):
+            if row["row_name"]:
+                allowed.add(row["row_name"])
+            if row["array_name"]:
+                allowed.add(row["array_name"])
+        if len(allowed) != len(_EXPECTED_TABLES) * 2:
+            return False
+        cursor.execute(
+            """
+            SELECT t.typname AS typname
+            FROM pg_type t
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            WHERE n.nspname = 'autopilot_queue'
+            """
+        )
+        return {row["typname"] for row in _rows(cursor)} == allowed
+
+    def _sequences_match(self, cursor) -> bool:
+        cursor.execute(
+            """
+            SELECT c.relname AS relname
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'autopilot_queue' AND c.relkind = 'S'
+            """
+        )
+        if _rows(cursor):
+            return False
+        cursor.execute(
+            """
+            SELECT seq.relname AS relname
+            FROM pg_depend dep
+            JOIN pg_class seq ON seq.oid = dep.objid AND dep.classid = 'pg_class'::regclass
+            JOIN pg_class referenced ON referenced.oid = dep.refobjid
+                AND dep.refclassid = 'pg_class'::regclass
+            JOIN pg_namespace referenced_ns ON referenced_ns.oid = referenced.relnamespace
+            WHERE seq.relkind = 'S'
+              AND referenced_ns.nspname = 'autopilot_queue'
+              AND dep.deptype IN ('a', 'i', 'n')
+            """
+        )
+        return not _rows(cursor)
 
     def _external_dependencies(self, cursor) -> bool:
         cursor.execute(
@@ -464,10 +863,11 @@ class MigrationRunner:
             FROM pg_rewrite r
             JOIN pg_class c ON c.oid = r.ev_class
             JOIN pg_namespace n ON n.oid = c.relnamespace
-            JOIN pg_depend d ON d.objid = r.oid
+            JOIN pg_depend d ON d.objid = r.oid AND d.classid = 'pg_rewrite'::regclass
             WHERE n.nspname <> 'autopilot_queue'
               AND n.nspname <> 'information_schema'
               AND n.nspname NOT LIKE 'pg!_%' ESCAPE '!'
+              AND d.refclassid = 'pg_class'::regclass
               AND d.refobjid IN (
                   SELECT referenced.oid
                   FROM pg_class referenced
@@ -490,7 +890,93 @@ class MigrationRunner:
             """
         )
         foreign_keys = _one(cursor)
-        return bool(views and int(views["n"]) or foreign_keys and int(foreign_keys["n"]))
+        cursor.execute(
+            """
+            SELECT count(*) AS n
+            FROM pg_depend d
+            JOIN pg_proc p ON p.oid = d.objid AND d.classid = 'pg_proc'::regclass
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname <> 'autopilot_queue'
+              AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+              AND n.nspname NOT LIKE 'pg!_%' ESCAPE '!'
+              AND (
+                  (
+                      d.refclassid = 'pg_class'::regclass
+                      AND d.refobjid IN (
+                          SELECT c.oid
+                          FROM pg_class c
+                          JOIN pg_namespace cn ON cn.oid = c.relnamespace
+                          WHERE cn.nspname = 'autopilot_queue'
+                      )
+                  )
+                  OR (
+                      d.refclassid = 'pg_proc'::regclass
+                      AND d.refobjid IN (
+                          SELECT routine.oid
+                          FROM pg_proc routine
+                          JOIN pg_namespace rn ON rn.oid = routine.pronamespace
+                          WHERE rn.nspname = 'autopilot_queue'
+                      )
+                  )
+                  OR (
+                      d.refclassid = 'pg_type'::regclass
+                      AND d.refobjid IN (
+                          SELECT t.oid
+                          FROM pg_type t
+                          JOIN pg_namespace tn ON tn.oid = t.typnamespace
+                          WHERE tn.nspname = 'autopilot_queue'
+                      )
+                  )
+              )
+            """
+        )
+        routines = _one(cursor)
+        cursor.execute(
+            """
+            SELECT count(*) AS n
+            FROM pg_trigger t
+            JOIN pg_proc p ON p.oid = t.tgfoid
+            JOIN pg_namespace pn ON pn.oid = p.pronamespace
+            JOIN pg_class c ON c.oid = t.tgrelid
+            JOIN pg_namespace cn ON cn.oid = c.relnamespace
+            WHERE pn.nspname = 'autopilot_queue'
+              AND cn.nspname <> 'autopilot_queue'
+              AND NOT t.tgisinternal
+            """
+        )
+        triggers = _one(cursor)
+        cursor.execute(
+            """
+            SELECT count(*) AS n
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname <> 'autopilot_queue'
+              AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+              AND n.nspname NOT LIKE 'pg!_%' ESCAPE '!'
+            """
+        )
+        external_routines = _one(cursor)
+        cursor.execute(
+            """
+            SELECT count(*) AS n
+            FROM pg_attribute a
+            JOIN pg_class c ON c.oid = a.attrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            JOIN pg_type t ON t.oid = a.atttypid
+            JOIN pg_namespace tn ON tn.oid = t.typnamespace
+            WHERE tn.nspname = 'autopilot_queue'
+              AND n.nspname <> 'autopilot_queue'
+              AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+              AND n.nspname NOT LIKE 'pg!_%' ESCAPE '!'
+              AND a.attnum > 0
+              AND NOT a.attisdropped
+            """
+        )
+        typed = _one(cursor)
+        return any(
+            item and int(item["n"])
+            for item in (views, foreign_keys, routines, triggers, external_routines, typed)
+        )
 
     def _assert_isolated_test_database(self, cursor) -> None:
         cursor.execute("SELECT current_database() AS name")

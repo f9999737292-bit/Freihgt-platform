@@ -141,6 +141,12 @@ class StaticQueueTests(unittest.TestCase):
         self.assertFalse(any("CASCADE" in item for item in statements))
         self.assertFalse(any("CASCADE" in item for item in down_statements))
         self.assertIn("session_user", up)
+        runner = Path(__file__).resolve().parents[1] / "postgres_queue.py"
+        runner_source = runner.read_text(encoding="utf-8")
+        self.assertIn("relkind = 'S'", runner_source)
+        self.assertIn("pg_attribute", runner_source)
+        self.assertIn("pg_depend", runner_source)
+        self.assertIn("deptype", runner_source)
 
     def test_autopilot_and_paid_switches_are_refused(self) -> None:
         with self.assertRaises(QueueError) as raised:
@@ -663,6 +669,278 @@ class PostgresQueueTests(unittest.TestCase):
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
 
+    def test_owned_sequence_blocks_rollback_and_is_preserved(self) -> None:
+        def preserved(connection) -> None:
+            sequence = connection.execute("SELECT to_regclass('autopilot_queue.owned_seq')").fetchone()
+            column = connection.execute(
+                """
+                SELECT a.attname
+                FROM pg_attribute a
+                JOIN pg_class c ON c.oid = a.attrelid
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'autopilot_queue'
+                  AND c.relname = 'jobs'
+                  AND a.attname = 'extra_n'
+                  AND NOT a.attisdropped
+                """
+            ).fetchone()
+            owned = connection.execute(
+                """
+                SELECT dep.deptype
+                FROM pg_depend dep
+                JOIN pg_class seq ON seq.oid = dep.objid
+                JOIN pg_namespace seq_ns ON seq_ns.oid = seq.relnamespace
+                WHERE seq_ns.nspname = 'autopilot_queue'
+                  AND seq.relname = 'owned_seq'
+                  AND dep.deptype = 'a'
+                """
+            ).fetchone()
+            self.assertIsNotNone(_cell(sequence))
+            self.assertEqual(_cell(column), "extra_n")
+            self.assertEqual(_cell(owned), "a")
+
+        self._blocked_rollback(
+            (
+                "ALTER TABLE autopilot_queue.jobs ADD COLUMN extra_n integer",
+                "CREATE SEQUENCE autopilot_queue.owned_seq",
+                "ALTER SEQUENCE autopilot_queue.owned_seq OWNED BY autopilot_queue.jobs.extra_n",
+            ),
+            (
+                "DROP SEQUENCE IF EXISTS autopilot_queue.owned_seq",
+                "ALTER TABLE autopilot_queue.jobs DROP COLUMN IF EXISTS extra_n",
+            ),
+            preserved,
+        )
+
+    def test_standalone_sequence_blocks_rollback(self) -> None:
+        def preserved(connection) -> None:
+            sequence = connection.execute("SELECT to_regclass('autopilot_queue.standalone_seq')").fetchone()
+            self.assertIsNotNone(_cell(sequence))
+
+        self._blocked_rollback(
+            ("CREATE SEQUENCE autopilot_queue.standalone_seq",),
+            ("DROP SEQUENCE IF EXISTS autopilot_queue.standalone_seq",),
+            preserved,
+        )
+
+    def test_extra_column_blocks_rollback(self) -> None:
+        def preserved(connection) -> None:
+            column = connection.execute(
+                """
+                SELECT a.attname
+                FROM pg_attribute a
+                JOIN pg_class c ON c.oid = a.attrelid
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'autopilot_queue' AND c.relname = 'jobs' AND a.attname = 'extra_n'
+                """
+            ).fetchone()
+            self.assertEqual(_cell(column), "extra_n")
+
+        self._blocked_rollback(
+            ("ALTER TABLE autopilot_queue.jobs ADD COLUMN extra_n integer",),
+            ("ALTER TABLE autopilot_queue.jobs DROP COLUMN IF EXISTS extra_n",),
+            preserved,
+        )
+
+    def test_extra_index_blocks_rollback(self) -> None:
+        def preserved(connection) -> None:
+            index = connection.execute("SELECT to_regclass('autopilot_queue.jobs_extra_idx')").fetchone()
+            self.assertIsNotNone(_cell(index))
+
+        self._blocked_rollback(
+            ("CREATE INDEX jobs_extra_idx ON autopilot_queue.jobs (priority)",),
+            ("DROP INDEX IF EXISTS autopilot_queue.jobs_extra_idx",),
+            preserved,
+        )
+
+    def test_extra_constraint_blocks_rollback(self) -> None:
+        def preserved(connection) -> None:
+            found = connection.execute(
+                """
+                SELECT con.conname
+                FROM pg_constraint con
+                JOIN pg_namespace n ON n.oid = con.connamespace
+                WHERE n.nspname = 'autopilot_queue' AND con.conname = 'jobs_extra_check'
+                """
+            ).fetchone()
+            self.assertEqual(_cell(found), "jobs_extra_check")
+
+        self._blocked_rollback(
+            ("ALTER TABLE autopilot_queue.jobs ADD CONSTRAINT jobs_extra_check CHECK (priority >= 0)",),
+            ("ALTER TABLE autopilot_queue.jobs DROP CONSTRAINT IF EXISTS jobs_extra_check",),
+            preserved,
+        )
+
+    def test_extra_trigger_blocks_rollback(self) -> None:
+        def preserved(connection) -> None:
+            trigger = connection.execute(
+                """
+                SELECT t.tgname
+                FROM pg_trigger t
+                JOIN pg_class c ON c.oid = t.tgrelid
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'autopilot_queue' AND t.tgname = 'jobs_extra' AND NOT t.tgisinternal
+                """
+            ).fetchone()
+            function = connection.execute("SELECT to_regprocedure('autopilot_queue.extra_touch()')").fetchone()
+            self.assertEqual(_cell(trigger), "jobs_extra")
+            self.assertIsNotNone(_cell(function))
+
+        self._blocked_rollback(
+            (
+                "CREATE FUNCTION autopilot_queue.extra_touch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$",
+                "CREATE TRIGGER jobs_extra BEFORE UPDATE ON autopilot_queue.jobs FOR EACH ROW EXECUTE FUNCTION autopilot_queue.extra_touch()",
+            ),
+            (
+                "DROP TRIGGER IF EXISTS jobs_extra ON autopilot_queue.jobs",
+                "DROP FUNCTION IF EXISTS autopilot_queue.extra_touch()",
+            ),
+            preserved,
+        )
+
+    def test_view_blocks_rollback(self) -> None:
+        def preserved(connection) -> None:
+            view = connection.execute("SELECT to_regclass('autopilot_queue.jobs_v')").fetchone()
+            self.assertIsNotNone(_cell(view))
+
+        self._blocked_rollback(
+            ("CREATE VIEW autopilot_queue.jobs_v AS SELECT job_id FROM autopilot_queue.jobs",),
+            ("DROP VIEW IF EXISTS autopilot_queue.jobs_v",),
+            preserved,
+        )
+
+    def test_materialized_view_blocks_rollback(self) -> None:
+        def preserved(connection) -> None:
+            view = connection.execute("SELECT to_regclass('autopilot_queue.jobs_mv')").fetchone()
+            self.assertIsNotNone(_cell(view))
+
+        self._blocked_rollback(
+            ("CREATE MATERIALIZED VIEW autopilot_queue.jobs_mv AS SELECT job_id FROM autopilot_queue.jobs",),
+            ("DROP MATERIALIZED VIEW IF EXISTS autopilot_queue.jobs_mv",),
+            preserved,
+        )
+
+    def test_composite_type_blocks_rollback(self) -> None:
+        def preserved(connection) -> None:
+            found = connection.execute("SELECT to_regtype('autopilot_queue.extra_pair')").fetchone()
+            self.assertIsNotNone(_cell(found))
+
+        self._blocked_rollback(
+            ("CREATE TYPE autopilot_queue.extra_pair AS (left_n integer, right_n integer)",),
+            ("DROP TYPE IF EXISTS autopilot_queue.extra_pair",),
+            preserved,
+        )
+
+    def test_external_view_blocks_rollback_and_is_preserved(self) -> None:
+        def preserved(connection) -> None:
+            view = connection.execute("SELECT to_regclass('public.autopilot_queue_external_view')").fetchone()
+            self.assertIsNotNone(_cell(view))
+
+        self._blocked_rollback(
+            ("CREATE VIEW public.autopilot_queue_external_view AS SELECT job_id FROM autopilot_queue.jobs",),
+            ("DROP VIEW IF EXISTS public.autopilot_queue_external_view",),
+            preserved,
+            external=True,
+        )
+
+    def test_external_sql_function_blocks_rollback_and_is_preserved(self) -> None:
+        def preserved(connection) -> None:
+            found = connection.execute("SELECT to_regprocedure('public.autopilot_queue_sql_ref()')").fetchone()
+            self.assertIsNotNone(_cell(found))
+
+        self._blocked_rollback(
+            (
+                "CREATE FUNCTION public.autopilot_queue_sql_ref() RETURNS text LANGUAGE sql "
+                "AS $$ SELECT job_id FROM autopilot_queue.jobs LIMIT 1 $$",
+            ),
+            ("DROP FUNCTION IF EXISTS public.autopilot_queue_sql_ref()",),
+            preserved,
+            external=True,
+        )
+
+    def test_external_plpgsql_function_blocks_rollback_and_is_preserved(self) -> None:
+        def preserved(connection) -> None:
+            found = connection.execute("SELECT to_regprocedure('public.autopilot_queue_plpgsql_ref()')").fetchone()
+            self.assertIsNotNone(_cell(found))
+
+        self._blocked_rollback(
+            (
+                "CREATE FUNCTION public.autopilot_queue_plpgsql_ref() RETURNS text LANGUAGE plpgsql "
+                "AS $$ BEGIN RETURN (SELECT job_id FROM autopilot_queue.jobs LIMIT 1); END $$",
+            ),
+            ("DROP FUNCTION IF EXISTS public.autopilot_queue_plpgsql_ref()",),
+            preserved,
+            external=True,
+        )
+
+    def test_nonempty_queue_blocks_rollback(self) -> None:
+        created = self.queue.enqueue(
+            tenant_id="tenant-a",
+            job_type="docs",
+            payload={"n": 1},
+            idempotency_key="rollback-keeps-row",
+        )
+        with self.assertRaises(QueueError) as raised:
+            self.runner.down()
+        self.assertEqual(raised.exception.code, "migration_blocked")
+        self.assertEqual(self.queue.get_status("tenant-a", created.job_id).status, PENDING)
+        connection = _owner_connect(self.dsn)
+        try:
+            versions = connection.execute("SELECT version FROM autopilot_queue.schema_migrations").fetchall()
+            self.assertEqual([_cell(row) for row in versions], [1])
+        finally:
+            connection.close()
+
+    def test_blocked_rollback_keeps_forced_rls(self) -> None:
+        self.queue.enqueue(
+            tenant_id="tenant-a",
+            job_type="docs",
+            payload={"n": 1},
+            idempotency_key="rollback-keeps-rls",
+        )
+        with self.assertRaises(QueueError) as raised:
+            self.runner.down()
+        self.assertEqual(raised.exception.code, "migration_blocked")
+        connection = _owner_connect(self.dsn)
+        try:
+            self._assert_version_and_rls(connection)
+        finally:
+            connection.close()
+
+    def test_clean_rollback_down_up(self) -> None:
+        try:
+            self.assertEqual(self.runner.down(), 0)
+            connection = _owner_connect(self.dsn)
+            try:
+                self.assertIsNone(_cell(connection.execute("SELECT to_regclass('autopilot_queue.jobs')").fetchone()))
+                connection.rollback()
+            finally:
+                connection.close()
+            self.assertEqual(self.runner.up(), 1)
+            connection = _owner_connect(self.dsn)
+            try:
+                self._assert_version_and_rls(connection)
+                columns = connection.execute(
+                    """
+                    SELECT count(*)
+                    FROM pg_attribute a
+                    JOIN pg_class c ON c.oid = a.attrelid
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'autopilot_queue'
+                      AND c.relname = 'jobs'
+                      AND a.attnum > 0
+                      AND NOT a.attisdropped
+                    """
+                ).fetchone()
+                self.assertEqual(int(_cell(columns)), 19)
+                connection.rollback()
+            finally:
+                connection.close()
+        finally:
+            if self.runner.version() != 1:
+                self.runner.up()
+            _ensure_tenant_roles(self.dsn, self.runner)
+
     def test_runtime_role_cannot_delete_or_migrate(self) -> None:
         import psycopg
 
@@ -719,6 +997,46 @@ class PostgresQueueTests(unittest.TestCase):
         finally:
             connection.close()
             self._restore_runtime()
+
+    def _blocked_rollback(self, setup, cleanup, preserved, *, external: bool = False) -> None:
+        connection = _owner_connect(self.dsn)
+        try:
+            for statement in setup:
+                connection.execute(statement)
+            connection.commit()
+            with self.assertRaises(QueueError) as raised:
+                self.runner.down()
+            self.assertEqual(raised.exception.code, "migration_blocked")
+            self._assert_version_and_rls(connection)
+            preserved(connection)
+        finally:
+            try:
+                connection.rollback()
+                jobs = _cell(connection.execute("SELECT to_regclass('autopilot_queue.jobs')").fetchone())
+                if jobs or external:
+                    for statement in cleanup:
+                        connection.execute(statement)
+                    connection.commit()
+            finally:
+                connection.close()
+                if self.runner.version() != 1:
+                    self.runner.up()
+                    _ensure_tenant_roles(self.dsn, self.runner)
+
+    def _assert_version_and_rls(self, connection) -> None:
+        versions = connection.execute("SELECT version FROM autopilot_queue.schema_migrations").fetchall()
+        self.assertEqual([_cell(row) for row in versions], [1])
+        flags = connection.execute(
+            """
+            SELECT c.relrowsecurity, c.relforcerowsecurity
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'autopilot_queue' AND c.relname = 'jobs'
+            """
+        ).fetchone()
+        self.assertTrue(bool(_cell(flags, 0, "relrowsecurity")))
+        self.assertTrue(bool(_cell(flags, 1, "relforcerowsecurity")))
+        self.assertIsNotNone(_cell(connection.execute("SELECT to_regclass('autopilot_queue.jobs')").fetchone()))
 
     def _reject_precreated_role(self, create_sql: str, column: str) -> None:
         self.runner.down()
