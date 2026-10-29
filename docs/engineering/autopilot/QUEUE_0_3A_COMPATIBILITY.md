@@ -16,7 +16,8 @@ Baseline: `origin/main` `116d7c9544717ead8b6e3745e563b4cd49b87de4` (merge of PR 
 - A separate schema, `autopilot_queue`, with its own `autopilot_queue.schema_migrations` table.
 - Statuses `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `DEAD`. These names are not the 0.3A planning states.
 - Claim uses a PostgreSQL transaction and `FOR UPDATE SKIP LOCKED`. The transaction commits before any handler runs.
-- Ownership after commit is a lease token. Renew, complete, and fail must present the current token. A later claim mints a new token. The old token cannot write.
+- Tenant scope is forced row security bound to `session_user` through `tenant_principals`. A caller-supplied tenant string or a custom GUC does not select the tenant.
+- Ownership after commit is a lease token. Renew, complete, and fail must present the current token. A later claim mints a new token. The old token cannot write. The token still does not make an external side effect exactly once.
 - Delivery is at-least-once. A committed queue row does not prove that an external side effect ran once, or that it did not run. Handlers must be idempotent. This foundation does not call a handler from `Claim`.
 
 ## Disabled by default
