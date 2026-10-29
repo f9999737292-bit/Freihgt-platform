@@ -499,10 +499,16 @@ class RemediationTests(unittest.TestCase):
 
         original = entry.CursorClient
         entry.CursorClient = boom
+        previous = os.environ.get("GITHUB_ACTIONS")
+        os.environ.pop("GITHUB_ACTIONS", None)
         try:
             self.assertEqual(entry.main(["queue-dry-run"]), 0)
         finally:
             entry.CursorClient = original
+            if previous is None:
+                os.environ.pop("GITHUB_ACTIONS", None)
+            else:
+                os.environ["GITHUB_ACTIONS"] = previous
         from bintrans_autopilot import scheduler as scheduler_module
 
         text = Path(scheduler_module.__file__).read_text(encoding="utf-8")
