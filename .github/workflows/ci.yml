@@ -26,6 +26,41 @@ jobs:
           PYTHONPATH: tools
         run: python -m unittest discover -s tools/bintrans_autopilot/tests -v
 
+  bintrans-autopilot-queue:
+    name: bintrans-autopilot-queue
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:16
+        env:
+          POSTGRES_USER: queue_test
+          POSTGRES_PASSWORD: queue_test
+          POSTGRES_DB: autopilot_queue_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install queue driver
+        run: python -m pip install -r tools/bintrans_autopilot/requirements-queue.txt
+
+      - name: Isolated queue tests
+        env:
+          PYTHONPATH: tools
+          BINTRANS_AUTOPILOT_QUEUE_DSN: postgresql://queue_test:queue_test@localhost:5432/autopilot_queue_test
+        run: python -m unittest discover -s tools/bintrans_autopilot/tests -v
+
   repository-safety:
     name: repository-safety
     runs-on: ubuntu-latest
