@@ -15,10 +15,13 @@ from bintrans_autopilot.postgres_queue import MigrationRunner
 from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _AGENT,
     _RUN,
+    _commit_verified,
     _enabled_config,
+    _ensure_reconciler_role,
     _ensure_tenant_roles,
     _owner_connect,
     _tenant_connect,
+    _tenant_controller,
 )
 
 _AGENT2 = "bc-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -45,6 +48,7 @@ class BudgetControllerR3Tests(unittest.TestCase):
             cls.runner.down_budget_migration(allow_destructive_test=True)
             cls.runner.up()
         _ensure_tenant_roles(cls.dsn, cls.runner)
+        _ensure_reconciler_role(cls.dsn)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -74,17 +78,9 @@ class BudgetControllerR3Tests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
-        self.controller = BudgetController(
-            lambda: _tenant_connect(self.dsn, "tenant_a_runtime", "tenant_a_test"),
-            admin_connect=lambda: _owner_connect(self.dsn),
-            config=_enabled_config(),
-        )
+        self.controller = _tenant_controller(self.dsn, "tenant-a")
         for tenant in ("tenant-a", "tenant-b"):
-            admin = BudgetController(
-                lambda: _tenant_connect(self.dsn, "tenant_a_runtime", "tenant_a_test"),
-                admin_connect=lambda: _owner_connect(self.dsn),
-                config=_enabled_config(),
-            )
+            admin = _tenant_controller(self.dsn, "tenant-a")
             admin.sync_tenant_limits(tenant)
 
     def test_runtime_cannot_pass_fake_reserve_window(self) -> None:
@@ -109,13 +105,15 @@ class BudgetControllerR3Tests(unittest.TestCase):
         try:
             import psycopg
 
-            with self.assertRaises(psycopg.errors.UndefinedFunction):
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                 connection.execute(
                     """
-                    SELECT autopilot_queue.budget_protocol_commit(
-                        'launch-forge', '0', '0', -150, NULL, NULL, false
+                    SELECT autopilot_queue.budget_reconciler_apply_usage(
+                        'launch-forge', %s, %s, '0', '150', true,
+                        'fake-verification-id', repeat('a', 64), 'cursor_usage_api'
                     )
-                    """
+                    """,
+                    (_AGENT, _RUN),
                 )
         finally:
             connection.close()
@@ -146,20 +144,13 @@ class BudgetControllerR3Tests(unittest.TestCase):
 
     def test_conflicting_recommit_raises(self) -> None:
         self.controller.request_reserve("launch-idem", "tenant-a", 100)
-        self.controller.commit_usage(
-            "launch-idem",
-            raw_cost_text="40",
-            charged_text="40",
-            charged_known=True,
-            agent_id=_AGENT,
-            run_id=_RUN,
-        )
+        _commit_verified(self.controller, "launch-idem", raw_cost_text="40", charged_text="40")
         with self.assertRaises(BudgetControllerError) as raised:
-            self.controller.commit_usage(
+            _commit_verified(
+                self.controller,
                 "launch-idem",
                 raw_cost_text="99",
                 charged_text="99",
-                charged_known=True,
                 agent_id=_AGENT2,
                 run_id=_RUN2,
             )
@@ -182,14 +173,7 @@ class BudgetControllerR3Tests(unittest.TestCase):
 
     def test_overrun_blocks_subsequent_reserve_under_global_gate(self) -> None:
         self.controller.request_reserve("launch-gate", "tenant-a", 50)
-        self.controller.commit_usage(
-            "launch-gate",
-            raw_cost_text="60",
-            charged_text="60",
-            charged_known=True,
-            agent_id=_AGENT,
-            run_id=_RUN,
-        )
+        _commit_verified(self.controller, "launch-gate", raw_cost_text="60", charged_text="60")
         late = self.controller.request_reserve("launch-late", "tenant-a", 10)
         self.assertEqual(late.state, BLOCKED)
         self.assertEqual(late.block_reason, "overrun_open")

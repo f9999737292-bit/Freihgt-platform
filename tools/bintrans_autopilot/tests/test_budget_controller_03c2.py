@@ -22,6 +22,7 @@ from bintrans_autopilot.budget_controller import (
 from bintrans_autopilot.config import AutopilotConfig, load_config
 from bintrans_autopilot.postgres_queue import MigrationRunner, QueueError
 from bintrans_autopilot.usage_reconciliation import parse_usage_payload, reconcile_launch_usage
+from bintrans_autopilot.usage_verification import usage_verification_refs
 
 _AGENT = "bc-33a0edbc-8fed-47fa-85b7-cc139e900375"
 _RUN = "run-a51658e1-665d-4f7c-9135-c0d720b2210b"
@@ -30,6 +31,8 @@ _TENANTS = {
     "tenant-a": ("tenant_a_runtime", "tenant_a_test"),
     "tenant-b": ("tenant_b_runtime", "tenant_b_test"),
 }
+_RECONCILER_LOGIN = "budget_reconciler_test"
+_RECONCILER_PASSWORD = "budget_reconciler_test"
 
 
 def _dsn() -> str:
@@ -68,13 +71,103 @@ def _enabled_config() -> AutopilotConfig:
     )
 
 
-def _tenant_controller(dsn: str, tenant_key: str, *, config: AutopilotConfig | None = None) -> BudgetController:
+def _reconciler_connect(dsn: str):
+    return _tenant_connect(dsn, _RECONCILER_LOGIN, _RECONCILER_PASSWORD)
+
+
+def _usage_refs(payload: dict, *, agent_id: str = _AGENT, run_id: str = _RUN) -> tuple[str, str]:
+    return usage_verification_refs(agent_id, run_id, payload)
+
+
+def _mark_unknown_verified(
+    controller: BudgetController,
+    launch_id: str,
+    *,
+    raw_cost_text: str | None = None,
+    agent_id: str = _AGENT,
+    run_id: str = _RUN,
+) -> None:
+    payload = {"rawCostCents": raw_cost_text} if raw_cost_text is not None else {}
+    verification_id, payload_digest = _usage_refs(payload, agent_id=agent_id, run_id=run_id)
+    controller.mark_usage_unknown(
+        launch_id,
+        agent_id=agent_id,
+        run_id=run_id,
+        raw_cost_text=raw_cost_text,
+        verification_id=verification_id,
+        payload_digest=payload_digest,
+    )
+
+
+def _commit_verified(
+    controller: BudgetController,
+    launch_id: str,
+    *,
+    raw_cost_text: str | None,
+    charged_text: str,
+    agent_id: str = _AGENT,
+    run_id: str = _RUN,
+) -> object:
+    payload = {"rawCostCents": raw_cost_text, "chargedCents": charged_text}
+    verification_id, payload_digest = _usage_refs(payload, agent_id=agent_id, run_id=run_id)
+    return controller.commit_usage(
+        launch_id,
+        raw_cost_text=raw_cost_text,
+        charged_text=charged_text,
+        charged_known=True,
+        agent_id=agent_id,
+        run_id=run_id,
+        verification_id=verification_id,
+        payload_digest=payload_digest,
+    )
+
+
+def _tenant_controller(
+    dsn: str,
+    tenant_key: str,
+    *,
+    config: AutopilotConfig | None = None,
+    now=None,
+) -> BudgetController:
     role, password = _TENANTS[tenant_key]
     return BudgetController(
         lambda: _tenant_connect(dsn, role, password),
         admin_connect=lambda: _owner_connect(dsn),
+        reconcile_connect=lambda: _reconciler_connect(dsn),
         config=config or _enabled_config(),
+        now=now,
     )
+
+
+def _ensure_reconciler_role(dsn: str) -> None:
+    from psycopg import sql
+
+    connection = _owner_connect(dsn)
+    try:
+        found = connection.execute(
+            "SELECT 1 FROM pg_roles WHERE rolname = %s",
+            (_RECONCILER_LOGIN,),
+        ).fetchone()
+        statement = "ALTER ROLE {} PASSWORD {}" if found else (
+            "CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOBYPASSRLS "
+            "NOCREATEROLE NOCREATEDB NOREPLICATION INHERIT"
+        )
+        connection.execute(
+            sql.SQL(statement).format(
+                sql.Identifier(_RECONCILER_LOGIN),
+                sql.Literal(_RECONCILER_PASSWORD),
+            )
+        )
+        connection.execute(
+            sql.SQL("GRANT {} TO {}").format(
+                sql.Identifier("autopilot_queue_reconciler"),
+                sql.Identifier(_RECONCILER_LOGIN),
+            )
+        )
+        connection.execute("GRANT USAGE ON SCHEMA autopilot_queue TO autopilot_queue_reconciler")
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def _ensure_tenant_roles(dsn: str, runner: MigrationRunner) -> None:
@@ -106,6 +199,8 @@ class StaticBudgetControllerTests(unittest.TestCase):
     def test_parse_usage_distinguishes_unknown_and_zero(self) -> None:
         unknown = parse_usage_payload({"rawCostCents": 12.5})
         self.assertFalse(unknown.charged_known)
+        empty = parse_usage_payload({"rawCostCents": 1, "chargedCents": ""})
+        self.assertFalse(empty.charged_known)
         zero = parse_usage_payload({"rawCostCents": 1, "chargedCents": 0})
         self.assertTrue(zero.charged_known)
         self.assertEqual(zero.charged_text, "0")
@@ -146,6 +241,7 @@ class PostgresBudgetControllerTests(unittest.TestCase):
             cls.runner.down_budget_migration(allow_destructive_test=True)
             cls.runner.up()
         _ensure_tenant_roles(cls.dsn, cls.runner)
+        _ensure_reconciler_role(cls.dsn)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -235,25 +331,18 @@ class PostgresBudgetControllerTests(unittest.TestCase):
     def test_unknown_usage_blocks_new_reserve(self) -> None:
         reserved = self.controller.request_reserve("launch-unknown", "tenant-a", 50)
         self.assertEqual(reserved.state, RESERVED)
-        self.controller.mark_usage_unknown(
-            "launch-unknown",
-            agent_id=_AGENT,
-            run_id=_RUN,
-            raw_cost_text="10",
-        )
+        _mark_unknown_verified(self.controller, "launch-unknown", raw_cost_text="10")
         gate = self.controller.evaluate_kill_switch()
         self.assertFalse(gate.allowed)
         self.assertEqual(gate.reason, "unknown_usage_open")
 
     def test_partial_commit_and_release(self) -> None:
         reserved = self.controller.request_reserve("launch-commit", "tenant-a", 80)
-        committed = self.controller.commit_usage(
+        committed = _commit_verified(
+            self.controller,
             "launch-commit",
             raw_cost_text="12.5",
             charged_text="12",
-            charged_known=True,
-            agent_id=_AGENT,
-            run_id=_RUN,
         )
         self.assertEqual(committed.state, COMMITTED)
         self.assertEqual(committed.charged_text, "12")
@@ -263,13 +352,11 @@ class PostgresBudgetControllerTests(unittest.TestCase):
 
     def test_charge_above_reserve_records_overrun(self) -> None:
         self.controller.request_reserve("launch-over", "tenant-a", 10)
-        row = self.controller.commit_usage(
+        row = _commit_verified(
+            self.controller,
             "launch-over",
             raw_cost_text="20",
             charged_text="20",
-            charged_known=True,
-            agent_id=_AGENT,
-            run_id=_RUN,
         )
         self.assertEqual(row.state, OVERRUN)
         self.assertEqual(row.charged_text, "20")

@@ -19,10 +19,14 @@ from bintrans_autopilot.budget_controller import (
 from bintrans_autopilot.config import AutopilotConfig, load_config
 from bintrans_autopilot.postgres_queue import MigrationRunner
 from bintrans_autopilot.usage_reconciliation import reconcile_launch_usage
-
-_AGENT = "bc-33a0edbc-8fed-47fa-85b7-cc139e900375"
-_RUN = "run-a51658e1-665d-4f7c-9135-c0d720b2210b"
-
+from bintrans_autopilot.tests.test_budget_controller_03c2 import (
+    _AGENT,
+    _RUN,
+    _commit_verified,
+    _ensure_reconciler_role,
+    _ensure_tenant_roles,
+    _tenant_controller,
+)
 
 def _dsn() -> str:
     return os.environ.get("BINTRANS_AUTOPILOT_QUEUE_DSN", "").strip()
@@ -62,12 +66,7 @@ def _enabled_config(**kwargs) -> AutopilotConfig:
 
 
 def _controller(dsn: str, *, now=None) -> BudgetController:
-    return BudgetController(
-        lambda: _tenant_connect(dsn, "tenant_a_runtime", "tenant_a_test"),
-        admin_connect=lambda: _owner_connect(dsn),
-        config=_enabled_config(),
-        now=now,
-    )
+    return _tenant_controller(dsn, "tenant-a", config=_enabled_config(), now=now)
 
 
 class BudgetControllerR2Tests(unittest.TestCase):
@@ -85,6 +84,8 @@ class BudgetControllerR2Tests(unittest.TestCase):
         if cls.runner.version() >= 2:
             cls.runner.down_budget_migration(allow_destructive_test=True)
             cls.runner.up()
+        _ensure_tenant_roles(cls.dsn, cls.runner)
+        _ensure_reconciler_role(cls.dsn)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -165,13 +166,11 @@ class BudgetControllerR2Tests(unittest.TestCase):
         )
         admin.sync_tenant_limits("tenant-a")
         self.controller.request_reserve("launch-big", "tenant-a", 300)
-        row = self.controller.commit_usage(
+        row = _commit_verified(
+            self.controller,
             "launch-big",
             raw_cost_text="600",
             charged_text="600",
-            charged_known=True,
-            agent_id=_AGENT,
-            run_id=_RUN,
         )
         self.assertEqual(row.state, OVERRUN)
         self.assertEqual(row.charged_text, "600")
@@ -196,14 +195,7 @@ class BudgetControllerR2Tests(unittest.TestCase):
             admin.sync_tenant_limits(tenant)
         first = c1.request_reserve("launch-day1", "tenant-a", 100)
         self.assertEqual(first.state, RESERVED)
-        c1.commit_usage(
-            "launch-day1",
-            raw_cost_text="100",
-            charged_text="100",
-            charged_known=True,
-            agent_id=_AGENT,
-            run_id=_RUN,
-        )
+        _commit_verified(c1, "launch-day1", raw_cost_text="100", charged_text="100")
         second = c2.request_reserve("launch-day2", "tenant-a", 100)
         self.assertEqual(second.state, RESERVED)
 
@@ -221,13 +213,11 @@ class BudgetControllerR2Tests(unittest.TestCase):
 
     def test_fractional_usage_rounds_up_for_ledger(self) -> None:
         self.controller.request_reserve("launch-ceil", "tenant-a", 50)
-        self.controller.commit_usage(
+        _commit_verified(
+            self.controller,
             "launch-ceil",
             raw_cost_text="3.49",
             charged_text="3.49",
-            charged_known=True,
-            agent_id=_AGENT,
-            run_id=_RUN,
         )
         connection = _owner_connect(self.dsn)
         try:
@@ -264,14 +254,7 @@ class BudgetControllerR2Tests(unittest.TestCase):
 
     def test_kill_switch_race_after_overrun_commit(self) -> None:
         self.controller.request_reserve("launch-race", "tenant-a", 50)
-        self.controller.commit_usage(
-            "launch-race",
-            raw_cost_text="60",
-            charged_text="60",
-            charged_known=True,
-            agent_id=_AGENT,
-            run_id=_RUN,
-        )
+        _commit_verified(self.controller, "launch-race", raw_cost_text="60", charged_text="60")
         outcomes: list[str] = []
         barrier = threading.Barrier(2)
 

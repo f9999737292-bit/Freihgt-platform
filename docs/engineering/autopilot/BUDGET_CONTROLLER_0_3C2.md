@@ -76,6 +76,16 @@ cross-transaction races are bounded by the SQL gate lock, not by Python alone.
 injected client or fetcher. It never calls `create_agent`. Malformed usage
 (`NaN`, invalid IDs) returns `failed` without crashing the worker.
 
+**Verified usage authority (0006):** reserves may bind `agent_id` and `run_id`
+at `request_reserve` time; reconciliation and commit enforce that binding.
+Tenant runtime cannot commit charged amounts. Only the `autopilot_queue_reconciler` role may call
+`budget_reconciler_apply_usage`, which stores a canonical payload digest and
+`verification_id` in `budget_verified_usage` and commits via
+`_budget_commit_from_verified()` (amounts read from that row, not caller args).
+Missing, empty, or absent `chargedCents` is **unknown**, not zero; verified
+`chargedCents=0` requires a reconciler-recorded payload. Runtime `commit_usage`
+requires `reconcile_connect` plus verification refs derived from the API payload.
+
 ## OVERRUN recovery
 
 `OVERRUN` rows are audit-only in 0.3C2. Clearing them requires operator action
@@ -91,6 +101,8 @@ Queue migrations:
 - **0004** — `budget_window_usage`, revoke runtime DML, initial `budget_protocol_*`.
 - **0005** — server-owned protocol signatures, window RLS, revoke runtime
   `budget_global_lock_row`, tighten helper EXECUTE.
+- **0006** — `budget_verified_usage`, reconciler role, server-owned commit from
+  verified rows; runtime loses direct commit/mark-unknown EXECUTE.
 
 Platform migration head stays **`000105`**.
 

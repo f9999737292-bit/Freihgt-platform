@@ -18,7 +18,7 @@ from bintrans_autopilot.config import (
     load_config,
     runtime_enabled,
 )
-from bintrans_autopilot.postgres_queue import RUNTIME_ROLE
+from bintrans_autopilot.postgres_queue import RECONCILER_ROLE, RUNTIME_ROLE
 
 logger = logging.getLogger("bintrans_autopilot.budget_controller")
 
@@ -135,6 +135,7 @@ class BudgetController:
         connect: Callable,
         *,
         admin_connect: Callable | None = None,
+        reconcile_connect: Callable | None = None,
         mode: str = "dry_run",
         config: AutopilotConfig | None = None,
         now: Callable[[], datetime] | None = None,
@@ -152,6 +153,7 @@ class BudgetController:
                 raise BudgetControllerError("controller_disabled")
         self._connect = connect
         self._admin_connect = admin_connect
+        self._reconcile_connect = reconcile_connect
         self._config = config or load_config()
         self._limits = limits_from_config(self._config)
         self._now = now or (lambda: datetime.now(timezone.utc))
@@ -212,10 +214,20 @@ class BudgetController:
                 ),
             )
 
-    def request_reserve(self, launch_id: str, tenant_id: str, reserve_cents: int) -> ReservationView:
+    def request_reserve(
+        self,
+        launch_id: str,
+        tenant_id: str,
+        reserve_cents: int,
+        *,
+        agent_id: str | None = None,
+        run_id: str | None = None,
+    ) -> ReservationView:
         launch_id = _launch_id(launch_id)
         tenant_id = _tenant_id(tenant_id)
         reserve_cents = _reserve_cents(reserve_cents)
+        agent_id = _optional_agent_id(agent_id)
+        run_id = _optional_run_id(run_id)
         with self._lock:
             with self._cursor() as cursor:
                 _assert_budget_runtime_binding(cursor, tenant_id)
@@ -232,10 +244,10 @@ class BudgetController:
                     cursor.execute(
                         """
                         SELECT autopilot_queue.budget_protocol_reserve(
-                            %s, %s
+                            %s, %s, %s, %s
                         )
                         """,
-                        (launch_id, reserve_cents),
+                        (launch_id, reserve_cents, agent_id, run_id),
                     )
                 except Exception as exc:
                     cursor.execute("ROLLBACK TO SAVEPOINT budget_reserve")
@@ -266,19 +278,27 @@ class BudgetController:
         charged_known: bool,
         agent_id: str | None = None,
         run_id: str | None = None,
+        verification_id: str | None = None,
+        payload_digest: str | None = None,
+        source: str = "cursor_usage_api",
     ) -> ReservationView:
         launch_id = _launch_id(launch_id)
         if not charged_known:
             raise BudgetControllerError("unknown_usage")
         agent_id = _optional_agent_id(agent_id)
         run_id = _optional_run_id(run_id)
+        if agent_id is None or run_id is None:
+            raise BudgetControllerError("invalid_identity")
+        if not verification_id or not payload_digest:
+            raise BudgetControllerError("verified_usage_required")
         raw_cost_text = _decimal_text(raw_cost_text) if raw_cost_text is not None else None
         charged_text = _decimal_text(charged_text) if charged_text is not None else None
+        if charged_text is None:
+            raise BudgetControllerError("unknown_usage")
         with self._cursor() as cursor:
             row = self._fetch_reservation(cursor, launch_id)
             if row is None:
                 raise BudgetControllerError("not_found")
-            _assert_budget_runtime_binding(cursor, row.tenant_id)
             if row.state == COMMITTED:
                 if (
                     row.raw_cost_text == raw_cost_text
@@ -293,40 +313,44 @@ class BudgetController:
                 if row.charged_text == charged_text and row.agent_id == agent_id and row.run_id == run_id:
                     return row
                 raise BudgetControllerError("idempotency_conflict")
-            if row.state != RESERVED:
-                raise BudgetControllerError("invalid_state")
             if row.agent_id and agent_id and row.agent_id != agent_id:
                 raise BudgetControllerError("identity_mismatch")
             if row.run_id and run_id and row.run_id != run_id:
                 raise BudgetControllerError("identity_mismatch")
-            charged_amount = Decimal(charged_text) if charged_text is not None else Decimal(0)
             reserve = Decimal(row.reserve_cents)
+            charged_amount = Decimal(charged_text)
             over_reserve = charged_amount > reserve
+        with self._reconciler_cursor() as cursor:
             try:
                 cursor.execute(
                     """
-                    SELECT autopilot_queue.budget_protocol_commit(
-                        %s, %s, %s, %s, %s
+                    SELECT autopilot_queue.budget_reconciler_apply_usage(
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     """,
                     (
                         launch_id,
-                        raw_cost_text,
-                        charged_text,
                         agent_id,
                         run_id,
+                        raw_cost_text,
+                        charged_text,
+                        True,
+                        verification_id,
+                        payload_digest,
+                        source,
                     ),
                 )
             except Exception as exc:
                 raise _budget_error_from_exception(exc) from exc
-            if over_reserve:
-                logger.warning(
-                    "event=budget_overrun tenant=%s launch=%s reserve=%s charged=%s",
-                    row.tenant_id,
-                    launch_id,
-                    row.reserve_cents,
-                    charged_text,
-                )
+        if over_reserve:
+            logger.warning(
+                "event=budget_overrun tenant=%s launch=%s reserve=%s charged=%s",
+                row.tenant_id,
+                launch_id,
+                row.reserve_cents,
+                charged_text,
+            )
+        with self._cursor() as cursor:
             return self._require_fetch(cursor, launch_id)
 
     def release(self, launch_id: str) -> ReservationView:
@@ -351,32 +375,54 @@ class BudgetController:
                 raise _budget_error_from_exception(exc) from exc
             return self._require_fetch(cursor, launch_id)
 
-    def mark_usage_unknown(self, launch_id: str, *, agent_id: str, run_id: str, raw_cost_text: str | None) -> None:
+    def mark_usage_unknown(
+        self,
+        launch_id: str,
+        *,
+        agent_id: str,
+        run_id: str,
+        raw_cost_text: str | None,
+        verification_id: str,
+        payload_digest: str,
+        source: str = "cursor_usage_api",
+    ) -> None:
         launch_id = _launch_id(launch_id)
         agent_id = _optional_agent_id(agent_id)
         run_id = _optional_run_id(run_id)
         if agent_id is None or run_id is None:
             raise BudgetControllerError("invalid_identity")
+        if not verification_id or not payload_digest:
+            raise BudgetControllerError("verified_usage_required")
         raw_cost_text = _decimal_text(raw_cost_text) if raw_cost_text is not None else None
         with self._cursor() as cursor:
             row = self._fetch_reservation(cursor, launch_id)
             if row is None:
                 raise BudgetControllerError("not_found")
-            _assert_budget_runtime_binding(cursor, row.tenant_id)
-            if row.state != RESERVED:
+            if row.state != RESERVED and not row.usage_unknown:
                 raise BudgetControllerError("invalid_state")
             if row.agent_id and row.agent_id != agent_id:
                 raise BudgetControllerError("identity_mismatch")
             if row.run_id and row.run_id != run_id:
                 raise BudgetControllerError("identity_mismatch")
+        with self._reconciler_cursor() as cursor:
             try:
                 cursor.execute(
                     """
-                    SELECT autopilot_queue.budget_protocol_mark_unknown(
-                        %s, %s, %s, %s
+                    SELECT autopilot_queue.budget_reconciler_apply_usage(
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     """,
-                    (launch_id, agent_id, run_id, raw_cost_text),
+                    (
+                        launch_id,
+                        agent_id,
+                        run_id,
+                        raw_cost_text,
+                        None,
+                        False,
+                        verification_id,
+                        payload_digest,
+                        source,
+                    ),
                 )
             except Exception as exc:
                 raise _budget_error_from_exception(exc) from exc
@@ -678,6 +724,14 @@ class BudgetController:
         return row
 
     @contextmanager
+    def _reconciler_cursor(self) -> Iterator:
+        if self._reconcile_connect is None:
+            raise BudgetControllerError("reconciler_required")
+        with self._cursor(self._reconcile_connect) as cursor:
+            _assert_reconciler_session(cursor)
+            yield cursor
+
+    @contextmanager
     def _cursor(self, connect: Callable | None = None) -> Iterator:
         from bintrans_autopilot.postgres_queue import _cursor_for
 
@@ -700,6 +754,28 @@ class BudgetController:
             raise _budget_error_from_exception(exc) from exc
         finally:
             connection.close()
+
+
+def _assert_reconciler_session(cursor) -> None:
+    cursor.execute(
+        """
+        SELECT session_user AS session_user,
+               EXISTS (
+                   SELECT 1
+                   FROM pg_auth_members m
+                   JOIN pg_roles member ON member.oid = m.member
+                   JOIN pg_roles granted ON granted.oid = m.roleid
+                   WHERE member.rolname = session_user
+                     AND granted.rolname = %s
+               ) AS is_reconciler
+        """,
+        (RECONCILER_ROLE,),
+    )
+    row = cursor.fetchone()
+    if row is not None and not isinstance(row, dict):
+        row = _row_dict(row, cursor)
+    if row is None or not row["is_reconciler"]:
+        raise BudgetControllerError("reconciler_required")
 
 
 def _assert_budget_runtime_binding(cursor, tenant_id: str) -> None:
@@ -855,6 +931,10 @@ def _exception_code(exc: Exception) -> str | None:
         "tenant_mismatch",
         "tenant_unbound",
         "store_unavailable",
+        "reconciler_required",
+        "verified_usage_missing",
+        "verified_usage_required",
+        "unknown_usage",
     )
     for token in tokens:
         if token in message:
