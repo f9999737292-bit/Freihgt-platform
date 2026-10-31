@@ -52,6 +52,7 @@ def _enabled_config(**kwargs) -> AutopilotConfig:
     base = load_config()
     return replace(
         base,
+        autopilot_enabled=True,
         budget_max_charged_cents=300,
         budget_max_charged_cents_daily=500,
         budget_max_charged_cents_monthly=5000,
@@ -77,11 +78,21 @@ class BudgetControllerR2Tests(unittest.TestCase):
         cls.dsn = _dsn()
         if not cls.dsn:
             return
+        cls._prior_autopilot_env = os.environ.get("AUTOPILOT_ENABLED")
+        os.environ["AUTOPILOT_ENABLED"] = "true"
         cls.runner = MigrationRunner(lambda: _owner_connect(cls.dsn))
         cls.runner.up()
         if cls.runner.version() >= 2:
             cls.runner.down_budget_migration(allow_destructive_test=True)
             cls.runner.up()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        prior = getattr(cls, "_prior_autopilot_env", None)
+        if prior is None:
+            os.environ.pop("AUTOPILOT_ENABLED", None)
+        else:
+            os.environ["AUTOPILOT_ENABLED"] = prior
 
     def setUp(self) -> None:
         if not self.dsn:

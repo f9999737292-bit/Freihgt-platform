@@ -198,6 +198,7 @@ class BudgetController:
                 UPDATE autopilot_queue.budget_global_ledger
                 SET daily_limit_cents = %s,
                     monthly_limit_cents = %s,
+                    per_launch_cap_cents = %s,
                     utc_day = %s,
                     utc_month = %s
                 WHERE id = 1
@@ -205,6 +206,7 @@ class BudgetController:
                 (
                     self._limits.daily_limit_cents,
                     self._limits.monthly_limit_cents,
+                    self._limits.per_launch_cap_cents,
                     day,
                     month,
                 ),
@@ -225,29 +227,24 @@ class BudgetController:
                 gate = self._kill_switch_for_cursor(cursor)
                 if not gate.allowed:
                     return self._block_in_tx(cursor, launch_id, tenant_id, reserve_cents, gate.reason)
-                if reserve_cents > self._limits.per_launch_cap_cents:
-                    return self._insert_blocked(
-                        cursor,
-                        launch_id,
-                        tenant_id,
-                        reserve_cents,
-                        "per_launch_cap_exceeded",
-                    )
-                day, month = _utc_windows(self._now())
                 cursor.execute("SAVEPOINT budget_reserve")
                 try:
                     cursor.execute(
                         """
                         SELECT autopilot_queue.budget_protocol_reserve(
-                            %s, %s, %s, %s, %s
+                            %s, %s
                         )
                         """,
-                        (launch_id, reserve_cents, self._limits.per_launch_cap_cents, day, month),
+                        (launch_id, reserve_cents),
                     )
                 except Exception as exc:
                     cursor.execute("ROLLBACK TO SAVEPOINT budget_reserve")
                     code = _exception_code(exc)
-                    if code in {"global_budget_exceeded", "tenant_budget_exceeded"}:
+                    if code in {
+                        "global_budget_exceeded",
+                        "tenant_budget_exceeded",
+                        "per_launch_cap_exceeded",
+                    }:
                         return self._insert_blocked(cursor, launch_id, tenant_id, reserve_cents, code)
                     if code in {"overrun_open", "unknown_usage_open"}:
                         return self._insert_blocked(cursor, launch_id, tenant_id, reserve_cents, code)
@@ -305,22 +302,19 @@ class BudgetController:
             charged_amount = Decimal(charged_text) if charged_text is not None else Decimal(0)
             reserve = Decimal(row.reserve_cents)
             over_reserve = charged_amount > reserve
-            charged_cents = _ledger_cents_ceiling(charged_amount)
             try:
                 cursor.execute(
                     """
                     SELECT autopilot_queue.budget_protocol_commit(
-                        %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s
                     )
                     """,
                     (
                         launch_id,
                         raw_cost_text,
                         charged_text,
-                        charged_cents,
                         agent_id,
                         run_id,
-                        over_reserve,
                     ),
                 )
             except Exception as exc:
@@ -405,10 +399,9 @@ class BudgetController:
             or self._limits.monthly_limit_cents <= 0
         ):
             return KillSwitchDecision(False, "zero_budget")
-        if not self._config.test_budget_harness:
-            enabled, reason = runtime_enabled(self._config, os.environ)
-            if not enabled:
-                return KillSwitchDecision(False, reason)
+        enabled, reason = runtime_enabled(self._config, os.environ)
+        if not enabled:
+            return KillSwitchDecision(False, reason)
         reason = self._global_safety_block_reason(cursor)
         if reason:
             return KillSwitchDecision(False, reason)
@@ -437,14 +430,13 @@ class BudgetController:
         reserve_cents: int,
         reason: str,
     ) -> ReservationView:
-        day, month = _utc_windows(self._now())
         cursor.execute(
             """
             SELECT autopilot_queue.budget_protocol_insert_blocked(
-                %s, %s, %s, %s, %s
+                %s, %s, %s
             )
             """,
-            (launch_id, reserve_cents, reason, day, month),
+            (launch_id, reserve_cents, reason),
         )
         logger.info(
             "event=budget_blocked tenant=%s launch=%s reason=%s",
@@ -871,6 +863,8 @@ def _exception_code(exc: Exception) -> str | None:
 
 
 def _budget_error_from_exception(exc: Exception) -> BudgetControllerError:
+    if _is_unique_violation(exc):
+        return BudgetControllerError("idempotency_conflict")
     code = _exception_code(exc)
     if code:
         return BudgetControllerError(code)
