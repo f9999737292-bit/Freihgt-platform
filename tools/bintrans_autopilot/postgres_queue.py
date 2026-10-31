@@ -476,12 +476,16 @@ class MigrationRunner:
         return int(current["version"]) if current else 0
 
     def down(self, *, allow_destructive_test: bool = False) -> int:
-        files = sorted(_SQL_DIR.glob("*.down.sql"), reverse=True)
         with self._cursor() as cursor:
             cursor.execute("SELECT pg_advisory_xact_lock(%s)", (_ADVISORY_LOCK,))
             applied = self._applied(cursor)
             if not applied:
                 return 0
+            target = max(applied)
+            if target == 2:
+                self._down_budget_migration(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
             if applied != {1}:
                 raise QueueError("migration_blocked")
             self._lock_queue_tables(cursor)
@@ -489,12 +493,43 @@ class MigrationRunner:
             self._assert_isolated_test_database(cursor)
             if not allow_destructive_test and self._job_count(cursor):
                 raise QueueError("migration_blocked")
-            matches = [path for path in files if int(path.name.split("_", 1)[0]) == 1]
-            if len(matches) != 1:
-                raise QueueError("migration_failed")
-            for statement in _statements(matches[0].read_text(encoding="utf-8")):
-                cursor.execute(statement)
+            self._execute_down_file(cursor, 1)
         return self.version()
+
+    def down_budget_migration(self, *, allow_destructive_test: bool = False) -> int:
+        with self._cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_xact_lock(%s)", (_ADVISORY_LOCK,))
+            applied = self._applied(cursor)
+            if 2 not in applied:
+                return self.version()
+            self._down_budget_migration(cursor, allow_destructive_test=allow_destructive_test)
+        return self.version()
+
+    def _down_budget_migration(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 2 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.budget_reservations
+                WHERE state IN ('REQUESTED', 'RESERVED')
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 2)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 2")
+
+    def _execute_down_file(self, cursor, version: int) -> None:
+        matches = [path for path in sorted(_SQL_DIR.glob("*.down.sql"), reverse=True) if int(path.name.split("_", 1)[0]) == version]
+        if len(matches) != 1:
+            raise QueueError("migration_failed")
+        for statement in _statements(matches[0].read_text(encoding="utf-8")):
+            cursor.execute(statement)
 
     def register_principal(self, tenant_id: str, role_name: str) -> None:
         tenant_id = _identifier(tenant_id)
