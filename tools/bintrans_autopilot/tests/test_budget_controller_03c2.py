@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from bintrans_autopilot.budget_controller import (
     BLOCKED,
     COMMITTED,
+    OVERRUN,
     RESERVED,
     BudgetController,
     BudgetControllerError,
@@ -62,6 +63,16 @@ def _enabled_config() -> AutopilotConfig:
         budget_max_charged_cents=300,
         budget_max_charged_cents_daily=500,
         budget_max_charged_cents_monthly=5000,
+        test_budget_harness=True,
+    )
+
+
+def _tenant_controller(dsn: str, tenant_key: str, *, config: AutopilotConfig | None = None) -> BudgetController:
+    role, password = _TENANTS[tenant_key]
+    return BudgetController(
+        lambda: _tenant_connect(dsn, role, password),
+        admin_connect=lambda: _owner_connect(dsn),
+        config=config or _enabled_config(),
     )
 
 
@@ -103,6 +114,12 @@ class StaticBudgetControllerTests(unittest.TestCase):
             BudgetController(lambda: None, mode="live")
         self.assertEqual(raised.exception.code, "controller_disabled")
 
+    def test_reserve_cents_rejects_bool(self) -> None:
+        controller = BudgetController(lambda: None, config=_enabled_config())
+        with self.assertRaises(BudgetControllerError) as raised:
+            controller.request_reserve("launch-x", "tenant-a", True)  # type: ignore[arg-type]
+        self.assertEqual(raised.exception.code, "invalid_amount")
+
     def test_source_has_no_cloud_agent_create(self) -> None:
         from pathlib import Path
 
@@ -134,23 +151,40 @@ class PostgresBudgetControllerTests(unittest.TestCase):
         try:
             connection.execute("DELETE FROM autopilot_queue.budget_reservations")
             connection.execute("DELETE FROM autopilot_queue.budget_tenant_ledger")
+            connection.execute(
+                """
+                UPDATE autopilot_queue.budget_global_ledger
+                SET daily_reserved_cents = 0,
+                    monthly_reserved_cents = 0,
+                    daily_committed_cents = 0,
+                    monthly_committed_cents = 0
+                """
+            )
             connection.commit()
         finally:
             connection.close()
-        self.controller = BudgetController(
-            lambda: _owner_connect(self.dsn),
+        self.limits_admin = BudgetController(
+            lambda: _tenant_connect(self.dsn, "tenant_a_runtime", "tenant_a_test"),
+            admin_connect=lambda: _owner_connect(self.dsn),
             config=_enabled_config(),
         )
         for tenant in _TENANTS:
-            self.controller.sync_tenant_limits(tenant)
+            self.limits_admin.sync_tenant_limits(tenant)
+        self.controller = _tenant_controller(self.dsn, "tenant-a")
 
     def test_zero_budget_gate_blocks_reserve(self) -> None:
-        controller = BudgetController(lambda: _owner_connect(self.dsn))
+        controller = _tenant_controller(self.dsn, "tenant-a", config=load_config())
         gate = controller.evaluate_kill_switch()
         self.assertFalse(gate.allowed)
         row = controller.request_reserve("launch-zero", "tenant-a", 10)
         self.assertEqual(row.state, BLOCKED)
         self.assertEqual(row.block_reason, "zero_budget")
+
+    def test_fresh_reserved_does_not_block_kill_switch(self) -> None:
+        row = self.controller.request_reserve("launch-pending", "tenant-a", 50)
+        self.assertEqual(row.state, RESERVED)
+        gate = self.controller.evaluate_kill_switch()
+        self.assertTrue(gate.allowed)
 
     def test_concurrent_reservations_respect_shared_limit(self) -> None:
         outcomes: list[str] = []
@@ -158,7 +192,8 @@ class PostgresBudgetControllerTests(unittest.TestCase):
 
         def worker(launch_id: str) -> None:
             barrier.wait(timeout=5)
-            row = self.controller.request_reserve(launch_id, "tenant-a", 260)
+            ctrl = _tenant_controller(self.dsn, "tenant-a")
+            row = ctrl.request_reserve(launch_id, "tenant-a", 260)
             outcomes.append(row.state)
 
         threads = [
@@ -172,6 +207,13 @@ class PostgresBudgetControllerTests(unittest.TestCase):
             self.assertFalse(thread.is_alive())
         self.assertEqual(sorted(outcomes), sorted([RESERVED, BLOCKED]))
 
+    def test_global_budget_blocks_second_tenant(self) -> None:
+        first = _tenant_controller(self.dsn, "tenant-a").request_reserve("launch-ga", "tenant-a", 250)
+        self.assertEqual(first.state, RESERVED)
+        second = _tenant_controller(self.dsn, "tenant-b").request_reserve("launch-gb", "tenant-b", 260)
+        self.assertEqual(second.state, BLOCKED)
+        self.assertEqual(second.block_reason, "global_budget_exceeded")
+
     def test_repeat_launch_id_is_idempotent(self) -> None:
         first = self.controller.request_reserve("launch-repeat", "tenant-a", 40)
         second = self.controller.request_reserve("launch-repeat", "tenant-a", 40)
@@ -181,15 +223,12 @@ class PostgresBudgetControllerTests(unittest.TestCase):
     def test_unknown_usage_blocks_new_reserve(self) -> None:
         reserved = self.controller.request_reserve("launch-unknown", "tenant-a", 50)
         self.assertEqual(reserved.state, RESERVED)
-        with self.controller._cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE autopilot_queue.budget_reservations
-                SET charged_known = false
-                WHERE launch_id = %s
-                """,
-                ("launch-unknown",),
-            )
+        self.controller.mark_usage_unknown(
+            "launch-unknown",
+            agent_id=_AGENT,
+            run_id=_RUN,
+            raw_cost_text="10",
+        )
         gate = self.controller.evaluate_kill_switch()
         self.assertFalse(gate.allowed)
         self.assertEqual(gate.reason, "unknown_usage_open")
@@ -210,16 +249,24 @@ class PostgresBudgetControllerTests(unittest.TestCase):
         released = self.controller.release("launch-release")
         self.assertEqual(released.state, RELEASED)
 
-    def test_charge_above_reserve_is_rejected(self) -> None:
+    def test_charge_above_reserve_records_overrun(self) -> None:
         self.controller.request_reserve("launch-over", "tenant-a", 10)
+        row = self.controller.commit_usage(
+            "launch-over",
+            raw_cost_text="20",
+            charged_text="20",
+            charged_known=True,
+            agent_id=_AGENT,
+            run_id=_RUN,
+        )
+        self.assertEqual(row.state, OVERRUN)
+        self.assertEqual(row.charged_text, "20")
+        gate = self.controller.evaluate_kill_switch()
+        self.assertFalse(gate.allowed)
+        self.assertEqual(gate.reason, "overrun_open")
         with self.assertRaises(BudgetControllerError) as raised:
-            self.controller.commit_usage(
-                "launch-over",
-                raw_cost_text="20",
-                charged_text="20",
-                charged_known=True,
-            )
-        self.assertEqual(raised.exception.code, "charge_exceeds_reserve")
+            self.controller.release("launch-over")
+        self.assertEqual(raised.exception.code, "overrun_open")
 
     def test_reconciliation_deduplicates_and_handles_timeout(self) -> None:
         self.controller.request_reserve("launch-reconcile", "tenant-a", 60)
@@ -262,15 +309,22 @@ class PostgresBudgetControllerTests(unittest.TestCase):
 
     def test_tenant_isolation_for_reservations(self) -> None:
         self.controller.request_reserve("launch-a", "tenant-a", 20)
-        self.controller.request_reserve("launch-b", "tenant-b", 20)
-        tenant_a = BudgetController(
-            lambda: _tenant_connect(self.dsn, "tenant_a_runtime", "tenant_a_test"),
-            config=_enabled_config(),
-        )
+        _tenant_controller(self.dsn, "tenant-b").request_reserve("launch-b", "tenant-b", 20)
+        tenant_a = _tenant_controller(self.dsn, "tenant-a")
         row = tenant_a.get_reservation("launch-a")
         self.assertIsNotNone(row)
         self.assertEqual(row.tenant_id, "tenant-a")
         self.assertIsNone(tenant_a.get_reservation("launch-b"))
+
+    def test_owner_connection_cannot_mutate_budget(self) -> None:
+        owner = BudgetController(
+            lambda: _owner_connect(self.dsn),
+            admin_connect=lambda: _owner_connect(self.dsn),
+            config=_enabled_config(),
+        )
+        with self.assertRaises(BudgetControllerError) as raised:
+            owner.request_reserve("launch-owner", "tenant-a", 10)
+        self.assertEqual(raised.exception.code, "runtime_privileged")
 
     def test_transaction_rollback_does_not_persist_reserve(self) -> None:
         connection = _owner_connect(self.dsn)
@@ -287,8 +341,12 @@ class PostgresBudgetControllerTests(unittest.TestCase):
             connection.execute(
                 """
                 INSERT INTO autopilot_queue.budget_reservations (
-                    launch_id, tenant_id, state, reserve_cents
-                ) VALUES ('launch-rollback', 'tenant-a', 'RESERVED', 15)
+                    launch_id, tenant_id, state, reserve_cents,
+                    ledger_utc_day, ledger_utc_month, usage_unknown, charged_known
+                ) VALUES (
+                    'launch-rollback', 'tenant-a', 'RESERVED', 15,
+                    CURRENT_DATE, date_trunc('month', CURRENT_DATE)::date, false, false
+                )
                 """
             )
             connection.execute("ROLLBACK")
@@ -300,7 +358,10 @@ class PostgresBudgetControllerTests(unittest.TestCase):
         try:
             os.environ["PAID_AUTOMATION_ENABLED"] = "true"
             with self.assertRaises(BudgetControllerError):
-                BudgetController(lambda: _owner_connect(self.dsn), config=_enabled_config())
+                BudgetController(
+                    lambda: _tenant_connect(self.dsn, "tenant_a_runtime", "tenant_a_test"),
+                    config=_enabled_config(),
+                )
         finally:
             os.environ.pop("PAID_AUTOMATION_ENABLED", None)
 

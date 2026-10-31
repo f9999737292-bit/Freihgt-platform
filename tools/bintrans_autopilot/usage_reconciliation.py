@@ -1,8 +1,4 @@
-"""Reconcile Cursor usage with a budget reservation.
-
-This module never creates Cloud Agents. It only reads usage payloads and
-updates reservation rows through ``BudgetController``.
-"""
+"""Reconcile Cursor usage with a budget reservation."""
 
 from __future__ import annotations
 
@@ -11,6 +7,10 @@ from decimal import Decimal, InvalidOperation
 
 from bintrans_autopilot.budget_controller import BudgetController, BudgetControllerError
 from bintrans_autopilot.cursor_api import CursorApiError, CursorClient
+import re
+
+_AGENT_ID = re.compile(r"^bc-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+_RUN_ID = re.compile(r"^run-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 
 @dataclass(frozen=True)
@@ -45,6 +45,8 @@ def reconcile_launch_usage(
     usage_fetcher,
 ) -> ReconcileResult:
     """Fetch usage once and commit the reservation when charged is known."""
+    if not _AGENT_ID.fullmatch(agent_id) or not _RUN_ID.fullmatch(run_id):
+        return ReconcileResult("failed", "invalid_identity")
     reservation = controller.get_reservation(launch_id)
     if reservation is None:
         return ReconcileResult("failed", "not_found")
@@ -58,9 +60,19 @@ def reconcile_launch_usage(
         if exc.retryable:
             return ReconcileResult("retry", "usage_api_retry")
         return ReconcileResult("blocked", "usage_api_error")
+    except Exception:
+        return ReconcileResult("retry", "usage_fetch_failed")
     amounts = parse_usage_payload(payload if isinstance(payload, dict) else {})
     if not amounts.charged_known:
-        _attach_probe(controller, launch_id, agent_id, run_id, amounts.raw_cost_text)
+        try:
+            controller.mark_usage_unknown(
+                launch_id,
+                agent_id=agent_id,
+                run_id=run_id,
+                raw_cost_text=amounts.raw_cost_text,
+            )
+        except BudgetControllerError as exc:
+            return ReconcileResult("failed", exc.code)
         return ReconcileResult("pending", "unknown_usage")
     try:
         controller.commit_usage(
@@ -91,31 +103,6 @@ def reconcile_from_client(
         run_id=run_id,
         usage_fetcher=client.usage,
     )
-
-
-def _attach_probe(
-    controller: BudgetController,
-    launch_id: str,
-    agent_id: str,
-    run_id: str,
-    raw_cost_text: str | None,
-) -> None:
-    with controller._cursor() as cursor:
-        row = controller._lock_reservation(cursor, launch_id)
-        if row.state != "RESERVED":
-            raise BudgetControllerError("invalid_state")
-        cursor.execute(
-            """
-            UPDATE autopilot_queue.budget_reservations
-            SET agent_id = %s,
-                run_id = %s,
-                raw_cost_text = %s,
-                charged_known = false,
-                updated_at = clock_timestamp()
-            WHERE launch_id = %s
-            """,
-            (agent_id, run_id, raw_cost_text, launch_id),
-        )
 
 
 def _optional_amount(value: object | None) -> str | None:
