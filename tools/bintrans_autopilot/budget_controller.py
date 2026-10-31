@@ -8,11 +8,16 @@ import re
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_CEILING, Decimal, InvalidOperation
 from contextlib import contextmanager
 from typing import Callable, Iterator
 
-from bintrans_autopilot.config import AutopilotConfig, load_config, runtime_enabled
+from bintrans_autopilot.config import (
+    EMERGENCY_STOP_FILE,
+    AutopilotConfig,
+    load_config,
+    runtime_enabled,
+)
 from bintrans_autopilot.postgres_queue import RUNTIME_ROLE
 
 logger = logging.getLogger("bintrans_autopilot.budget_controller")
@@ -92,7 +97,7 @@ def _decimal_text(value: object | None) -> str | None:
         amount = Decimal(str(value).strip())
     except (InvalidOperation, AttributeError) as exc:
         raise BudgetControllerError("invalid_amount") from exc
-    if amount < 0:
+    if not amount.is_finite() or amount < 0:
         raise BudgetControllerError("invalid_amount")
     text = format(amount, "f")
     if "." in text:
@@ -210,83 +215,50 @@ class BudgetController:
         tenant_id = _tenant_id(tenant_id)
         reserve_cents = _reserve_cents(reserve_cents)
         with self._lock:
-            try:
-                with self._cursor() as cursor:
-                    _assert_budget_runtime_binding(cursor, tenant_id)
-                    existing = self._fetch_reservation(cursor, launch_id)
-                    if existing is not None:
-                        if existing.tenant_id == tenant_id and existing.reserve_cents == reserve_cents:
-                            return existing
-                        raise BudgetControllerError("idempotency_conflict")
-                    gate = self._kill_switch_for_cursor(cursor)
-                    if not gate.allowed:
-                        return self._block_in_tx(cursor, launch_id, tenant_id, reserve_cents, gate.reason)
-                    if reserve_cents > self._limits.per_launch_cap_cents:
-                        return self._insert_blocked(
-                            cursor,
-                            launch_id,
-                            tenant_id,
-                            reserve_cents,
-                            "per_launch_cap_exceeded",
-                        )
-                    day, month = _utc_windows(self._now())
-                    global_ledger = self._lock_global_ledger(cursor, day, month)
-                    if self._projected_exceeds(global_ledger, reserve_cents):
-                        return self._insert_blocked(
-                            cursor,
-                            launch_id,
-                            tenant_id,
-                            reserve_cents,
-                            "global_budget_exceeded",
-                        )
-                    ledger = self._lock_ledger(cursor, tenant_id, day, month)
-                    if self._projected_exceeds(ledger, reserve_cents):
-                        return self._insert_blocked(
-                            cursor,
-                            launch_id,
-                            tenant_id,
-                            reserve_cents,
-                            "tenant_budget_exceeded",
-                        )
-                    self._add_global_reserved(cursor, global_ledger, day, month, reserve_cents)
-                    cursor.execute(
-                        """
-                        UPDATE autopilot_queue.budget_tenant_ledger
-                        SET daily_reserved_cents = daily_reserved_cents + %s,
-                            monthly_reserved_cents = monthly_reserved_cents + %s
-                        WHERE tenant_id = %s
-                        """,
-                        (reserve_cents, reserve_cents, tenant_id),
-                    )
-                    cursor.execute(
-                        """
-                        INSERT INTO autopilot_queue.budget_reservations (
-                            launch_id, tenant_id, state, reserve_cents,
-                            block_reason, ledger_utc_day, ledger_utc_month,
-                            usage_unknown, charged_known
-                        ) VALUES (%s, %s, %s, %s, NULL, %s, %s, false, false)
-                        """,
-                        (launch_id, tenant_id, RESERVED, reserve_cents, day, month),
-                    )
-                    logger.info(
-                        "event=budget_reserved tenant=%s launch=%s reserve_cents=%s",
-                        tenant_id,
+            with self._cursor() as cursor:
+                _assert_budget_runtime_binding(cursor, tenant_id)
+                existing = self._fetch_reservation(cursor, launch_id)
+                if existing is not None:
+                    if existing.tenant_id == tenant_id and existing.reserve_cents == reserve_cents:
+                        return existing
+                    raise BudgetControllerError("idempotency_conflict")
+                gate = self._kill_switch_for_cursor(cursor)
+                if not gate.allowed:
+                    return self._block_in_tx(cursor, launch_id, tenant_id, reserve_cents, gate.reason)
+                if reserve_cents > self._limits.per_launch_cap_cents:
+                    return self._insert_blocked(
+                        cursor,
                         launch_id,
+                        tenant_id,
                         reserve_cents,
+                        "per_launch_cap_exceeded",
                     )
-                    return self._require_fetch(cursor, launch_id)
-            except BudgetControllerError:
-                raise
-            except Exception as exc:
-                if _is_unique_violation(exc):
-                    with self._cursor() as cursor:
-                        _assert_budget_runtime_binding(cursor, tenant_id)
-                        existing = self._fetch_reservation(cursor, launch_id)
-                        if existing is not None:
-                            if existing.tenant_id == tenant_id and existing.reserve_cents == reserve_cents:
-                                return existing
-                        raise BudgetControllerError("idempotency_conflict") from exc
-                raise BudgetControllerError("store_unavailable") from exc
+                day, month = _utc_windows(self._now())
+                cursor.execute("SAVEPOINT budget_reserve")
+                try:
+                    cursor.execute(
+                        """
+                        SELECT autopilot_queue.budget_protocol_reserve(
+                            %s, %s, %s, %s, %s
+                        )
+                        """,
+                        (launch_id, reserve_cents, self._limits.per_launch_cap_cents, day, month),
+                    )
+                except Exception as exc:
+                    cursor.execute("ROLLBACK TO SAVEPOINT budget_reserve")
+                    code = _exception_code(exc)
+                    if code in {"global_budget_exceeded", "tenant_budget_exceeded"}:
+                        return self._insert_blocked(cursor, launch_id, tenant_id, reserve_cents, code)
+                    if code in {"overrun_open", "unknown_usage_open"}:
+                        return self._insert_blocked(cursor, launch_id, tenant_id, reserve_cents, code)
+                    raise _budget_error_from_exception(exc) from exc
+                logger.info(
+                    "event=budget_reserved tenant=%s launch=%s reserve_cents=%s",
+                    tenant_id,
+                    launch_id,
+                    reserve_cents,
+                )
+                return self._require_fetch(cursor, launch_id)
 
     def commit_usage(
         self,
@@ -306,7 +278,9 @@ class BudgetController:
         raw_cost_text = _decimal_text(raw_cost_text) if raw_cost_text is not None else None
         charged_text = _decimal_text(charged_text) if charged_text is not None else None
         with self._cursor() as cursor:
-            row = self._lock_reservation(cursor, launch_id)
+            row = self._fetch_reservation(cursor, launch_id)
+            if row is None:
+                raise BudgetControllerError("not_found")
             _assert_budget_runtime_binding(cursor, row.tenant_id)
             if row.state == COMMITTED:
                 if (
@@ -330,45 +304,28 @@ class BudgetController:
                 raise BudgetControllerError("identity_mismatch")
             charged_amount = Decimal(charged_text) if charged_text is not None else Decimal(0)
             reserve = Decimal(row.reserve_cents)
-            ledger_day = row.ledger_utc_day
-            ledger_month = row.ledger_utc_month
-            if ledger_day is None or ledger_month is None:
-                raise BudgetControllerError("store_unavailable")
-            global_ledger = self._lock_global_ledger_window(cursor, ledger_day, ledger_month)
-            self._lock_ledger_window(cursor, row.tenant_id, ledger_day, ledger_month)
-            charged_cents = int(charged_amount.to_integral_value())
-            if charged_amount > reserve:
-                self._move_reserved_to_committed(
-                    cursor,
-                    global_ledger,
-                    ledger_day,
-                    ledger_month,
-                    row.tenant_id,
-                    row.reserve_cents,
-                    charged_cents,
-                )
+            over_reserve = charged_amount > reserve
+            charged_cents = _ledger_cents_ceiling(charged_amount)
+            try:
                 cursor.execute(
                     """
-                    UPDATE autopilot_queue.budget_reservations
-                    SET state = %s,
-                        raw_cost_text = %s,
-                        charged_text = %s,
-                        charged_known = true,
-                        agent_id = COALESCE(%s, agent_id),
-                        run_id = COALESCE(%s, run_id),
-                        usage_unknown = false,
-                        updated_at = clock_timestamp()
-                    WHERE launch_id = %s
+                    SELECT autopilot_queue.budget_protocol_commit(
+                        %s, %s, %s, %s, %s, %s, %s
+                    )
                     """,
                     (
-                        OVERRUN,
+                        launch_id,
                         raw_cost_text,
                         charged_text,
+                        charged_cents,
                         agent_id,
                         run_id,
-                        launch_id,
+                        over_reserve,
                     ),
                 )
+            except Exception as exc:
+                raise _budget_error_from_exception(exc) from exc
+            if over_reserve:
                 logger.warning(
                     "event=budget_overrun tenant=%s launch=%s reserve=%s charged=%s",
                     row.tenant_id,
@@ -376,45 +333,14 @@ class BudgetController:
                     row.reserve_cents,
                     charged_text,
                 )
-                return self._require_fetch(cursor, launch_id)
-            self._move_reserved_to_committed(
-                cursor,
-                global_ledger,
-                ledger_day,
-                ledger_month,
-                row.tenant_id,
-                row.reserve_cents,
-                charged_cents,
-            )
-            cursor.execute(
-                """
-                UPDATE autopilot_queue.budget_reservations
-                SET state = %s,
-                    raw_cost_text = %s,
-                    charged_text = %s,
-                    charged_known = %s,
-                    agent_id = COALESCE(%s, agent_id),
-                    run_id = COALESCE(%s, run_id),
-                    usage_unknown = false,
-                    updated_at = clock_timestamp()
-                WHERE launch_id = %s
-                """,
-                (
-                    COMMITTED,
-                    raw_cost_text,
-                    charged_text,
-                    charged_known,
-                    agent_id,
-                    run_id,
-                    launch_id,
-                ),
-            )
             return self._require_fetch(cursor, launch_id)
 
     def release(self, launch_id: str) -> ReservationView:
         launch_id = _launch_id(launch_id)
         with self._cursor() as cursor:
-            row = self._lock_reservation(cursor, launch_id)
+            row = self._fetch_reservation(cursor, launch_id)
+            if row is None:
+                raise BudgetControllerError("not_found")
             _assert_budget_runtime_binding(cursor, row.tenant_id)
             if row.state == RELEASED:
                 return row
@@ -422,30 +348,13 @@ class BudgetController:
                 raise BudgetControllerError("overrun_open")
             if row.state != RESERVED:
                 raise BudgetControllerError("invalid_state")
-            ledger_day = row.ledger_utc_day
-            ledger_month = row.ledger_utc_month
-            if ledger_day is None or ledger_month is None:
-                raise BudgetControllerError("store_unavailable")
-            global_ledger = self._lock_global_ledger_window(cursor, ledger_day, ledger_month)
-            self._lock_ledger_window(cursor, row.tenant_id, ledger_day, ledger_month)
-            self._release_global_reserved(cursor, global_ledger, ledger_day, ledger_month, row.reserve_cents)
-            cursor.execute(
-                """
-                UPDATE autopilot_queue.budget_tenant_ledger
-                SET daily_reserved_cents = daily_reserved_cents - %s,
-                    monthly_reserved_cents = monthly_reserved_cents - %s
-                WHERE tenant_id = %s
-                """,
-                (row.reserve_cents, row.reserve_cents, row.tenant_id),
-            )
-            cursor.execute(
-                """
-                UPDATE autopilot_queue.budget_reservations
-                SET state = %s, updated_at = clock_timestamp()
-                WHERE launch_id = %s
-                """,
-                (RELEASED, launch_id),
-            )
+            try:
+                cursor.execute(
+                    "SELECT autopilot_queue.budget_protocol_release(%s)",
+                    (launch_id,),
+                )
+            except Exception as exc:
+                raise _budget_error_from_exception(exc) from exc
             return self._require_fetch(cursor, launch_id)
 
     def mark_usage_unknown(self, launch_id: str, *, agent_id: str, run_id: str, raw_cost_text: str | None) -> None:
@@ -456,7 +365,9 @@ class BudgetController:
             raise BudgetControllerError("invalid_identity")
         raw_cost_text = _decimal_text(raw_cost_text) if raw_cost_text is not None else None
         with self._cursor() as cursor:
-            row = self._lock_reservation(cursor, launch_id)
+            row = self._fetch_reservation(cursor, launch_id)
+            if row is None:
+                raise BudgetControllerError("not_found")
             _assert_budget_runtime_binding(cursor, row.tenant_id)
             if row.state != RESERVED:
                 raise BudgetControllerError("invalid_state")
@@ -464,18 +375,17 @@ class BudgetController:
                 raise BudgetControllerError("identity_mismatch")
             if row.run_id and row.run_id != run_id:
                 raise BudgetControllerError("identity_mismatch")
-            cursor.execute(
-                """
-                UPDATE autopilot_queue.budget_reservations
-                SET agent_id = %s,
-                    run_id = %s,
-                    raw_cost_text = %s,
-                    usage_unknown = true,
-                    updated_at = clock_timestamp()
-                WHERE launch_id = %s
-                """,
-                (agent_id, run_id, raw_cost_text, launch_id),
-            )
+            try:
+                cursor.execute(
+                    """
+                    SELECT autopilot_queue.budget_protocol_mark_unknown(
+                        %s, %s, %s, %s
+                    )
+                    """,
+                    (launch_id, agent_id, run_id, raw_cost_text),
+                )
+            except Exception as exc:
+                raise _budget_error_from_exception(exc) from exc
 
     def get_reservation(self, launch_id: str) -> ReservationView | None:
         launch_id = _launch_id(launch_id)
@@ -485,6 +395,10 @@ class BudgetController:
     def _kill_switch_for_cursor(self, cursor) -> KillSwitchDecision:
         if os.environ.get("PAID_AUTOMATION_ENABLED", "").strip().lower() == "true":
             return KillSwitchDecision(False, "paid_automation_disabled")
+        if os.environ.get("AUTOPILOT_EMERGENCY_STOP", "").strip().lower() == "true":
+            return KillSwitchDecision(False, "emergency_stop_env")
+        if self._config.emergency_stop or EMERGENCY_STOP_FILE.exists():
+            return KillSwitchDecision(False, "emergency_stop")
         if (
             self._limits.per_launch_cap_cents <= 0
             or self._limits.daily_limit_cents <= 0
@@ -526,12 +440,11 @@ class BudgetController:
         day, month = _utc_windows(self._now())
         cursor.execute(
             """
-            INSERT INTO autopilot_queue.budget_reservations (
-                launch_id, tenant_id, state, reserve_cents, block_reason,
-                ledger_utc_day, ledger_utc_month, usage_unknown, charged_known
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, false, false)
+            SELECT autopilot_queue.budget_protocol_insert_blocked(
+                %s, %s, %s, %s, %s
+            )
             """,
-            (launch_id, tenant_id, BLOCKED, reserve_cents, reason, day, month),
+            (launch_id, reserve_cents, reason, day, month),
         )
         logger.info(
             "event=budget_blocked tenant=%s launch=%s reason=%s",
@@ -788,9 +701,11 @@ class BudgetController:
         except BudgetControllerError:
             connection.rollback()
             raise
-        except Exception:
+        except Exception as exc:
             connection.rollback()
-            raise BudgetControllerError("store_unavailable") from None
+            if _is_unique_violation(exc):
+                raise BudgetControllerError("idempotency_conflict") from exc
+            raise _budget_error_from_exception(exc) from exc
         finally:
             connection.close()
 
@@ -929,8 +844,34 @@ def _is_unique_violation(exc: Exception) -> bool:
         return False
 
 
-def _sqlstate(exc: Exception) -> str:
+def _ledger_cents_ceiling(amount: Decimal) -> int:
+    return int(amount.to_integral_value(rounding=ROUND_CEILING))
+
+
+def _exception_code(exc: Exception) -> str | None:
     message = str(exc).lower()
-    if "global_budget_exceeded" in message:
-        return "global_budget_exceeded"
-    return ""
+    tokens = (
+        "global_budget_exceeded",
+        "tenant_budget_exceeded",
+        "per_launch_cap_exceeded",
+        "overrun_open",
+        "unknown_usage_open",
+        "identity_mismatch",
+        "invalid_state",
+        "invalid_amount",
+        "not_found",
+        "tenant_mismatch",
+        "tenant_unbound",
+        "store_unavailable",
+    )
+    for token in tokens:
+        if token in message:
+            return token
+    return None
+
+
+def _budget_error_from_exception(exc: Exception) -> BudgetControllerError:
+    code = _exception_code(exc)
+    if code:
+        return BudgetControllerError(code)
+    return BudgetControllerError("store_unavailable")

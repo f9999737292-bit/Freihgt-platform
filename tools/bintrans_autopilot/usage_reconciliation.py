@@ -45,6 +45,8 @@ def reconcile_launch_usage(
     usage_fetcher,
 ) -> ReconcileResult:
     """Fetch usage once and commit the reservation when charged is known."""
+    if not isinstance(agent_id, str) or not isinstance(run_id, str):
+        return ReconcileResult("failed", "invalid_identity")
     if not _AGENT_ID.fullmatch(agent_id) or not _RUN_ID.fullmatch(run_id):
         return ReconcileResult("failed", "invalid_identity")
     reservation = controller.get_reservation(launch_id)
@@ -60,9 +62,14 @@ def reconcile_launch_usage(
         if exc.retryable:
             return ReconcileResult("retry", "usage_api_retry")
         return ReconcileResult("blocked", "usage_api_error")
-    except Exception:
+    except (CursorApiError, BudgetControllerError):
         return ReconcileResult("retry", "usage_fetch_failed")
-    amounts = parse_usage_payload(payload if isinstance(payload, dict) else {})
+    except Exception:
+        return ReconcileResult("failed", "usage_fetch_failed")
+    try:
+        amounts = parse_usage_payload(payload if isinstance(payload, dict) else {})
+    except BudgetControllerError as exc:
+        return ReconcileResult("failed", exc.code)
     if not amounts.charged_known:
         try:
             controller.mark_usage_unknown(
@@ -112,9 +119,9 @@ def _optional_amount(value: object | None) -> str | None:
         raise BudgetControllerError("invalid_amount")
     try:
         amount = Decimal(str(value).strip())
-    except (InvalidOperation, AttributeError) as exc:
+    except (InvalidOperation, AttributeError, TypeError, ValueError) as exc:
         raise BudgetControllerError("invalid_amount") from exc
-    if amount < 0:
+    if not amount.is_finite() or amount < 0:
         raise BudgetControllerError("invalid_amount")
     text = format(amount, "f")
     if "." in text:

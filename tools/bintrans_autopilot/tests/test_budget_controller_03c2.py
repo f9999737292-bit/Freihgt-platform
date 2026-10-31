@@ -150,6 +150,7 @@ class PostgresBudgetControllerTests(unittest.TestCase):
         connection = _owner_connect(self.dsn)
         try:
             connection.execute("DELETE FROM autopilot_queue.budget_reservations")
+            connection.execute("DELETE FROM autopilot_queue.budget_window_usage")
             connection.execute("DELETE FROM autopilot_queue.budget_tenant_ledger")
             connection.execute(
                 """
