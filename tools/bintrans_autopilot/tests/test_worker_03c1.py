@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import threading
 import unittest
+import uuid
 from pathlib import Path
 
 from bintrans_autopilot.postgres_queue import PENDING, RUNNING, SUCCEEDED, PostgresQueue, QueueError
@@ -28,6 +29,20 @@ def _connect_a(dsn: str):
 
 def _connect_b(dsn: str):
     return _tenant_connect(dsn, "tenant_b_runtime", "tenant_b_test")
+
+
+def _replace_token(dsn: str, job_id: str) -> None:
+    connection = _connect_a(dsn)
+    try:
+        updated = connection.execute(
+            "UPDATE autopilot_queue.jobs SET lease_token = %s WHERE job_id = %s",
+            (str(uuid.uuid4()), job_id),
+        )
+        if updated.rowcount != 1:
+            raise AssertionError("token was not replaced")
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def _expire(dsn: str, job_id: str) -> None:
@@ -396,6 +411,133 @@ class WorkerTests(unittest.TestCase):
             connection.rollback()
         finally:
             connection.close()
+
+    def _run_together(self, worker: AutopilotWorker, count: int) -> list[str]:
+        barrier = threading.Barrier(count)
+        results: list[str] = []
+        lock = threading.Lock()
+
+        def run() -> None:
+            barrier.wait(5)
+            outcome = worker.run_once()
+            with lock:
+                results.append(outcome)
+
+        threads = [threading.Thread(target=run) for _ in range(count)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(5)
+            self.assertFalse(thread.is_alive())
+        return results
+
+    def test_one_lease_loss_does_not_cancel_the_other_job(self) -> None:
+        victim = self._enqueue("lease-victim")
+        survivor = self._enqueue("lease-survivor")
+        entered = threading.Barrier(2)
+        lost = threading.Event()
+
+        def handler(context) -> None:
+            entered.wait(5)
+            if context.job_id == victim.job_id:
+                _expire(self.dsn, context.job_id)
+                try:
+                    context.renew()
+                finally:
+                    lost.set()
+                return
+            self.assertTrue(lost.wait(5))
+
+        worker = self._worker(handlers={"ping": handler}, max_in_flight=2)
+        results = self._run_together(worker, 2)
+        self.assertEqual(sorted(results), ["completed", "failed"])
+        survivor_status = self.queue.get_status("tenant-a", survivor.job_id)
+        victim_status = self.queue.get_status("tenant-a", victim.job_id)
+        self.assertEqual(survivor_status.status, SUCCEEDED)
+        self.assertEqual(survivor_status.attempt_count, 1)
+        self.assertEqual(victim_status.status, RUNNING)
+        self.assertEqual(victim_status.attempt_count, 1)
+        with self.assertRaises(QueueError) as raised:
+            self.queue.complete("tenant-a", victim.job_id, "worker-a", _token(self.dsn, victim.job_id))
+        self.assertEqual(raised.exception.code, "lease_expired")
+
+    def test_three_jobs_keep_independent_leases_and_a_stale_token(self) -> None:
+        victim = self._enqueue("stale-victim")
+        first = self._enqueue("stale-survivor-a")
+        second = self._enqueue("stale-survivor-b")
+        entered = threading.Barrier(3)
+        lost = threading.Event()
+        old_token = {}
+
+        def handler(context) -> None:
+            entered.wait(5)
+            if context.job_id != victim.job_id:
+                self.assertTrue(lost.wait(5))
+                return
+            old_token["value"] = _token(self.dsn, context.job_id)
+            _replace_token(self.dsn, context.job_id)
+            _expire(self.dsn, context.job_id)
+            try:
+                context.renew()
+            finally:
+                lost.set()
+
+        worker = self._worker(handlers={"ping": handler}, max_in_flight=3)
+        results = self._run_together(worker, 3)
+        self.assertEqual(sorted(results), ["completed", "completed", "failed"])
+        self.assertEqual(self.queue.get_status("tenant-a", first.job_id).status, SUCCEEDED)
+        self.assertEqual(self.queue.get_status("tenant-a", second.job_id).status, SUCCEEDED)
+        self.assertEqual(self.queue.get_status("tenant-a", first.job_id).attempt_count, 1)
+        self.assertEqual(self.queue.get_status("tenant-a", victim.job_id).status, RUNNING)
+        with self.assertRaises(QueueError) as raised:
+            self.queue.complete("tenant-a", victim.job_id, "worker-a", old_token["value"])
+        self.assertEqual(raised.exception.code, "stale_lease")
+        recovered = self._worker(owner="worker-next")
+        self.assertEqual(recovered.run_once(), "completed")
+        self.assertEqual(self.queue.get_status("tenant-a", victim.job_id).attempt_count, 2)
+        self.assertEqual(self.queue.get_status("tenant-a", first.job_id).attempt_count, 1)
+        self.assertEqual(self.queue.get_status("tenant-a", second.job_id).attempt_count, 1)
+
+    def test_snapshot_is_bound_to_the_worker_tenant(self) -> None:
+        created = self._enqueue("visible-a")
+        self.queue_b.enqueue(
+            tenant_id="tenant-b",
+            job_type="ping",
+            payload={"n": 1},
+            idempotency_key="visible-b",
+            backoff_seconds=0,
+        )
+        depth_a = self._worker().snapshot().queue_depth
+        depth_b = AutopilotWorker(
+            self.queue_b,
+            lambda: _connect_b(self.dsn),
+            mode="dry_run",
+            tenant_id="tenant-b",
+            owner="worker-b",
+        ).snapshot().queue_depth
+        self.assertEqual(depth_a, 1)
+        self.assertEqual(depth_b, 1)
+        owner = AutopilotWorker(
+            self.queue,
+            lambda: _owner_connect(self.dsn),
+            mode="dry_run",
+            tenant_id="tenant-a",
+            owner="owner",
+        )
+        with self.assertRaises(QueueError) as raised:
+            owner.snapshot()
+        self.assertEqual(raised.exception.code, "runtime_privileged")
+        mismatched = AutopilotWorker(
+            self.queue,
+            lambda: _connect_b(self.dsn),
+            mode="dry_run",
+            tenant_id="tenant-a",
+            owner="worker-a",
+        )
+        with self.assertRaises(QueueError) as raised:
+            mismatched.snapshot()
+        self.assertEqual(raised.exception.code, "tenant_mismatch")
+        self.assertEqual(self.queue.get_status("tenant-a", created.job_id).status, PENDING)
 
     def test_payload_cannot_request_an_external_command(self) -> None:
         with self.assertRaises(QueueError) as raised:

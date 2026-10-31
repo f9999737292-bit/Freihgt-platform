@@ -12,7 +12,7 @@ The worker does not start a thread on import. `run_pending` is finite. It does n
 
 The worker calls the existing `requeue_expired`, `claim`, `get_status`, `renew_lease`, `complete`, and `fail` methods. Tenant identity remains the authenticated database principal. The tenant string passed to those methods must match that principal. A payload field is not authorization.
 
-`Claim` commits before the handler runs. The handler may renew the same lease token. `Complete` and `Fail` use that token. A lost, stale, or foreign token is not used to finish the job. The row stays `RUNNING` until a later `requeue_expired` moves it to `PENDING` or `DEAD`.
+`Claim` commits before the handler runs. The handler may renew the same lease token. `Complete` and `Fail` use that token. Each run keeps its own lease result. A lost or stale token for one job does not stop another in-flight job from completing with its own token. The lost token is not reused. That row stays `RUNNING` until a later `requeue_expired` moves it to `PENDING` or `DEAD`.
 
 This is at-least-once delivery. A crash after claim, a lost connection, or a failed renew can leave the job running until the lease expires. A second worker may then claim it. That is not exactly-once for an external effect. This worker has no external effect.
 
@@ -22,4 +22,4 @@ This is at-least-once delivery. A crash after claim, a lost connection, or a fai
 
 Logs use `event`, `tenant`, `job`, and `result`. They do not include the payload, a secret, or a DSN. Events are `worker_started`, `worker_stopped`, `job_claimed`, `lease_renewed`, `job_completed`, `job_failed`, `retry_scheduled`, `job_dead`, `recovery_completed`, and `database_unavailable`.
 
-`snapshot` reads tenant-visible counts through row security: `queue_depth`, `oldest_pending_age`, `running_jobs`, `failed_jobs`, and `dead_jobs`. The worker also keeps `lease_expirations`, `worker_heartbeat`, and `jobs_completed_total`.
+`snapshot` uses the same runtime binding check as the queue. The connection must be the worker's tenant principal. A superuser, the table owner, another privileged role, or a different tenant is rejected before the counts are read. A rejected snapshot does not return an empty aggregate. The counts are `queue_depth`, `oldest_pending_age`, `running_jobs`, `failed_jobs`, and `dead_jobs`. The worker also keeps `lease_expirations`, `worker_heartbeat`, and `jobs_completed_total`.

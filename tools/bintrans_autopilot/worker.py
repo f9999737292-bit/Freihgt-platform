@@ -17,7 +17,14 @@ import time
 from dataclasses import dataclass
 from typing import Callable
 
-from bintrans_autopilot.postgres_queue import PENDING, PostgresQueue, QueueError
+from bintrans_autopilot.postgres_queue import (
+    PENDING,
+    PostgresQueue,
+    QueueError,
+    _assert_runtime_binding,
+    _cursor_for,
+    _one,
+)
 
 logger = logging.getLogger("bintrans_autopilot.worker")
 
@@ -125,7 +132,6 @@ class AutopilotWorker:
         self._started = False
         self._stopped_emitted = False
         self._inflight = 0
-        self._lease_lost = ""
         self._lock = threading.Lock()
 
     def stop(self) -> None:
@@ -168,19 +174,27 @@ class AutopilotWorker:
             self._emit("database_unavailable", "", "store_unavailable")
             raise WorkerError("store_unavailable") from None
         try:
-            row = connection.execute(
-                """
-                SELECT count(*) FILTER (WHERE status = 'PENDING') AS queue_depth,
-                       COALESCE(EXTRACT(EPOCH FROM (
-                           clock_timestamp() - min(created_at) FILTER (WHERE status = 'PENDING')
-                       )), 0) AS oldest_pending_age,
-                       count(*) FILTER (WHERE status = 'RUNNING') AS running_jobs,
-                       count(*) FILTER (WHERE status = 'FAILED') AS failed_jobs,
-                       count(*) FILTER (WHERE status = 'DEAD') AS dead_jobs
-                FROM autopilot_queue.jobs
-                """
-            ).fetchone()
+            with _cursor_for(connection) as cursor:
+                _assert_runtime_binding(cursor, self.tenant_id)
+                cursor.execute(
+                    """
+                    SELECT count(*) FILTER (WHERE status = 'PENDING') AS queue_depth,
+                           COALESCE(EXTRACT(EPOCH FROM (
+                               clock_timestamp() - min(created_at) FILTER (WHERE status = 'PENDING')
+                           )), 0) AS oldest_pending_age,
+                           count(*) FILTER (WHERE status = 'RUNNING') AS running_jobs,
+                           count(*) FILTER (WHERE status = 'FAILED') AS failed_jobs,
+                           count(*) FILTER (WHERE status = 'DEAD') AS dead_jobs
+                    FROM autopilot_queue.jobs
+                    """
+                )
+                row = _one(cursor)
+            if row is None:
+                raise WorkerError("store_unavailable")
             connection.commit()
+        except QueueError:
+            connection.rollback()
+            raise
         except Exception:
             connection.rollback()
             self._emit("database_unavailable", "", "store_unavailable")
@@ -226,7 +240,7 @@ class AutopilotWorker:
             return "unavailable" if exc.code == "store_unavailable" else "failed"
         if status is None or status.job_type not in self._allow:
             return self._fail(lease, "handler_rejected", retryable=False)
-        self._lease_lost = ""
+        lease_lost = {"code": ""}
 
         def renew() -> None:
             try:
@@ -234,7 +248,7 @@ class AutopilotWorker:
                     lease.tenant_id, lease.job_id, lease.lease_owner, lease.lease_token, self.lease_seconds
                 )
             except QueueError as exc:
-                self._lease_lost = exc.code
+                lease_lost["code"] = exc.code
                 raise
             self._emit("lease_renewed", lease.job_id, "running")
 
@@ -246,8 +260,8 @@ class AutopilotWorker:
             return "failed"
         except Exception:
             return self._fail(lease, "handler_failed", retryable=True)
-        if self._lease_lost:
-            self._emit("job_failed", lease.job_id, self._lease_lost)
+        if lease_lost["code"]:
+            self._emit("job_failed", lease.job_id, lease_lost["code"])
             return "failed"
         try:
             self.queue.complete(lease.tenant_id, lease.job_id, lease.lease_owner, lease.lease_token)
@@ -257,7 +271,8 @@ class AutopilotWorker:
                 return "unavailable"
             self._emit("job_failed", lease.job_id, exc.code)
             return "failed"
-        self.metrics.jobs_completed_total += 1
+        with self._lock:
+            self.metrics.jobs_completed_total += 1
         self._emit("job_completed", lease.job_id, "succeeded")
         return "completed"
 
