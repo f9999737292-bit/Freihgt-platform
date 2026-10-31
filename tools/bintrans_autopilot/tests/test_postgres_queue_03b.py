@@ -148,6 +148,69 @@ class StaticQueueTests(unittest.TestCase):
         self.assertIn("pg_depend", runner_source)
         self.assertIn("deptype", runner_source)
 
+    def test_isolated_database_check_covers_public_relations(self) -> None:
+        runner = Path(__file__).resolve().parents[1] / "postgres_queue.py"
+        runner_source = runner.read_text(encoding="utf-8")
+        self.assertIn("_assert_public_schema_clear", runner_source)
+        self.assertNotIn("relkind IN ('r', 'v', 'm', 'f')", runner_source)
+        self.assertIn("FROM pg_proc p", runner_source)
+        self.assertIn("typtype IN ('e', 'd', 'r')", runner_source)
+
+    def test_isolation_rejects_non_test_database_name(self) -> None:
+        runner = MigrationRunner(lambda: None)
+
+        class Cursor:
+            def execute(self, sql, params=None) -> None:
+                self._sql = sql
+
+            def fetchone(self):
+                if "current_database" in self._sql:
+                    return {"name": "freight_platform_prod"}
+                return None
+
+            def fetchall(self):
+                return []
+
+        with self.assertRaises(QueueError) as raised:
+            runner._assert_isolated_test_database(Cursor())
+        self.assertEqual(raised.exception.code, "migration_blocked")
+
+    def test_isolation_denied_catalog_access_fails_closed(self) -> None:
+        try:
+            import psycopg.errors
+        except ImportError:
+            self.skipTest("postgres_driver_unavailable")
+        runner = MigrationRunner(lambda: None)
+
+        class Cursor:
+            description = []
+
+            def execute(self, sql, params=None) -> None:
+                if "current_database" in sql:
+                    self._mode = "name"
+                elif "to_regclass" in sql:
+                    self._mode = "platform"
+                elif "FROM pg_namespace n" in sql and "NOT IN" in sql:
+                    self._mode = "namespace"
+                elif "FROM pg_class c" in sql:
+                    raise psycopg.errors.InsufficientPrivilege("catalog denied")
+                else:
+                    raise AssertionError(sql)
+
+            def fetchone(self):
+                if self._mode == "name":
+                    return {"name": "autopilot_queue_test"}
+                if self._mode == "platform":
+                    return {"name": None}
+                return None
+
+            def fetchall(self):
+                return []
+
+        with self.assertRaises(QueueError) as raised:
+            runner._assert_isolated_test_database(Cursor())
+        self.assertEqual(raised.exception.code, "migration_blocked")
+
     def test_autopilot_and_paid_switches_are_refused(self) -> None:
         with self.assertRaises(QueueError) as raised:
             PostgresQueue(lambda: None, autopilot_enabled=True)
@@ -621,6 +684,70 @@ class PostgresQueueTests(unittest.TestCase):
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
 
+    def test_public_sequence_blocks_destructive_rollback(self) -> None:
+        self._blocked_public_object(
+            ("CREATE SEQUENCE public.queue_isolation_seq",),
+            ("DROP SEQUENCE IF EXISTS public.queue_isolation_seq",),
+        )
+
+    def test_public_partitioned_table_blocks_destructive_rollback(self) -> None:
+        self._blocked_public_object(
+            (
+                "CREATE TABLE public.queue_part_parent (id integer NOT NULL) PARTITION BY RANGE (id)",
+                "CREATE TABLE public.queue_part_child PARTITION OF public.queue_part_parent "
+                "FOR VALUES FROM (1) TO (100)",
+            ),
+            (
+                "DROP TABLE IF EXISTS public.queue_part_child",
+                "DROP TABLE IF EXISTS public.queue_part_parent",
+            ),
+        )
+
+    def test_public_relkind_coverage_blocks_destructive_rollback(self) -> None:
+        cases = [
+            ("CREATE TABLE public.queue_isolation_table (id integer)", "DROP TABLE IF EXISTS public.queue_isolation_table"),
+            (
+                "CREATE VIEW public.queue_isolation_view AS SELECT 1 AS n",
+                "DROP VIEW IF EXISTS public.queue_isolation_view",
+            ),
+            (
+                "CREATE MATERIALIZED VIEW public.queue_isolation_matview AS SELECT 1 AS n",
+                "DROP MATERIALIZED VIEW IF EXISTS public.queue_isolation_matview",
+            ),
+        ]
+        for setup, cleanup in cases:
+            with self.subTest(setup=setup):
+                self._blocked_public_object((setup,), (cleanup,))
+
+    def test_public_enum_type_blocks_destructive_rollback(self) -> None:
+        self._blocked_public_object(
+            ("CREATE TYPE public.queue_isolation_mood AS ENUM ('ready', 'blocked')",),
+            ("DROP TYPE IF EXISTS public.queue_isolation_mood",),
+        )
+
+    def test_destructive_migration_resumes_after_public_object_removed(self) -> None:
+        connection = _owner_connect(self.dsn)
+        try:
+            connection.execute("CREATE SEQUENCE public.queue_isolation_resume_seq")
+            connection.commit()
+            with self.assertRaises(QueueError) as blocked:
+                self.runner.down(allow_destructive_test=True)
+            self.assertEqual(blocked.exception.code, "migration_blocked")
+            connection.execute("DROP SEQUENCE public.queue_isolation_resume_seq")
+            connection.commit()
+            self.assertEqual(self.runner.down(allow_destructive_test=True), 0)
+            self.assertEqual(self.runner.up(), 1)
+        finally:
+            connection.rollback()
+            found = connection.execute("SELECT to_regclass('public.queue_isolation_resume_seq')").fetchone()
+            if _cell(found):
+                connection.execute("DROP SEQUENCE public.queue_isolation_resume_seq")
+            connection.commit()
+            connection.close()
+            if self.runner.version() != 1:
+                self.runner.up()
+            _ensure_tenant_roles(self.dsn, self.runner)
+
     def test_rollback_blocks_foreign_objects_and_job_rows(self) -> None:
         created = self.queue.enqueue(
             tenant_id="tenant-a",
@@ -997,6 +1124,28 @@ class PostgresQueueTests(unittest.TestCase):
         finally:
             connection.close()
             self._restore_runtime()
+
+    def _blocked_public_object(self, setup, cleanup) -> None:
+        connection = _owner_connect(self.dsn)
+        try:
+            for statement in setup:
+                connection.execute(statement)
+            connection.commit()
+            with self.assertRaises(QueueError) as raised:
+                self.runner.down(allow_destructive_test=True)
+            self.assertEqual(raised.exception.code, "migration_blocked")
+            self._assert_version_and_rls(connection)
+        finally:
+            try:
+                connection.rollback()
+                for statement in cleanup:
+                    connection.execute(statement)
+                connection.commit()
+            finally:
+                connection.close()
+                if self.runner.version() != 1:
+                    self.runner.up()
+                    _ensure_tenant_roles(self.dsn, self.runner)
 
     def _blocked_rollback(self, setup, cleanup, preserved, *, external: bool = False) -> None:
         connection = _owner_connect(self.dsn)

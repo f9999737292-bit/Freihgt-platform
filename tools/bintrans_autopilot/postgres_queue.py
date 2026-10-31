@@ -979,31 +979,67 @@ class MigrationRunner:
         )
 
     def _assert_isolated_test_database(self, cursor) -> None:
-        cursor.execute("SELECT current_database() AS name")
-        current = _one(cursor)
-        name = "" if current is None else str(current["name"])
-        if not _TEST_DATABASE.fullmatch(name) or _UNSAFE_DATABASE.search(name):
-            raise QueueError("migration_blocked")
-        cursor.execute("SELECT to_regclass('public.schema_migrations') AS name")
-        platform = _one(cursor)
-        if platform and platform["name"]:
-            raise QueueError("migration_blocked")
+        try:
+            cursor.execute("SELECT current_database() AS name")
+            current = _one(cursor)
+            name = "" if current is None else str(current["name"])
+            if not _TEST_DATABASE.fullmatch(name) or _UNSAFE_DATABASE.search(name):
+                raise QueueError("migration_blocked")
+            cursor.execute("SELECT to_regclass('public.schema_migrations') AS name")
+            platform = _one(cursor)
+            if platform and platform["name"]:
+                raise QueueError("migration_blocked")
+            cursor.execute(
+                """
+                SELECT n.nspname AS nspname
+                FROM pg_namespace n
+                WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast', 'public', 'autopilot_queue')
+                  AND n.nspname NOT LIKE 'pg!_%' ESCAPE '!'
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+            self._assert_public_schema_clear(cursor)
+        except QueueError:
+            raise
+        except Exception as exc:
+            if _sqlstate(exc) == "42501":
+                raise QueueError("migration_blocked") from None
+            raise
+
+    def _assert_public_schema_clear(self, cursor) -> None:
+        """Any user object in public means this is not a dedicated queue test database."""
         cursor.execute(
             """
-            SELECT n.nspname AS nspname
-            FROM pg_namespace n
-            WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast', 'public', 'autopilot_queue')
-              AND n.nspname NOT LIKE 'pg!_%' ESCAPE '!'
+            SELECT c.relname AS relname
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public'
+            LIMIT 1
             """
         )
         if _rows(cursor):
             raise QueueError("migration_blocked")
         cursor.execute(
             """
-            SELECT c.relname AS relname
-            FROM pg_class c
-            JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE n.nspname = 'public' AND c.relkind IN ('r', 'v', 'm', 'f')
+            SELECT p.proname AS proname
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public'
+            LIMIT 1
+            """
+        )
+        if _rows(cursor):
+            raise QueueError("migration_blocked")
+        cursor.execute(
+            """
+            SELECT t.typname AS typname
+            FROM pg_type t
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            WHERE n.nspname = 'public'
+              AND t.typtype IN ('e', 'd', 'r')
+            LIMIT 1
             """
         )
         if _rows(cursor):
