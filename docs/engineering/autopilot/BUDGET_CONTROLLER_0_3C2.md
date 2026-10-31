@@ -103,8 +103,30 @@ Queue migrations:
   `budget_global_lock_row`, tighten helper EXECUTE.
 - **0006** — `budget_verified_usage`, reconciler role, server-owned commit from
   verified rows; runtime loses direct commit/mark-unknown EXECUTE.
+- **0007** — release safety (no runtime release after identity/unknown/verified
+  touch), global `run_id` uniqueness, paired agent/run on reserve.
 
 Platform migration head stays **`000105`**.
+
+## Release and identity (0007)
+
+Runtime `release` is allowed only for **pre-launch** reserves: no `agent_id`/`run_id`,
+no `usage_unknown`, and no `budget_verified_usage` row. After reconciliation or
+identity binding, only reconciler-verified usage (including verified zero) may close
+the financial outcome. `run_id` is globally unique across reservations and verified
+usage. Historical unbound reserves remain valid; the first reconciler pass binds
+identity under uniqueness checks.
+
+## External usage trust (0.3D / 0.3E blocker)
+
+`EXTERNAL_USAGE_SOURCE_AUTHENTICATION=NOT_PROVEN` — payload digest and reconciler
+role harden storage and commit paths, but **0.3C2 does not prove** TLS/API-key
+authenticity of Cursor Usage API responses. Paid launch phases must add verified
+credentials, response validation, and non-spoofable ingestion before production
+budget closure.
+
+Outstanding LOW (not closed in R5): AP03C2-R4-003..004 and prior deferred LOW;
+track in Agent J full audit.
 
 ## Test-only notes
 

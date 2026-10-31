@@ -100,6 +100,10 @@ class BudgetControllerR2Tests(unittest.TestCase):
             self.skipTest("postgres_unavailable")
         connection = _owner_connect(self.dsn)
         try:
+            if connection.execute(
+                "SELECT to_regclass('autopilot_queue.budget_verified_usage') AS name"
+            ).fetchone()[0]:
+                connection.execute("DELETE FROM autopilot_queue.budget_verified_usage")
             connection.execute("DELETE FROM autopilot_queue.budget_reservations")
             connection.execute("DELETE FROM autopilot_queue.budget_window_usage")
             connection.execute("DELETE FROM autopilot_queue.budget_tenant_ledger")

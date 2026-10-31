@@ -483,6 +483,10 @@ class MigrationRunner:
             if not applied:
                 return 0
             target = max(applied)
+            if target == 7:
+                self._down_budget_migration_v7(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
             if target == 6:
                 self._down_budget_migration_v6(cursor, allow_destructive_test=allow_destructive_test)
                 applied = self._applied(cursor)
@@ -517,6 +521,9 @@ class MigrationRunner:
         with self._cursor() as cursor:
             cursor.execute("SELECT pg_advisory_xact_lock(%s)", (_ADVISORY_LOCK,))
             applied = self._applied(cursor)
+            if 7 in applied:
+                self._down_budget_migration_v7(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
             if 6 in applied:
                 self._down_budget_migration_v6(cursor, allow_destructive_test=allow_destructive_test)
                 applied = self._applied(cursor)
@@ -532,6 +539,62 @@ class MigrationRunner:
             if 2 in applied:
                 self._down_budget_migration(cursor, allow_destructive_test=allow_destructive_test)
         return self.version()
+
+    def _down_budget_migration_v7(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 7 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.budget_reservations
+                WHERE state IN ('REQUESTED', 'RESERVED', 'OVERRUN')
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 7)
+        self._restore_budget_protocol_v6_release_identity(cursor)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 7")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _restore_budget_protocol_v6_release_identity(self, cursor) -> None:
+        path = _SQL_DIR / "0006_verified_usage.up.sql"
+        text = path.read_text(encoding="utf-8")
+        release_path = _SQL_DIR / "0005_budget_authority.up.sql"
+        release_text = release_path.read_text(encoding="utf-8")
+        release_start = release_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_release(")
+        release_end = release_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_mark_unknown(", release_start)
+        if release_start < 0 or release_end < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(release_text[release_start:release_end]):
+            cursor.execute(statement)
+        apply_marker = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_reconciler_apply_usage("
+        apply_start = text.find(apply_marker)
+        apply_tail = text.find(
+            "REVOKE ALL ON FUNCTION autopilot_queue.budget_reconciler_apply_usage(",
+            apply_start,
+        )
+        reserve_create = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_reserve("
+        reserve_start = text.rfind(reserve_create)
+        grant_marker = "GRANT EXECUTE ON FUNCTION autopilot_queue.budget_protocol_reserve(text, bigint, text, text)"
+        grant_end = text.find(";", text.find(grant_marker, reserve_start)) + 1
+        apply_grant_end = text.find(
+            "GRANT EXECUTE ON FUNCTION autopilot_queue.budget_reconciler_apply_usage(",
+            apply_tail,
+        )
+        apply_grant_end = text.find(";", apply_grant_end) + 1
+        if apply_start < 0 or apply_tail < 0 or reserve_start < 0 or grant_end <= 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(text[apply_start:apply_tail]):
+            cursor.execute(statement)
+        for statement in _statements(text[apply_tail:apply_grant_end]):
+            cursor.execute(statement)
+        for statement in _statements(text[reserve_start:grant_end]):
+            cursor.execute(statement)
 
     def _down_budget_migration_v6(self, cursor, *, allow_destructive_test: bool) -> int:
         applied = self._applied(cursor)

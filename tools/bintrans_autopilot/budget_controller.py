@@ -228,6 +228,8 @@ class BudgetController:
         reserve_cents = _reserve_cents(reserve_cents)
         agent_id = _optional_agent_id(agent_id)
         run_id = _optional_run_id(run_id)
+        if (agent_id is None) ^ (run_id is None):
+            raise BudgetControllerError("identity_incomplete")
         with self._lock:
             with self._cursor() as cursor:
                 _assert_budget_runtime_binding(cursor, tenant_id)
@@ -366,6 +368,24 @@ class BudgetController:
                 raise BudgetControllerError("overrun_open")
             if row.state != RESERVED:
                 raise BudgetControllerError("invalid_state")
+            if row.usage_unknown:
+                raise BudgetControllerError("unknown_usage_open")
+            if row.agent_id is not None or row.run_id is not None:
+                raise BudgetControllerError("launch_identity_bound")
+            try:
+                cursor.execute(
+                    """
+                    SELECT 1 FROM autopilot_queue.budget_verified_usage
+                    WHERE launch_id = %s
+                    """,
+                    (launch_id,),
+                )
+                if cursor.fetchone() is not None:
+                    raise BudgetControllerError("verified_usage_present")
+            except BudgetControllerError:
+                raise
+            except Exception as exc:
+                raise BudgetControllerError("store_unavailable") from exc
             try:
                 cursor.execute(
                     "SELECT autopilot_queue.budget_protocol_release(%s)",
@@ -935,6 +955,11 @@ def _exception_code(exc: Exception) -> str | None:
         "verified_usage_missing",
         "verified_usage_required",
         "unknown_usage",
+        "unknown_usage_open",
+        "launch_identity_bound",
+        "verified_usage_present",
+        "identity_incomplete",
+        "run_id_taken",
     )
     for token in tokens:
         if token in message:
