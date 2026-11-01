@@ -138,6 +138,8 @@ class LaunchLifecyclePostgresTests(unittest.TestCase):
         _ensure_reconciler_role(cls.dsn)
         if cls.runner.version() >= 8:
             _ensure_launch_roles(cls.dsn)
+        if cls.dsn and cls.runner.version() >= 2:
+            _reseed_tenant_ledgers(cls.dsn)
 
     @classmethod
     def tearDownClass(cls) -> None:

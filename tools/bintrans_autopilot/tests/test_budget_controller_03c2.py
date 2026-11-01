@@ -267,6 +267,8 @@ class PostgresBudgetControllerTests(unittest.TestCase):
             cls.runner.up()
         _ensure_tenant_roles(cls.dsn, cls.runner)
         _ensure_reconciler_role(cls.dsn)
+        if cls.dsn and cls.runner.version() >= 2:
+            _reseed_tenant_ledgers(cls.dsn)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -530,6 +532,7 @@ class PostgresBudgetControllerTests(unittest.TestCase):
             self.runner.down_budget_migration(allow_destructive_test=True)
         self.runner.up()
         _ensure_tenant_roles(self.dsn, self.runner)
+        _reseed_tenant_ledgers(self.dsn)
 
 
 if __name__ == "__main__":

@@ -39,11 +39,6 @@ ALTER TABLE autopilot_queue.launch_intents FORCE ROW LEVEL SECURITY;
 
 REVOKE SELECT ON autopilot_queue.launch_intents FROM autopilot_queue_runtime;
 
-CREATE POLICY launch_intents_tenant_bound ON autopilot_queue.launch_intents
-    FOR ALL
-    USING (tenant_id = autopilot_queue._budget_bound_tenant())
-    WITH CHECK (tenant_id = autopilot_queue._budget_bound_tenant());
-
 CREATE OR REPLACE FUNCTION autopilot_queue._budget_release_unused_reserve(
     p_tenant_id text,
     p_launch_id text

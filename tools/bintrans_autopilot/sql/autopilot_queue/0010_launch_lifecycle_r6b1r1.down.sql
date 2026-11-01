@@ -1,6 +1,5 @@
 -- Roll back R6B-1-R1 security remediation (restore v9-compatible protocol surface).
 
-DROP POLICY IF EXISTS launch_intents_tenant_bound ON autopilot_queue.launch_intents;
 ALTER TABLE autopilot_queue.launch_intents NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE autopilot_queue.launch_intents DISABLE ROW LEVEL SECURITY;
 GRANT SELECT ON autopilot_queue.launch_intents TO autopilot_queue_runtime;
@@ -17,6 +16,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS budget_reservations_tenant_launch_uidx
     ON autopilot_queue.budget_reservations (tenant_id, launch_id);
 
 DROP FUNCTION IF EXISTS autopilot_queue._budget_release_unused_reserve(text, text);
+DROP FUNCTION IF EXISTS autopilot_queue._budget_release_unused_reserve(text);
 
 CREATE OR REPLACE FUNCTION autopilot_queue._budget_release_unused_reserve(p_launch_id text)
 RETURNS void

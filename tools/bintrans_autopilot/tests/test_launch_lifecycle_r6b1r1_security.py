@@ -57,6 +57,8 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             cls.runner.up()
         _ensure_tenant_roles(cls.dsn, cls.runner)
         _ensure_launch_roles(cls.dsn)
+        if cls.dsn and cls.runner.version() >= 2:
+            _reseed_tenant_ledgers(cls.dsn)
 
     @classmethod
     def tearDownClass(cls) -> None:
