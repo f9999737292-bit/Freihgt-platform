@@ -1,0 +1,1 @@
+-- LT-06 helpers remain after down (harmless); re-up replaces launch report/reject bodies.

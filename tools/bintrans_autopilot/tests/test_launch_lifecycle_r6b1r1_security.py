@@ -27,6 +27,7 @@ from bintrans_autopilot.tests.test_launch_lifecycle_r6b import (
 
 _TENANT_A_RUNTIME = ("tenant_a_runtime", "tenant_a_test")
 _TENANT_B_RUNTIME = ("tenant_b_runtime", "tenant_b_test")
+_PROOF_DIGEST = "a" * 64
 
 
 def _runtime_connect(dsn: str, role_password: tuple[str, str]):
@@ -50,7 +51,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
         except Exception:
             cls.dsn = ""
             return
-        if cls.runner.version() < 11:
+        if cls.runner.version() < 12:
             cls.dsn = ""
             return
         if cls.runner.version() >= 2:
@@ -70,7 +71,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             os.environ["AUTOPILOT_ENABLED"] = prior
 
     def setUp(self) -> None:
-        if not self.dsn or self.runner.version() < 11:
+        if not self.dsn or self.runner.version() < 12:
             self.skipTest("launch_r6b1r1_migration_unavailable")
         owner = _owner_connect(self.dsn)
         try:
@@ -323,6 +324,244 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             self.assertTrue(bool(flags[1]))
         finally:
             owner.close()
+
+    def test_r2_001_runtime_commit_and_mark_unknown_absent(self) -> None:
+        import psycopg
+
+        owner = _owner_connect(self.dsn)
+        try:
+            names = owner.execute(
+                """
+                SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS args
+                FROM pg_proc p
+                JOIN pg_namespace n ON n.oid = p.pronamespace
+                WHERE n.nspname = 'autopilot_queue'
+                  AND p.proname IN ('budget_protocol_commit', 'budget_protocol_mark_unknown')
+                """
+            ).fetchall()
+            self.assertEqual(names, [])
+        finally:
+            owner.close()
+        conn = _runtime_connect(self.dsn, _TENANT_A_RUNTIME)
+        try:
+            conn.execute("SET ROLE autopilot_queue_runtime")
+            for signature in (
+                "autopilot_queue.budget_protocol_commit(text, text, text, text, text)",
+                "autopilot_queue.budget_protocol_mark_unknown(text, text, text, text)",
+                "autopilot_queue._budget_commit_from_verified(text, text)",
+            ):
+                with self.assertRaises(psycopg.Error):
+                    conn.execute(f"SELECT {signature}")
+                conn.rollback()
+        finally:
+            conn.close()
+
+    def test_r2_001_public_execute_denied_on_internal_budget_helpers(self) -> None:
+        owner = _owner_connect(self.dsn)
+        try:
+            rows = owner.execute(
+                """
+                SELECT p.oid::regprocedure::text
+                FROM pg_proc p
+                JOIN pg_namespace n ON n.oid = p.pronamespace
+                WHERE n.nspname = 'autopilot_queue'
+                  AND p.proname LIKE '\\_budget%' ESCAPE '\\'
+                """
+            ).fetchall()
+            for (regproc,) in rows:
+                allowed = owner.execute(
+                    "SELECT has_function_privilege('public', %s::regprocedure, 'EXECUTE')",
+                    (regproc,),
+                ).fetchone()[0]
+                self.assertFalse(bool(allowed), regproc)
+        finally:
+            owner.close()
+
+    def test_r6b1r3_ownership_design_blocked_definer_still_superuser_owned(self) -> None:
+        owner = _owner_connect(self.dsn)
+        try:
+            row = owner.execute(
+                """
+                SELECT COUNT(*)::int
+                FROM pg_proc p
+                JOIN pg_namespace n ON n.oid = p.pronamespace
+                JOIN pg_roles r ON r.oid = p.proowner
+                WHERE n.nspname = 'autopilot_queue'
+                  AND p.prosecdef
+                  AND r.rolsuper
+                """
+            ).fetchone()[0]
+            self.assertGreater(row, 0)
+            definer = owner.execute(
+                """
+                SELECT rolname, rolsuper, rolbypassrls
+                FROM pg_roles
+                WHERE rolname = 'autopilot_queue_definer_owner'
+                """
+            ).fetchone()
+            self.assertIsNotNone(definer)
+            self.assertFalse(bool(definer[1]))
+            self.assertFalse(bool(definer[2]))
+        finally:
+            owner.close()
+
+    def test_r1_003_lt06_reject_requires_whitelist_and_matching_report(self) -> None:
+        launch_id = "launch-lt06-proof"
+        self.controller_a.request_reserve(launch_id, "tenant-a", 10)
+        _record_intent(self.dsn, "tenant-a", launch_id)
+        adapter = _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)
+        try:
+            adapter.execute(
+                "SELECT autopilot_queue.launch_protocol_mark_send_started(%s, %s)",
+                ("tenant-a", launch_id),
+            )
+            with self.assertRaises(Exception) as raised:
+                adapter.execute(
+                    "SELECT autopilot_queue.launch_protocol_reject_definite(%s, %s, %s)",
+                    ("tenant-a", launch_id, "HTTP_500"),
+                )
+            self.assertIn("invalid_caller_or_state", str(raised.exception).lower())
+            adapter.rollback()
+            adapter.execute(
+                "SELECT autopilot_queue.launch_protocol_mark_send_started(%s, %s)",
+                ("tenant-a", launch_id),
+            )
+            adapter.execute(
+                """
+                SELECT autopilot_queue.launch_protocol_report_outbound_result(%s, %s, %s, %s)
+                """,
+                ("tenant-a", launch_id, "HTTP_401", _PROOF_DIGEST),
+            )
+            with self.assertRaises(Exception) as raised:
+                adapter.execute(
+                    "SELECT autopilot_queue.launch_protocol_reject_definite(%s, %s, %s)",
+                    ("tenant-a", launch_id, "HTTP_403"),
+                )
+            self.assertIn("invalid_caller_or_state", str(raised.exception).lower())
+            adapter.rollback()
+        finally:
+            adapter.close()
+        self.assertEqual(self.controller_a.get_reservation(launch_id).state, "RESERVED")
+
+    def test_r1_003_lt06_mock_trusted_requires_mock_mode(self) -> None:
+        launch_id = "launch-lt06-real-mode"
+        self.controller_a.request_reserve(launch_id, "tenant-a", 10)
+        _record_intent(self.dsn, "tenant-a", launch_id)
+        adapter = _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)
+        try:
+            adapter.execute(
+                "SELECT autopilot_queue.launch_protocol_mark_send_started(%s, %s)",
+                ("tenant-a", launch_id),
+            )
+            adapter.commit()
+        finally:
+            adapter.close()
+        owner = _owner_connect(self.dsn)
+        try:
+            owner.execute(
+                """
+                UPDATE autopilot_queue.autopilot_launch_control
+                SET autopilot_launch_mode = 'DISABLED'
+                WHERE id = 1
+                """
+            )
+            owner.commit()
+        finally:
+            owner.close()
+        adapter = _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)
+        try:
+            with self.assertRaises(Exception) as raised:
+                adapter.execute(
+                    """
+                    SELECT autopilot_queue.launch_protocol_report_outbound_result(%s, %s, %s, %s)
+                    """,
+                    ("tenant-a", launch_id, "MOCK_TRUSTED", _PROOF_DIGEST),
+                )
+            lowered = str(raised.exception).lower()
+            self.assertTrue(
+                "invalid_caller_or_state" in lowered or "launch_mode_blocked" in lowered,
+                lowered,
+            )
+            adapter.rollback()
+        finally:
+            adapter.close()
+
+    def test_r1_005_functional_v9_cancel_and_reject_then_restore_head(self) -> None:
+        runner = self.runner
+        launch_cancel = "launch-v9-cancel"
+        launch_reject = "launch-v9-reject"
+        self.controller_a.request_reserve(launch_cancel, "tenant-a", 7)
+        self.controller_a.request_reserve(launch_reject, "tenant-a", 8)
+        _record_intent(self.dsn, "tenant-a", launch_cancel)
+        _record_intent(self.dsn, "tenant-a", launch_reject)
+        try:
+            while runner.version() > 9:
+                runner.down(allow_destructive_test=True)
+            self.assertEqual(runner.version(), 9)
+            adapter = _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)
+            try:
+                adapter.execute(
+                    "SELECT autopilot_queue.launch_protocol_cancel_before_send(%s, %s)",
+                    ("tenant-a", launch_cancel),
+                )
+                adapter.execute(
+                    "SELECT autopilot_queue.launch_protocol_mark_send_started(%s, %s)",
+                    ("tenant-a", launch_reject),
+                )
+                adapter.commit()
+            finally:
+                adapter.close()
+            owner = _owner_connect(self.dsn)
+            try:
+                owner.execute(
+                    """
+                    UPDATE autopilot_queue.launch_intents
+                    SET outbound_attempt_count = 1
+                    WHERE tenant_id = %s AND launch_id = %s
+                    """,
+                    ("tenant-a", launch_reject),
+                )
+                owner.commit()
+            finally:
+                owner.close()
+            adapter = _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)
+            try:
+                adapter.execute(
+                    "SELECT autopilot_queue.launch_protocol_reject_definite(%s, %s, %s)",
+                    ("tenant-a", launch_reject, "MOCK_TRUSTED"),
+                )
+                adapter.commit()
+            finally:
+                adapter.close()
+            self.assertEqual(self.controller_a.get_reservation(launch_cancel).state, "RELEASED")
+            self.assertEqual(self.controller_a.get_reservation(launch_reject).state, "RELEASED")
+        finally:
+            while runner.version() < 12:
+                runner.up()
+            _reseed_tenant_ledgers(self.dsn, runner)
+
+    def test_r6b1r3_up_down_up_commit_still_absent(self) -> None:
+        runner = self.runner
+        try:
+            self.assertEqual(runner.down(allow_destructive_test=True), 11)
+            self.assertEqual(runner.up(), 12)
+            owner = _owner_connect(self.dsn)
+            try:
+                count = owner.execute(
+                    """
+                    SELECT COUNT(*)::int
+                    FROM pg_proc p
+                    JOIN pg_namespace n ON n.oid = p.pronamespace
+                    WHERE n.nspname = 'autopilot_queue'
+                      AND p.proname = 'budget_protocol_commit'
+                    """
+                ).fetchone()[0]
+                self.assertEqual(count, 0)
+            finally:
+                owner.close()
+        finally:
+            if runner.version() < 12:
+                runner.up()
 
 
 if __name__ == "__main__":

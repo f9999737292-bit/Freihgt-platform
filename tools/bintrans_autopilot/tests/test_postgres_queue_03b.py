@@ -302,7 +302,7 @@ class PostgresQueueTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         if not cls.dsn:
             return
-        if cls.runner.version() < 11:
+        if cls.runner.version() < 12:
             cls.runner.up()
         if cls.runner.version() >= 2:
             _reseed_tenant_ledgers(cls.dsn, cls.runner)
@@ -313,6 +313,14 @@ class PostgresQueueTests(unittest.TestCase):
         connection = _owner_connect(self.dsn)
         try:
             connection.execute("TRUNCATE autopilot_queue.jobs")
+            if self.runner.version() >= 2:
+                connection.execute("DELETE FROM autopilot_queue.budget_verified_usage")
+                connection.execute("DELETE FROM autopilot_queue.budget_reservations")
+                connection.execute("DELETE FROM autopilot_queue.budget_window_usage")
+            if self.runner.version() >= 8:
+                connection.execute("DELETE FROM autopilot_queue.manual_reconciliation_audit")
+                connection.execute("DELETE FROM autopilot_queue.recovery_poll_audit")
+                connection.execute("DELETE FROM autopilot_queue.launch_intents")
             connection.commit()
         finally:
             connection.close()
@@ -680,7 +688,7 @@ class PostgresQueueTests(unittest.TestCase):
         self.assertEqual(before, after)
 
     def test_migration_is_isolated_and_reversible(self) -> None:
-        self.assertEqual(self.runner.up(), 11)
+        self.assertEqual(self.runner.up(), 12)
         connection = _owner_connect(self.dsn)
         try:
             platform = connection.execute("SELECT to_regclass('public.schema_migrations') AS name").fetchone()
@@ -691,32 +699,35 @@ class PostgresQueueTests(unittest.TestCase):
         finally:
             connection.close()
         try:
-            self.assertEqual(self.runner.down(), 10)
-            self.assertEqual(self.runner.down(), 9)
-            self.assertEqual(self.runner.down(), 8)
-            self.assertEqual(self.runner.down(), 7)
-            self.assertEqual(self.runner.down(), 6)
-            self.assertEqual(self.runner.down(), 5)
-            self.assertEqual(self.runner.down(), 4)
-            self.assertEqual(self.runner.down(), 3)
-            self.assertEqual(self.runner.down(), 2)
-            self.assertEqual(self.runner.down(), 1)
-            self.assertEqual(self.runner.down(), 0)
-            self.assertEqual(self.runner.up(), 11)
-            self.assertEqual(self.runner.down(), 10)
-            self.assertEqual(self.runner.down(), 9)
-            self.assertEqual(self.runner.down(), 8)
-            self.assertEqual(self.runner.down(), 7)
-            self.assertEqual(self.runner.down(), 6)
-            self.assertEqual(self.runner.down(), 5)
-            self.assertEqual(self.runner.down(), 4)
-            self.assertEqual(self.runner.down(), 3)
-            self.assertEqual(self.runner.down(), 2)
-            self.assertEqual(self.runner.down(), 1)
-            self.assertEqual(self.runner.down(), 0)
-            self.assertEqual(self.runner.up(), 11)
+            destructive = {"allow_destructive_test": True}
+            self.assertEqual(self.runner.down(**destructive), 11)
+            self.assertEqual(self.runner.down(**destructive), 10)
+            self.assertEqual(self.runner.down(**destructive), 9)
+            self.assertEqual(self.runner.down(**destructive), 8)
+            self.assertEqual(self.runner.down(**destructive), 7)
+            self.assertEqual(self.runner.down(**destructive), 6)
+            self.assertEqual(self.runner.down(**destructive), 5)
+            self.assertEqual(self.runner.down(**destructive), 4)
+            self.assertEqual(self.runner.down(**destructive), 3)
+            self.assertEqual(self.runner.down(**destructive), 2)
+            self.assertEqual(self.runner.down(**destructive), 1)
+            self.assertEqual(self.runner.down(**destructive), 0)
+            self.assertEqual(self.runner.up(), 12)
+            self.assertEqual(self.runner.down(**destructive), 11)
+            self.assertEqual(self.runner.down(**destructive), 10)
+            self.assertEqual(self.runner.down(**destructive), 9)
+            self.assertEqual(self.runner.down(**destructive), 8)
+            self.assertEqual(self.runner.down(**destructive), 7)
+            self.assertEqual(self.runner.down(**destructive), 6)
+            self.assertEqual(self.runner.down(**destructive), 5)
+            self.assertEqual(self.runner.down(**destructive), 4)
+            self.assertEqual(self.runner.down(**destructive), 3)
+            self.assertEqual(self.runner.down(**destructive), 2)
+            self.assertEqual(self.runner.down(**destructive), 1)
+            self.assertEqual(self.runner.down(**destructive), 0)
+            self.assertEqual(self.runner.up(), 12)
         finally:
-            if self.runner.version() < 11:
+            if self.runner.version() < 12:
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
             if self.runner.version() >= 2:
@@ -774,7 +785,7 @@ class PostgresQueueTests(unittest.TestCase):
             connection.execute("DROP SEQUENCE public.queue_isolation_resume_seq")
             connection.commit()
             self.assertEqual(self.runner.down(allow_destructive_test=True), 0)
-            self.assertEqual(self.runner.up(), 11)
+            self.assertEqual(self.runner.up(), 12)
         finally:
             connection.rollback()
             found = connection.execute("SELECT to_regclass('public.queue_isolation_resume_seq')").fetchone()
@@ -782,7 +793,7 @@ class PostgresQueueTests(unittest.TestCase):
                 connection.execute("DROP SEQUENCE public.queue_isolation_resume_seq")
             connection.commit()
             connection.close()
-            if self.runner.version() != 11:
+            if self.runner.version() != 12:
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
 
@@ -1074,26 +1085,28 @@ class PostgresQueueTests(unittest.TestCase):
 
     def test_clean_rollback_down_up(self) -> None:
         try:
-            if self.runner.version() < 11:
+            if self.runner.version() < 12:
                 self.runner.up()
-            self.assertEqual(self.runner.down(), 10)
-            self.assertEqual(self.runner.down(), 9)
-            self.assertEqual(self.runner.down(), 8)
-            self.assertEqual(self.runner.down(), 7)
-            self.assertEqual(self.runner.down(), 6)
-            self.assertEqual(self.runner.down(), 5)
-            self.assertEqual(self.runner.down(), 4)
-            self.assertEqual(self.runner.down(), 3)
-            self.assertEqual(self.runner.down(), 2)
-            self.assertEqual(self.runner.down(), 1)
-            self.assertEqual(self.runner.down(), 0)
+            destructive = {"allow_destructive_test": True}
+            self.assertEqual(self.runner.down(**destructive), 11)
+            self.assertEqual(self.runner.down(**destructive), 10)
+            self.assertEqual(self.runner.down(**destructive), 9)
+            self.assertEqual(self.runner.down(**destructive), 8)
+            self.assertEqual(self.runner.down(**destructive), 7)
+            self.assertEqual(self.runner.down(**destructive), 6)
+            self.assertEqual(self.runner.down(**destructive), 5)
+            self.assertEqual(self.runner.down(**destructive), 4)
+            self.assertEqual(self.runner.down(**destructive), 3)
+            self.assertEqual(self.runner.down(**destructive), 2)
+            self.assertEqual(self.runner.down(**destructive), 1)
+            self.assertEqual(self.runner.down(**destructive), 0)
             connection = _owner_connect(self.dsn)
             try:
                 self.assertIsNone(_cell(connection.execute("SELECT to_regclass('autopilot_queue.jobs')").fetchone()))
                 connection.rollback()
             finally:
                 connection.close()
-            self.assertEqual(self.runner.up(), 11)
+            self.assertEqual(self.runner.up(), 12)
             connection = _owner_connect(self.dsn)
             try:
                 self._assert_version_and_rls(connection)
@@ -1114,7 +1127,7 @@ class PostgresQueueTests(unittest.TestCase):
             finally:
                 connection.close()
         finally:
-            if self.runner.version() < 11:
+            if self.runner.version() < 12:
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
             if self.runner.version() >= 2:
@@ -1149,7 +1162,7 @@ class PostgresQueueTests(unittest.TestCase):
         self._reject_precreated_role("CREATE ROLE autopilot_queue_runtime SUPERUSER LOGIN", "rolsuper")
 
     def test_existing_role_membership_is_rejected(self) -> None:
-        self.runner.down()
+        self.runner.down(allow_destructive_test=True)
         connection = _owner_connect(self.dsn)
         try:
             _detach_runtime(connection)
@@ -1227,7 +1240,7 @@ class PostgresQueueTests(unittest.TestCase):
     def _assert_version_and_rls(self, connection) -> None:
         versions = connection.execute("SELECT version FROM autopilot_queue.schema_migrations ORDER BY version").fetchall()
         budget = _cell(connection.execute("SELECT to_regclass('autopilot_queue.budget_reservations')").fetchone())
-        expected = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] if budget else [1]
+        expected = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] if budget else [1]
         self.assertEqual([_cell(row) for row in versions], expected)
         flags = connection.execute(
             """
@@ -1242,7 +1255,7 @@ class PostgresQueueTests(unittest.TestCase):
         self.assertIsNotNone(_cell(connection.execute("SELECT to_regclass('autopilot_queue.jobs')").fetchone()))
 
     def _reject_precreated_role(self, create_sql: str, column: str) -> None:
-        self.runner.down()
+        self.runner.down(allow_destructive_test=True)
         connection = _owner_connect(self.dsn)
         try:
             _detach_runtime(connection)

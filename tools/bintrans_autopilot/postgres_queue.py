@@ -483,6 +483,10 @@ class MigrationRunner:
             if not applied:
                 return 0
             target = max(applied)
+            if target == 12:
+                self._down_budget_migration_v12(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
             if target == 11:
                 self._down_budget_migration_v11(cursor, allow_destructive_test=allow_destructive_test)
                 applied = self._applied(cursor)
@@ -537,6 +541,9 @@ class MigrationRunner:
         with self._cursor() as cursor:
             cursor.execute("SELECT pg_advisory_xact_lock(%s)", (_ADVISORY_LOCK,))
             applied = self._applied(cursor)
+            if 12 in applied:
+                self._down_budget_migration_v12(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
             if 11 in applied:
                 self._down_budget_migration_v11(cursor, allow_destructive_test=allow_destructive_test)
                 applied = self._applied(cursor)
@@ -588,8 +595,75 @@ class MigrationRunner:
                 raise QueueError("migration_blocked")
         self._execute_down_file(cursor, 10)
         self._restore_launch_protocol_v9(cursor)
+        self._restore_launch_protocol_v9_one_arg_release(cursor)
         cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 10")
         return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _down_budget_migration_v12(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 12 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.launch_intents
+                WHERE lifecycle_state NOT IN (
+                    'CANCELLED_BEFORE_SEND', 'LAUNCH_REJECTED', 'LAUNCH_CONFIRMED', 'EXTERNAL_AGENT_CANCELLED'
+                )
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 12)
+        self._restore_database_authority_v11_pre_r3(cursor)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 12")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _restore_database_authority_v11_pre_r3(self, cursor) -> None:
+        cursor.execute("DROP FUNCTION IF EXISTS autopilot_queue._launch_proof_class_lt06_eligible(text)")
+        cursor.execute("DROP FUNCTION IF EXISTS autopilot_queue._launch_assert_lt06_proof_class(text)")
+        r11_text = (_SQL_DIR / "0011_tenant_scoped_budget_r6b1r2.up.sql").read_text(encoding="utf-8")
+        commit_start = r11_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_commit(")
+        verified_drop = r11_text.find(
+            "DROP FUNCTION IF EXISTS autopilot_queue._budget_commit_from_verified(text);",
+            commit_start,
+        )
+        if commit_start < 0 or verified_drop < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(r11_text[commit_start:verified_drop]):
+            cursor.execute(statement)
+        apply_marker = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_reconciler_apply_usage("
+        apply_start = r11_text.find(apply_marker)
+        apply_tail = r11_text.find(
+            "REVOKE ALL ON FUNCTION autopilot_queue.budget_reconciler_apply_usage(",
+            apply_start,
+        )
+        if apply_start < 0 or apply_tail < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(r11_text[apply_start:apply_tail]):
+            cursor.execute(statement)
+        for path, start_marker, end_marker in (
+            (
+                _SQL_DIR / "0008_launch_lifecycle.up.sql",
+                "CREATE OR REPLACE FUNCTION autopilot_queue.launch_protocol_report_outbound_result(",
+                "CREATE OR REPLACE FUNCTION autopilot_queue.launch_protocol_mark_unknown(",
+            ),
+            (
+                _SQL_DIR / "0010_launch_lifecycle_r6b1r1.up.sql",
+                "CREATE OR REPLACE FUNCTION autopilot_queue.launch_protocol_reject_definite(",
+                "CREATE OR REPLACE FUNCTION autopilot_queue.launch_protocol_recovery_lease_acquire(",
+            ),
+        ):
+            text = path.read_text(encoding="utf-8")
+            start = text.find(start_marker)
+            end = text.find(end_marker, start)
+            if start < 0 or end < 0:
+                raise QueueError("migration_failed")
+            for statement in _statements(text[start:end]):
+                cursor.execute(statement)
 
     def _down_budget_migration_v11(self, cursor, *, allow_destructive_test: bool) -> int:
         applied = self._applied(cursor)
@@ -619,15 +693,24 @@ class MigrationRunner:
         for statement in _statements(path.read_text(encoding="utf-8")):
             cursor.execute(statement)
 
-    def _restore_budget_protocol_v10_pre_r2(self, cursor) -> None:
-        release_path = _SQL_DIR / "0007_release_identity.up.sql"
-        release_text = release_path.read_text(encoding="utf-8")
-        release_start = release_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_release(")
-        reserve_start = release_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_reserve(", release_start)
-        if release_start < 0 or reserve_start < 0:
-            raise QueueError("migration_failed")
-        for statement in _statements(release_text[release_start:reserve_start]):
+    def _restore_launch_protocol_v9_one_arg_release(self, cursor) -> None:
+        path = _SQL_DIR / "launch_protocol_v9_one_arg_release_compat.sql"
+        for statement in _statements(path.read_text(encoding="utf-8")):
             cursor.execute(statement)
+
+    def _restore_budget_protocol_v10_pre_r2(self, cursor) -> None:
+        r11_path = _SQL_DIR / "0011_tenant_scoped_budget_r6b1r2.up.sql"
+        r11_text = r11_path.read_text(encoding="utf-8")
+        release_start = r11_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_release(")
+        commit_start = r11_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_commit(", release_start)
+        if release_start < 0 or commit_start < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(r11_text[release_start:commit_start]):
+            cursor.execute(statement)
+        cursor.execute("DROP FUNCTION IF EXISTS autopilot_queue.budget_protocol_commit(text, text, text, text, text)")
+        cursor.execute(
+            "DROP FUNCTION IF EXISTS autopilot_queue.budget_protocol_mark_unknown(text, text, text, text)"
+        )
         verified_path = _SQL_DIR / "0006_verified_usage.up.sql"
         verified_text = verified_path.read_text(encoding="utf-8")
         commit_marker = "CREATE OR REPLACE FUNCTION autopilot_queue._budget_commit_from_verified(p_launch_id text)"
@@ -643,44 +726,23 @@ class MigrationRunner:
             "REVOKE ALL ON FUNCTION autopilot_queue._budget_commit_from_verified(text) FROM PUBLIC;"
         )]):
             cursor.execute(statement)
-        authority_path = _SQL_DIR / "0005_budget_authority.up.sql"
-        authority_text = authority_path.read_text(encoding="utf-8")
-        commit_fn = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_commit("
-        commit_start = authority_text.find(commit_fn)
-        release_fn = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_release("
-        release_start = authority_text.find(release_fn, commit_start)
-        if commit_start < 0 or release_start < 0:
-            raise QueueError("migration_failed")
-        for statement in _statements(authority_text[commit_start:release_start]):
-            cursor.execute(statement)
-        mark_fn = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_mark_unknown("
-        mark_start = authority_text.find(mark_fn, release_start)
-        grant_marker = "REVOKE ALL ON FUNCTION autopilot_queue.budget_protocol_insert_blocked"
-        grant_start = authority_text.find(grant_marker, mark_start)
-        if mark_start < 0 or grant_start < 0:
-            raise QueueError("migration_failed")
-        for statement in _statements(authority_text[mark_start:grant_start]):
-            cursor.execute(statement)
         cursor.execute(
             "DROP FUNCTION IF EXISTS autopilot_queue.budget_reconciler_apply_usage("
-            "text, text, text, text, text, text, boolean, text, text, text)"
+            "text, text, text, text, text, boolean, text, text, text)"
         )
         apply_marker = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_reconciler_apply_usage("
-        apply_start = verified_text.find(apply_marker)
-        apply_tail = verified_text.find(
-            "REVOKE ALL ON FUNCTION autopilot_queue.budget_reconciler_apply_usage(",
-            apply_start,
-        )
-        apply_grant_end = verified_text.find(
+        apply_start = r11_text.find(apply_marker)
+        apply_tail = r11_text.find("REVOKE ALL ON FUNCTION autopilot_queue.budget_reconciler_apply_usage(", apply_start)
+        apply_grant_end = r11_text.find(
             "GRANT EXECUTE ON FUNCTION autopilot_queue.budget_reconciler_apply_usage(",
             apply_tail,
         )
-        apply_grant_end = verified_text.find(";", apply_grant_end) + 1
+        apply_grant_end = r11_text.find(";", apply_grant_end) + 1
         if apply_start < 0 or apply_tail < 0 or apply_grant_end <= 0:
             raise QueueError("migration_failed")
-        for statement in _statements(verified_text[apply_start:apply_tail]):
+        for statement in _statements(r11_text[apply_start:apply_tail]):
             cursor.execute(statement)
-        for statement in _statements(verified_text[apply_tail:apply_grant_end]):
+        for statement in _statements(r11_text[apply_tail:apply_grant_end]):
             cursor.execute(statement)
 
     def _down_budget_migration_v9(self, cursor, *, allow_destructive_test: bool) -> int:
@@ -799,6 +861,11 @@ class MigrationRunner:
             )
             if _rows(cursor):
                 raise QueueError("migration_blocked")
+        cursor.execute(
+            "DROP FUNCTION IF EXISTS autopilot_queue.budget_reconciler_apply_usage("
+            "text, text, text, text, text, text, boolean, text, text, text)"
+        )
+        cursor.execute("DROP FUNCTION IF EXISTS autopilot_queue._budget_commit_from_verified(text, text)")
         self._execute_down_file(cursor, 6)
         self._restore_budget_protocol_v5_runtime_commit(cursor)
         cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 6")
