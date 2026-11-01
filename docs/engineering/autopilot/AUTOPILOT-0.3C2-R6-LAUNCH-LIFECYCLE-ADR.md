@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed (R6A-R6).** Joint Design Gate decisions **AP03C2-R6A-R5-001..008** incorporated. Pending Agent J re-review. **R6B MOCK_ONLY forbidden** until architecture sign-off.
+**Proposed (R6A-R7).** R6A-R6 contract plus recovery lease / poll errata **AP03C2-R6A-R6-001..003**. Pending Agent J re-review. **R6B MOCK_ONLY forbidden** until architecture sign-off.
 
 PR #322 product baseline: `d1425269`. Branch: `feat/bintrans-autopilot-budget-v0.3c2`.
 
@@ -17,9 +17,17 @@ PR #322 product baseline: `d1425269`. Branch: `feat/bintrans-autopilot-budget-v0
 | **R5-003** | MEDIUM | §7 missing confirm equality, body CHECK, global UNIQUE | `agent_id = planned_agent_id`; immutable after confirm; CHECK + UNIQUE(`agent_id`), UNIQUE(`run_id`) | RT-41, RT-36, RT-38 |
 | **R5-004** | MEDIUM | §9 missing LT-07/12/13; race/global-block gaps; RT-37 wrong | Crash rows; **RT-42..45**; RT-37 cross-tenant read | RT-42, RT-43, RT-44, RT-45, RT-37 |
 | **R5-005** | LOW | When `outbound_attempt_count` increments; seed mode | **`launch_protocol_report_outbound_result`** once per transport return **before** LT-06; default **`DISABLED`**, `MOCK_ONLY` test-only | RT-44 |
-| **R5-006** | LOW | Admin EXECUTE on `escalate_manual`; superuser false PASS | Remove admin **E** on escalate; **GRANT … WITH SET FALSE**; RT-18/32 non-superuser LOGIN only | RT-18, RT-32 |
+| **R5-006** | LOW | Admin EXECUTE on `escalate_manual`; superuser false PASS | Remove admin **E** on escalate; REVOKE PUBLIC + capability GRANT (§10); RT-18/32 non-superuser LOGIN only | RT-18, RT-32 |
 | **R5-007** | LOW | LT-09/10 lock wording; LA-01 vague; audit DDL | Lock **1→2→3+fence** on LT-09/10; LA-01 eligibility; audit appendix; flag writes under gate; **global** reserve block | RT-43, RT-40 |
 | **R5-008** | LOW | Missing 0.3D / paid / follow-up / dispatcher scope | §13 boundaries; dispatcher `create_agent` out of scope until retired | doc + launch import graph |
+
+### 1.1 Agent J findings — R6A-R6 (R6A-R7 errata)
+
+| ID | Sev | Evidence | Required fix | Verification |
+|----|-----|----------|--------------|--------------|
+| **R6-001** | **BLOCKING** | LA-01 omitted stale **`INTENT`**; no server **`poll_count`**; LT-07 unreachable from lease rules | §5.1 LA-01 eligibility incl. crash-before-send; §5.2 **`launch_protocol_recovery_poll_attempt`**; LA-02; matrix + RT-07/10/15 | RT-07, RT-10, RT-15, LA-02 |
+| **R6-002** | LOW | `GRANT EXECUTE … WITH SET FALSE` invalid in PostgreSQL | **`REVOKE ALL FROM PUBLIC`**; **`GRANT EXECUTE TO` capability role**; LOGIN **`GRANT role TO login`**; enforce via **`session_user` + `pg_has_role`**; app must not **`SET ROLE`** | RT-18, RT-32 |
+| **R6-003** | LOW | §12.2 implied every RT must map 1:1 to §8 Test column | Cross-cutting RT (INV-2, ACL, race) may be satisfied via §9 or §12 traceability | §12.2 |
 
 ---
 
@@ -39,6 +47,9 @@ PR #322 product baseline: `d1425269`. Branch: `feat/bintrans-autopilot-budget-v0
 | **INV-10** | Post-settlement money changes only via reconciler idempotent re-apply (BT-02/BT-03/BT-03c). |
 | **INV-11** | **`autopilot_launch_mode=MOCK_ONLY`** required for `proof_class=MOCK_TRUSTED` on reject/settlement; production mode **rejects** MOCK proofs (fail-closed). |
 | **INV-12** | After successful confirm (`LAUNCH_CONFIRMED` or terminal paths that set `agent_id`/`run_id`), **`agent_id` and `run_id` immutable** (trigger + reconciler identity match). |
+| **INV-13** | Recovery mutations on a launch require **valid lease fence** (matching token, unexpired holder). Superseded holder **must not** change launch state (RT-15). |
+| **INV-14** | **`recovery_poll_count`** is authoritative in PostgreSQL only; Python worker local counters are **not** source of truth (LA-02). |
+| **INV-15** | Stale **`SEND_STARTED`** after ambiguous send: recovery may **LT-08 / poll / LT-09 / LT-10** only — **never** automatic second Create (INV-9). Budget stays **`RESERVED`** through **`LAUNCH_UNKNOWN`** / **`MANUAL`**. |
 
 ---
 
@@ -164,6 +175,61 @@ Flag writes: migration owner / break-glass only; **mutations under global gate**
 
 Any row in `LAUNCH_UNKNOWN` or `MANUAL_RECONCILIATION_REQUIRED` causes **`budget_global_safety_block_reason()`** → **block new `budget_protocol_reserve` for all tenants** until cleared. Existing holds unchanged. **Tradeoff:** one stuck launch blocks global new reserves (RT-43).
 
+### 5.1 Recovery lease — LA-01 (R6-001)
+
+**Purpose:** single active recovery worker per `(tenant_id, launch_id)`; fencing token invalidates lagging workers after lease transfer.
+
+**Eligible launch states** (must hold **`RESERVED`** budget; no release on lease alone):
+
+| State | Stale condition | Typical next LT (after lease) |
+|-------|-----------------|-------------------------------|
+| **`INTENT`** | `now() > intent_recorded_at + intent_stale_ttl` (adapter crash **before** LT-03 / `SEND_STARTED`) | **LT-07** cancel, or adapter retry LT-02/LT-03 if worker not recovery |
+| **`SEND_STARTED`** | `now() > send_started_at + send_stale_ttl` | **LT-08** → LA-02 poll loop → LT-09/10; **no LT-03** retry (INV-9, INV-15) |
+| **`LAUNCH_UNKNOWN`** | any (poll / confirm / escalate) | LA-02, LT-09, LT-10 |
+
+**Stale lease** (re-acquire allowed): `recovery_lease_holder IS NULL` **or** `now() >= recovery_lease_expires_at` **or** holder session no longer valid.
+
+**Active lease** (others blocked): `recovery_lease_holder IS NOT NULL` **and** `now() < recovery_lease_expires_at`.
+
+**`launch_protocol_recovery_lease_acquire`** (LA-01), one transaction:
+
+1. Resolve tenant from **`p_tenant_id`** + recovery role (`session_user` member of recovery capability role).
+2. **`launch_intents` FOR UPDATE** where `(tenant_id, launch_id)` — row lock excludes concurrent second acquirer (two workers cannot both succeed).
+3. If state / stale predicate not eligible → **`not_eligible`**.
+4. If active lease held by **another** holder → **`lease_held_by_other`** (no state change).
+5. Else atomically set **`recovery_lease_token = gen_random_uuid()`** (new fencing token), **`recovery_lease_holder = session_user`**, **`recovery_lease_expires_at = now() + lease_ttl`**, return token to caller.
+
+**Fence on mutating recovery paths** (LT-07, LT-08, LT-09, LT-10, LA-02): caller must pass **`p_lease_token`** equal to stored token, holder = `session_user`, lease unexpired. Mismatch → **`invalid_lease`** (old owner cannot mutate after transfer — RT-15).
+
+**Lock order for LA-01:** `gate → launch row FOR UPDATE` only (reservation lock added on mutating LT paths per §5).
+
+### 5.2 Recovery poll counter — LA-02 (R6-001)
+
+**Column:** `launch_intents.recovery_poll_count` (non-null, default 0).
+
+**`launch_protocol_recovery_poll_attempt`** (LA-02) — **server-owned** poll step; worker **must** call this instead of incrementing locally.
+
+Single transaction, in order:
+
+1. Tenant binding + **`pg_has_role(session_user, recovery, member)`**.
+2. **`gate → reservation FOR UPDATE → launch FOR UPDATE`**.
+3. Valid lease fence (§5.1).
+4. Launch state must be **`LAUNCH_UNKNOWN`** (poll loop applies after LT-05/LT-08).
+5. Atomically **`recovery_poll_count = recovery_poll_count + 1`** (exactly once per successful call).
+6. Append **`recovery_poll_audit`** row (`tenant_id`, `launch_id`, `poll_count`, `session_user`, `created_at`).
+7. Return **`(poll_count, decision)`** where:
+   - **`CONTINUE`** if `poll_count < max_recovery_polls` (config table / `autopilot_launch_control`, default **24**, same knob as LT-10),
+   - **`MANUAL`** if `poll_count >= max_recovery_polls` → worker calls **LT-10** in separate tx,
+   - **`STOP`** if identity / state no longer allows poll (e.g. confirmed elsewhere) — no increment (step 5 skipped).
+
+**Stale worker:** wrong or expired **`p_lease_token`** → **`invalid_lease`**, **no** increment (step 5 not reached).
+
+**LT-10 precondition:** escalate only after LA-02 returned **`MANUAL`**, or immediate **`identity_mismatch`** proof on poll correlate — not on worker-local count.
+
+**LT-13 reopen:** resets **`recovery_poll_count = 0`** (and audit reason) when returning to **`LAUNCH_UNKNOWN`**.
+
+Config **`max_recovery_polls`** must match RT-10 expectations (default 24).
+
 ---
 
 ## 6. Tenancy (R4-008, R3-006, R5-004)
@@ -205,9 +271,9 @@ After confirm: **INV-12** — ids immutable.
 
 List Runs, paginate all pages; select **oldest** run with `created_at >= send_started_at - clock_skew_seconds` (120).
 
-### 7.4 Lease columns
+### 7.4 Lease and poll columns
 
-`recovery_lease_holder`, `recovery_lease_expires_at`, `recovery_lease_token` (uuid, **exact match** on recovery calls).
+`recovery_lease_holder`, `recovery_lease_expires_at`, `recovery_lease_token` (uuid, **exact match** on recovery calls), **`recovery_poll_count`** (server-owned via LA-02).
 
 ### 7.5 Reconciler identity
 
@@ -227,10 +293,10 @@ List Runs, paginate all pages; select **oldest** run with `created_at >= send_st
 | **LT-04** | SEND_STARTED | LAUNCH_CONFIRMED | Adapter | GET OK + correlate; §7.1 | `launch_protocol_confirm` | 1–5 | 1→2→3 | H | LT-09 | RT-04, RT-41 |
 | **LT-05** | SEND_STARTED | LAUNCH_UNKNOWN | Adapter | Ambiguous / 409 / unclassified | `launch_protocol_mark_unknown` | 1–5 | 1→2→3 | H | LT-08–10 | RT-05 |
 | **LT-06** | SEND_STARTED | LAUNCH_REJECTED | Adapter | §4.2 proof | `launch_protocol_reject_definite` | 1–5 atomic | 1→2→3 | R | — | RT-06, RT-44 |
-| **LT-07** | INTENT stale | CANCELLED_BEFORE_SEND | Recovery | TTL + lease | `launch_protocol_cancel_before_send` | 1–5 | 1→2→3→fence | R | Sweep | RT-07 |
-| **LT-08** | SEND_STARTED stale | LAUNCH_UNKNOWN | Recovery | TTL + lease | `launch_protocol_mark_unknown` | 1–5 | 1→2→3→fence | H | Poll | RT-08 |
-| **LT-09** | LAUNCH_UNKNOWN | LAUNCH_CONFIRMED | Recovery | GET+correlate; §7.1 | `launch_protocol_confirm` | 1–5 | 1→2→3→fence | H | — | RT-09, RT-41 |
-| **LT-10** | LAUNCH_UNKNOWN | MANUAL | Recovery | poll_count≥max **or** mismatch | `launch_protocol_escalate_manual` | 1–5 | 1→2→3→fence | H | Operator | RT-10 |
+| **LT-07** | INTENT stale | CANCELLED_BEFORE_SEND | Recovery | TTL + **LA-01** lease | `launch_protocol_cancel_before_send` | 1–5 | 1→2→3→fence | R | LA-01 then sweep | RT-07 |
+| **LT-08** | SEND_STARTED stale | LAUNCH_UNKNOWN | Recovery | TTL + **LA-01** lease | `launch_protocol_mark_unknown` | 1–5 | 1→2→3→fence | H | LA-02 poll | RT-08 |
+| **LT-09** | LAUNCH_UNKNOWN | LAUNCH_CONFIRMED | Recovery | GET+correlate; §7.1; lease | `launch_protocol_confirm` | 1–5 | 1→2→3→fence | H | — | RT-09, RT-41 |
+| **LT-10** | LAUNCH_UNKNOWN | MANUAL | Recovery | LA-02 **`MANUAL`** **or** mismatch | `launch_protocol_escalate_manual` | 1–5 | 1→2→3→fence | H | Operator | RT-10 |
 | **LT-11** | MANUAL | LAUNCH_CONFIRMED | Admin | One-shot audit; §7.1 | `launch_protocol_manual_confirm` (audit+confirm atomic) | 1–5 | 1→2→3 | H | — | RT-11, RT-41 |
 | **LT-12** | MANUAL | LAUNCH_REJECTED | Admin | Audit + attestation | `launch_protocol_manual_reject` | 1–5 atomic | 1→2→3 | R | BT-04 if wrong | RT-12 |
 | **LT-13** | MANUAL | LAUNCH_UNKNOWN | Admin | Audit reopen | `launch_protocol_reopen_unknown` (resets poll counters) | 1–5 | 1→2→3 | H | LT-09 | RT-13 |
@@ -240,11 +306,10 @@ List Runs, paginate all pages; select **oldest** run with `created_at >= send_st
 
 | ID | From | To | Actor | SQL | Lock | Test |
 |----|------|-----|-------|-----|------|------|
-| **LA-01** | `{LAUNCH_UNKNOWN, SEND_STARTED stale}` eligible | lease held | Recovery | `launch_protocol_recovery_lease_acquire` | row **FOR UPDATE** on `launch_intents` only (no reservation lock until mutating LT) | RT-15 |
+| **LA-01** | `{INTENT stale, SEND_STARTED stale, LAUNCH_UNKNOWN}` | lease held | Recovery | `launch_protocol_recovery_lease_acquire` | launch **FOR UPDATE** (§5.1) | RT-15 |
+| **LA-02** | `LAUNCH_UNKNOWN` + valid lease | poll + audit | Recovery | `launch_protocol_recovery_poll_attempt` | gate→2→3→fence | RT-10, RT-46 |
 
-**LA-01 rules:** acquire only if state ∈ `{LAUNCH_UNKNOWN}` or `{SEND_STARTED}` past stale TTL; single holder via lease columns; lost lease → re-acquire after expiry.
-
-`max_recovery_polls` config default **24** (with `unknown_escalation_ttl`).
+**LA-01 / LA-02:** see §5.1–5.2. **`max_recovery_polls`** default **24** (config + LT-10 + RT-10).
 
 ### 8.1 Budget transitions
 
@@ -265,11 +330,14 @@ List Runs, paginate all pages; select **oldest** run with `created_at >= send_st
 | Event | Launch after crash | Budget | Next | Test |
 |-------|-------------------|--------|------|------|
 | Before LT-01 | NOT_RECORDED | H | LT-01 | RT-01 |
-| After LT-01 | INTENT | H | LT-02/03/07 | RT-02a, RT-07 |
-| After LT-03 no response | SEND_STARTED | H | LT-08→09/10 | RT-08, RT-05 |
+| After LT-01 | INTENT | H | LT-02/03; if crash stale → **LA-01→LT-07** | RT-02a, RT-07 |
+| Adapter crash before LT-03 (stale INTENT) | INTENT | H | **LA-01→LT-07** (release) | RT-07 |
+| After LT-03 no response | SEND_STARTED | H | LA-01→LT-08→LA-02→LT-09/10 | RT-08, RT-05, RT-46 |
 | After LT-04 partial | SEND_STARTED/UNKNOWN | H | LT-09 | RT-04 |
 | LT-05 lost response | UNKNOWN | H | LT-09/10 | RT-05 |
-| GET 404 | UNKNOWN | H | LT-10 | RT-10 |
+| GET 404 | UNKNOWN | H | LA-02…→LT-10 | RT-10, RT-46 |
+| Crash before LA-02 commit | UNKNOWN | H | retry LA-02 (same count) | RT-46 |
+| Crash after LA-02 commit | UNKNOWN | H | next poll or LT-09/10 | RT-46, RT-10 |
 | POST 409 | UNKNOWN | H | LT-09/10 | RT-05 |
 | LT-06 definite reject | REJECTED | R | — | RT-06 |
 | **LT-07 stale intent cancel** | CANCELLED_BEFORE_SEND | R | — | RT-07 |
@@ -277,7 +345,7 @@ List Runs, paginate all pages; select **oldest** run with `created_at >= send_st
 | **LT-12 manual reject** | LAUNCH_REJECTED | R | BT-04 if spend later | RT-12, RT-33 |
 | **LT-13 reopen unknown** | LAUNCH_UNKNOWN | H | LT-09/10 | RT-13 |
 | LT-14 cancel | EXTERNAL_CANCELLED | H | BT-01a/b/c | RT-14, RT-16a/b |
-| Lease lost | — | H | LA-01 | RT-15 |
+| Lease lost mid-recovery | prior state | H | re-**LA-01**; old token **invalid_lease** | RT-15 |
 | **Concurrent runtime release ∥ LT-01** | one wins | H or block | INV-2 | **RT-42** |
 | Identity mismatch | UNKNOWN→MANUAL | H | LT-10 | RT-10 |
 | Global UNKNOWN/MANUAL present | — | block new reserve | wait recovery | RT-43 |
@@ -288,11 +356,13 @@ List Runs, paginate all pages; select **oldest** run with `created_at >= send_st
 
 **Definer owner:** `autopilot_queue_definer_owner` (NOLOGIN, not superuser, no BYPASSRLS).
 
-**All protocol functions:** `REVOKE ALL ON FUNCTION … FROM PUBLIC`; `GRANT EXECUTE ON FUNCTION … TO role` **WITH SET FALSE**; GRANT EXECUTE to named roles only.
+**All protocol functions:** `REVOKE ALL ON FUNCTION … FROM PUBLIC`; then **`GRANT EXECUTE ON FUNCTION … TO <capability_role>`** for each named capability role only. (PostgreSQL has **no** `WITH SET FALSE` on `GRANT EXECUTE`; privilege boundary is **`REVOKE FROM PUBLIC`** + narrow grants + in-function checks.)
 
-**Caller identity inside DEFINER:** use **`session_user`** + **`pg_has_role(session_user, role, 'member')`**, never `current_user` alone.
+**Role membership (R6-002):** capability roles **`autopilot_adapter`**, **`autopilot_recovery`**, **`autopilot_reconciler`**, **`autopilot_admin`** are **NOLOGIN**. Protocol LOGIN roles receive **`GRANT capability_role TO login_role`**. Migrations apply grants; applications connect as LOGIN and **do not** use **`SET ROLE`** / **`SET SESSION AUTHORIZATION`**.
 
-**Forbidden:** `SET ROLE` / `SET SESSION AUTHORIZATION` for launch/budget roles; **`CREATE` on schema `autopilot_queue`** except migration owner.
+**Caller identity inside DEFINER:** use **`session_user`** + **`pg_has_role(session_user, '<capability_role>', 'member')`**, never `current_user` alone.
+
+**Forbidden:** application **`SET ROLE`** / **`SET SESSION AUTHORIZATION`**; **`CREATE` on schema `autopilot_queue`** except migration owner.
 
 **Role disjointness:** `{adapter, recovery, reconciler, admin}` pairwise disjoint; **tenant runtime LOGINs** disjoint from those four. Tests **RT-18**, **RT-32** use **non-superuser** DSN only (superuser may false-pass).
 
@@ -317,6 +387,7 @@ List Runs, paginate all pages; select **oldest** run with `created_at >= send_st
 | `launch_protocol_reopen_unknown` | — | — | — | — | E |
 | `launch_protocol_mark_external_cancelled` | — | E | D | — | — |
 | `launch_protocol_recovery_lease_acquire` | — | — | E* | — | — |
+| `launch_protocol_recovery_poll_attempt` | — | — | E* | — | — |
 | `budget_reconciler_apply_usage` | — | — | — | E | — |
 | `budget_orphan_spend_signal` | — | — | — | E | E |
 
@@ -332,6 +403,7 @@ Test **RT-32:** full ACL matrix vs `pg_proc` catalog (R6B), non-superuser.
 | Table / use | Columns (non-secret) |
 |-------------|----------------------|
 | `manual_reconciliation_audit` | `tenant_id`, `launch_id`, `actor_session_user`, `action`, `reason`, `proof_digest`, `created_at` |
+| `recovery_poll_audit` | `tenant_id`, `launch_id`, `poll_count`, `actor_session_user`, `created_at` |
 | LT-11 / LT-12 / LT-13 | append row in same tx as state change |
 | `budget_orphan_spend_signal` | `tenant_id`, `launch_id`, `detected_cents`, `source`, `created_at`, `acknowledged_at` |
 
@@ -395,6 +467,9 @@ Legacy **`dispatcher` / `create_agent`** paths: **out of scope** for this gate; 
 | **R5-006** | ACL | LT-10 | escalate_manual | — | RT-18, RT-32 |
 | **R5-007** | lock | LT-09,10, LA-01 | lease, audit | global block | RT-43, RT-40, RT-15 |
 | **R5-008** | scope | — | dispatcher | legacy path | §13, RT-19 |
+| **R6-001** | INV-13,14,15 | LA-01, LA-02, LT-07 | lease_acquire, poll_attempt | stale INTENT | RT-07, RT-10, RT-15, RT-46 |
+| **R6-002** | ACL | — | GRANT/REVOKE | membership | RT-18, RT-32 |
+| **R6-003** | doc | — | — | — | §12.2 |
 | R3-006 | tenancy | LT-01 | composite PK | — | RT-37 |
 | R3-007 | INV-12 | LT-04 | confirm | — | RT-41 |
 | R3-008 | settlement | BT-01c | unknown | — | RT-39 |
@@ -411,15 +486,16 @@ Legacy **`dispatcher` / `create_agent`** paths: **out of scope** for this gate; 
 | RT-04 | LT-04 confirm |
 | RT-05 | LT-05 ambiguous; no second POST (RT-22) |
 | RT-06 | LT-06 proof_class; 409→not LT-06 |
-| RT-07 | LT-07 stale intent cancel → RELEASED |
-| RT-08 | LT-08 stale send |
+| RT-07 | LT-07 stale **INTENT** (LA-01 first) → RELEASED |
+| RT-08 | LT-08 stale send → UNKNOWN; no second Create |
 | RT-09 | LT-09 recovery confirm |
-| RT-10 | LT-10 mismatch → MANUAL |
+| RT-10 | LA-02 **`MANUAL`** at **`max_recovery_polls`** → LT-10; identity mismatch → MANUAL |
 | RT-11 | LT-11 atomic manual confirm + audit |
 | RT-12 | LT-12 manual reject |
 | RT-13 | LT-13 reopen → UNKNOWN |
 | RT-14 | LT-14 external cancel |
-| RT-15 | LA-01 lease acquire + fence |
+| RT-15 | LA-01 lease acquire + fence; stale INTENT eligible; superseded token denied |
+| RT-46 | LA-02 server poll increment, audit, stale worker no-op; crash before/after poll |
 | RT-16a/b/c | BT-01a/b/c (incl. EXTERNAL_CANCELLED for a/b) |
 | RT-17a/b/c | BT-02/03/03c late charge |
 | RT-18 | role disjointness (non-superuser) |
@@ -444,19 +520,20 @@ Legacy **`dispatcher` / `create_agent`** paths: **out of scope** for this gate; 
 | RT-44 | LT-06 negatives (count, proof, class, mode) |
 | RT-45 | verified zero → COMMITTED at 0 (MOCK_TRUSTED) |
 
-**Transition test coverage:** each **LT-01..LT-14**, **LA-01**, **BT-01a..BT-04**, **BT-03c** maps to ≥1 RT above.
+**Transition test coverage:** each **LT-01..LT-14**, **LA-01**, **LA-02**, **BT-01a..BT-04**, **BT-03c** maps to ≥1 RT above.
 
 ### 12.2 Documentation completeness check (R6B script spec)
 
 Script parses ADR §8 and §9:
 
-- LT IDs in §8 (launch) = LT IDs referenced in §9 (excluding LA-01 optional);
+- LT IDs in §8 (launch) = LT IDs referenced in §9 (excluding LA-01 / LA-02 optional auxiliary rows);
 - Every LT/BT/LA row has non-empty Test column matching `RT-\d+[a-z]?` tokens present in §12.1;
 - Substring **`RELEASE_AFTER_INTENT`** present (INV-2 heading);
 - No duplicate `(From, To, Actor)` among LT rows;
-- Every RT in §12.1 referenced from ≥1 §8 Test column or §9 Test column.
+- Every **transition-scoped** RT in §12.1 appears in ≥1 §8 Test column or §9 Test column;
+- **Cross-cutting RT** (e.g. RT-02, RT-18, RT-22, RT-32, RT-42, RT-43) may satisfy coverage via §12 traceability row only — doc-check **must not** require a unique LT/BT row per such RT (R6-003).
 
-**R6A-R6:** spec only; script not committed in this revision.
+**R6A-R7:** spec only; script not committed in this revision.
 
 ---
 
@@ -487,9 +564,10 @@ Script parses ADR §8 and §9:
 | R6A-R4 | LT/BT split |
 | R6A-R5 | R4-001..008; proof_class; BT split; permissions; MOCK fix; RT completeness |
 | **R6A-R6** | Joint Gate R5-001..008; BT-03c; import graph; identity; crash matrix; RT-41..45, RT-17c, RT-19b |
+| **R6A-R7** | R6-001 LA-01 stale INTENT + LA-02 poll_count; GRANT fix R6-002; doc-check R6-003; RT-46 |
 
 ## References
 
-- Agent J `AP03C2-R6A-R5-001..008`
+- Agent J `AP03C2-R6A-R5-001..008`, `AP03C2-R6A-R6-001..003`
 - Joint Design Gate `AUTOPILOT-0.3C2-JOINT-DESIGN-GATE` on HEAD `3688961f`
 - SQL `0002`, `0004`, `0005`, `0006`, `0007`
