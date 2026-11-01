@@ -31,6 +31,9 @@ DROP FUNCTION IF EXISTS autopilot_queue._launch_assert_mock_mode();
 DROP FUNCTION IF EXISTS autopilot_queue._launch_control_row();
 DROP FUNCTION IF EXISTS autopilot_queue._launch_has_role(name);
 
+DROP POLICY IF EXISTS launch_intents_protocol ON autopilot_queue.launch_intents;
+DROP POLICY IF EXISTS budget_reservations_launch_protocol ON autopilot_queue.budget_reservations;
+
 DROP TABLE IF EXISTS autopilot_queue.budget_orphan_spend_signal;
 DROP TABLE IF EXISTS autopilot_queue.manual_reconciliation_audit;
 DROP TABLE IF EXISTS autopilot_queue.recovery_poll_audit;

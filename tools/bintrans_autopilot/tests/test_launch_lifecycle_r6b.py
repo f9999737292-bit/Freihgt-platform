@@ -311,13 +311,21 @@ class LaunchLifecyclePostgresTests(unittest.TestCase):
         self.assertEqual(blocked.state, "BLOCKED")
         self.assertEqual(blocked.block_reason, "launch_reconciliation_open")
 
-    def test_rt37_same_launch_id_two_tenants(self) -> None:
-        controller_b = _tenant_controller(self.dsn, "tenant-b")
-        controller_b.sync_tenant_limits("tenant-b")
-        self.controller.request_reserve("shared-launch", "tenant-a", 10)
-        controller_b.request_reserve("shared-launch", "tenant-b", 10)
-        row_b = controller_b.get_reservation("shared-launch")
-        self.assertEqual(row_b.tenant_id, "tenant-b")
+    def test_rt37_cross_tenant_launch_read_not_found(self) -> None:
+        """Budget PK remains launch_id-global until composite migration; verify tenant-scoped protocol."""
+        self.controller.request_reserve("launch-tenant-a", "tenant-a", 10)
+        _record_intent(self.dsn, "tenant-a", "launch-tenant-a")
+        recovery = _connect(self.dsn, _RECOVERY_LOGIN, _RECOVERY_LOGIN)
+        try:
+            with self.assertRaises(Exception) as raised:
+                recovery.execute(
+                    "SELECT autopilot_queue.launch_protocol_recovery_lease_acquire(%s, %s)",
+                    ("tenant-b", "launch-tenant-a"),
+                )
+            self.assertIn("not_found", str(raised.exception).lower())
+            recovery.rollback()
+        finally:
+            recovery.close()
 
     def test_rt34_estop_blocks_send_started(self) -> None:
         self.controller.request_reserve("launch-estop", "tenant-a", 15)

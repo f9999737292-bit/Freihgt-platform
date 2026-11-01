@@ -121,6 +121,27 @@ REVOKE ALL ON autopilot_queue.budget_orphan_spend_signal FROM PUBLIC;
 GRANT SELECT ON autopilot_queue.launch_intents TO autopilot_queue_runtime;
 GRANT SELECT ON autopilot_queue.autopilot_launch_control TO autopilot_queue_runtime;
 
+CREATE POLICY budget_reservations_launch_protocol ON autopilot_queue.budget_reservations
+    FOR SELECT
+    USING (
+        pg_has_role(session_user, 'autopilot_launch_adapter', 'member')
+        OR pg_has_role(session_user, 'autopilot_launch_recovery', 'member')
+        OR pg_has_role(session_user, 'autopilot_launch_admin', 'member')
+    );
+
+CREATE POLICY launch_intents_protocol ON autopilot_queue.launch_intents
+    FOR ALL
+    USING (
+        pg_has_role(session_user, 'autopilot_launch_adapter', 'member')
+        OR pg_has_role(session_user, 'autopilot_launch_recovery', 'member')
+        OR pg_has_role(session_user, 'autopilot_launch_admin', 'member')
+    )
+    WITH CHECK (
+        pg_has_role(session_user, 'autopilot_launch_adapter', 'member')
+        OR pg_has_role(session_user, 'autopilot_launch_recovery', 'member')
+        OR pg_has_role(session_user, 'autopilot_launch_admin', 'member')
+    );
+
 CREATE OR REPLACE FUNCTION autopilot_queue._launch_has_role(p_role name)
 RETURNS boolean
 LANGUAGE sql
