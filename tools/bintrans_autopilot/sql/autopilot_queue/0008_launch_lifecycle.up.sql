@@ -181,6 +181,16 @@ AS $$
 $$;
 REVOKE ALL ON FUNCTION autopilot_queue._launch_fence_ok(autopilot_queue.launch_intents, uuid) FROM PUBLIC;
 
+CREATE OR REPLACE FUNCTION autopilot_queue._launch_disable_rls()
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $$
+    SELECT set_config('row_security', 'off', true);
+$$;
+REVOKE ALL ON FUNCTION autopilot_queue._launch_disable_rls() FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION autopilot_queue._budget_release_unused_reserve(p_launch_id text)
 RETURNS void
 LANGUAGE plpgsql
@@ -192,6 +202,7 @@ DECLARE
     v_daily_limit bigint;
     v_monthly_limit bigint;
 BEGIN
+    PERFORM autopilot_queue._launch_disable_rls();
     SELECT * INTO v_row
     FROM autopilot_queue.budget_reservations
     WHERE launch_id = p_launch_id
@@ -305,6 +316,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_adapter') THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     PERFORM autopilot_queue._launch_assert_mock_mode();
     PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_res
@@ -343,6 +355,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_adapter') AND NOT v_recovery THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
@@ -380,10 +393,12 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_adapter') THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     SELECT * INTO v_ctrl FROM autopilot_queue.autopilot_launch_control WHERE id = 1 FOR UPDATE;
     IF v_ctrl.autopilot_estop THEN
         RAISE EXCEPTION 'estop_active';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     PERFORM autopilot_queue._launch_assert_mock_mode();
     PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
@@ -418,6 +433,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_adapter') THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
@@ -453,6 +469,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_adapter') AND NOT v_recovery THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
@@ -493,6 +510,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_adapter') AND NOT v_recovery THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
@@ -538,6 +556,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_adapter') THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     PERFORM autopilot_queue._launch_assert_mock_mode();
     PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
@@ -575,6 +594,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_recovery') THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     SELECT * INTO v_ctrl FROM autopilot_queue.autopilot_launch_control WHERE id = 1;
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
@@ -631,6 +651,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_recovery') THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     PERFORM 1
     FROM autopilot_queue.budget_reservations
@@ -646,6 +667,7 @@ BEGIN
     IF NOT autopilot_queue._launch_fence_ok(v_row, p_lease_token) THEN
         RAISE EXCEPTION 'invalid_lease';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     SELECT max_recovery_polls INTO v_max FROM autopilot_queue.autopilot_launch_control WHERE id = 1;
     v_new := v_row.recovery_poll_count + 1;
     UPDATE autopilot_queue.launch_intents
@@ -676,6 +698,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_recovery') THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
+    PERFORM autopilot_queue._launch_disable_rls();
     PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents

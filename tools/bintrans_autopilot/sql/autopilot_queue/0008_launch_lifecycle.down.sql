@@ -25,6 +25,7 @@ DROP FUNCTION IF EXISTS autopilot_queue.launch_protocol_cancel_before_send(text,
 DROP FUNCTION IF EXISTS autopilot_queue.launch_protocol_record_intent(text, text, text, integer, text);
 
 DROP FUNCTION IF EXISTS autopilot_queue._budget_release_unused_reserve(text);
+DROP FUNCTION IF EXISTS autopilot_queue._launch_disable_rls();
 DROP FUNCTION IF EXISTS autopilot_queue._launch_fence_ok(autopilot_queue.launch_intents, uuid);
 DROP FUNCTION IF EXISTS autopilot_queue._launch_assert_mock_mode();
 DROP FUNCTION IF EXISTS autopilot_queue._launch_control_row();
