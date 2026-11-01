@@ -114,7 +114,7 @@ class BudgetControllerR3Tests(unittest.TestCase):
                 connection.execute(
                     """
                     SELECT autopilot_queue.budget_reconciler_apply_usage(
-                        'launch-forge', %s, %s, '0', '150', true,
+                        'tenant-a', 'launch-forge', %s, %s, '0', '150', true,
                         'fake-verification-id', repeat('a', 64), 'cursor_usage_api'
                     )
                     """,

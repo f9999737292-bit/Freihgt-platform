@@ -349,12 +349,27 @@ class LaunchLifecycleR6B1Tests(unittest.TestCase):
             adapter.commit()
         finally:
             adapter.close()
+        owner = _owner_connect(self.dsn)
+        try:
+            owner.execute(
+                "UPDATE autopilot_queue.autopilot_launch_control SET max_recovery_polls = 2 WHERE id = 1"
+            )
+            owner.commit()
+        finally:
+            owner.close()
         recovery = _connect(self.dsn, _RECOVERY_LOGIN, _RECOVERY_LOGIN)
         try:
             token = recovery.execute(
                 "SELECT autopilot_queue.launch_protocol_recovery_lease_acquire(%s, %s)",
                 ("tenant-a", launch_id),
             ).fetchone()[0]
+            for _ in range(2):
+                recovery.execute(
+                    """
+                    SELECT decision FROM autopilot_queue.launch_protocol_recovery_poll_attempt(%s, %s, %s)
+                    """,
+                    ("tenant-a", launch_id, token),
+                )
             recovery.execute(
                 "SELECT autopilot_queue.launch_protocol_escalate_manual(%s, %s, %s)",
                 ("tenant-a", launch_id, token),

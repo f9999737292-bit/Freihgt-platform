@@ -238,7 +238,7 @@ class BudgetControllerR4Tests(unittest.TestCase):
                 connection.execute(
                     """
                     SELECT autopilot_queue.budget_reconciler_apply_usage(
-                        'launch-sql', %s, %s, NULL, '0', true,
+                        'tenant-a', 'launch-sql', %s, %s, NULL, '0', true,
                         'forged-id-12345678', repeat('b', 64), 'cursor_usage_api'
                     )
                     """,

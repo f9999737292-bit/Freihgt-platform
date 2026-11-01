@@ -327,10 +327,11 @@ class BudgetController:
                 cursor.execute(
                     """
                     SELECT autopilot_queue.budget_reconciler_apply_usage(
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     """,
                     (
+                        row.tenant_id,
                         launch_id,
                         agent_id,
                         run_id,
@@ -376,9 +377,9 @@ class BudgetController:
                 cursor.execute(
                     """
                     SELECT 1 FROM autopilot_queue.budget_verified_usage
-                    WHERE launch_id = %s
+                    WHERE tenant_id = %s AND launch_id = %s
                     """,
-                    (launch_id,),
+                    (row.tenant_id, launch_id),
                 )
                 if cursor.fetchone() is not None:
                     raise BudgetControllerError("verified_usage_present")
@@ -429,10 +430,11 @@ class BudgetController:
                 cursor.execute(
                     """
                     SELECT autopilot_queue.budget_reconciler_apply_usage(
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     """,
                     (
+                        row.tenant_id,
                         launch_id,
                         agent_id,
                         run_id,

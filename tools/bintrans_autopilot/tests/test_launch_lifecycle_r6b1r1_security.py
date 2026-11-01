@@ -6,6 +6,7 @@ import os
 import unittest
 from urllib.parse import urlsplit
 
+from bintrans_autopilot.budget_controller import BudgetControllerError
 from bintrans_autopilot.postgres_queue import MigrationRunner
 from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _AGENT,
@@ -49,7 +50,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
         except Exception:
             cls.dsn = ""
             return
-        if cls.runner.version() < 10:
+        if cls.runner.version() < 11:
             cls.dsn = ""
             return
         if cls.runner.version() >= 2:
@@ -69,7 +70,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             os.environ["AUTOPILOT_ENABLED"] = prior
 
     def setUp(self) -> None:
-        if not self.dsn or self.runner.version() < 10:
+        if not self.dsn or self.runner.version() < 11:
             self.skipTest("launch_r6b1r1_migration_unavailable")
         owner = _owner_connect(self.dsn)
         try:
@@ -197,6 +198,20 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
         self.controller_b.request_reserve(shared, "tenant-b", 9)
         self.assertEqual(self.controller_a.get_reservation(shared).state, "RESERVED")
         self.assertEqual(self.controller_b.get_reservation(shared).state, "RESERVED")
+        _record_intent(self.dsn, "tenant-b", shared)
+        adapter = _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)
+        try:
+            adapter.execute(
+                "SELECT autopilot_queue.launch_protocol_mark_send_started(%s, %s)",
+                ("tenant-b", shared),
+            )
+            adapter.commit()
+        finally:
+            adapter.close()
+        self.controller_a.release(shared)
+        self.assertEqual(self.controller_b.get_reservation(shared).state, "RESERVED")
+        with self.assertRaises(BudgetControllerError):
+            self.controller_b.release(shared)
 
     def test_r6b1_009_definer_owner_not_superuser(self) -> None:
         owner = _owner_connect(self.dsn)
@@ -236,6 +251,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
                 "SELECT autopilot_queue.launch_protocol_recovery_lease_acquire(%s, %s)",
                 ("tenant-a", launch_id),
             ).fetchone()[0]
+            recovery.commit()
             owner = _owner_connect(self.dsn)
             try:
                 owner.execute(
