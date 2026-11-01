@@ -34,7 +34,7 @@ CREATE TRIGGER launch_intents_immutable_ids
     FOR EACH ROW
     EXECUTE FUNCTION autopilot_queue._launch_intents_immutable_ids_trigger();
 
-REVOKE UPDATE ON autopilot_queue.launch_intents
+REVOKE UPDATE, INSERT ON autopilot_queue.launch_intents
     FROM autopilot_launch_adapter, autopilot_launch_recovery, autopilot_launch_admin;
 
 CREATE OR REPLACE FUNCTION autopilot_queue.launch_protocol_record_intent(

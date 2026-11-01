@@ -17,7 +17,7 @@ DROP FUNCTION IF EXISTS autopilot_queue._launch_intents_immutable_ids_trigger();
 
 DROP INDEX IF EXISTS autopilot_queue.budget_reservations_tenant_launch_uidx;
 
-GRANT UPDATE ON autopilot_queue.launch_intents
+GRANT INSERT, UPDATE ON autopilot_queue.launch_intents
     TO autopilot_launch_adapter, autopilot_launch_recovery, autopilot_launch_admin;
 
 -- Restore 0008 definitions for replaced functions (0008 down drops all; re-up from 8 file on full rollback).

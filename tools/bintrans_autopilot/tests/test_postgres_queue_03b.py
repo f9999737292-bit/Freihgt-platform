@@ -1205,7 +1205,7 @@ class PostgresQueueTests(unittest.TestCase):
     def _assert_version_and_rls(self, connection) -> None:
         versions = connection.execute("SELECT version FROM autopilot_queue.schema_migrations ORDER BY version").fetchall()
         budget = _cell(connection.execute("SELECT to_regclass('autopilot_queue.budget_reservations')").fetchone())
-        expected = [1, 2, 3, 4, 5, 6, 7, 8] if budget else [1]
+        expected = [1, 2, 3, 4, 5, 6, 7, 8, 9] if budget else [1]
         self.assertEqual([_cell(row) for row in versions], expected)
         flags = connection.execute(
             """
