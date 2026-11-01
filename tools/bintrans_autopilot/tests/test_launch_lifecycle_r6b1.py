@@ -80,7 +80,7 @@ class LaunchLifecycleR6B1Tests(unittest.TestCase):
         if cls.runner.version() >= 9:
             _ensure_launch_admin(cls.dsn)
         if cls.dsn and cls.runner.version() >= 2:
-            _reseed_tenant_ledgers(cls.dsn)
+            _reseed_tenant_ledgers(cls.dsn, cls.runner)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -133,7 +133,7 @@ class LaunchLifecycleR6B1Tests(unittest.TestCase):
             owner.commit()
         finally:
             owner.close()
-        _reseed_tenant_ledgers(self.dsn)
+        _reseed_tenant_ledgers(self.dsn, self.runner)
         self.controller = _tenant_controller(self.dsn, "tenant-a")
 
     def _adapter_send_started(self, launch_id: str) -> None:

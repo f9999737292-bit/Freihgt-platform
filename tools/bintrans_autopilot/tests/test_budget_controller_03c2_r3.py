@@ -51,7 +51,7 @@ class BudgetControllerR3Tests(unittest.TestCase):
         _ensure_tenant_roles(cls.dsn, cls.runner)
         _ensure_reconciler_role(cls.dsn)
         if cls.dsn and cls.runner.version() >= 2:
-            _reseed_tenant_ledgers(cls.dsn)
+            _reseed_tenant_ledgers(cls.dsn, cls.runner)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -85,7 +85,7 @@ class BudgetControllerR3Tests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
-        _reseed_tenant_ledgers(self.dsn)
+        _reseed_tenant_ledgers(self.dsn, self.runner)
         self.controller = _tenant_controller(self.dsn, "tenant-a")
 
     def test_runtime_cannot_pass_fake_reserve_window(self) -> None:

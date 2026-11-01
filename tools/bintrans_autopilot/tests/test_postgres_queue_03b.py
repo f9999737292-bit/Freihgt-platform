@@ -295,7 +295,7 @@ class PostgresQueueTests(unittest.TestCase):
         if cls.runner.version() >= 2:
             cls.runner.down_budget_migration(allow_destructive_test=True)
             cls.runner.up()
-            _reseed_tenant_ledgers(cls.dsn)
+            _reseed_tenant_ledgers(cls.dsn, cls.runner)
         _ensure_tenant_roles(cls.dsn, cls.runner)
 
     @classmethod
@@ -305,7 +305,7 @@ class PostgresQueueTests(unittest.TestCase):
         if cls.runner.version() < 10:
             cls.runner.up()
         if cls.runner.version() >= 2:
-            _reseed_tenant_ledgers(cls.dsn)
+            _reseed_tenant_ledgers(cls.dsn, cls.runner)
 
     def setUp(self) -> None:
         if not self.dsn:
@@ -718,7 +718,7 @@ class PostgresQueueTests(unittest.TestCase):
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
             if self.runner.version() >= 2:
-                _reseed_tenant_ledgers(self.dsn)
+                _reseed_tenant_ledgers(self.dsn, self.runner)
 
     def test_public_sequence_blocks_destructive_rollback(self) -> None:
         self._blocked_public_object(
@@ -1115,7 +1115,7 @@ class PostgresQueueTests(unittest.TestCase):
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
             if self.runner.version() >= 2:
-                _reseed_tenant_ledgers(self.dsn)
+                _reseed_tenant_ledgers(self.dsn, self.runner)
 
     def test_runtime_role_cannot_delete_or_migrate(self) -> None:
         import psycopg

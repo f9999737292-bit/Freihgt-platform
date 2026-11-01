@@ -139,7 +139,7 @@ class LaunchLifecyclePostgresTests(unittest.TestCase):
         if cls.runner.version() >= 8:
             _ensure_launch_roles(cls.dsn)
         if cls.dsn and cls.runner.version() >= 2:
-            _reseed_tenant_ledgers(cls.dsn)
+            _reseed_tenant_ledgers(cls.dsn, cls.runner)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -188,7 +188,7 @@ class LaunchLifecyclePostgresTests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
-        _reseed_tenant_ledgers(self.dsn)
+        _reseed_tenant_ledgers(self.dsn, self.runner)
         self.controller = _tenant_controller(self.dsn, "tenant-a")
 
     def test_rt02_release_blocked_after_intent(self) -> None:

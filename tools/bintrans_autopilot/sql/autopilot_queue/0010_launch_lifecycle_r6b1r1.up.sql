@@ -593,6 +593,14 @@ BEGIN
         JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'autopilot_queue'
           AND p.prosecdef
+          AND (
+              p.proname LIKE 'launch_protocol\_%'
+              OR p.proname LIKE '\_launch\_%'
+              OR p.proname IN (
+                  '_budget_release_unused_reserve',
+                  '_budget_assert_release_allowed'
+              )
+          )
     LOOP
         EXECUTE format('ALTER FUNCTION %s OWNER TO autopilot_queue_definer_owner', r.sig);
     END LOOP;

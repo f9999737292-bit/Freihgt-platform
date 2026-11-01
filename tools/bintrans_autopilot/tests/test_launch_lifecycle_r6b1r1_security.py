@@ -58,7 +58,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
         _ensure_tenant_roles(cls.dsn, cls.runner)
         _ensure_launch_roles(cls.dsn)
         if cls.dsn and cls.runner.version() >= 2:
-            _reseed_tenant_ledgers(cls.dsn)
+            _reseed_tenant_ledgers(cls.dsn, cls.runner)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -99,7 +99,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             owner.commit()
         finally:
             owner.close()
-        _reseed_tenant_ledgers(self.dsn)
+        _reseed_tenant_ledgers(self.dsn, self.runner)
         self.controller_a = _tenant_controller(self.dsn, "tenant-a")
         self.controller_b = _tenant_controller(self.dsn, "tenant-b")
 

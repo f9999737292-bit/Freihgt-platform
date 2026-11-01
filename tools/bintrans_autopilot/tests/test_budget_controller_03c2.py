@@ -154,14 +154,30 @@ def _limits_admin(
 
 def _reseed_tenant_ledgers(
     dsn: str,
+    runner: MigrationRunner | None = None,
     *,
     tenants: tuple[str, ...] | None = None,
     config: AutopilotConfig | None = None,
 ) -> None:
     """Recreate tenant ledger rows via the trusted admin sync path after test cleanup."""
+    if runner is not None:
+        _ensure_tenant_roles(dsn, runner)
+    tenant_ids = tenants or tuple(_TENANTS)
     admin = _limits_admin(dsn, config=config)
-    for tenant_id in tenants or tuple(_TENANTS):
+    for tenant_id in tenant_ids:
         admin.sync_tenant_limits(tenant_id)
+    connection = _owner_connect(dsn)
+    try:
+        for tenant_id in tenant_ids:
+            found = connection.execute(
+                "SELECT 1 FROM autopilot_queue.budget_tenant_ledger WHERE tenant_id = %s",
+                (tenant_id,),
+            ).fetchone()
+            if not found:
+                raise RuntimeError(f"ledger_reseed_missing:{tenant_id}")
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def _ensure_reconciler_role(dsn: str) -> None:
@@ -268,7 +284,7 @@ class PostgresBudgetControllerTests(unittest.TestCase):
         _ensure_tenant_roles(cls.dsn, cls.runner)
         _ensure_reconciler_role(cls.dsn)
         if cls.dsn and cls.runner.version() >= 2:
-            _reseed_tenant_ledgers(cls.dsn)
+            _reseed_tenant_ledgers(cls.dsn, cls.runner)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -302,7 +318,7 @@ class PostgresBudgetControllerTests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
-        _reseed_tenant_ledgers(self.dsn)
+        _reseed_tenant_ledgers(self.dsn, self.runner)
         self.limits_admin = _limits_admin(self.dsn)
         self.controller = _tenant_controller(self.dsn, "tenant-a")
 
@@ -313,7 +329,7 @@ class PostgresBudgetControllerTests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
-        _reseed_tenant_ledgers(self.dsn)
+        _reseed_tenant_ledgers(self.dsn, self.runner)
         row = self.controller.request_reserve("launch-reseed-fixture", "tenant-a", 10)
         self.assertEqual(row.state, RESERVED)
 
@@ -532,7 +548,7 @@ class PostgresBudgetControllerTests(unittest.TestCase):
             self.runner.down_budget_migration(allow_destructive_test=True)
         self.runner.up()
         _ensure_tenant_roles(self.dsn, self.runner)
-        _reseed_tenant_ledgers(self.dsn)
+        _reseed_tenant_ledgers(self.dsn, self.runner)
 
 
 if __name__ == "__main__":
