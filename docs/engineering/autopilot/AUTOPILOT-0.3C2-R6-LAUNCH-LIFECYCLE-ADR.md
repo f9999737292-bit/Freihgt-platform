@@ -2,338 +2,360 @@
 
 ## Status
 
-**Proposed (R6A-R4).** Pending Agent J sign-off. **R6B MOCK_ONLY is forbidden** until approval.
+**Proposed (R6A-R5).** Pending Agent J approval. **R6B MOCK_ONLY forbidden** until sign-off.
 
-Product code baseline (PR #322): `d1425269`. Documentation evolves on branch `feat/bintrans-autopilot-budget-v0.3c2`.
-
----
-
-## 1. Agent J findings register — R6A-R3 (R6A-R4 response)
-
-| ID | Sev | Evidence | Impact | Required fix | ADR section |
-|----|-----|----------|--------|--------------|-------------|
-| **R3-001** | MEDIUM | T6′ requires HTTP before T3; invariant forbids transport before `SEND_STARTED`; no post-send definite reject | Whitelist dead; 401/400 after send → MANUAL → global block | Remove T6′; add **LT-06** `SEND_STARTED→LAUNCH_REJECTED` with strict proof; or document MANUAL-only path | § Definite rejection; LT-06 |
-| **R3-002** | MEDIUM | `close_budget` includes settlement; crash row REJECTED without close | R4-001 forgery risk | **`release_unused_reserve` only RELEASED**; reconciler only COMMITTED/OVERRUN | § Budget lifecycle |
-| **R3-003** | MEDIUM | Missing SQL functions for T10/T13/T14/lease; recovery lacks close path; R4-003 dropped | Privilege gaps | Full function×role matrix; T7 uses definer-internal release | § Permissions |
-| **R3-004** | MEDIUM | DI allows real transport; incomplete import denylist | MOCK bypass | Sealed mock type; no env transport; socket deny test | § MOCK_ONLY |
-| **R3-005** | MEDIUM | 9/17 transitions without tests; test 1 missing | Unprotected invariants | **LT-* → RT-* one-to-one** | § Traceability |
-| **R3-006** | LOW | `p_tenant_id` on all functions vs session tenant | Spoof risk | Runtime: session tenant only; cross-tenant → `not_found` | § Tenancy |
-| **R3-007** | LOW | SHA/body ambiguity; optional immutability; clock_skew | Wrong binding | Two hashes; mandatory trigger; confirm idempotency rules | § Identity |
-| **R3-008** | LOW | Verified zero dropped | False zero | Restore definitions; unknown ≠ zero | § Settlement |
-| **R3-009** | LOW | Lock order/DO NOTHING/fence/T10∥T16/TTL/launch gate | Ambiguous impl | Restore lock section; merge duplicate transitions; define gate | § PostgreSQL |
+PR #322 product baseline: `d1425269`. Branch: `feat/bintrans-autopilot-budget-v0.3c2`.
 
 ---
 
-## 2. Core invariants (normative)
+## 1. Agent J findings — R6A-R4 (R6A-R5 response)
+
+| ID | Sev | Evidence (R4 review) | Required fix | Verification |
+|----|-----|----------------------|--------------|--------------|
+| **R4-001** | MEDIUM | `agent_created=false` is mock-only; no `proof_class`; no DB mode flag | `proof_class`, `launch_mode`, PG-stored attempt count; fail-closed outside `MOCK_TRUSTED` | RT-06, RT-30 |
+| **R4-002** | MEDIUM | `isinstance` allows subclass; RT-19 unsatisfiable with psycopg | Exact type + `__init_subclass__`; RT-19 targets Cursor modules only; RT-20 network deny | RT-19, RT-20, RT-31 |
+| **R4-003** | MEDIUM | Shared functions; PUBLIC EXECUTE; wrapper vs grant conflict | `session_user` checks; REVOKE PUBLIC; no standalone `release_unused_reserve` EXECUTE | RT-32, RT-18 |
+| **R4-004** | MEDIUM | BT-01 triple outcome; BT-02 incomplete | Split BT rows; late charge paths; post-RELEASED orphan signal | RT-16..RT-18, RT-33 |
+| **R4-005** | MEDIUM | RT-02 ≠ LT-02; missing RT-10b; R3-006..009 untested | Per-LT tests + invariant RT map | §14 |
+| **R4-006** | LOW | §12.2 vs §9 mismatch; LT-15 incomplete | Align crash matrix; fix doc-check rules | §13.2 |
+| **R4-007** | LOW | Gate wording; no UNKNOWN block policy | Clarify flags; reserve policy + test | RT-34 |
+| **R4-008** | LOW | Trigger blocks confirm; lease/run gaps | NULL→value trigger; lease columns; run rule | RT-35 |
+
+---
+
+## 2. Core invariants
 
 | ID | Invariant |
 |----|-----------|
-| **INV-1** | After durable **`launch_protocol_record_intent`**, a `launch_intents` row exists for `(tenant_id, launch_id)`. |
-| **INV-2** | **Runtime `budget_protocol_release` is forbidden** if **any** `launch_intents` row exists for that reservation — **regardless of `agent_id` / `run_id`**. |
-| **INV-3** | Pre-intent release: runtime may release only when **no** launch row (reservation `RESERVED`). |
-| **INV-4** | **`launch_protocol_release_unused_reserve`** (adapter/recovery/admin only) sets **`RELEASED`** only with terminal launch **`CANCELLED_BEFORE_SEND`** or **`LAUNCH_REJECTED`** in the **same transaction**. |
-| **INV-5** | **`budget_reconciler_apply_usage`** alone sets **`COMMITTED` / `OVERRUN`** (and clears `usage_unknown` when known). Adapter/admin **never** commit cents. |
-| **INV-6** | **`launch_protocol_mark_send_started` committed** before any transport call (mock or future real). |
-| **INV-7** | **No external I/O** while `_budget_lock_global_gate()` is held or inside the same open transaction. |
-| **INV-8** | **`GET 404` ≠ absence**; **`409` ≠ same request** without GET correlation; **timeout/5xx → UNKNOWN**. |
-| **INV-9** | **No automatic Create retry** after ambiguous send. |
-| **INV-10** | After **`COMMITTED`/`OVERRUN`**, launch row may stay **`LAUNCH_CONFIRMED`**; financial adjustment only via **idempotent reconciler re-apply** (late charge), never runtime release. |
+| **INV-1** | Durable `launch_protocol_record_intent` → `launch_intents` row for `(tenant_id, launch_id)`. |
+| **INV-2 (RELEASE_AFTER_INTENT)** | **Runtime `budget_protocol_release` forbidden** if **any** `launch_intents` row exists — **regardless of `agent_id` / `run_id`**. |
+| **INV-3** | Runtime release allowed only when **no** launch row and reservation `RESERVED`. |
+| **INV-4** | Budget **`RELEASED`** only via internal **`_release_unused_reserve`** inside terminal launch definer functions (LT-02, LT-06, LT-07, LT-12). **No standalone EXECUTE** on release helper. |
+| **INV-5** | **`COMMITTED` / `OVERRUN` / `usage_unknown` flag** only via **`budget_reconciler_apply_usage`**. |
+| **INV-6** | `mark_send_started` committed before transport (step 6). |
+| **INV-7** | No external/mock transport I/O inside gate transaction (steps 1–5). |
+| **INV-8** | GET 404 ≠ absence; 409 requires GET correlate; timeout/5xx → UNKNOWN. |
+| **INV-9** | No automatic Create retry after ambiguous send. |
+| **INV-10** | Post-settlement money changes only via reconciler idempotent re-apply (BT-02/BT-03). |
+| **INV-11** | **`autopilot_launch_mode=MOCK_ONLY`** required for `proof_class=MOCK_TRUSTED` on reject/settlement; production mode **rejects** MOCK proofs (fail-closed). |
 
 ---
 
-## 3. Launch lifecycle vs budget lifecycle (separated)
+## 3. Launch vs budget lifecycles
 
-### 3.1 Launch (`launch_intents.launch_state`)
+### 3.1 Launch states
 
-| State | Role |
-|-------|------|
-| `INTENT` | Intent recorded; `send_started_at` NULL |
-| `SEND_STARTED` | Outbound attempt started |
-| `LAUNCH_UNKNOWN` | Ambiguous external outcome |
-| `MANUAL_RECONCILIATION_REQUIRED` | Operator required |
-| `LAUNCH_CONFIRMED` | Agent/run bound |
-| `LAUNCH_REJECTED` | Definite no launch (pre-send cancel path or post-send proof) |
-| `CANCELLED_BEFORE_SEND` | Cancelled before send marker |
-| `EXTERNAL_AGENT_CANCELLED` | Provider cancel; spend may be unknown |
+`INTENT`, `SEND_STARTED`, `LAUNCH_UNKNOWN`, `MANUAL_RECONCILIATION_REQUIRED`, `LAUNCH_CONFIRMED`, `LAUNCH_REJECTED`, `CANCELLED_BEFORE_SEND`, `EXTERNAL_AGENT_CANCELLED`.
 
-`NOT_RECORDED` = absence of row (pre-LT-01).
+### 3.2 Budget states / flags
 
-### 3.2 Budget (`budget_reservations`)
-
-| State / flag | Meaning |
-|--------------|---------|
-| `RESERVED` | Hold active |
+| Field | Meaning |
+|-------|---------|
+| `RESERVED` | Hold |
 | `RELEASED` | Unused reserve returned (**not** spend proof) |
-| `COMMITTED` | Verified charge applied (≤ reserve) |
-| `OVERRUN` | Verified charge above reserve |
-| `usage_unknown` | Spend not yet verified — **hold reserve**, global block |
+| `COMMITTED` | Verified charge ≤ reserve |
+| `OVERRUN` | Verified charge > reserve |
+| `usage_unknown` | Spend unverified — hold reserve, no timeout release |
 
-**`release_unused_reserve` ≠ settlement.** Settlement = reconciler verified usage → `COMMITTED`/`OVERRUN`.
+### 3.3 Settlement (distinct from release)
 
-### 3.3 Verified zero and late charge (R3-008)
+| Operation | Function | Effect |
+|-----------|----------|--------|
+| Release unused reserve | `_release_unused_reserve` (internal) | `RELEASED` |
+| Commit known spend | `budget_reconciler_apply_usage` | `COMMITTED` or `OVERRUN` |
+| Mark unknown spend | same, `p_verification_outcome=UNKNOWN` | `usage_unknown=1`, stay `RESERVED` |
+| Verified zero (R6B) | same, mock money 0 + `MOCK_TRUSTED` | `COMMITTED` at 0 |
+| Verified zero (production) | terminal run + money source + window | future ADR |
+| Late charge | BT-02 / BT-03 | idempotent re-apply |
+| Unknown ≠ zero | tokens-only / missing | **must not** commit |
 
-| Concept | Rule |
-|---------|------|
-| **Unknown usage** | API unreachable, tokens-only payload, or non-terminal run → **`usage_unknown=1`**, **`RESERVED`**, no release by timeout |
-| **Verified zero (production)** | Terminal run + money source + aggregation window → **0 cents** recorded in `budget_verified_usage`; then commit |
-| **Verified zero (R6B mock)** | Mock money provider returns **0** with `verification_class=MOCK_TRUSTED` |
-| **Unknown ≠ zero** | Token zeros or missing usage **must not** commit |
-| **Late charge** | Reconciler re-apply with higher cents → **`OVERRUN`** or adjustment row; same `(tenant_id, launch_id)` |
+### 3.4 Post-RELEASED orphan spend
 
----
-
-## 4. Definite rejection policy (R3-001, R3-004)
-
-### 4.1 Never automatic REJECTED
-
-- **409** → UNKNOWN then confirm path (LT-09), never REJECTED.
-- **GET 404** → remain UNKNOWN / escalate MANUAL; **not** REJECTED.
-- **Timeout / 5xx / 429 / unclassified 4xx** → **LT-05** UNKNOWN.
-
-### 4.2 Pre-send (no transport yet)
-
-| Transition | Condition |
-|------------|-----------|
-| **LT-02** `INTENT → CANCELLED_BEFORE_SEND` | Operator/adapter cancel; `send_started_at` NULL |
-| **LT-07** stale INTENT | Recovery sweep; no send |
-
-**Removed:** T6′ (HTTP before `SEND_STARTED`) — **unreachable** under INV-6.
-
-### 4.3 Post-send definite reject — **LT-06**
-
-`SEND_STARTED → LAUNCH_REJECTED` **only if all:**
-
-1. Transport returns **synchronous classified response** on the **first and only** outbound create attempt for this launch (mock records attempt count).
-2. Status ∈ whitelist: **`400` + `validation_error`**, **`400` + `repository_access`**, **`401`**, **`403`**.
-3. Transport attestation **`agent_created=false`** (mock field; production requires ADR amendment + API proof).
-4. **Not** 409, not 404-on-GET used as proof, not timeout/5xx.
-5. Same transaction: **`launch_protocol_release_unused_reserve`** → budget **`RELEASED`**.
-
-If whitelist response but **`agent_created` unknown** → **LT-05** UNKNOWN, reserve held.
-
-### 4.4 Manual reject — **LT-12**
-
-`MANUAL → LAUNCH_REJECTED` only with audit + operator attestation bundle (no agent for `planned_agent_id`).
+If admin attestation on LT-12 was wrong and spend appears later: reconciler **cannot** apply (launch terminal `LAUNCH_REJECTED`). **`budget_orphan_spend_signal`** audit row + operator runbook — **no silent ignore** (BT-04 signal only, no auto commit).
 
 ---
 
-## 5. PostgreSQL lock order and idempotency (R3-009)
+## 4. Definite rejection — LT-06 (R4-001)
+
+**`agent_created=false` is not a Cursor API field** and **is not sufficient** to prove absence of an agent in production.
+
+### 4.1 Proof model
+
+| Field (PG column) | Purpose |
+|-------------------|---------|
+| `outbound_attempt_count` | Incremented in PG when transport returns (not mock-only counter) |
+| `last_outbound_proof_class` | Enum stored by adapter in same tx as state change |
+| `last_outbound_proof_digest` | SHA-256 of canonical proof blob (non-secret) |
+
+| proof_class (R6B) | Allowed when | Meaning |
+|-------------------|----------------|---------|
+| **`MOCK_TRUSTED`** | `autopilot_launch_mode=MOCK_ONLY` | Mock transport attestation; **not** external truth |
+| **`DEFINITE_HTTP_REJECT_V1`** | Future real mode + ADR amendment | Whitelist HTTP + **independent** evidence policy TBD |
+| **(other)** | — | **Reject** transition (fail-closed) |
+
+### 4.2 LT-06 preconditions (all required)
+
+1. Launch `SEND_STARTED`; **`outbound_attempt_count = 1`** (INV-9 enforced in PG).
+2. Synchronous response class ∈ `{400 validation_error, 400 repository_access, 401, 403}`.
+3. **`proof_class=MOCK_TRUSTED`** and mode **`MOCK_ONLY`** (INV-11).
+4. Proof blob includes mock fields **`http_status`**, **`error_code`**, **`agent_created_claim=false`** — claim alone **insufficient** without (1–3).
+5. Atomic: `launch_protocol_reject_definite` → `LAUNCH_REJECTED` + `_release_unused_reserve`.
+
+If (2) holds but (3) fails → **LT-05** UNKNOWN, reserve held.
+
+### 4.3 Manual LT-12
+
+Operator attestation + audit; **`proof_class=OPERATOR_ATTESTATION_V1`**; still **no** production auto-release without mode policy.
+
+---
+
+## 5. PostgreSQL lock order & idempotency
 
 ```text
-Step 1: autopilot_queue._budget_lock_global_gate()
-Step 2: SELECT budget_reservations
-        WHERE tenant_id = $t AND launch_id = $l FOR UPDATE
-Step 3: SELECT launch_intents (same keys) FOR UPDATE if row exists
-Step 4: validate transition + tenant binding
-Step 5: COMMIT
-Step 6: external/mock transport ONLY after step 5
+1. _budget_lock_global_gate()
+2. budget_reservations FOR UPDATE (tenant_id, launch_id)
+3. launch_intents FOR UPDATE if present
+4. validate (state, session_user role, lease fence if recovery)
+5. COMMIT
+6. transport I/O
 ```
 
-**`launch_protocol_record_intent`:** `INSERT … ON CONFLICT (tenant_id, launch_id) DO NOTHING`; if no row returned, `SELECT` existing; **`planned_agent_id` never updated on conflict**.
+**record_intent:** `ON CONFLICT (tenant_id, launch_id) DO NOTHING` + SELECT; **`planned_agent_id` immutable**.
 
-**Recovery transitions (LT-07–LT-10):** must verify **`recovery_lease_token`** matches row and **`>=` expected fence**; stale token → **`lease_stale`**.
+**Recovery fence:** `recovery_lease_holder = session_user`, `recovery_lease_token` **equals** caller token, `now() < recovery_lease_expires_at`.
 
-**TTL constants (R6B config table):** `intent_stale_ttl=15m`, `send_stale_ttl=30m`, `unknown_escalation_ttl=24h`, `recovery_lease_ttl=5m`, `clock_skew_seconds=120`.
+**Launch control flags** (table `autopilot_launch_control`, R6B):
 
-**Launch gate (defined):** PostgreSQL flags **`autopilot_paid_launch_enabled=0`** and **`autopilot_estop=0`** required for LT-01/LT-03. Dispatcher legacy `create_agent` **disallowed** when gate would apply (paid path retired before enable). **0.3D / paid automation activation requires separate security audit**; **`PAID_AUTOMATION_ENABLED` stays 0** in R6B.
+| Flag | LT-01/LT-03 require |
+|------|---------------------|
+| `autopilot_launch_mode` | **`MOCK_ONLY`** for R6B |
+| `autopilot_paid_launch_enabled` | **`false`** (paid launches disabled) |
+| `autopilot_estop` | **`false`** (not emergency-stopped) |
 
----
+Writes to flags: migration owner / break-glass only (not adapter).
 
-## 6. Tenancy and composite keys (R3-006)
-
-**Migration 0008** must update **all** `launch_id` carriers: `budget_reservations`, `budget_verified_usage`, `launch_intents`, `budget_events` (if present), reconciler references — composite **`(tenant_id, launch_id)`**.
-
-| Caller class | Tenant source |
-|--------------|---------------|
-| Tenant runtime (`budget_protocol_reserve/release`) | **`_budget_bound_tenant()` from session** — no trusted `p_tenant_id` |
-| Adapter / recovery / admin / reconciler | **`p_tenant_id` + `p_launch_id`**; mismatch with reservation → **`not_found`** |
-
-**Migration verification:** 0008 **up → down → up** on isolated DB (R6B CI).
+**Reserve policy when launch unknown:** `LAUNCH_UNKNOWN` / `MANUAL` rows contribute to **`budget_global_safety_block_reason()`** → **block new `budget_protocol_reserve` globally** until cleared (fail-closed availability). Existing holds unchanged.
 
 ---
 
-## 7. Identity binding (R3-007)
+## 6. Tenancy (R4-008, R3-006)
 
-| Artifact | Rule |
-|----------|------|
-| `create_body_template_sha256` | Hash of JSON template **without** `agentId` |
-| `create_body_full_sha256` | Hash after `agentId` injected (= `planned_agent_id`) |
-| `canonical_create_body_json` | Full body stored; CHECK **`agentId = planned_agent_id`**, **no `envVars`** |
-| **`launch_protocol_confirm`** | Only writer of `agent_id`/`run_id`; **`agent_id = planned_agent_id`**; idempotent re-call same ids → no-op; different ids → **`identity_conflict`** |
-| Partial create (agent, no run) | Cannot confirm → **LT-05** UNKNOWN → MANUAL |
-| **`run_id` trust** | Declared by adapter/recovery from mock list-runs; PG enforces equality on reconcile payload, not Cursor origin (**`EXTERNAL_USAGE_AUTHENTICATION=NOT_PROVEN`**) |
+**Composite PK** `(tenant_id, launch_id)` on: `budget_reservations`, `budget_verified_usage`, `launch_intents`.
 
-**Immutability:** trigger **`launch_intents_immutable_ids`** (mandatory in 0008) denies UPDATE of `planned_agent_id`, `agent_id`, `run_id`.
+**Runtime** functions: tenant from **`session_user`** → `tenant_principals` (no trusted `p_tenant_id`).
+
+**Adapter/recovery/admin/reconciler:** `p_tenant_id` + `p_launch_id`; wrong tenant → **`not_found`**.
+
+**0008 down guard:** refuse downgrade if duplicate `launch_id` across tenants exists.
 
 ---
 
-## 8. Canonical launch transition table (single source of truth)
+## 7. Identity (R4-008)
 
-Budget column **`B-effect`:** `H`=hold RESERVED, `R`=RELEASED, `—`=unchanged launch-side (settlement via BT-*).
+**Trigger `launch_intents_immutable_ids`:** forbid UPDATE that **changes** non-NULL `planned_agent_id`/`agent_id`/`run_id`; **allow** NULL→value on first confirm only.
 
-| ID | From | To | Actor | External proof | SQL function(s) | Tx boundary | Lock order | B-effect | Crash recovery | Test |
-|----|------|-----|-------|----------------|-----------------|-------------|------------|----------|----------------|------|
-| **LT-01** | NOT_RECORDED | INTENT | Launch adapter | Reserve exists; gate open | `launch_protocol_record_intent` | Steps 1–5 | 1→2→3 insert | H | Retry LT-01 | **RT-01** |
-| **LT-02** | INTENT | CANCELLED_BEFORE_SEND | Launch adapter | `send_started_at` NULL | `launch_protocol_cancel_before_send` + `release_unused_reserve` | 1–5 atomic | 1→2→3 | R | Safe | **RT-02** |
-| **LT-03** | INTENT | SEND_STARTED | Launch adapter | Estop clear | `launch_protocol_mark_send_started` then transport | 1–5 then 6 | 1→2→3 | H | LT-08 if stale | **RT-03** |
-| **LT-04** | SEND_STARTED | LAUNCH_CONFIRMED | Launch adapter | Mock/GET OK + correlate | `launch_protocol_confirm` | 1–5 | 1→2→3 | H | LT-09 | **RT-04** |
-| **LT-05** | SEND_STARTED | LAUNCH_UNKNOWN | Launch adapter | Timeout/5xx/409/unclassified | `launch_protocol_mark_unknown` | 1–5 | 1→2→3 | H | LT-08–10 | **RT-05** |
-| **LT-06** | SEND_STARTED | LAUNCH_REJECTED | Launch adapter | Whitelist + `agent_created=false` | `launch_protocol_reject_definite` + `release_unused_reserve` | 1–5 atomic | 1→2→3 | R | — | **RT-06** |
-| **LT-07** | INTENT (stale) | CANCELLED_BEFORE_SEND | Recovery | TTL; lease fence | `launch_protocol_cancel_before_send` (internal release) | 1–5 | 1→2→3+fence | R | Sweep | **RT-07** |
-| **LT-08** | SEND_STARTED (stale) | LAUNCH_UNKNOWN | Recovery | TTL; lease fence | `launch_protocol_mark_unknown` | 1–5 | fence | H | Poll extx | **RT-08** |
-| **LT-09** | LAUNCH_UNKNOWN | LAUNCH_CONFIRMED | Recovery | GET 200 + correlate | `launch_protocol_confirm` | 1–5 | fence | H | — | **RT-09** |
-| **LT-10** | LAUNCH_UNKNOWN | MANUAL | Recovery | Max polls **or** correlate fail | `launch_protocol_escalate_manual` | 1–5 | fence | H | Operator | **RT-10** |
-| **LT-11** | MANUAL | LAUNCH_CONFIRMED | Budget admin | Audit row | `launch_protocol_manual_audit_insert` + `confirm` | 1–5 | 1→2→3 | H | — | **RT-11** |
-| **LT-12** | MANUAL | LAUNCH_REJECTED | Budget admin | Audit + attestation | audit + `reject_definite` + `release_unused_reserve` | 1–5 atomic | 1→2→3 | R | — | **RT-12** |
-| **LT-13** | MANUAL | LAUNCH_UNKNOWN | Budget admin | Audit reopen | audit + `launch_protocol_reopen_unknown` | 1–5 | 1→2→3 | H | LT-09 | **RT-13** |
-| **LT-14** | LAUNCH_CONFIRMED | EXTERNAL_AGENT_CANCELLED | Launch adapter | Mock cancel OK | `launch_protocol_mark_external_cancelled` | 1–5 | 1→2→3 | H | BT-01 | **RT-14** |
-| **LT-15** | — | — | — | Lease acquire/renew | `launch_protocol_recovery_lease_acquire` | 1–5 | row lock | — | Fence | **RT-15** |
+**Run binding:** List Runs, paginate all pages; select **oldest** run with `created_at >= send_started_at - clock_skew_seconds` (120).
 
-### 8.1 Budget settlement transitions (orthogonal)
-
-| ID | From budget | To budget | Actor | SQL function | Test |
-|----|-------------|-----------|-------|--------------|------|
-| **BT-01** | RESERVED + confirmed launch | COMMITTED/OVERRUN or usage_unknown | Reconciler | `budget_reconciler_apply_usage` | **RT-16** |
-| **BT-02** | COMMITTED | OVERRUN | Reconciler | idempotent re-apply | **RT-17** |
-
-**LT-14 + BT-01:** reconciler may apply with **`EXTERNAL_AGENT_CANCELLED`**.
+**Lease columns:** `recovery_lease_holder`, `recovery_lease_expires_at`, `recovery_lease_token` (uuid, **exact match** on recovery calls).
 
 ---
 
-## 9. Crash / recovery matrix (LT references only)
+## 8. Canonical transition table (normative)
 
-| Event | Launch | Budget | Next LT | Auto release? | Auto Create? |
-|-------|--------|--------|---------|---------------|--------------|
-| Crash before LT-01 | NOT_RECORDED | H | LT-01 | No | No |
-| Crash after LT-01 | INTENT | H | LT-02/03/07 | Only LT-02/07 | No |
-| Crash after LT-03 | SEND_STARTED | H | LT-08→09/10 | No | No |
-| Lost response | UNKNOWN | H | LT-09/10 | No | No |
-| GET 404 | UNKNOWN | H | LT-10 | No | No |
-| POST 409 | UNKNOWN | H | LT-09 or LT-10 | No | No |
-| Definite 400/401 post-send | REJECTED | R | LT-06 | Via LT-06 only | No |
-| Lease lost | — | H | LT-15 re-acquire | No | No |
-| Concurrent release vs intent | — | — | one wins | No | No |
+**B-effect:** `H`=RESERVED hold, `R`=RELEASED, `—`=no budget state change (launch-only).
 
-**Removed:** “REJECTED without close tx” (violates INV-4).
+| ID | From | To | Actor | External proof | SQL function | Tx | Lock | B | Recovery | Test |
+|----|------|-----|-------|----------------|--------------|-----|------|---|----------|------|
+| **LT-01** | NOT_RECORDED | INTENT | Adapter | Gate §5 | `launch_protocol_record_intent` | 1–5 | 1→2→3 | H | Retry LT-01 | RT-01 |
+| **LT-02** | INTENT | CANCELLED_BEFORE_SEND | Adapter | send NULL | `launch_protocol_cancel_before_send` (includes internal release) | 1–5 | 1→2→3 | R | Safe | RT-02a |
+| **LT-03** | INTENT | SEND_STARTED | Adapter | Flags §5 | `launch_protocol_mark_send_started` | 1–5; 6 transport | 1→2→3 | H | LT-08 | RT-03 |
+| **LT-04** | SEND_STARTED | LAUNCH_CONFIRMED | Adapter | GET OK + correlate | `launch_protocol_confirm` | 1–5 | 1→2→3 | H | LT-09 | RT-04 |
+| **LT-05** | SEND_STARTED | LAUNCH_UNKNOWN | Adapter | Ambiguous / 409 / unclassified | `launch_protocol_mark_unknown` | 1–5 | 1→2→3 | H | LT-08–10 | RT-05 |
+| **LT-06** | SEND_STARTED | LAUNCH_REJECTED | Adapter | §4.2 proof | `launch_protocol_reject_definite` | 1–5 atomic | 1→2→3 | R | — | RT-06 |
+| **LT-07** | INTENT stale | CANCELLED_BEFORE_SEND | Recovery | TTL + lease | `launch_protocol_cancel_before_send` | 1–5 | 1→2→3+fence | R | Sweep | RT-07 |
+| **LT-08** | SEND_STARTED stale | LAUNCH_UNKNOWN | Recovery | TTL + lease | `launch_protocol_mark_unknown` | 1–5 | 1→2→3+fence | H | Poll | RT-08 |
+| **LT-09** | LAUNCH_UNKNOWN | LAUNCH_CONFIRMED | Recovery | GET+correlate | `launch_protocol_confirm` | 1–5 | fence | H | — | RT-09 |
+| **LT-10** | LAUNCH_UNKNOWN | MANUAL | Recovery | poll_count≥max **or** mismatch | `launch_protocol_escalate_manual` | 1–5 | fence | H | Operator | RT-10 |
+| **LT-11** | MANUAL | LAUNCH_CONFIRMED | Admin | One-shot audit | `launch_protocol_manual_confirm` (audit+confirm atomic) | 1–5 | 1→2→3 | H | — | RT-11 |
+| **LT-12** | MANUAL | LAUNCH_REJECTED | Admin | Audit + attestation | `launch_protocol_manual_reject` | 1–5 atomic | 1→2→3 | R | BT-04 if wrong | RT-12 |
+| **LT-13** | MANUAL | LAUNCH_UNKNOWN | Admin | Audit reopen | `launch_protocol_reopen_unknown` (resets poll counters) | 1–5 | 1→2→3 | H | LT-09 | RT-13 |
+| **LT-14** | LAUNCH_CONFIRMED | EXTERNAL_AGENT_CANCELLED | Adapter | Mock cancel | `launch_protocol_mark_external_cancelled` | 1–5 | 1→2→3 | H | BT-01c | RT-14 |
+
+**Auxiliary (not launch state change):**
+
+| ID | From | To | Actor | SQL | Lock | Test |
+|----|------|-----|-------|-----|------|------|
+| **LA-01** | (recovery eligible) | lease held | Recovery | `launch_protocol_recovery_lease_acquire` | row FOR UPDATE only | RT-15 |
+
+`max_recovery_polls` config default **24** (with `unknown_escalation_ttl`).
+
+### 8.1 Budget transitions
+
+| ID | From | To | Actor | Preconditions | SQL | Lock | Test |
+|----|------|-----|-------|---------------|-----|------|------|
+| **BT-01a** | RESERVED, launch CONFIRMED | COMMITTED | Reconciler | Known cents ≤ reserve; identity match; proof_class valid | `budget_reconciler_apply_usage` | gate→2→3 | RT-16a |
+| **BT-01b** | RESERVED, launch CONFIRMED | OVERRUN | Reconciler | Known cents > reserve; identity match | same | gate→2→3 | RT-16b |
+| **BT-01c** | RESERVED, launch CONFIRMED or EXTERNAL_CANCELLED | usage_unknown | Reconciler | UNKNOWN verification | same | gate→2→3 | RT-16c |
+| **BT-02** | COMMITTED | COMMITTED (higher) | Reconciler | Late charge ≤ reserve delta | idempotent re-apply | gate→2→3 | RT-17a |
+| **BT-03** | COMMITTED | OVERRUN | Reconciler | Late charge > reserve | idempotent re-apply | gate→2→3 | RT-17b |
+| **BT-04** | RELEASED + orphan signal | (audit only) | Operator | Post-LT-12 spend detected | `budget_orphan_spend_signal` | — | RT-33 |
 
 ---
 
-## 10. Permissions — function × role (R3-003)
+## 9. Crash / recovery matrix
 
-**LOGIN roles:** `autopilot_tenant_runtime`, `autopilot_launch_adapter`, `autopilot_launch_recovery`, `autopilot_queue_reconciler`, `autopilot_budget_administrator`.
+| Event | Launch after crash | Budget | Next | Test |
+|-------|-------------------|--------|------|------|
+| Before LT-01 | NOT_RECORDED | H | LT-01 | RT-01 |
+| After LT-01 | INTENT | H | LT-02/03/07 | RT-02a, RT-07 |
+| After LT-03 no response | SEND_STARTED | H | LT-08→09/10 | RT-08, RT-05 |
+| After LT-04 partial | SEND_STARTED/UNKNOWN | H | LT-09 | RT-04 |
+| LT-05 lost response | UNKNOWN | H | LT-09/10 | RT-05 |
+| GET 404 | UNKNOWN | H | LT-10 | RT-10 |
+| POST 409 | UNKNOWN | H | LT-09/10 | RT-05 |
+| LT-06 definite reject | REJECTED | R | — | RT-06 |
+| LT-11 crash mid-tx | MANUAL | H | retry LT-11 | RT-11 |
+| LT-14 cancel | EXTERNAL_CANCELLED | H | BT-01c | RT-14 |
+| Lease lost | — | H | LA-01 | RT-15 |
+| Concurrent release vs LT-01 | — | — | one wins | RT-02 (INV-2) |
+| Identity mismatch | UNKNOWN→MANUAL | H | LT-10 | RT-10 |
 
-**NOLOGIN groups** grant EXECUTE; **one LOGIN per session** — membership in `{adapter, recovery, reconciler, budget_admin}` is **pairwise disjoint** (R4-003). Negative test **RT-18**.
+---
 
-| SQL function | Runtime | Adapter | Recovery | Reconciler | Admin |
-|--------------|---------|---------|----------|------------|-------|
+## 10. Permissions (R4-003)
+
+**Definer owner:** `autopilot_queue_definer_owner` (NOLOGIN, not superuser, no BYPASSRLS).
+
+**All protocol functions:** `REVOKE ALL ON FUNCTION … FROM PUBLIC`; GRANT EXECUTE to named roles only.
+
+**Caller identity inside DEFINER:** use **`session_user`** + **`pg_has_role(session_user, role, 'member')`**, never `current_user` alone.
+
+**Forbidden:** `SET ROLE` / `SET SESSION AUTHORIZATION` for launch/budget roles; **`CREATE` on schema `autopilot_queue`** except migration owner.
+
+**Role disjointness:** `{adapter, recovery, reconciler, admin}` pairwise disjoint; **tenant runtime LOGINs** disjoint from those four. Test RT-18.
+
+**`_release_unused_reserve`:** **no EXECUTE grant**; callable only from other SECURITY DEFINER wrappers.
+
+### 10.1 Function × role (EXECUTE)
+
+| Function | Runtime | Adapter | Recovery | Reconciler | Admin |
+|----------|---------|---------|----------|------------|-------|
 | `budget_protocol_reserve` | E | — | — | — | — |
-| `budget_protocol_release` | E (INV-2 guard) | — | — | — | — |
-| `launch_protocol_record_intent` | — | E | **D** | — | — |
-| `launch_protocol_mark_send_started` | — | E | — | — | — |
-| `launch_protocol_mark_unknown` | — | E | E* | — | — |
-| `launch_protocol_reject_definite` | — | E | — | — | E |
-| `launch_protocol_confirm` | — | E | E* | — | E |
+| `budget_protocol_release` | E | — | — | — | — |
+| `launch_protocol_record_intent` | — | E | D | — | — |
+| `launch_protocol_mark_send_started` | — | E | D | — | — |
+| `launch_protocol_mark_unknown` | — | E† | E* | — | — |
+| `launch_protocol_confirm` | — | E (SEND_STARTED) | E* (UNKNOWN+lease) | — | via manual wrapper |
 | `launch_protocol_cancel_before_send` | — | E | E* | — | — |
-| `launch_protocol_release_unused_reserve` | — | E** | E** | — | E |
+| `launch_protocol_reject_definite` | — | E (SEND_STARTED) | D | — | D |
+| `launch_protocol_manual_confirm` | — | — | — | — | E |
+| `launch_protocol_manual_reject` | — | — | — | — | E |
 | `launch_protocol_escalate_manual` | — | — | E* | — | E |
 | `launch_protocol_reopen_unknown` | — | — | — | — | E |
-| `launch_protocol_mark_external_cancelled` | — | E | — | — | — |
+| `launch_protocol_mark_external_cancelled` | — | E | D | — | — |
 | `launch_protocol_recovery_lease_acquire` | — | — | E* | — | — |
-| `launch_protocol_manual_audit_insert` | — | — | — | — | E |
 | `budget_reconciler_apply_usage` | — | — | — | E | — |
 
-\* Recovery EXECUTE only with valid lease fence inside function.  
-\*\* Adapter/recovery call release only inside definer wrappers for LT-02/06/07/12 — not standalone for tenant.
+\* Requires valid lease fence when role=recovery.  
+† Adapter: from `SEND_STARTED` only. Recovery: stale sweep paths + lease.
 
-**SECURITY DEFINER:** `search_path = autopilot_queue, pg_temp`; no direct DML grants on tables.
+**Shared-function rules:** documented preconditions enforced **inside** SQL (state + role); violation → **`invalid_caller_or_state`**.
 
-**Dispatcher:** read-only orchestration; **no** EXECUTE on launch write functions. **DRY_RUN worker** = tenant runtime only.
-
----
-
-## 11. MOCK_ONLY boundary (R3-004)
-
-| Rule | Enforcement (R6B) |
-|------|---------------------|
-| No real Cursor HTTP | `MockCursorTransport` sealed class; adapter `__init__` rejects non-Mock types |
-| No production transport via DI | Constructor type check **`isinstance(..., MockCursorTransport)`** only |
-| No env-based transport selection | Static test: no `os.environ`/`CURSOR_*` reads in `launch_*` packages |
-| No dynamic arbitrary transport | Factory module imports **only** mock module |
-| Import graph | RT-19: subprocess import → `cursor_api`, `httpx`, `urllib`, `requests`, `socket` **not** in `sys.modules` |
-| Network deny | RT-20: monkeypatch `socket.socket.connect` → fail in launch/recovery tests |
-| No `create_agent` in R6B code paths | Module split; tenant runtime cannot EXECUTE adapter functions (**RT-21**) |
-
-Legacy `cursor_api.py` remains in repo but **outside** R6B import graph.
+Test **RT-32:** full ACL matrix vs `pg_proc` catalog (R6B).
 
 ---
 
-## 12. Traceability matrix (Finding → Invariant → LT → SQL → Test)
+## 11. MOCK_ONLY isolation (R4-002)
 
-| Finding | Invariant | Transition | SQL boundary | Test |
-|---------|-----------|------------|--------------|------|
-| R3-001 | INV-6,8 | LT-06 | reject+release atomic | RT-06 |
-| R3-002 | INV-4,5 | LT-02,06,12 / BT-01 | split functions | RT-02,06,16 |
-| R3-003 | INV-2 | all LT | matrix §10 | RT-18 |
-| R3-004 | MOCK | LT-03 | transport after commit | RT-19,20 |
-| R3-005 | INV-6,9 | LT-03,05 | mark_send / unknown | RT-03,22 |
-| R5-001 | INV-2 | deny | release guard | RT-02 |
-| R5-002 | INV-5 | BT-01 | reconciler match | RT-16,10b |
-| Crash pre-send | INV-1 | LT-01/07 | lock order | RT-01,07 |
-| Lease loss | fence | LT-15 | lease acquire | RT-15 |
-| Mismatch | INV-8 | LT-10 | escalate | RT-10 |
-| No second POST | INV-9 | after LT-05 | policy | RT-22 |
-| Manual audit | — | LT-11 | audit insert | RT-11,23 |
+| Rule | R6B enforcement |
+|------|-----------------|
+| Transport type | **`type(transport) is MockCursorTransport`** (exact); **`MockCursorTransport.__init_subclass__` raises** |
+| No production transport injection | Constructor rejects; RT-31 subclass fails |
+| No env transport pick | AST scan: no `os.environ` / `CURSOR_` in `tools/bintrans_autopilot/launch_*` |
+| No dynamic import bypass | AST deny `importlib`, `__import__`, `exec`, `eval` in launch packages |
+| Dangerous imports | RT-19: after import launch modules, **`cursor_api`, `httpx`, `requests`, `http.client`, `aiohttp` ∉ sys.modules** (stdlib `socket`/`urllib` **allowed** — loaded by psycopg) |
+| Network | RT-20: patch `socket.socket.connect` in launch/recovery tests only |
+| Credentials | No `CURSOR_*` env reads; CI without secrets |
+| PG mode | INV-11; RT-30 rejects MOCK proof if mode≠MOCK_ONLY |
 
-**Coverage rule:** every **LT-01..LT-15** and **BT-01..BT-02** has ≥1 **`RT-*`** test. **Untested transitions = 0** (target for R6B).
+---
 
-### 12.1 Regression test catalog (`test_budget_controller_03c2_r6b.py`)
+## 12. End-to-end traceability
 
-| RT | Description |
-|----|-------------|
-| RT-01 | LT-01 before transport; intent durable |
-| RT-02 | INV-2 runtime release denied when launch row exists |
-| RT-03 | LT-03 send_started committed before mock invoke |
-| RT-04 | LT-04 confirm binds ids |
-| RT-05 | LT-05 ambiguous → UNKNOWN, no release |
-| RT-06 | LT-06 definite reject post-send; 409 not reject |
-| RT-07 | LT-07 stale intent cancel |
-| RT-08 | LT-08 stale send → UNKNOWN |
+| Finding | Invariant | Transition | SQL | Test |
+|---------|-----------|------------|-----|------|
+| R4-001 | INV-11 | LT-06 | reject_definite | RT-06, RT-30 |
+| R4-002 | MOCK | LT-03 | transport | RT-19, RT-20, RT-31 |
+| R4-003 | INV-4 | all release LTs | wrappers | RT-32, RT-18 |
+| R4-004 | INV-5,10 | BT-01a–03 | apply_usage | RT-16a–c, RT-17a–b |
+| R4-005 | INV-2 | deny | release | RT-02 |
+| R5-001 | INV-2 | — | release guard | RT-02 |
+| R5-002 | INV-5 | BT-01* | identity match | RT-36 |
+| R3-006 | tenancy | reserve | composite PK | RT-37 |
+| R3-007 | identity | LT-04 | confirm | RT-38 |
+| R3-008 | settlement | BT-01c | unknown | RT-39 |
+| R3-009 | INV-6,7 | LT-01 | lock order | RT-40 |
+
+### 12.1 Regression catalog (every LT/BT/LA has RT)
+
+| RT | Covers |
+|----|--------|
+| RT-01 | LT-01 intent before transport |
+| RT-02 | **INV-2** runtime release denied (any launch row) |
+| RT-02a | **LT-02** cancel_before_send → RELEASED |
+| RT-03 | LT-03 send_started before mock call |
+| RT-04 | LT-04 confirm |
+| RT-05 | LT-05 ambiguous; no second POST (RT-22) |
+| RT-06 | LT-06 proof_class; 409→not LT-06 |
+| RT-07 | LT-07 stale intent |
+| RT-08 | LT-08 stale send |
 | RT-09 | LT-09 recovery confirm |
 | RT-10 | LT-10 mismatch → MANUAL |
-| RT-11 | LT-11 manual confirm requires audit |
-| RT-12 | LT-12 manual reject + release |
-| RT-13 | LT-13 reopen MANUAL → UNKNOWN |
+| RT-11 | LT-11 atomic manual confirm + audit |
+| RT-12 | LT-12 manual reject |
+| RT-13 | LT-13 reopen |
 | RT-14 | LT-14 external cancel |
-| RT-15 | LT-15 lease fence stale rejected |
-| RT-16 | BT-01 reconciler only commits; adapter cannot |
-| RT-17 | BT-02 late charge → OVERRUN |
-| RT-18 | disjoint role membership denied |
-| RT-19 | import graph clean |
-| RT-20 | socket connect denied |
-| RT-21 | runtime EXECUTE adapter function denied |
-| RT-22 | no second mock POST after LT-05 |
-| RT-23 | LT-11 without audit denied |
+| RT-15 | LA-01 lease fence |
+| RT-16a/b/c | BT-01a/b/c |
+| RT-17a/b | BT-02/03 late charge |
+| RT-18 | role disjointness |
+| RT-19 | forbidden Cursor HTTP imports |
+| RT-20 | connect denied in launch tests |
+| RT-22 | INV-9 no second POST |
+| RT-30 | MOCK proof rejected when mode≠MOCK_ONLY |
+| RT-31 | subclass MockCursorTransport rejected |
+| RT-32 | ACL matrix |
+| RT-33 | BT-04 orphan signal |
+| RT-34 | estop denies LT-03 |
+| RT-35 | confirm NULL→ids allowed; second change blocked |
+| RT-36 | reconciler identity mismatch denied |
+| RT-37 | cross-tenant reserve → not_found |
+| RT-38 | record_intent DO NOTHING idempotency |
+| RT-39 | tokens-only → usage_unknown |
+| RT-40 | no I/O inside gate tx (mock slow path) |
 
-### 12.2 Documentation completeness check (R6B script, not R6A)
+**Transition test coverage:** each **LT-01..LT-14**, **LA-01**, **BT-01a..BT-04** maps to ≥1 RT above.
 
-R6B adds `tools/bintrans_autopilot/tests/adr_launch_lifecycle_doc_check.py` (or shell) that parses this ADR and asserts:
+### 12.2 Documentation completeness check (R6B script spec)
 
-- Set of LT IDs in §8 = set in crash matrix;
-- Every LT has `Test` column RT-*;
-- No duplicate `(From, To, Actor)` rows;
-- **`RELEASE_AFTER_INTENT`** string present in INV-2.
+Script parses ADR §8 and §9:
 
-**R6A-R4:** script **specified only**, not committed.
+- LT IDs in §8 (launch) = LT IDs referenced in §9 (excluding LA-01 optional);
+- Every LT/BT/LA row has non-empty Test column matching `RT-\d+`;
+- Substring **`RELEASE_AFTER_INTENT`** present (INV-2 heading);
+- No duplicate `(From, To, Actor)` among LT rows.
+
+**R6A-R5:** spec only; not committed.
 
 ---
 
-## 13. R6B scope (unchanged intent, tightened enforcement)
+## 13. R6B scope
 
-**Allowed:** PostgreSQL 0008, protocol functions, mock transport, LT/BT tests, CI isolated DB.
+**Allowed:** 0008, protocol SQL, mock transport, RT catalog, isolated CI DB.
 
-**Forbidden:** real HTTP, credentials, paid launches, merge, deploy, production, Cloud Agents, **`PAID_AUTOMATION_ENABLED=1`**.
+**Forbidden:** real HTTP, credentials, paid launch, merge, deploy, production, Cloud Agents.
 
-**R6B_AUTHORIZED=NO** until Agent J approves **this** revision.
+**R6B_AUTHORIZED=NO** until Agent J approves this revision.
 
 ---
 
@@ -347,10 +369,10 @@ R6B adds `tools/bintrans_autopilot/tests/adr_launch_lifecycle_doc_check.py` (or 
 
 | Rev | Notes |
 |-----|-------|
-| R6A–R6A-R3 | Prior |
-| **R6A-R4** | Canonical LT/BT table; release/settlement split; R3-001..009 |
+| R6A-R4 | LT/BT split |
+| **R6A-R5** | R4-001..008; proof_class; BT split; permissions; MOCK fix; RT completeness |
 
 ## References
 
-- Agent J `AP03C2-R6A-R3-001..009`
-- Queue SQL `0002`, `0004`, `0005`, `0006`, `0007`
+- Agent J `AP03C2-R6A-R4-001..008`
+- SQL `0002`, `0004`, `0005`, `0006`, `0007`
