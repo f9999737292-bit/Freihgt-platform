@@ -791,3 +791,7 @@ GRANT EXECUTE ON FUNCTION autopilot_queue.budget_orphan_spend_signal(text, text,
     TO autopilot_launch_admin, autopilot_queue_reconciler;
 
 GRANT USAGE ON SCHEMA autopilot_queue TO autopilot_launch_adapter, autopilot_launch_recovery, autopilot_launch_admin;
+GRANT SELECT ON autopilot_queue.budget_reservations TO autopilot_launch_adapter, autopilot_launch_recovery, autopilot_launch_admin;
+GRANT SELECT, INSERT, UPDATE ON autopilot_queue.launch_intents TO autopilot_launch_adapter, autopilot_launch_recovery, autopilot_launch_admin;
+GRANT SELECT ON autopilot_queue.autopilot_launch_control TO autopilot_launch_adapter, autopilot_launch_recovery, autopilot_launch_admin;
+GRANT INSERT ON autopilot_queue.recovery_poll_audit TO autopilot_launch_recovery;
