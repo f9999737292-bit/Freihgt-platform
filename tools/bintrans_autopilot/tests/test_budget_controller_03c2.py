@@ -470,11 +470,15 @@ class PostgresBudgetControllerTests(unittest.TestCase):
 
     def test_budget_migration_down_requires_empty_open_reservations(self) -> None:
         self.controller.request_reserve("launch-open", "tenant-a", 10)
+        at_version = self.runner.version()
+        if at_version >= 8:
+            self.assertEqual(self.runner.down(), 7)
         with self.assertRaises(QueueError) as raised:
             self.runner.down()
         self.assertEqual(raised.exception.code, "migration_blocked")
         self.controller.release("launch-open")
-        self.assertEqual(self.runner.down_budget_migration(allow_destructive_test=True), 1)
+        while self.runner.version() > 1:
+            self.runner.down_budget_migration(allow_destructive_test=True)
         self.runner.up()
         _ensure_tenant_roles(self.dsn, self.runner)
 

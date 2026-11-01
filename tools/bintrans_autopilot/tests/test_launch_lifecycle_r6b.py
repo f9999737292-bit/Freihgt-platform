@@ -122,6 +122,8 @@ class LaunchLifecyclePostgresTests(unittest.TestCase):
         cls.dsn = _dsn()
         if not cls.dsn:
             return
+        cls._prior_autopilot_env = os.environ.get("AUTOPILOT_ENABLED")
+        os.environ["AUTOPILOT_ENABLED"] = "true"
         try:
             cls.runner = MigrationRunner(lambda: _owner_connect(cls.dsn))
             cls.runner.up()
@@ -135,6 +137,14 @@ class LaunchLifecyclePostgresTests(unittest.TestCase):
         _ensure_reconciler_role(cls.dsn)
         if cls.runner.version() >= 8:
             _ensure_launch_roles(cls.dsn)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        prior = getattr(cls, "_prior_autopilot_env", None)
+        if prior is None:
+            os.environ.pop("AUTOPILOT_ENABLED", None)
+        else:
+            os.environ["AUTOPILOT_ENABLED"] = prior
 
     def setUp(self) -> None:
         if not self.dsn or self.runner.version() < 8:
@@ -164,7 +174,8 @@ class LaunchLifecyclePostgresTests(unittest.TestCase):
         self.controller.sync_tenant_limits("tenant-a")
 
     def test_rt02_release_blocked_after_intent(self) -> None:
-        self.controller.request_reserve("launch-intent", "tenant-a", 25)
+        reserved = self.controller.request_reserve("launch-intent", "tenant-a", 25)
+        self.assertEqual(reserved.state, "RESERVED")
         _record_intent(self.dsn, "tenant-a", "launch-intent")
         with self.assertRaises(BudgetControllerError) as raised:
             self.controller.release("launch-intent")

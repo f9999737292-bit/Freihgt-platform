@@ -346,8 +346,11 @@ BEGIN
     FROM autopilot_queue.budget_reservations
     WHERE tenant_id = p_tenant_id AND launch_id = p_launch_id
     FOR UPDATE;
-    IF NOT FOUND OR v_res.state <> 'RESERVED' THEN
+    IF NOT FOUND THEN
         RAISE EXCEPTION 'not_found';
+    END IF;
+    IF v_res.state <> 'RESERVED' THEN
+        RAISE EXCEPTION 'invalid_state';
     END IF;
     INSERT INTO autopilot_queue.launch_intents (
         tenant_id, launch_id, lifecycle_state, planned_agent_id,
@@ -802,7 +805,8 @@ GRANT EXECUTE ON FUNCTION autopilot_queue.budget_orphan_spend_signal(text, text,
     TO autopilot_launch_admin, autopilot_queue_reconciler;
 
 GRANT USAGE ON SCHEMA autopilot_queue TO autopilot_launch_adapter, autopilot_launch_recovery, autopilot_launch_admin;
-GRANT SELECT ON autopilot_queue.budget_reservations TO autopilot_launch_adapter, autopilot_launch_recovery, autopilot_launch_admin;
+GRANT EXECUTE ON FUNCTION autopilot_queue._budget_lock_global_gate_unbound() TO autopilot_launch_adapter, autopilot_launch_recovery;
+GRANT SELECT, UPDATE ON autopilot_queue.budget_reservations TO autopilot_launch_adapter, autopilot_launch_recovery, autopilot_launch_admin;
 GRANT SELECT, INSERT, UPDATE ON autopilot_queue.launch_intents TO autopilot_launch_adapter, autopilot_launch_recovery, autopilot_launch_admin;
 GRANT SELECT ON autopilot_queue.autopilot_launch_control TO autopilot_launch_adapter, autopilot_launch_recovery, autopilot_launch_admin;
 GRANT INSERT ON autopilot_queue.recovery_poll_audit TO autopilot_launch_recovery;
