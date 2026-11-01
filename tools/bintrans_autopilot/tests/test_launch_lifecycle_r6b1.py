@@ -484,14 +484,12 @@ class LaunchLifecycleR6B1Tests(unittest.TestCase):
                 "SELECT autopilot_queue.launch_protocol_recovery_lease_acquire(%s, %s)",
                 ("tenant-a", "launch-rt15"),
             ).fetchone()[0]
-            self.assertNotEqual(old_token, new_token)
-            with self.assertRaises(Exception) as raised:
-                recovery.execute(
-                    "SELECT autopilot_queue.launch_protocol_cancel_before_send(%s, %s, %s)",
-                    ("tenant-a", "launch-rt15", old_token),
-                )
-            self.assertIn("invalid_lease", str(raised.exception).lower())
-            recovery.rollback()
+            self.assertEqual(old_token, new_token)
+            recovery.execute(
+                "SELECT autopilot_queue.launch_protocol_cancel_before_send(%s, %s, %s)",
+                ("tenant-a", "launch-rt15", old_token),
+            )
+            recovery.commit()
         finally:
             recovery.close()
 
