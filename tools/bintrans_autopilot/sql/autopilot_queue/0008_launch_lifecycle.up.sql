@@ -217,6 +217,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = autopilot_queue, pg_temp
+SET row_security = off
 AS $$
 DECLARE
     v_row autopilot_queue.budget_reservations%ROWTYPE;
@@ -330,6 +331,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = autopilot_queue, pg_temp
+SET row_security = off
 AS $$
 DECLARE
     v_res autopilot_queue.budget_reservations%ROWTYPE;
@@ -367,6 +369,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = autopilot_queue, pg_temp
+SET row_security = off
 AS $$
 DECLARE
     v_row autopilot_queue.launch_intents%ROWTYPE;
@@ -406,6 +409,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = autopilot_queue, pg_temp
+SET row_security = off
 AS $$
 DECLARE
     v_row autopilot_queue.launch_intents%ROWTYPE;
@@ -447,6 +451,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = autopilot_queue, pg_temp
+SET row_security = off
 AS $$
 DECLARE
     v_row autopilot_queue.launch_intents%ROWTYPE;
@@ -481,6 +486,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = autopilot_queue, pg_temp
+SET row_security = off
 AS $$
 DECLARE
     v_row autopilot_queue.launch_intents%ROWTYPE;
@@ -522,6 +528,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = autopilot_queue, pg_temp
+SET row_security = off
 AS $$
 DECLARE
     v_row autopilot_queue.launch_intents%ROWTYPE;
@@ -570,6 +577,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = autopilot_queue, pg_temp
+SET row_security = off
 AS $$
 DECLARE
     v_row autopilot_queue.launch_intents%ROWTYPE;
@@ -605,6 +613,7 @@ RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = autopilot_queue, pg_temp
+SET row_security = off
 AS $$
 DECLARE
     v_row autopilot_queue.launch_intents%ROWTYPE;
@@ -663,6 +672,7 @@ RETURNS TABLE (poll_count integer, decision text)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = autopilot_queue, pg_temp
+SET row_security = off
 AS $$
 DECLARE
     v_row autopilot_queue.launch_intents%ROWTYPE;
@@ -712,6 +722,7 @@ RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = autopilot_queue, pg_temp
+SET row_security = off
 AS $$
 DECLARE
     v_row autopilot_queue.launch_intents%ROWTYPE;
