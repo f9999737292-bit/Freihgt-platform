@@ -165,7 +165,13 @@ class LaunchLifecyclePostgresTests(unittest.TestCase):
                 """
             )
             connection.execute(
-                "UPDATE autopilot_queue.autopilot_launch_control SET autopilot_launch_mode = 'MOCK_ONLY' WHERE id = 1"
+                """
+                UPDATE autopilot_queue.autopilot_launch_control
+                SET autopilot_launch_mode = 'MOCK_ONLY',
+                    autopilot_estop = false,
+                    max_recovery_polls = 24
+                WHERE id = 1
+                """
             )
             connection.commit()
         finally:
