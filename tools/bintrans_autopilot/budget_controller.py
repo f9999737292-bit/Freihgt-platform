@@ -260,7 +260,7 @@ class BudgetController:
                         "per_launch_cap_exceeded",
                     }:
                         return self._insert_blocked(cursor, launch_id, tenant_id, reserve_cents, code)
-                    if code in {"overrun_open", "unknown_usage_open"}:
+                    if code in {"overrun_open", "unknown_usage_open", "launch_reconciliation_open"}:
                         return self._insert_blocked(cursor, launch_id, tenant_id, reserve_cents, code)
                     raise _budget_error_from_exception(exc) from exc
                 logger.info(
@@ -957,6 +957,8 @@ def _exception_code(exc: Exception) -> str | None:
         "unknown_usage",
         "unknown_usage_open",
         "launch_identity_bound",
+        "launch_intent_recorded",
+        "launch_reconciliation_open",
         "verified_usage_present",
         "identity_incomplete",
         "run_id_taken",

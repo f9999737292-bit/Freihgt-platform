@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from bintrans_autopilot.config import AutopilotConfig
-from bintrans_autopilot.cursor_api import CursorApiError
+from bintrans_autopilot.cursor_errors import CursorApiError
 
 
 @dataclass(frozen=True)
