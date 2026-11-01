@@ -139,6 +139,31 @@ def _tenant_controller(
     )
 
 
+def _limits_admin(
+    dsn: str,
+    *,
+    config: AutopilotConfig | None = None,
+) -> BudgetController:
+    role, password = _TENANTS["tenant-a"]
+    return BudgetController(
+        lambda: _tenant_connect(dsn, role, password),
+        admin_connect=lambda: _owner_connect(dsn),
+        config=config or _enabled_config(),
+    )
+
+
+def _reseed_tenant_ledgers(
+    dsn: str,
+    *,
+    tenants: tuple[str, ...] | None = None,
+    config: AutopilotConfig | None = None,
+) -> None:
+    """Recreate tenant ledger rows via the trusted admin sync path after test cleanup."""
+    admin = _limits_admin(dsn, config=config)
+    for tenant_id in tenants or tuple(_TENANTS):
+        admin.sync_tenant_limits(tenant_id)
+
+
 def _ensure_reconciler_role(dsn: str) -> None:
     from psycopg import sql
 
@@ -275,14 +300,34 @@ class PostgresBudgetControllerTests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
-        self.limits_admin = BudgetController(
-            lambda: _tenant_connect(self.dsn, "tenant_a_runtime", "tenant_a_test"),
-            admin_connect=lambda: _owner_connect(self.dsn),
-            config=_enabled_config(),
-        )
-        for tenant in _TENANTS:
-            self.limits_admin.sync_tenant_limits(tenant)
+        _reseed_tenant_ledgers(self.dsn)
+        self.limits_admin = _limits_admin(self.dsn)
         self.controller = _tenant_controller(self.dsn, "tenant-a")
+
+    def test_reseed_fixture_restores_reserve_after_ledger_wipe(self) -> None:
+        connection = _owner_connect(self.dsn)
+        try:
+            connection.execute("DELETE FROM autopilot_queue.budget_tenant_ledger")
+            connection.commit()
+        finally:
+            connection.close()
+        _reseed_tenant_ledgers(self.dsn)
+        row = self.controller.request_reserve("launch-reseed-fixture", "tenant-a", 10)
+        self.assertEqual(row.state, RESERVED)
+
+    def test_reserve_fails_when_tenant_ledger_missing(self) -> None:
+        connection = _owner_connect(self.dsn)
+        try:
+            connection.execute(
+                "DELETE FROM autopilot_queue.budget_tenant_ledger WHERE tenant_id = %s",
+                ("tenant-a",),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        with self.assertRaises(BudgetControllerError) as raised:
+            self.controller.request_reserve("launch-no-ledger", "tenant-a", 10)
+        self.assertEqual(raised.exception.code, "store_unavailable")
 
     def test_zero_budget_gate_blocks_reserve(self) -> None:
         controller = _tenant_controller(self.dsn, "tenant-a", config=load_config())

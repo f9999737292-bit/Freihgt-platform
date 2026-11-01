@@ -26,6 +26,7 @@ from bintrans_autopilot.postgres_queue import (
     _statements,
 )
 from bintrans_autopilot.task_queue import FileLock, TaskStore
+from bintrans_autopilot.tests.test_budget_controller_03c2 import _reseed_tenant_ledgers
 
 _TENANTS = {
     "tenant-a": ("tenant_a_runtime", "tenant_a_test"),
@@ -293,7 +294,18 @@ class PostgresQueueTests(unittest.TestCase):
         cls.runner.up()
         if cls.runner.version() >= 2:
             cls.runner.down_budget_migration(allow_destructive_test=True)
+            cls.runner.up()
+            _reseed_tenant_ledgers(cls.dsn)
         _ensure_tenant_roles(cls.dsn, cls.runner)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if not cls.dsn:
+            return
+        if cls.runner.version() < 10:
+            cls.runner.up()
+        if cls.runner.version() >= 2:
+            _reseed_tenant_ledgers(cls.dsn)
 
     def setUp(self) -> None:
         if not self.dsn:
@@ -307,6 +319,8 @@ class PostgresQueueTests(unittest.TestCase):
         _ensure_tenant_roles(self.dsn, self.runner)
         if self.runner.version() >= 2:
             self.runner.down_budget_migration(allow_destructive_test=True)
+            self.runner.up()
+            _reseed_tenant_ledgers(self.dsn)
         self.queue = PostgresQueue(lambda: _tenant_connect(self.dsn, "tenant_a_runtime", "tenant_a_test"))
         self.queue_b = PostgresQueue(lambda: _tenant_connect(self.dsn, "tenant_b_runtime", "tenant_b_test"))
 
@@ -679,6 +693,7 @@ class PostgresQueueTests(unittest.TestCase):
         finally:
             connection.close()
         try:
+            self.assertEqual(self.runner.down(), 9)
             self.assertEqual(self.runner.down(), 8)
             self.assertEqual(self.runner.down(), 7)
             self.assertEqual(self.runner.down(), 6)
@@ -689,6 +704,7 @@ class PostgresQueueTests(unittest.TestCase):
             self.assertEqual(self.runner.down(), 1)
             self.assertEqual(self.runner.down(), 0)
             self.assertEqual(self.runner.up(), 10)
+            self.assertEqual(self.runner.down(), 9)
             self.assertEqual(self.runner.down(), 8)
             self.assertEqual(self.runner.down(), 7)
             self.assertEqual(self.runner.down(), 6)
@@ -1058,6 +1074,7 @@ class PostgresQueueTests(unittest.TestCase):
         try:
             if self.runner.version() < 10:
                 self.runner.up()
+            self.assertEqual(self.runner.down(), 9)
             self.assertEqual(self.runner.down(), 8)
             self.assertEqual(self.runner.down(), 7)
             self.assertEqual(self.runner.down(), 6)

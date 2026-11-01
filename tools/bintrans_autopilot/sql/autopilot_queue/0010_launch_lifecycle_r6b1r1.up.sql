@@ -9,6 +9,14 @@ EXCEPTION
 END
 $$;
 
+DO $$
+BEGIN
+    EXECUTE format('GRANT autopilot_queue_definer_owner TO %I', current_user);
+EXCEPTION
+    WHEN insufficient_privilege THEN NULL;
+END
+$$;
+
 GRANT USAGE ON SCHEMA autopilot_queue TO autopilot_queue_definer_owner;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA autopilot_queue TO autopilot_queue_definer_owner;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA autopilot_queue TO autopilot_queue_definer_owner;

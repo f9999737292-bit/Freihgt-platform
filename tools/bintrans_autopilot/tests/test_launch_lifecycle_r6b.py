@@ -21,6 +21,7 @@ from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _ensure_tenant_roles,
     _owner_connect,
     _reconciler_connect,
+    _reseed_tenant_ledgers,
     _tenant_controller,
 )
 
@@ -185,8 +186,8 @@ class LaunchLifecyclePostgresTests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
+        _reseed_tenant_ledgers(self.dsn)
         self.controller = _tenant_controller(self.dsn, "tenant-a")
-        self.controller.sync_tenant_limits("tenant-a")
 
     def test_rt02_release_blocked_after_intent(self) -> None:
         reserved = self.controller.request_reserve("launch-intent", "tenant-a", 25)

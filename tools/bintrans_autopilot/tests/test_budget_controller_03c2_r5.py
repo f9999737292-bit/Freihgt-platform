@@ -16,6 +16,7 @@ from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _ensure_tenant_roles,
     _mark_unknown_verified,
     _owner_connect,
+    _reseed_tenant_ledgers,
     _tenant_controller,
 )
 from bintrans_autopilot.usage_reconciliation import reconcile_launch_usage
@@ -79,8 +80,8 @@ class BudgetControllerR5Tests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
+        _reseed_tenant_ledgers(self.dsn)
         self.controller = _tenant_controller(self.dsn, "tenant-a")
-        self.controller.sync_tenant_limits("tenant-a")
 
     def test_runtime_release_blocked_after_unknown_usage(self) -> None:
         self.controller.request_reserve(

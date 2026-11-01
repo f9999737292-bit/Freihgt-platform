@@ -15,6 +15,7 @@ from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _ensure_reconciler_role,
     _ensure_tenant_roles,
     _owner_connect,
+    _reseed_tenant_ledgers,
     _tenant_connect,
     _tenant_controller,
     _usage_refs,
@@ -79,8 +80,8 @@ class BudgetControllerR4Tests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
+        _reseed_tenant_ledgers(self.dsn)
         self.controller = _tenant_controller(self.dsn, "tenant-a")
-        self.controller.sync_tenant_limits("tenant-a")
 
     def test_runtime_commit_without_verification_rejected(self) -> None:
         self.controller.request_reserve("launch-no-verify", "tenant-a", 20)

@@ -12,6 +12,7 @@ from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _RUN,
     _ensure_tenant_roles,
     _owner_connect,
+    _reseed_tenant_ledgers,
     _tenant_controller,
 )
 from bintrans_autopilot.tests.test_launch_lifecycle_r6b import (
@@ -96,10 +97,9 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             owner.commit()
         finally:
             owner.close()
+        _reseed_tenant_ledgers(self.dsn)
         self.controller_a = _tenant_controller(self.dsn, "tenant-a")
-        self.controller_a.sync_tenant_limits("tenant-a")
         self.controller_b = _tenant_controller(self.dsn, "tenant-b")
-        self.controller_b.sync_tenant_limits("tenant-b")
 
     def test_r6b1_002_runtime_cannot_select_launch_intents(self) -> None:
         shared = "launch-shared-x"

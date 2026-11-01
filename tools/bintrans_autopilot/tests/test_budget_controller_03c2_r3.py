@@ -20,6 +20,7 @@ from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _ensure_reconciler_role,
     _ensure_tenant_roles,
     _owner_connect,
+    _reseed_tenant_ledgers,
     _tenant_connect,
     _tenant_controller,
 )
@@ -82,10 +83,8 @@ class BudgetControllerR3Tests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
+        _reseed_tenant_ledgers(self.dsn)
         self.controller = _tenant_controller(self.dsn, "tenant-a")
-        for tenant in ("tenant-a", "tenant-b"):
-            admin = _tenant_controller(self.dsn, "tenant-a")
-            admin.sync_tenant_limits(tenant)
 
     def test_runtime_cannot_pass_fake_reserve_window(self) -> None:
         connection = _tenant_connect(self.dsn, "tenant_a_runtime", "tenant_a_test")

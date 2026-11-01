@@ -14,6 +14,7 @@ from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _ensure_reconciler_role,
     _ensure_tenant_roles,
     _owner_connect,
+    _reseed_tenant_ledgers,
     _tenant_controller,
 )
 from bintrans_autopilot.tests.test_launch_lifecycle_r6b import (
@@ -130,8 +131,8 @@ class LaunchLifecycleR6B1Tests(unittest.TestCase):
             owner.commit()
         finally:
             owner.close()
+        _reseed_tenant_ledgers(self.dsn)
         self.controller = _tenant_controller(self.dsn, "tenant-a")
-        self.controller.sync_tenant_limits("tenant-a")
 
     def _adapter_send_started(self, launch_id: str) -> None:
         conn = _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)

@@ -25,6 +25,7 @@ from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _commit_verified,
     _ensure_reconciler_role,
     _ensure_tenant_roles,
+    _reseed_tenant_ledgers,
     _tenant_controller,
 )
 
@@ -119,14 +120,8 @@ class BudgetControllerR2Tests(unittest.TestCase):
             connection.commit()
         finally:
             connection.close()
+        _reseed_tenant_ledgers(self.dsn)
         self.controller = _controller(self.dsn)
-        for tenant in ("tenant-a", "tenant-b"):
-            admin = BudgetController(
-                lambda: _tenant_connect(self.dsn, "tenant_a_runtime", "tenant_a_test"),
-                admin_connect=lambda: _owner_connect(self.dsn),
-                config=_enabled_config(),
-            )
-            admin.sync_tenant_limits(tenant)
 
     def test_runtime_cannot_directly_update_reservations(self) -> None:
         self.controller.request_reserve("launch-dml", "tenant-a", 20)
