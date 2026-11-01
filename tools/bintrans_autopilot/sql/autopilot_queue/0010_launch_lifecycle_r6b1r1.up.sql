@@ -583,26 +583,6 @@ BEGIN
 END;
 $$;
 
-DO $$
-DECLARE
-    r RECORD;
-BEGIN
-    FOR r IN
-        SELECT p.oid::regprocedure AS sig
-        FROM pg_proc p
-        JOIN pg_namespace n ON n.oid = p.pronamespace
-        WHERE n.nspname = 'autopilot_queue'
-          AND p.prosecdef
-          AND (
-              p.proname LIKE 'launch_protocol\_%'
-              OR p.proname LIKE '\_launch\_%'
-              OR p.proname IN (
-                  '_budget_release_unused_reserve',
-                  '_budget_assert_release_allowed'
-              )
-          )
-    LOOP
-        EXECUTE format('ALTER FUNCTION %s OWNER TO autopilot_queue_definer_owner', r.sig);
-    END LOOP;
-END
-$$;
+-- autopilot_queue_definer_owner is provisioned for a future table-owner alignment
+-- migration; SECURITY DEFINER launch helpers keep the migration owner until then
+-- so SET row_security = off remains effective under FORCE RLS.
