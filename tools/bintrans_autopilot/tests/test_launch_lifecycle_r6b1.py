@@ -27,7 +27,7 @@ from bintrans_autopilot.tests.test_launch_lifecycle_r6b import (
 )
 
 _ADMIN_LOGIN = "launch_admin_test"
-_RUN_B = "run-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+_AGENT_B = "bc-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeee01"
 
 
 def _ensure_launch_admin(dsn: str) -> None:
@@ -81,6 +81,16 @@ class LaunchLifecycleR6B1Tests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        if cls.dsn:
+            owner = _owner_connect(cls.dsn)
+            try:
+                owner.execute("DELETE FROM autopilot_queue.manual_reconciliation_audit")
+                owner.execute("DELETE FROM autopilot_queue.recovery_poll_audit")
+                owner.execute("DELETE FROM autopilot_queue.launch_intents")
+                owner.execute("DELETE FROM autopilot_queue.budget_reservations")
+                owner.commit()
+            finally:
+                owner.close()
         prior = getattr(cls, "_prior_autopilot_env", None)
         if prior is None:
             os.environ.pop("AUTOPILOT_ENABLED", None)
@@ -546,14 +556,26 @@ class LaunchLifecycleR6B1Tests(unittest.TestCase):
         finally:
             conn.close()
         self.controller.request_reserve("launch-run-b", "tenant-a", 10)
-        _record_intent(self.dsn, "tenant-a", "launch-run-b")
+        conn = _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)
+        try:
+            conn.execute(
+                """
+                SELECT autopilot_queue.launch_protocol_record_intent(
+                    %s, %s, %s, %s, %s
+                )
+                """,
+                ("tenant-a", "launch-run-b", _AGENT_B, 1, _BODY_HASH),
+            )
+            conn.commit()
+        finally:
+            conn.close()
         self._adapter_send_started("launch-run-b")
         conn = _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)
         try:
             with self.assertRaises(Exception) as raised:
                 conn.execute(
                     "SELECT autopilot_queue.launch_protocol_confirm(%s, %s, %s, %s)",
-                    ("tenant-a", "launch-run-b", _AGENT, _RUN),
+                    ("tenant-a", "launch-run-b", _AGENT_B, _RUN),
                 )
             self.assertIn("run_id_taken", str(raised.exception).lower())
             conn.rollback()

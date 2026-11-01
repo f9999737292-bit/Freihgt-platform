@@ -140,6 +140,15 @@ class LaunchLifecyclePostgresTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        if cls.dsn:
+            owner = _owner_connect(cls.dsn)
+            try:
+                owner.execute("DELETE FROM autopilot_queue.recovery_poll_audit")
+                owner.execute("DELETE FROM autopilot_queue.launch_intents")
+                owner.execute("DELETE FROM autopilot_queue.budget_reservations")
+                owner.commit()
+            finally:
+                owner.close()
         prior = getattr(cls, "_prior_autopilot_env", None)
         if prior is None:
             os.environ.pop("AUTOPILOT_ENABLED", None)
