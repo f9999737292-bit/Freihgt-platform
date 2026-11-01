@@ -483,6 +483,10 @@ class MigrationRunner:
             if not applied:
                 return 0
             target = max(applied)
+            if target == 8:
+                self._down_budget_migration_v8(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
             if target == 7:
                 self._down_budget_migration_v7(cursor, allow_destructive_test=allow_destructive_test)
                 applied = self._applied(cursor)

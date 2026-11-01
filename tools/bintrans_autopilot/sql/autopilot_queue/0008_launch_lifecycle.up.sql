@@ -306,7 +306,7 @@ BEGIN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
     PERFORM autopilot_queue._launch_assert_mock_mode();
-    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate();
+    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_res
     FROM autopilot_queue.budget_reservations
     WHERE tenant_id = p_tenant_id AND launch_id = p_launch_id
@@ -343,7 +343,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_adapter') AND NOT v_recovery THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
-    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate();
+    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
     WHERE tenant_id = p_tenant_id AND launch_id = p_launch_id
@@ -385,7 +385,7 @@ BEGIN
         RAISE EXCEPTION 'estop_active';
     END IF;
     PERFORM autopilot_queue._launch_assert_mock_mode();
-    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate();
+    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
     WHERE tenant_id = p_tenant_id AND launch_id = p_launch_id
@@ -418,7 +418,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_adapter') THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
-    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate();
+    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
     WHERE tenant_id = p_tenant_id AND launch_id = p_launch_id
@@ -453,7 +453,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_adapter') AND NOT v_recovery THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
-    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate();
+    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
     WHERE tenant_id = p_tenant_id AND launch_id = p_launch_id
@@ -493,7 +493,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_adapter') AND NOT v_recovery THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
-    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate();
+    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
     WHERE tenant_id = p_tenant_id AND launch_id = p_launch_id
@@ -539,7 +539,7 @@ BEGIN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
     PERFORM autopilot_queue._launch_assert_mock_mode();
-    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate();
+    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
     WHERE tenant_id = p_tenant_id AND launch_id = p_launch_id
@@ -631,7 +631,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_recovery') THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
-    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate();
+    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     PERFORM 1
     FROM autopilot_queue.budget_reservations
     WHERE tenant_id = p_tenant_id AND launch_id = p_launch_id
@@ -676,7 +676,7 @@ BEGIN
     IF NOT autopilot_queue._launch_has_role('autopilot_launch_recovery') THEN
         RAISE EXCEPTION 'invalid_caller_or_state';
     END IF;
-    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate();
+    PERFORM 1 FROM autopilot_queue._budget_lock_global_gate_unbound();
     SELECT * INTO v_row
     FROM autopilot_queue.launch_intents
     WHERE tenant_id = p_tenant_id AND launch_id = p_launch_id
