@@ -668,7 +668,7 @@ class PostgresQueueTests(unittest.TestCase):
         self.assertEqual(before, after)
 
     def test_migration_is_isolated_and_reversible(self) -> None:
-        self.assertEqual(self.runner.up(), 8)
+        self.assertEqual(self.runner.up(), 9)
         connection = _owner_connect(self.dsn)
         try:
             platform = connection.execute("SELECT to_regclass('public.schema_migrations') AS name").fetchone()
@@ -679,6 +679,7 @@ class PostgresQueueTests(unittest.TestCase):
         finally:
             connection.close()
         try:
+            self.assertEqual(self.runner.down(), 8)
             self.assertEqual(self.runner.down(), 7)
             self.assertEqual(self.runner.down(), 6)
             self.assertEqual(self.runner.down(), 5)
@@ -687,7 +688,8 @@ class PostgresQueueTests(unittest.TestCase):
             self.assertEqual(self.runner.down(), 2)
             self.assertEqual(self.runner.down(), 1)
             self.assertEqual(self.runner.down(), 0)
-            self.assertEqual(self.runner.up(), 8)
+            self.assertEqual(self.runner.up(), 9)
+            self.assertEqual(self.runner.down(), 8)
             self.assertEqual(self.runner.down(), 7)
             self.assertEqual(self.runner.down(), 6)
             self.assertEqual(self.runner.down(), 5)
@@ -696,9 +698,9 @@ class PostgresQueueTests(unittest.TestCase):
             self.assertEqual(self.runner.down(), 2)
             self.assertEqual(self.runner.down(), 1)
             self.assertEqual(self.runner.down(), 0)
-            self.assertEqual(self.runner.up(), 8)
+            self.assertEqual(self.runner.up(), 9)
         finally:
-            if self.runner.version() < 8:
+            if self.runner.version() < 9:
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
 
@@ -754,7 +756,7 @@ class PostgresQueueTests(unittest.TestCase):
             connection.execute("DROP SEQUENCE public.queue_isolation_resume_seq")
             connection.commit()
             self.assertEqual(self.runner.down(allow_destructive_test=True), 0)
-            self.assertEqual(self.runner.up(), 8)
+            self.assertEqual(self.runner.up(), 9)
         finally:
             connection.rollback()
             found = connection.execute("SELECT to_regclass('public.queue_isolation_resume_seq')").fetchone()
@@ -762,7 +764,7 @@ class PostgresQueueTests(unittest.TestCase):
                 connection.execute("DROP SEQUENCE public.queue_isolation_resume_seq")
             connection.commit()
             connection.close()
-            if self.runner.version() != 8:
+            if self.runner.version() != 9:
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
 
@@ -1054,8 +1056,9 @@ class PostgresQueueTests(unittest.TestCase):
 
     def test_clean_rollback_down_up(self) -> None:
         try:
-            if self.runner.version() < 8:
+            if self.runner.version() < 9:
                 self.runner.up()
+            self.assertEqual(self.runner.down(), 8)
             self.assertEqual(self.runner.down(), 7)
             self.assertEqual(self.runner.down(), 6)
             self.assertEqual(self.runner.down(), 5)
@@ -1070,7 +1073,7 @@ class PostgresQueueTests(unittest.TestCase):
                 connection.rollback()
             finally:
                 connection.close()
-            self.assertEqual(self.runner.up(), 8)
+            self.assertEqual(self.runner.up(), 9)
             connection = _owner_connect(self.dsn)
             try:
                 self._assert_version_and_rls(connection)
@@ -1091,7 +1094,7 @@ class PostgresQueueTests(unittest.TestCase):
             finally:
                 connection.close()
         finally:
-            if self.runner.version() < 8:
+            if self.runner.version() < 9:
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
 
