@@ -1,324 +1,356 @@
-# ADR: Autopilot 0.3C2 — Launch lifecycle and cross-system settlement
+# ADR: Autopilot 0.3C2 — Launch lifecycle and budget settlement (canonical contract)
 
 ## Status
 
-**Proposed (architecture freeze R6A-R3).** Pending independent Agent J confirmation. Remediates **AP03C2-R6A-R2-001..006**. **R6B is forbidden** until J approves this revision.
+**Proposed (R6A-R4).** Pending Agent J sign-off. **R6B MOCK_ONLY is forbidden** until approval.
 
-PR #322 code baseline for product (pre-R6B): `d1425269`; docs head moves with ADR commits on branch `feat/bintrans-autopilot-budget-v0.3c2`.
-
----
-
-## Agent J findings register — R6A-R2 errata (R6A-R3)
-
-| ID | Sev | Evidence (R2 review) | Contradiction / gap | Required fix | R6A-R3 section |
-|----|-----|----------------------|---------------------|--------------|----------------|
-| **AP03C2-R6A-R2-001** | MEDIUM | ADR claims cross-tenant squat impossible; `budget_reservations.launch_id` is global PK in **0002**; functions lookup by `launch_id` only | R1-007 only on `launch_intents`; reservation layer still global | Composite key on **reservation + usage + functions** in 0008, or server-minted global `launch_id`; foreign key lookup returns **`not_found`** not `tenant_mismatch` oracle | § Launch key scope |
-| **AP03C2-R6A-R2-002** | MEDIUM | Recovery shares adapter pool/secrets; wildcard `launch_protocol_*`; missing function×role matrix | Recovery can create; role flag ≠ isolation | Separate PG roles; recovery transport **read-only** (get/list); create credential **adapter only**; named EXECUTE matrix | § Roles & EXECUTE matrix |
-| **AP03C2-R6A-R2-003** | MEDIUM | T6 vs LAUNCH_REJECTED rules; T12 impossible; test 2 vs CANCELLED release; T4 vs T9 in crash matrix; MANUAL→UNKNOWN missing in T-table | R5-001 release ambiguity | Single release formula; fix T-table; atomic budget release function; align tests | § Release policy; § T1–T17 |
-| **AP03C2-R6A-R2-004** | MEDIUM | Confirm omits write targets; reconciler identity check unspecified; body vs `planned_agent_id` order | R5-002 persists | Confirm columns + immutability; reconciler payload ≡ launch row; body build after mint | § Identity binding |
-| **AP03C2-R6A-R2-005** | LOW | Mock boundary = “test flag” / default harness only | Real HTTP still reachable | Static no-import test; factory mock-only in R6B; fail without injected transport | § R6B enforcement |
-| **AP03C2-R6A-R2-006** | LOW | Lease/TTL/audit/estop/follow-up gaps; “Accepted” before J | R6A-010 regression | Restore lease+TTL; audit in 0008; estop test; follow-up ban; status Proposed | § Recovery lease; § R6B plan |
-
-Findings are **not implementation-closed** until R6B tests exist.
+Product code baseline (PR #322): `d1425269`. Documentation evolves on branch `feat/bintrans-autopilot-budget-v0.3c2`.
 
 ---
 
-## Core invariants
+## 1. Agent J findings register — R6A-R3 (R6A-R4 response)
 
-1. **`launch_protocol_record_intent` committed** → a `launch_intents` row exists for `(tenant_id, launch_id)`.
-2. **Runtime release after durable intent:** **`budget_protocol_release` by tenant runtime is forbidden** whenever a `launch_intents` row exists for that reservation, **regardless of `agent_id` / `run_id` null or populated** (closes R5-001).
-3. **Pre-intent release:** runtime may release only when **no** `launch_intents` row (reservation `RESERVED`, pre-launch cancel).
-4. **Post-intent budget close:** only **`launch_protocol_close_budget`** (adapter or budget administrator role) in **one transaction** with a terminal launch transition (`CANCELLED_BEFORE_SEND`, `LAUNCH_REJECTED`, or settlement commit). Tenant runtime **never**.
-5. **`SEND_STARTED` committed before** mock/real transport invoke; **no external I/O** inside gate transaction.
-6. **`GET 404` ≠ absence**; **`409` ≠ confirmed same request** without GET field match.
-7. **No automatic Create retry** after ambiguous send (`LAUNCH_UNKNOWN` / `MANUAL`).
-8. **Settlement immutable:** after reservation `COMMITTED` or `OVERRUN`, launch transitions and release **must not** alter charged amounts (adjustments via reconciler idempotent supplement only).
-
----
-
-## Release policy (canonical — R2-003)
-
-### Tenant runtime (`budget_protocol_release`)
-
-| Condition | Result |
-|-----------|--------|
-| No `launch_intents` row for `(tenant_id, launch_id)` and reservation `RESERVED` | **Allowed** → `RELEASED` |
-| Any `launch_intents` row exists (any `launch_state`) | **Denied** (`launch_active`) |
-
-This matches **R6B test 2:** deny release when intent row exists (including `INTENT` without send, without agent/run IDs).
-
-### Launch adapter / budget administrator (`launch_protocol_close_budget`)
-
-| Launch terminal | Preconditions | Budget |
-|-----------------|---------------|--------|
-| `CANCELLED_BEFORE_SEND` | T2/T7; never `SEND_STARTED` | `RELEASED` (same tx) |
-| `LAUNCH_REJECTED` | T6′ only (see below) | `RELEASED` (same tx) |
-| Settlement complete | T15; reconciler | `COMMITTED` / `OVERRUN` |
-
-**Forbidden:** runtime release after intent; separate `release_after_reject` without atomic launch transition; timeout-based release.
-
-### `LAUNCH_REJECTED` (R2-003 — no T6 from `SEND_STARTED` for whitelist-after-send)
-
-**Removed:** `SEND_STARTED → LAUNCH_REJECTED` (contradicted `send_started_at` rules and T12).
-
-**Allowed paths to `LAUNCH_REJECTED`:**
-
-| Transition | Actor | Proof |
-|------------|-------|-------|
-| **T6′** `INTENT → LAUNCH_REJECTED` | Launch adapter | Synchronous whitelist HTTP **before** T3 (`send_started_at` still NULL): `400 validation_error`, `400 repository_access`, `401`, `403`. **Not** 409/429/5xx/timeout. |
-| **T12** `MANUAL → LAUNCH_REJECTED` | Operator + budget administrator | Operator attestation + audit that **no agent exists** for `planned_agent_id` (evidence bundle); not “never SEND_STARTED” (impossible for MANUAL reached via T10). |
-
-If **`send_started_at` is set** and outcome ambiguous, only **`LAUNCH_UNKNOWN`**, **`LAUNCH_CONFIRMED`**, or **`MANUAL`** — never `LAUNCH_REJECTED`.
-
-**Whitelist label:** **inferred pre-create failures** (Cursor docs + adapter mapping); not a guarantee for every 4xx — adapter must classify; unclassified → `LAUNCH_UNKNOWN`.
+| ID | Sev | Evidence | Impact | Required fix | ADR section |
+|----|-----|----------|--------|--------------|-------------|
+| **R3-001** | MEDIUM | T6′ requires HTTP before T3; invariant forbids transport before `SEND_STARTED`; no post-send definite reject | Whitelist dead; 401/400 after send → MANUAL → global block | Remove T6′; add **LT-06** `SEND_STARTED→LAUNCH_REJECTED` with strict proof; or document MANUAL-only path | § Definite rejection; LT-06 |
+| **R3-002** | MEDIUM | `close_budget` includes settlement; crash row REJECTED without close | R4-001 forgery risk | **`release_unused_reserve` only RELEASED**; reconciler only COMMITTED/OVERRUN | § Budget lifecycle |
+| **R3-003** | MEDIUM | Missing SQL functions for T10/T13/T14/lease; recovery lacks close path; R4-003 dropped | Privilege gaps | Full function×role matrix; T7 uses definer-internal release | § Permissions |
+| **R3-004** | MEDIUM | DI allows real transport; incomplete import denylist | MOCK bypass | Sealed mock type; no env transport; socket deny test | § MOCK_ONLY |
+| **R3-005** | MEDIUM | 9/17 transitions without tests; test 1 missing | Unprotected invariants | **LT-* → RT-* one-to-one** | § Traceability |
+| **R3-006** | LOW | `p_tenant_id` on all functions vs session tenant | Spoof risk | Runtime: session tenant only; cross-tenant → `not_found` | § Tenancy |
+| **R3-007** | LOW | SHA/body ambiguity; optional immutability; clock_skew | Wrong binding | Two hashes; mandatory trigger; confirm idempotency rules | § Identity |
+| **R3-008** | LOW | Verified zero dropped | False zero | Restore definitions; unknown ≠ zero | § Settlement |
+| **R3-009** | LOW | Lock order/DO NOTHING/fence/T10∥T16/TTL/launch gate | Ambiguous impl | Restore lock section; merge duplicate transitions; define gate | § PostgreSQL |
 
 ---
 
-## Launch key scope (R2-001)
+## 2. Core invariants (normative)
 
-**Current code (0002–0007):** `budget_reservations.launch_id` is a **global** PK; lookups use `launch_id` alone → cross-tenant **`tenant_mismatch`** oracle.
-
-**R6B migration 0008 must (design requirement):**
-
-- Composite PK **`(tenant_id, launch_id)`** on `budget_reservations`, `budget_verified_usage`, and `launch_intents`.
-- All protocol functions take **`p_tenant_id` + `p_launch_id`**; reservation fetch uses **both**.
-- Wrong tenant for existing key → **`not_found`** (same as missing row); never reveal other tenant’s reservation.
-
-Until 0008 ships, ADR does **not** claim cross-tenant squat is impossible on the reservation table — only that R6B implementation **must** close R2-001.
-
----
-
-## State vocabularies
-
-### Launch (`launch_intents.launch_state`)
-
-`NOT_RECORDED`, `INTENT`, `SEND_STARTED`, `LAUNCH_REJECTED`, `LAUNCH_CONFIRMED`, `LAUNCH_UNKNOWN`, `MANUAL_RECONCILIATION_REQUIRED`, `CANCELLED_BEFORE_SEND`, `EXTERNAL_AGENT_CANCELLED`.
-
-### Budget (`budget_reservations.state`)
-
-`RESERVED`, `COMMITTED`, `OVERRUN`, `RELEASED`, `BLOCKED`, flag **`usage_unknown`**.
-
-### Terminal vs non-terminal (launch)
-
-| Terminal launch | Non-terminal (hold reserve) |
-|-----------------|----------------------------|
-| `CANCELLED_BEFORE_SEND`, `LAUNCH_REJECTED` | `INTENT`, `SEND_STARTED`, `LAUNCH_UNKNOWN`, `MANUAL`, `LAUNCH_CONFIRMED`, `EXTERNAL_AGENT_CANCELLED` |
+| ID | Invariant |
+|----|-----------|
+| **INV-1** | After durable **`launch_protocol_record_intent`**, a `launch_intents` row exists for `(tenant_id, launch_id)`. |
+| **INV-2** | **Runtime `budget_protocol_release` is forbidden** if **any** `launch_intents` row exists for that reservation — **regardless of `agent_id` / `run_id`**. |
+| **INV-3** | Pre-intent release: runtime may release only when **no** launch row (reservation `RESERVED`). |
+| **INV-4** | **`launch_protocol_release_unused_reserve`** (adapter/recovery/admin only) sets **`RELEASED`** only with terminal launch **`CANCELLED_BEFORE_SEND`** or **`LAUNCH_REJECTED`** in the **same transaction**. |
+| **INV-5** | **`budget_reconciler_apply_usage`** alone sets **`COMMITTED` / `OVERRUN`** (and clears `usage_unknown` when known). Adapter/admin **never** commit cents. |
+| **INV-6** | **`launch_protocol_mark_send_started` committed** before any transport call (mock or future real). |
+| **INV-7** | **No external I/O** while `_budget_lock_global_gate()` is held or inside the same open transaction. |
+| **INV-8** | **`GET 404` ≠ absence**; **`409` ≠ same request** without GET correlation; **timeout/5xx → UNKNOWN**. |
+| **INV-9** | **No automatic Create retry** after ambiguous send. |
+| **INV-10** | After **`COMMITTED`/`OVERRUN`**, launch row may stay **`LAUNCH_CONFIRMED`**; financial adjustment only via **idempotent reconciler re-apply** (late charge), never runtime release. |
 
 ---
 
-## Identity binding (R2-004)
+## 3. Launch lifecycle vs budget lifecycle (separated)
 
-### Columns (`launch_intents`, migration 0008)
+### 3.1 Launch (`launch_intents.launch_state`)
 
-| Column | Set by | Mutable |
-|--------|--------|---------|
-| `planned_agent_id` | `record_intent` only | **Immutable** after insert |
-| `agent_id` | **`launch_protocol_confirm` only** | Immutable after confirm |
-| `run_id` | **`launch_protocol_confirm` only** | Immutable after confirm |
-| `canonical_create_body_sha256` | intent (body template **without** `agentId`) | Immutable |
-| `canonical_create_body_json` | intent after `planned_agent_id` known | Immutable |
+| State | Role |
+|-------|------|
+| `INTENT` | Intent recorded; `send_started_at` NULL |
+| `SEND_STARTED` | Outbound attempt started |
+| `LAUNCH_UNKNOWN` | Ambiguous external outcome |
+| `MANUAL_RECONCILIATION_REQUIRED` | Operator required |
+| `LAUNCH_CONFIRMED` | Agent/run bound |
+| `LAUNCH_REJECTED` | Definite no launch (pre-send cancel path or post-send proof) |
+| `CANCELLED_BEFORE_SEND` | Cancelled before send marker |
+| `EXTERNAL_AGENT_CANCELLED` | Provider cancel; spend may be unknown |
 
-**Body build order:** (1) mint `planned_agent_id` in intent tx; (2) assemble create JSON with that `agentId`; (3) store SHA-256; (4) never mutate.
+`NOT_RECORDED` = absence of row (pre-LT-01).
 
-**Confirm:** `agent_id` must equal `planned_agent_id`; `run_id` from mock/Cursor list-runs selection (oldest run with `created_at >= send_started_at - clock_skew`, paginate all pages; default limit 20 insufficient alone).
+### 3.2 Budget (`budget_reservations`)
 
-**Reconciler:** `budget_reconciler_apply_usage` **must** reject unless launch_state ∈ `{ LAUNCH_CONFIRMED, EXTERNAL_AGENT_CANCELLED }` **and** payload `(agent_id, run_id)` **equals** launch row (R6B test 10).
+| State / flag | Meaning |
+|--------------|---------|
+| `RESERVED` | Hold active |
+| `RELEASED` | Unused reserve returned (**not** spend proof) |
+| `COMMITTED` | Verified charge applied (≤ reserve) |
+| `OVERRUN` | Verified charge above reserve |
+| `usage_unknown` | Spend not yet verified — **hold reserve**, global block |
 
-**Immutability enforcement:** no UPDATE grant on `agent_id`/`run_id`/`planned_agent_id` for adapter/recovery; optional trigger deny.
+**`release_unused_reserve` ≠ settlement.** Settlement = reconciler verified usage → `COMMITTED`/`OVERRUN`.
 
----
+### 3.3 Verified zero and late charge (R3-008)
 
-## Unknown launch branches (409 / 404 / mismatch)
-
-| Event | Transition | Actor |
-|-------|------------|-------|
-| POST 409 | `SEND_STARTED → LAUNCH_UNKNOWN` (or stay UNKNOWN) then **T9** after GET match | Adapter / recovery |
-| GET correlation mismatch | **`LAUNCH_UNKNOWN → MANUAL`** (T10) or direct **T10m** from UNKNOWN | Recovery |
-| GET 404 | Remain / enter **`LAUNCH_UNKNOWN`**; poll; **no release**; **no Create** | Recovery |
-
----
-
-## Roles & EXECUTE matrix (R2-002)
-
-**Separate PostgreSQL LOGIN roles (R6B):** `autopilot_launch_adapter`, `autopilot_launch_recovery`, `autopilot_queue_reconciler`, tenant runtime (existing), `autopilot_budget_administrator` (manual/close).
-
-| Function | Tenant runtime | Launch adapter | Recovery | Reconciler | Budget admin |
-|----------|----------------|----------------|----------|------------|--------------|
-| `budget_protocol_reserve` | EXECUTE | — | — | — | — |
-| `budget_protocol_release` | EXECUTE (pre-intent only) | — | — | — | — |
-| `launch_protocol_record_intent` | — | EXECUTE | **DENY** | — | — |
-| `launch_protocol_mark_send_started` | — | EXECUTE | — | — | — |
-| `launch_protocol_mark_unknown` | — | EXECUTE | EXECUTE | — | — |
-| `launch_protocol_confirm` | — | EXECUTE | EXECUTE | — | EXECUTE (manual T11) |
-| `launch_protocol_close_budget` | — | EXECUTE | — | — | EXECUTE |
-| `launch_protocol_cancel_before_send` (T2/T7) | — | EXECUTE | EXECUTE | — | — |
-| `budget_reconciler_apply_usage` | — | — | — | EXECUTE | — |
-| `launch_protocol_manual_audit_insert` | — | — | — | — | EXECUTE |
-
-**Credentials:** create-capable secret **only** on adapter process. Recovery process: **read-only** transport (`get_agent`, `list_runs`) — **no `create` method** on interface. Reconciler: mock/real read usage in future; **no create**.
-
-**Dispatcher / DRY_RUN worker:** no Cursor credentials; no `create_agent` when PostgreSQL launch gate enabled; does not call launch protocol write functions except via future orchestration hook (R6B: worker stays dry_run).
-
-**Mock adapter:** must not grant tenant runtime EXECUTE on adapter-only functions.
+| Concept | Rule |
+|---------|------|
+| **Unknown usage** | API unreachable, tokens-only payload, or non-terminal run → **`usage_unknown=1`**, **`RESERVED`**, no release by timeout |
+| **Verified zero (production)** | Terminal run + money source + aggregation window → **0 cents** recorded in `budget_verified_usage`; then commit |
+| **Verified zero (R6B mock)** | Mock money provider returns **0** with `verification_class=MOCK_TRUSTED` |
+| **Unknown ≠ zero** | Token zeros or missing usage **must not** commit |
+| **Late charge** | Reconciler re-apply with higher cents → **`OVERRUN`** or adjustment row; same `(tenant_id, launch_id)` |
 
 ---
 
-## Recovery lease & TTL (R2-006)
+## 4. Definite rejection policy (R3-001, R3-004)
 
-**Columns:** `recovery_lease_holder`, `recovery_lease_expires_at`, `recovery_lease_token` (monotonic fence), `last_recovery_at`.
+### 4.1 Never automatic REJECTED
 
-**TTL defaults (configurable, R6B must define constants):** `intent_stale_ttl`, `send_stale_ttl`, `unknown_escalation_ttl`, `recovery_lease_ttl`.
+- **409** → UNKNOWN then confirm path (LT-09), never REJECTED.
+- **GET 404** → remain UNKNOWN / escalate MANUAL; **not** REJECTED.
+- **Timeout / 5xx / 429 / unclassified 4xx** → **LT-05** UNKNOWN.
 
-**Crash matrix row “Recovery lease lost”:** new holder may acquire if token greater and prior lease expired.
+### 4.2 Pre-send (no transport yet)
 
----
+| Transition | Condition |
+|------------|-----------|
+| **LT-02** `INTENT → CANCELLED_BEFORE_SEND` | Operator/adapter cancel; `send_started_at` NULL |
+| **LT-07** stale INTENT | Recovery sweep; no send |
 
-## Unified transition table T1–T17
+**Removed:** T6′ (HTTP before `SEND_STARTED`) — **unreachable** under INV-6.
 
-All transitions **must** appear here; diagram and crash matrix **must** reference these IDs only.
+### 4.3 Post-send definite reject — **LT-06**
 
-| ID | From | To | Actor | Proof / precondition | PG tx | Budget | Crash recovery |
-|----|------|-----|-------|----------------------|-------|--------|----------------|
-| T1 | NOT_RECORDED | INTENT | Launch adapter | Reserve RESERVED; estop clear | Gate→2→3 insert | RESERVED | Retry T1 |
-| T2 | INTENT | CANCELLED_BEFORE_SEND | Launch adapter | `send_started_at` NULL | Gate→2→3 + **close_budget** | RELEASED | Safe |
-| T3 | INTENT | SEND_STARTED | Launch adapter | estop clear | Gate→2→3; **commit** then transport | RESERVED | T8 if stale |
-| T4 | SEND_STARTED | LAUNCH_CONFIRMED | Launch adapter | Transport/GET + correlation; confirm writes ids | Gate→2→3 confirm | RESERVED | T9 |
-| T5 | SEND_STARTED | LAUNCH_UNKNOWN | Launch adapter | Timeout/5xx/409/ambiguous | Gate→2→3 | RESERVED | T8–T10 |
-| T6′ | INTENT | LAUNCH_REJECTED | Launch adapter | Whitelist 4xx; **send_started_at** NULL | Gate→2→3 + **close_budget** | RELEASED | — |
-| T7 | INTENT (stale) | CANCELLED_BEFORE_SEND | Recovery | TTL; no send_started | Gate→2→3 + close | RELEASED | Sweep |
-| T8 | SEND_STARTED (stale) | LAUNCH_UNKNOWN | Recovery | TTL exceeded | Gate→2→3 | RESERVED | Poll extx |
-| T9 | LAUNCH_UNKNOWN | LAUNCH_CONFIRMED | Recovery | GET 200 + correlate | Gate→2→3 confirm | RESERVED | — |
-| T10 | LAUNCH_UNKNOWN | MANUAL | Recovery / policy | max polls / mismatch | Gate→2→3 | RESERVED | Operator |
-| T11 | MANUAL | LAUNCH_CONFIRMED | Budget admin + confirm | Audit row **required** | Gate→2→3 + audit | RESERVED | — |
-| T12 | MANUAL | LAUNCH_REJECTED | Budget admin | Audit + operator attestation no agent | Gate→2→3 + close | RELEASED | Rare |
-| T13 | MANUAL | LAUNCH_UNKNOWN | Budget admin | Audit; reopen recovery | Gate→2→3 | RESERVED | T9 |
-| T14 | LAUNCH_CONFIRMED | EXTERNAL_AGENT_CANCELLED | Launch adapter | Mock cancel OK | Gate→2→3 | RESERVED | usage unknown ok |
-| T15 | LAUNCH_CONFIRMED or EXTERNAL_AGENT_CANCELLED | (settlement) | Reconciler | Mock verified usage + identity match | Reconciler tx | COMMITTED/OVERRUN | Idempotent |
-| T16 | LAUNCH_UNKNOWN | MANUAL | Recovery | GET mismatch (409 correlate fail) | Gate→2→3 | RESERVED | — |
-| T17 | EXTERNAL_AGENT_CANCELLED | (settlement) | Reconciler | Same as T15 | Reconciler tx | COMMITTED/OVERRUN/usage_unknown | — |
+`SEND_STARTED → LAUNCH_REJECTED` **only if all:**
 
-**409 path:** T5 (ambiguous) → T9; if correlation fails → T16/T10.
+1. Transport returns **synchronous classified response** on the **first and only** outbound create attempt for this launch (mock records attempt count).
+2. Status ∈ whitelist: **`400` + `validation_error`**, **`400` + `repository_access`**, **`401`**, **`403`**.
+3. Transport attestation **`agent_created=false`** (mock field; production requires ADR amendment + API proof).
+4. **Not** 409, not 404-on-GET used as proof, not timeout/5xx.
+5. Same transaction: **`launch_protocol_release_unused_reserve`** → budget **`RELEASED`**.
 
-**Runtime release:** denied for all rows with launch_intents present (tests 2, 3).
+If whitelist response but **`agent_created` unknown** → **LT-05** UNKNOWN, reserve held.
+
+### 4.4 Manual reject — **LT-12**
+
+`MANUAL → LAUNCH_REJECTED` only with audit + operator attestation bundle (no agent for `planned_agent_id`).
 
 ---
 
-## Crash / recovery matrix (T-ID reference)
+## 5. PostgreSQL lock order and idempotency (R3-009)
 
-| Crash / event | Launch state | Budget | Next action (T-ID) | Auto release? | Auto Create? |
-|---------------|--------------|--------|-------------------|---------------|--------------|
-| Before T1 | NOT_RECORDED | RESERVED | T1 | No | No |
-| After T1 | INTENT | RESERVED | T2, T3, or T6′ | Only T2/T6′ via close_budget | No |
-| After T3, no response | SEND_STARTED | RESERVED | T8→T9/T10 | No | No |
-| Lost response | UNKNOWN | RESERVED | T9/T10 | No | No |
-| GET 404 | UNKNOWN | RESERVED | T10 | No | No |
-| 409 mock | UNKNOWN | RESERVED | T9 or T16 | No | No |
-| After T4 | CONFIRMED | RESERVED | T15 | No | No |
-| Lease lost | recovering | RESERVED | re-acquire lease | No | No |
-| REJECTED without close tx | LAUNCH_REJECTED | RESERVED | **close_budget** recovery | No | No |
+```text
+Step 1: autopilot_queue._budget_lock_global_gate()
+Step 2: SELECT budget_reservations
+        WHERE tenant_id = $t AND launch_id = $l FOR UPDATE
+Step 3: SELECT launch_intents (same keys) FOR UPDATE if row exists
+Step 4: validate transition + tenant binding
+Step 5: COMMIT
+Step 6: external/mock transport ONLY after step 5
+```
 
----
+**`launch_protocol_record_intent`:** `INSERT … ON CONFLICT (tenant_id, launch_id) DO NOTHING`; if no row returned, `SELECT` existing; **`planned_agent_id` never updated on conflict**.
 
-## Actor permission matrix (summary)
+**Recovery transitions (LT-07–LT-10):** must verify **`recovery_lease_token`** matches row and **`>=` expected fence**; stale token → **`lease_stale`**.
 
-See **Roles & EXECUTE matrix**. Budget **administrator** covers operator manual paths (T11–T13, T12). **DRY_RUN worker** = tenant runtime only (reserve + pre-intent release). **Dispatcher** = out of scope for R6B writes; must not bypass gate.
+**TTL constants (R6B config table):** `intent_stale_ttl=15m`, `send_stale_ttl=30m`, `unknown_escalation_ttl=24h`, `recovery_lease_ttl=5m`, `clock_skew_seconds=120`.
 
----
-
-## Scenario → test traceability (R2-003)
-
-| Scenario | Transition | Expected launch | Budget | Test |
-|----------|------------|-----------------|--------|------|
-| Release after intent, no agent/run | (deny) | INTENT | RESERVED | test 2 |
-| Reserve vs intent race | T1 vs release | one winner | — | test 3 |
-| Lost response | T5→T9/T10 | UNKNOWN/MANUAL | RESERVED | test 4 |
-| 409 not REJECTED | T5→T9 | CONFIRMED | RESERVED | test 5 |
-| GET 404 | T8/T10 | UNKNOWN/MANUAL | RESERVED | test 6 |
-| Intent idempotency | T1 conflict | same planned_agent_id | RESERVED | test 7 |
-| Mock transport isolation | import guard | n/a | — | test 8 |
-| Global block UNKNOWN/MANUAL | gate fn | — | block reserve | test 9 |
-| Reconcile without confirm | deny apply | CONFIRMED required | RESERVED | test 10 |
-| Reconcile identity mismatch | deny | CONFIRMED | RESERVED | test 10b |
-| Tokens-only usage | T15 fail | usage_unknown | RESERVED | test 11 |
-| MANUAL confirm needs audit | T11 | CONFIRMED | RESERVED | test 12 |
-| MANUAL without audit | deny T11 | MANUAL | RESERVED | test 12n |
-| Stale SEND_STARTED | T8 | UNKNOWN | RESERVED | test 13 |
-| Cross-tenant key | reserve | not_found | — | test 14 |
-| Recovery no record_intent | DENY | — | — | test 15 |
-| Estop before send | deny T3 | INTENT | RESERVED | test 16 |
+**Launch gate (defined):** PostgreSQL flags **`autopilot_paid_launch_enabled=0`** and **`autopilot_estop=0`** required for LT-01/LT-03. Dispatcher legacy `create_agent` **disallowed** when gate would apply (paid path retired before enable). **0.3D / paid automation activation requires separate security audit**; **`PAID_AUTOMATION_ENABLED` stays 0** in R6B.
 
 ---
 
-## R6B scope — MOCK ONLY (R2-005)
+## 6. Tenancy and composite keys (R3-006)
 
-### Allowed
+**Migration 0008** must update **all** `launch_id` carriers: `budget_reservations`, `budget_verified_usage`, `launch_intents`, `budget_events` (if present), reconciler references — composite **`(tenant_id, launch_id)`**.
 
-PostgreSQL lifecycle (**0008**), protocol functions, mock transport, crash/timeout simulation, recovery lease, security tests, CI without Cursor secrets.
+| Caller class | Tenant source |
+|--------------|---------------|
+| Tenant runtime (`budget_protocol_reserve/release`) | **`_budget_bound_tenant()` from session** — no trusted `p_tenant_id` |
+| Adapter / recovery / admin / reconciler | **`p_tenant_id` + `p_launch_id`**; mismatch with reservation → **`not_found`** |
 
-### Forbidden
-
-Real HTTP to Cursor; real credentials; `CursorClient.create_agent` / `follow_up` in R6B modules; paid launches; merge/deploy/production access; admin usage cross-check; automatic Create retry.
-
-### Enforcement (design requirements for R6B code)
-
-1. **`launch_adapter` / `launch_recovery` packages:** static test — no import of `cursor_api`, `httpx`, `urllib` (allowlist mock module only).
-2. **Transport factory for R6B:** returns mock implementation only; **ImportError or explicit error** if production transport requested.
-3. **No `if TEST_FLAG: use CursorClient`** — physical separation of modules.
-4. **Reconciliation in R6B:** mock usage provider only; never call live `usage()`.
-5. **CI:** no `CURSOR_API_KEY` / admin keys for autopilot jobs.
-
-**Follow-up / steer:** forbidden in paid mode (restored); R6B does not implement follow-up paths.
-
-**Estop:** DB flag checked in T1/T3; **test 16** denies T3 when estop set.
+**Migration verification:** 0008 **up → down → up** on isolated DB (R6B CI).
 
 ---
 
-## R6B test plan
+## 7. Identity binding (R3-007)
 
-Tests listed in **Scenario traceability**; file `tools/bintrans_autopilot/tests/test_budget_controller_03c2_r6b.py`.
+| Artifact | Rule |
+|----------|------|
+| `create_body_template_sha256` | Hash of JSON template **without** `agentId` |
+| `create_body_full_sha256` | Hash after `agentId` injected (= `planned_agent_id`) |
+| `canonical_create_body_json` | Full body stored; CHECK **`agentId = planned_agent_id`**, **no `envVars`** |
+| **`launch_protocol_confirm`** | Only writer of `agent_id`/`run_id`; **`agent_id = planned_agent_id`**; idempotent re-call same ids → no-op; different ids → **`identity_conflict`** |
+| Partial create (agent, no run) | Cannot confirm → **LT-05** UNKNOWN → MANUAL |
+| **`run_id` trust** | Declared by adapter/recovery from mock list-runs; PG enforces equality on reconcile payload, not Cursor origin (**`EXTERNAL_USAGE_AUTHENTICATION=NOT_PROVEN`**) |
 
-**Test 2 wording:** tenant runtime **`budget_protocol_release` denied** when **`launch_intents` row exists** (any state).
-
-**Test 10 wording:** apply allowed for **`LAUNCH_CONFIRMED`** and **`EXTERNAL_AGENT_CANCELLED`** only, with **identity equality**.
-
----
-
-## R6B implementation plan (0008)
-
-1. Composite PK `(tenant_id, launch_id)` on reservations, verified usage, launch_intents; function signature updates (**R2-001**).
-2. `launch_intents` full columns (body, ids, lease, audit FK).
-3. Table **`autopilot_manual_reconciliation_audit`**; confirm/manual transitions **require** audit row (**R2-006**).
-4. `launch_protocol_close_budget` atomic with terminal launch transitions.
-5. Role splits + EXECUTE grants per matrix.
-6. Mock transport module + import guard tests.
-7. Extend `budget_global_safety_block_reason()` for UNKNOWN, MANUAL, stale SEND_STARTED.
-8. TTL configuration documented in migration comments or `autopilot_queue_config`.
+**Immutability:** trigger **`launch_intents_immutable_ids`** (mandatory in 0008) denies UPDATE of `planned_agent_id`, `agent_id`, `run_id`.
 
 ---
 
-## Usage & settlement (unchanged core)
+## 8. Canonical launch transition table (single source of truth)
 
-Documented agent usage returns **tokens**, not cents. R6B: mock only; fail-closed `usage_unknown`. Production money via future admin-events ADR amendment.
+Budget column **`B-effect`:** `H`=hold RESERVED, `R`=RELEASED, `—`=unchanged launch-side (settlement via BT-*).
+
+| ID | From | To | Actor | External proof | SQL function(s) | Tx boundary | Lock order | B-effect | Crash recovery | Test |
+|----|------|-----|-------|----------------|-----------------|-------------|------------|----------|----------------|------|
+| **LT-01** | NOT_RECORDED | INTENT | Launch adapter | Reserve exists; gate open | `launch_protocol_record_intent` | Steps 1–5 | 1→2→3 insert | H | Retry LT-01 | **RT-01** |
+| **LT-02** | INTENT | CANCELLED_BEFORE_SEND | Launch adapter | `send_started_at` NULL | `launch_protocol_cancel_before_send` + `release_unused_reserve` | 1–5 atomic | 1→2→3 | R | Safe | **RT-02** |
+| **LT-03** | INTENT | SEND_STARTED | Launch adapter | Estop clear | `launch_protocol_mark_send_started` then transport | 1–5 then 6 | 1→2→3 | H | LT-08 if stale | **RT-03** |
+| **LT-04** | SEND_STARTED | LAUNCH_CONFIRMED | Launch adapter | Mock/GET OK + correlate | `launch_protocol_confirm` | 1–5 | 1→2→3 | H | LT-09 | **RT-04** |
+| **LT-05** | SEND_STARTED | LAUNCH_UNKNOWN | Launch adapter | Timeout/5xx/409/unclassified | `launch_protocol_mark_unknown` | 1–5 | 1→2→3 | H | LT-08–10 | **RT-05** |
+| **LT-06** | SEND_STARTED | LAUNCH_REJECTED | Launch adapter | Whitelist + `agent_created=false` | `launch_protocol_reject_definite` + `release_unused_reserve` | 1–5 atomic | 1→2→3 | R | — | **RT-06** |
+| **LT-07** | INTENT (stale) | CANCELLED_BEFORE_SEND | Recovery | TTL; lease fence | `launch_protocol_cancel_before_send` (internal release) | 1–5 | 1→2→3+fence | R | Sweep | **RT-07** |
+| **LT-08** | SEND_STARTED (stale) | LAUNCH_UNKNOWN | Recovery | TTL; lease fence | `launch_protocol_mark_unknown` | 1–5 | fence | H | Poll extx | **RT-08** |
+| **LT-09** | LAUNCH_UNKNOWN | LAUNCH_CONFIRMED | Recovery | GET 200 + correlate | `launch_protocol_confirm` | 1–5 | fence | H | — | **RT-09** |
+| **LT-10** | LAUNCH_UNKNOWN | MANUAL | Recovery | Max polls **or** correlate fail | `launch_protocol_escalate_manual` | 1–5 | fence | H | Operator | **RT-10** |
+| **LT-11** | MANUAL | LAUNCH_CONFIRMED | Budget admin | Audit row | `launch_protocol_manual_audit_insert` + `confirm` | 1–5 | 1→2→3 | H | — | **RT-11** |
+| **LT-12** | MANUAL | LAUNCH_REJECTED | Budget admin | Audit + attestation | audit + `reject_definite` + `release_unused_reserve` | 1–5 atomic | 1→2→3 | R | — | **RT-12** |
+| **LT-13** | MANUAL | LAUNCH_UNKNOWN | Budget admin | Audit reopen | audit + `launch_protocol_reopen_unknown` | 1–5 | 1→2→3 | H | LT-09 | **RT-13** |
+| **LT-14** | LAUNCH_CONFIRMED | EXTERNAL_AGENT_CANCELLED | Launch adapter | Mock cancel OK | `launch_protocol_mark_external_cancelled` | 1–5 | 1→2→3 | H | BT-01 | **RT-14** |
+| **LT-15** | — | — | — | Lease acquire/renew | `launch_protocol_recovery_lease_acquire` | 1–5 | row lock | — | Fence | **RT-15** |
+
+### 8.1 Budget settlement transitions (orthogonal)
+
+| ID | From budget | To budget | Actor | SQL function | Test |
+|----|-------------|-----------|-------|--------------|------|
+| **BT-01** | RESERVED + confirmed launch | COMMITTED/OVERRUN or usage_unknown | Reconciler | `budget_reconciler_apply_usage` | **RT-16** |
+| **BT-02** | COMMITTED | OVERRUN | Reconciler | idempotent re-apply | **RT-17** |
+
+**LT-14 + BT-01:** reconciler may apply with **`EXTERNAL_AGENT_CANCELLED`**.
+
+---
+
+## 9. Crash / recovery matrix (LT references only)
+
+| Event | Launch | Budget | Next LT | Auto release? | Auto Create? |
+|-------|--------|--------|---------|---------------|--------------|
+| Crash before LT-01 | NOT_RECORDED | H | LT-01 | No | No |
+| Crash after LT-01 | INTENT | H | LT-02/03/07 | Only LT-02/07 | No |
+| Crash after LT-03 | SEND_STARTED | H | LT-08→09/10 | No | No |
+| Lost response | UNKNOWN | H | LT-09/10 | No | No |
+| GET 404 | UNKNOWN | H | LT-10 | No | No |
+| POST 409 | UNKNOWN | H | LT-09 or LT-10 | No | No |
+| Definite 400/401 post-send | REJECTED | R | LT-06 | Via LT-06 only | No |
+| Lease lost | — | H | LT-15 re-acquire | No | No |
+| Concurrent release vs intent | — | — | one wins | No | No |
+
+**Removed:** “REJECTED without close tx” (violates INV-4).
+
+---
+
+## 10. Permissions — function × role (R3-003)
+
+**LOGIN roles:** `autopilot_tenant_runtime`, `autopilot_launch_adapter`, `autopilot_launch_recovery`, `autopilot_queue_reconciler`, `autopilot_budget_administrator`.
+
+**NOLOGIN groups** grant EXECUTE; **one LOGIN per session** — membership in `{adapter, recovery, reconciler, budget_admin}` is **pairwise disjoint** (R4-003). Negative test **RT-18**.
+
+| SQL function | Runtime | Adapter | Recovery | Reconciler | Admin |
+|--------------|---------|---------|----------|------------|-------|
+| `budget_protocol_reserve` | E | — | — | — | — |
+| `budget_protocol_release` | E (INV-2 guard) | — | — | — | — |
+| `launch_protocol_record_intent` | — | E | **D** | — | — |
+| `launch_protocol_mark_send_started` | — | E | — | — | — |
+| `launch_protocol_mark_unknown` | — | E | E* | — | — |
+| `launch_protocol_reject_definite` | — | E | — | — | E |
+| `launch_protocol_confirm` | — | E | E* | — | E |
+| `launch_protocol_cancel_before_send` | — | E | E* | — | — |
+| `launch_protocol_release_unused_reserve` | — | E** | E** | — | E |
+| `launch_protocol_escalate_manual` | — | — | E* | — | E |
+| `launch_protocol_reopen_unknown` | — | — | — | — | E |
+| `launch_protocol_mark_external_cancelled` | — | E | — | — | — |
+| `launch_protocol_recovery_lease_acquire` | — | — | E* | — | — |
+| `launch_protocol_manual_audit_insert` | — | — | — | — | E |
+| `budget_reconciler_apply_usage` | — | — | — | E | — |
+
+\* Recovery EXECUTE only with valid lease fence inside function.  
+\*\* Adapter/recovery call release only inside definer wrappers for LT-02/06/07/12 — not standalone for tenant.
+
+**SECURITY DEFINER:** `search_path = autopilot_queue, pg_temp`; no direct DML grants on tables.
+
+**Dispatcher:** read-only orchestration; **no** EXECUTE on launch write functions. **DRY_RUN worker** = tenant runtime only.
+
+---
+
+## 11. MOCK_ONLY boundary (R3-004)
+
+| Rule | Enforcement (R6B) |
+|------|---------------------|
+| No real Cursor HTTP | `MockCursorTransport` sealed class; adapter `__init__` rejects non-Mock types |
+| No production transport via DI | Constructor type check **`isinstance(..., MockCursorTransport)`** only |
+| No env-based transport selection | Static test: no `os.environ`/`CURSOR_*` reads in `launch_*` packages |
+| No dynamic arbitrary transport | Factory module imports **only** mock module |
+| Import graph | RT-19: subprocess import → `cursor_api`, `httpx`, `urllib`, `requests`, `socket` **not** in `sys.modules` |
+| Network deny | RT-20: monkeypatch `socket.socket.connect` → fail in launch/recovery tests |
+| No `create_agent` in R6B code paths | Module split; tenant runtime cannot EXECUTE adapter functions (**RT-21**) |
+
+Legacy `cursor_api.py` remains in repo but **outside** R6B import graph.
+
+---
+
+## 12. Traceability matrix (Finding → Invariant → LT → SQL → Test)
+
+| Finding | Invariant | Transition | SQL boundary | Test |
+|---------|-----------|------------|--------------|------|
+| R3-001 | INV-6,8 | LT-06 | reject+release atomic | RT-06 |
+| R3-002 | INV-4,5 | LT-02,06,12 / BT-01 | split functions | RT-02,06,16 |
+| R3-003 | INV-2 | all LT | matrix §10 | RT-18 |
+| R3-004 | MOCK | LT-03 | transport after commit | RT-19,20 |
+| R3-005 | INV-6,9 | LT-03,05 | mark_send / unknown | RT-03,22 |
+| R5-001 | INV-2 | deny | release guard | RT-02 |
+| R5-002 | INV-5 | BT-01 | reconciler match | RT-16,10b |
+| Crash pre-send | INV-1 | LT-01/07 | lock order | RT-01,07 |
+| Lease loss | fence | LT-15 | lease acquire | RT-15 |
+| Mismatch | INV-8 | LT-10 | escalate | RT-10 |
+| No second POST | INV-9 | after LT-05 | policy | RT-22 |
+| Manual audit | — | LT-11 | audit insert | RT-11,23 |
+
+**Coverage rule:** every **LT-01..LT-15** and **BT-01..BT-02** has ≥1 **`RT-*`** test. **Untested transitions = 0** (target for R6B).
+
+### 12.1 Regression test catalog (`test_budget_controller_03c2_r6b.py`)
+
+| RT | Description |
+|----|-------------|
+| RT-01 | LT-01 before transport; intent durable |
+| RT-02 | INV-2 runtime release denied when launch row exists |
+| RT-03 | LT-03 send_started committed before mock invoke |
+| RT-04 | LT-04 confirm binds ids |
+| RT-05 | LT-05 ambiguous → UNKNOWN, no release |
+| RT-06 | LT-06 definite reject post-send; 409 not reject |
+| RT-07 | LT-07 stale intent cancel |
+| RT-08 | LT-08 stale send → UNKNOWN |
+| RT-09 | LT-09 recovery confirm |
+| RT-10 | LT-10 mismatch → MANUAL |
+| RT-11 | LT-11 manual confirm requires audit |
+| RT-12 | LT-12 manual reject + release |
+| RT-13 | LT-13 reopen MANUAL → UNKNOWN |
+| RT-14 | LT-14 external cancel |
+| RT-15 | LT-15 lease fence stale rejected |
+| RT-16 | BT-01 reconciler only commits; adapter cannot |
+| RT-17 | BT-02 late charge → OVERRUN |
+| RT-18 | disjoint role membership denied |
+| RT-19 | import graph clean |
+| RT-20 | socket connect denied |
+| RT-21 | runtime EXECUTE adapter function denied |
+| RT-22 | no second mock POST after LT-05 |
+| RT-23 | LT-11 without audit denied |
+
+### 12.2 Documentation completeness check (R6B script, not R6A)
+
+R6B adds `tools/bintrans_autopilot/tests/adr_launch_lifecycle_doc_check.py` (or shell) that parses this ADR and asserts:
+
+- Set of LT IDs in §8 = set in crash matrix;
+- Every LT has `Test` column RT-*;
+- No duplicate `(From, To, Actor)` rows;
+- **`RELEASE_AFTER_INTENT`** string present in INV-2.
+
+**R6A-R4:** script **specified only**, not committed.
+
+---
+
+## 13. R6B scope (unchanged intent, tightened enforcement)
+
+**Allowed:** PostgreSQL 0008, protocol functions, mock transport, LT/BT tests, CI isolated DB.
+
+**Forbidden:** real HTTP, credentials, paid launches, merge, deploy, production, Cloud Agents, **`PAID_AUTOMATION_ENABLED=1`**.
+
+**R6B_AUTHORIZED=NO** until Agent J approves **this** revision.
+
+---
+
+## 14. External dependencies
 
 **EXTERNAL_CREATE_IDEMPOTENCY=UNVERIFIED.** **EXTERNAL_USAGE_AUTHENTICATION=NOT_PROVEN.**
 
 ---
 
-## Unresolved external dependencies
-
-(Empirical idempotency, 404 semantics, money source, read-only keys, dispatcher retirement, beta API stability — unchanged from R6A-R2.)
-
----
-
 ## Document history
 
-| Revision | Date | Notes |
-|----------|------|-------|
-| R6A / R6A-R1 / R6A-R2 | 2026-11-01 | Prior iterations |
-| R6A-R3 | 2026-11-01 | R2-001..006 consistency; release policy; T1–T17 |
+| Rev | Notes |
+|-----|-------|
+| R6A–R6A-R3 | Prior |
+| **R6A-R4** | Canonical LT/BT table; release/settlement split; R3-001..009 |
 
 ## References
 
-- Agent J: `AP03C2-R6A-R2-001..006`
-- `tools/bintrans_autopilot/sql/autopilot_queue/0002_budget.up.sql`, `0007_release_identity.up.sql`
-- `docs/engineering/autopilot/BUDGET_CONTROLLER_0_3C2.md`
+- Agent J `AP03C2-R6A-R3-001..009`
+- Queue SQL `0002`, `0004`, `0005`, `0006`, `0007`
