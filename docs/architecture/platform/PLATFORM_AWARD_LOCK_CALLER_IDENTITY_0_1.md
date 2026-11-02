@@ -13,12 +13,18 @@ PRODUCT_CODE_CHANGED=NO
 MIGRATION_CHANGED=NO
 MIGRATION_HEAD_ON_BASE=000105_platform_postgres_role_foundation_v0_2_i1
 RFX_LOCK_FUNCTION=NOT_CREATED
+ROLL_02=NOT_VERIFIED
 ROLL_03=BLOCKED
+ROLL_06=NOT_VERIFIED
+ROLL_07=NOT_VERIFIED
 EXECUTE_AWARD_ORDER_AS_SHIPMENT_LOGIN=BLOCKED
 SECURITY_DEFINER_FROM_CALLER_UUIDS=REJECTED
 SHARED_LOGIN_CHANGED=NO
+SHARED_LOGIN_AUTHORITY=NOT_VERIFIED
 ENFORCEMENT_GATE_INSTALLED=NO
-TMS_RELATIONSHIP_ACTIVATION_ENABLED=UNCHANGED
+ENFORCEMENT_GATE_AUTHORIZED=NO
+TMS_RELATIONSHIP_ACTIVATION_ENABLED=NO
+PRODUCTION_CUTOVER_AUTHORIZED=NO
 DATABASE_URL_CHANGED=NO
 IMPLEMENTATION_AUTHORIZED=NO
 NEXT_STAGE_AUTHORIZED=NO
@@ -103,11 +109,22 @@ These properties are obligations for a later authorized stage. They are not SQL 
 | Server-owned check | The check must prove the session may act for the tenant without trusting the two UUID arguments as that proof. | `BLOCKED`. No such stored fact was found on the award path. |
 | Function owner | Owner is not chosen. `freight_migrations` ownership of a UUID-only definer stays rejected. | `DEFERRED` |
 | `search_path` | A later function must pin `search_path`. The pin used by `company.enforce_activation_subject_head()` is `pg_catalog`. | `DEFERRED` |
-| `EXECUTE` grant | Limited to `shipment_runtime`. The shared application login stays unchanged, so a rewritten `lockAwardLink` would not run as that login. | `DEFERRED` |
+| `EXECUTE` grant | A later grant may name `shipment_runtime`. That grant would also be available to members of `shipment_runtime`, to the function owner, and to superusers. An unchanged `DATABASE_URL` does not prove that the shared application login lacks `EXECUTE` on a future `SECURITY DEFINER` function. Isolation of that login requires a separate check that it is not a member of `shipment_runtime`, is not a superuser, and does not own the function. Those attributes are `ROLL-06` and are `NOT_VERIFIED`. Until that check, this contract does not claim the shared application login is isolated from the future function. | `DEFERRED` |
 | Foreign regression | A foreign tenant or a foreign transport order locks nothing and writes nothing. | `NOT_IMPLEMENTED` |
 | Direct statement | `lockAwardLink` stays `SELECT ... FOR UPDATE` until that later contract exists. | `IMPLEMENTED` |
 
-`GRANT EXECUTE` to the shared login, a change to `DATABASE_URL`, installation of the enforcement gate, and enabling `TMS_RELATIONSHIP_ACTIVATION_ENABLED` are outside this contract. `000105` records all four as unchanged.
+```text
+ALC_001=CLOSED
+DATABASE_URL_UNCHANGED_PROVES_NO_EXECUTE=NO
+EXECUTE_ON_SHIPMENT_RUNTIME_REACHES=members of shipment_runtime, function owner, superusers
+SHARED_LOGIN_MEMBERSHIP_IN_SHIPMENT_RUNTIME=NOT_VERIFIED
+SHARED_LOGIN_SUPERUSER=NOT_VERIFIED
+SHARED_LOGIN_OWNS_FUTURE_FUNCTION=NOT_VERIFIED
+SHARED_LOGIN_AUTHORITY=NOT_VERIFIED
+ROLL_06=NOT_VERIFIED
+```
+
+`000105` does not change `DATABASE_URL`, does not install the enforcement gate, and does not enable `TMS_RELATIONSHIP_ACTIVATION_ENABLED`. Those file facts are not a privilege proof. A direct `GRANT EXECUTE` to the shared application login remains outside this contract. This stage does not authorize the enforcement gate, does not enable the activation flag, and does not authorize a production cutover.
 
 ## Rollout blockers left open
 
@@ -159,4 +176,4 @@ FUNCTION_CREATE_AUTHORIZED=NO
 SHIPMENT_CODE_CHANGE_AUTHORIZED=NO
 ```
 
-The next stage may choose the server-owned check and only then name an owner, a pinned `search_path`, an execute grant limited to `shipment_runtime`, and the foreign-tenant regression. Until that choice exists, `ExecuteAwardOrder` under `shipment_login` stays fail-closed and `lockAwardLink` stays the direct `SELECT ... FOR UPDATE`.
+The next stage may choose the server-owned check and only then name an owner, a pinned `search_path`, an execute grant, and the foreign-tenant regression. A grant to `shipment_runtime` still requires the unread `ROLL-06` attributes before anyone can claim the shared application login cannot call that function. Until that choice exists, `ExecuteAwardOrder` under `shipment_login` stays fail-closed and `lockAwardLink` stays the direct `SELECT ... FOR UPDATE`. This document does not start that next stage.
