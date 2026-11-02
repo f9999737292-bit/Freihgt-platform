@@ -51,7 +51,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
         except Exception:
             cls.dsn = ""
             return
-        if cls.runner.version() < 13:
+        if cls.runner.version() < 14:
             cls.dsn = ""
             return
         if cls.runner.version() >= 2:
@@ -71,7 +71,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             os.environ["AUTOPILOT_ENABLED"] = prior
 
     def setUp(self) -> None:
-        if not self.dsn or self.runner.version() < 13:
+        if not self.dsn or self.runner.version() < 14:
             self.skipTest("launch_r6b1r1_migration_unavailable")
         owner = _owner_connect(self.dsn)
         try:
@@ -629,15 +629,15 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             self.assertEqual(self.controller_a.get_reservation(launch_cancel).state, "RELEASED")
             self.assertEqual(self.controller_a.get_reservation(launch_reject).state, "RELEASED")
         finally:
-            while runner.version() < 13:
+            while runner.version() < 14:
                 runner.up()
             _reseed_tenant_ledgers(self.dsn, runner)
 
     def test_r6b1r3_up_down_up_commit_still_absent(self) -> None:
         runner = self.runner
         try:
-            self.assertEqual(runner.down(allow_destructive_test=True), 12)
-            self.assertEqual(runner.up(), 13)
+            self.assertEqual(runner.down(allow_destructive_test=True), 13)
+            self.assertEqual(runner.up(), 14)
             owner = _owner_connect(self.dsn)
             try:
                 count = owner.execute(
@@ -653,7 +653,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             finally:
                 owner.close()
         finally:
-            if runner.version() < 13:
+            if runner.version() < 14:
                 runner.up()
 
 
