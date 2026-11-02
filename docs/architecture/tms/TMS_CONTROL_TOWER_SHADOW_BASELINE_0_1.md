@@ -13,14 +13,15 @@ PRIMARY_MODE_ACTIVATION_AUTHORIZED=NO
 VENDOR_ADAPTER_IMPLEMENTATION_AUTHORIZED=NO
 LIVE_PROVIDER_INGEST_AUTHORIZED=NO
 PRODUCT_MIGRATION_HEAD=000105
-REVISION=TMS-CONTROL-TOWER-SHADOW-BASELINE-0.1-R1
-R1_KIND=DOCS_ONLY
-R1_RUNTIME_CHANGE=NO
+REVISION=TMS-CONTROL-TOWER-SHADOW-BASELINE-0.1-R2
+R2_KIND=DOCS_ONLY
+R2_RUNTIME_CHANGE=NO
+R2_FINDING=CT-R1-001
 ```
 
 This document records the Control Tower shadow read model and the tracking boundary on inventory SHA `2a99b615a237b6d1f6e6038ca86a7433c567dc78`. It does not change product code, migrations, OpenAPI, compose, or rollout policy. It does not enable `CONTROL_TOWER_READ_MODEL_MODE=primary` and it does not add a vendor adapter.
 
-Inventory was read from that SHA. R1 adds the public `GET /summary` field split, the write calls that summary can make, and the cases surface. Runtime of the dedicated Control Tower staging VM was not observed.
+Inventory was read from that SHA. R1 adds the public `GET /summary` field split, the write calls that summary can make, and the cases surface. R2 separates the case handlers that call `requireReadModel` from four handlers that call the read-model client directly. Runtime of the dedicated Control Tower staging VM was not observed.
 
 ## Base alignment
 
@@ -72,7 +73,14 @@ GET_SUMMARY_SHIPMENT_RISKS_IN_SHADOW=READ_MODEL
 GET_SUMMARY_WRITES_WHEN_MODE_ENABLED=IMPLEMENTED
 SHADOW_MEANS_NO_SIDE_EFFECTS=NO
 CASES_PUBLIC_API=READ_MODEL_WHEN_MODE_ENABLED
+CASES_DIRECT_NIL_CLIENT_HANDLERS=RemoveCaseLink,GetCaseTimeline,FindCaseDuplicates,RemoveCaseParticipant
+CASES_DISABLED_CLIENT=NIL
+CASES_DISABLED_UNAVAILABLE_FOR_DIRECT_HANDLERS=NOT_CLAIMED
+CT_R1_001=DOCUMENTED_RUNTIME_DEFECT
 GET_SIDE_EFFECT_POLICY=DEFERRED
+SHADOW_SUMMARY_CAN_WRITE=YES
+PRIMARY_ACTIVATION_BLOCKED=YES
+STAGING_VERIFIED=NO
 ```
 
 ## 1. Read-model mode
@@ -86,7 +94,7 @@ GET_SIDE_EFFECT_POLICY=DEFERRED
 | Public `statusSummary` on `GET /api/v1/control-tower/summary` | Legacy aggregate, else page-limited legacy | Same legacy source. Read model is fetched for comparison only | Read model, with legacy fallback on dependency or consumer-not-running |
 | `criticalEvents` on that same GET | Built from the shipment list. No read-model workflow ensure | Shipment-derived events, plus driver-workflow merge and workflow field enrichment from the read model. Ensure and automation calls can write | Same calls as shadow |
 | `shipmentRisks` and `riskKPI` on that same GET | Empty. `loadShipmentRisks` returns immediately | Read from the read model after `SyncRisks` | Same calls as shadow |
-| Public `/api/v1/control-tower/cases` | `requireReadModel` fails. Routes are unavailable | Proxied to the read model. Not a legacy comparison | Same proxy as shadow |
+| Public `/api/v1/control-tower/cases` | Service methods that call `requireReadModel` return unavailable. Four handlers call the nil client directly. This document does not claim their HTTP result | Proxied to the read model when the client exists. Not a legacy comparison | Same proxy as shadow |
 | Workspace, other risk routes, workflow, acknowledgement, automation | Read-model client absent; callers that require it fail or return empty | Read-model calls run. They are not a legacy comparison | Same read-model calls as shadow |
 
 The statement "shadow does not change the user-facing response" in [CONTROL_TOWER_FULL_STATUS_BASELINE.md](../../CONTROL_TOWER_FULL_STATUS_BASELINE.md) applies to the status summary merge. It does not describe `criticalEvents`, `shipmentRisks`, cases, workspace, workflow, acknowledgement, or automation. Those paths key off `Mode.Enabled()`, so they run in `shadow`. Shadow does not mean the summary request is free of side effects. Section 1.2 records the writes.
@@ -150,7 +158,27 @@ Architectural risk: observation and projection writes share one GET. A summary r
 
 `services/api-gateway/internal/http/router.go` registers `/api/v1/control-tower/cases` and the nested case routes (list, get, create, update, claim, assign, links, notes, actions, decisions, resolve, close, reopen, timeline, participants, KPI, duplicates).
 
-Every case service method used by those routes calls `requireReadModel()`. In `shadow` and `primary` the gateway proxies to `control-tower-read-model-service` internal case routes. In `disabled` the client is absent and the handler returns the read-model unavailable error. Cases are not compared with a shipment-service aggregate.
+In `shadow` and `primary` the gateway proxies cases to `control-tower-read-model-service`. Cases are not compared with a shipment-service aggregate. In `disabled`, `NewService` leaves `readModel` nil because `Mode.Enabled()` is false.
+
+Two call shapes exist in `case_handler.go`:
+
+| Shape | Handlers | `disabled` |
+| --- | --- | --- |
+| Service method calls `requireReadModel` before any client use | `ListCases`, `GetCase`, `GetCaseKPI`, and `handleCaseMutation` (`CreateCase`, `UpdateCase`, `ClaimCase`, `AssignCase`, `UnassignCase`, `AddCaseLink`, notes, actions, decisions, `ResolveCase`, `CloseCase`, `ReopenCase`, `AddCaseParticipant`, `UpdateCaseParticipant`) | `requireReadModel` returns `ControlTowerReadModelUnavailable` |
+| Handler calls `h.service.readModel` directly | `RemoveCaseLink`, `GetCaseTimeline`, `FindCaseDuplicates`, `RemoveCaseParticipant` | No `requireReadModel` call. The client is nil |
+
+`RemoveCaseLink` and `RemoveCaseParticipant` call `ProxyCaseNoContent`. `GetCaseTimeline` and `FindCaseDuplicates` call `ProxyCaseJSON`. Those methods are not wrapped by `requireReadModel`.
+
+`doWorkspaceJSON` returns a `DependencyError` when its receiver is nil, and `mapWorkspaceDependencyError` maps a non-conflict, non-404 dependency error to the unavailable error. That is not the same guard as `requireReadModel`. This document does not claim that the four direct handlers return that controlled unavailable error. No disabled-mode test of these four routes was run in this stage (`NOT_RUN`).
+
+```text
+CT_R1_001=DOCUMENTED_RUNTIME_DEFECT
+CASES_DISABLED_NIL_CLIENT_DIRECT_CALLS=YES
+CASES_DISABLED_BEHAVIOR_FOR_FOUR_ROUTES=NOT_CLAIMED
+GO_FIX_IN_THIS_REVISION=NO
+```
+
+The potential defect is the missing handler guard. A later Go change should send these four routes through the same `requireReadModel` check and add a disabled-mode test. This revision does not change Go.
 
 Tenant isolation on this path:
 
@@ -294,7 +322,8 @@ A live shadow observation remains a separate operator-authorized read-only step.
 | `services/api-gateway/internal/controltower/risk.go` | `evaluateAndPersistRisks`, `loadShipmentRisks` |
 | `services/api-gateway/internal/controltower/automation_domain_triggers.go` | Automation triggers with `persist: true` from summary |
 | `services/api-gateway/internal/controltower/case.go` | Cases proxy and `requireReadModel` |
-| `services/api-gateway/internal/controltower/case_handler.go` | Public case auth and role checks |
+| `services/api-gateway/internal/controltower/case_handler.go` | Direct calls in `RemoveCaseLink`, `GetCaseTimeline`, `FindCaseDuplicates`, `RemoveCaseParticipant` |
+| `services/api-gateway/internal/controltowerreadmodel/client_workspace.go` | Nil-receiver check inside `doWorkspaceJSON` |
 | `services/control-tower-read-model-service/internal/repository/case_repository.go` | `tenant_id` predicates |
 | `services/api-gateway/internal/controltower/workspace.go`, `automation.go` | Other read-model use under `Mode.Enabled()` |
 | `infrastructure/docker-compose/docker-compose.yml` | Default `disabled` |
