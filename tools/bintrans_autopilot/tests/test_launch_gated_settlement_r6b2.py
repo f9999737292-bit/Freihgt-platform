@@ -76,6 +76,7 @@ class LaunchGatedSettlementR6B2Tests(unittest.TestCase):
         cls.dsn = _dsn()
         if not cls.dsn:
             return
+        cls._prior_autopilot = os.environ.get("AUTOPILOT_ENABLED")
         os.environ["AUTOPILOT_ENABLED"] = "true"
         try:
             cls.runner = MigrationRunner(lambda: _owner_connect(cls.dsn))
@@ -90,6 +91,14 @@ class LaunchGatedSettlementR6B2Tests(unittest.TestCase):
         _ensure_launch_roles(cls.dsn)
         _ensure_reconciler_role(cls.dsn)
         _reseed_tenant_ledgers(cls.dsn, cls.runner)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        prior = getattr(cls, "_prior_autopilot", None)
+        if prior is None:
+            os.environ.pop("AUTOPILOT_ENABLED", None)
+        else:
+            os.environ["AUTOPILOT_ENABLED"] = prior
 
     def setUp(self) -> None:
         if not self.dsn:
