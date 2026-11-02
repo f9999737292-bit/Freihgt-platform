@@ -483,6 +483,10 @@ class MigrationRunner:
             if not applied:
                 return 0
             target = max(applied)
+            if target == 13:
+                self._down_budget_migration_v13(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
             if target == 12:
                 self._down_budget_migration_v12(cursor, allow_destructive_test=allow_destructive_test)
                 applied = self._applied(cursor)
@@ -541,6 +545,9 @@ class MigrationRunner:
         with self._cursor() as cursor:
             cursor.execute("SELECT pg_advisory_xact_lock(%s)", (_ADVISORY_LOCK,))
             applied = self._applied(cursor)
+            if 13 in applied:
+                self._down_budget_migration_v13(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
             if 12 in applied:
                 self._down_budget_migration_v12(cursor, allow_destructive_test=allow_destructive_test)
                 applied = self._applied(cursor)
@@ -598,6 +605,85 @@ class MigrationRunner:
         self._restore_launch_protocol_v9_one_arg_release(cursor)
         cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 10")
         return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _down_budget_migration_v13(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 13 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.launch_intents
+                WHERE lifecycle_state NOT IN (
+                    'CANCELLED_BEFORE_SEND', 'LAUNCH_REJECTED', 'LAUNCH_CONFIRMED', 'EXTERNAL_AGENT_CANCELLED'
+                )
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 13)
+        self._restore_definer_owner_pre_d1(cursor)
+        self._restore_lt06_r6b1r3(cursor)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 13")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _restore_definer_owner_pre_d1(self, cursor) -> None:
+        cursor.execute(
+            """
+            DO $$
+            DECLARE
+                r record;
+            BEGIN
+                FOR r IN
+                    SELECT p.oid::regprocedure AS sig
+                    FROM pg_proc p
+                    JOIN pg_namespace n ON n.oid = p.pronamespace
+                    WHERE n.nspname = 'autopilot_queue'
+                      AND p.prokind = 'f'
+                      AND p.prosecdef
+                LOOP
+                    EXECUTE format('ALTER FUNCTION %s OWNER TO %I', r.sig, session_user);
+                END LOOP;
+            END
+            $$;
+            """
+        )
+        cursor.execute(
+            """
+            DO $$
+            DECLARE
+                r record;
+            BEGIN
+                FOR r IN
+                    SELECT p.oid::regprocedure AS sig
+                    FROM pg_proc p
+                    JOIN pg_namespace n ON n.oid = p.pronamespace
+                    WHERE n.nspname = 'autopilot_queue'
+                      AND p.prokind = 'f'
+                      AND p.prosecdef
+                      AND p.proname NOT IN ('bound_tenant', 'reject_tenant_change')
+                LOOP
+                    EXECUTE format('ALTER FUNCTION %s SET row_security = off', r.sig);
+                END LOOP;
+            END
+            $$;
+            """
+        )
+        cursor.execute("REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA autopilot_queue FROM autopilot_queue_definer_owner")
+        cursor.execute("REVOKE ALL ON ALL TABLES IN SCHEMA autopilot_queue FROM autopilot_queue_definer_owner")
+        cursor.execute("GRANT USAGE ON SCHEMA autopilot_queue TO autopilot_queue_definer_owner")
+
+    def _restore_lt06_r6b1r3(self, cursor) -> None:
+        path = _SQL_DIR / "0012_database_authority_r6b1r3.up.sql"
+        text = path.read_text(encoding="utf-8")
+        end = text.find("DROP FUNCTION IF EXISTS autopilot_queue.budget_protocol_commit")
+        if end < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(text[:end]):
+            cursor.execute(statement)
 
     def _down_budget_migration_v12(self, cursor, *, allow_destructive_test: bool) -> int:
         applied = self._applied(cursor)
