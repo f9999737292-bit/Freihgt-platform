@@ -13,6 +13,7 @@ from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _RUN,
     _ensure_reconciler_role,
     _ensure_tenant_roles,
+    _clear_budget_fixtures,
     _owner_connect,
     _reseed_tenant_ledgers,
     _tenant_controller,
@@ -71,6 +72,7 @@ class LaunchLifecycleR6B1Tests(unittest.TestCase):
             cls.dsn = ""
             return
         if cls.runner.version() >= 2:
+            _clear_budget_fixtures(cls.dsn)
             cls.runner.down_budget_migration(allow_destructive_test=True)
             cls.runner.up()
         _ensure_tenant_roles(cls.dsn, cls.runner)

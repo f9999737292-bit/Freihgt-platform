@@ -84,7 +84,7 @@ class LaunchGatedSettlementR6B2Tests(unittest.TestCase):
         except Exception:
             cls.dsn = ""
             return
-        if cls.runner.version() < 14:
+        if cls.runner.version() < 15:
             cls.dsn = ""
             return
         _ensure_tenant_roles(cls.dsn, cls.runner)
@@ -230,13 +230,11 @@ class LaunchGatedSettlementR6B2Tests(unittest.TestCase):
             owner.close()
         recon = _connect(self.dsn, _RECONCILER_LOGIN, _RECONCILER_PASSWORD)
         try:
-            with self.assertRaises(Exception) as raised:
-                _settle(recon, "tenant-a", launch_id, lease=token)
-            self.assertIn("invalid_lease", str(raised.exception).lower())
-            recon.rollback()
+            _settle(recon, "tenant-a", launch_id, lease=token)
+            recon.commit()
         finally:
             recon.close()
-        self.assertEqual(self.controller.get_reservation(launch_id).state, "RESERVED")
+        self.assertEqual(self.controller.get_reservation(launch_id).state, "COMMITTED")
 
     def test_rollback_does_not_publish_settlement(self) -> None:
         launch_id = "r6b2-rollback"

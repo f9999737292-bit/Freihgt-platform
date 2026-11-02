@@ -11,6 +11,7 @@ from bintrans_autopilot.postgres_queue import MigrationRunner
 from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _AGENT,
     _RUN,
+    _clear_budget_fixtures,
     _commit_verified,
     _ensure_reconciler_role,
     _ensure_tenant_roles,
@@ -19,8 +20,8 @@ from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _tenant_connect,
     _tenant_controller,
     _usage_refs,
+    reconcile_launch_usage,
 )
-from bintrans_autopilot.usage_reconciliation import reconcile_launch_usage
 
 _AGENT2 = "bc-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 _RUN2 = "run-bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
@@ -43,6 +44,7 @@ class BudgetControllerR4Tests(unittest.TestCase):
         cls.runner = MigrationRunner(lambda: _owner_connect(cls.dsn))
         cls.runner.up()
         if cls.runner.version() >= 2:
+            _clear_budget_fixtures(cls.dsn)
             cls.runner.down_budget_migration(allow_destructive_test=True)
             cls.runner.up()
         _ensure_tenant_roles(cls.dsn, cls.runner)
@@ -61,6 +63,7 @@ class BudgetControllerR4Tests(unittest.TestCase):
     def setUp(self) -> None:
         if not self.dsn:
             self.skipTest("postgres_unavailable")
+        _clear_budget_fixtures(self.dsn)
         connection = _owner_connect(self.dsn)
         try:
             if connection.execute(

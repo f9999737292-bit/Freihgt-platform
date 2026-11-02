@@ -84,7 +84,15 @@ PR #322 product baseline: `d1425269`. Branch: `feat/bintrans-autopilot-budget-v0
 | Late charge (overrun) | BT-03 / **BT-03c** | idempotent re-apply |
 | Unknown ≠ zero | tokens-only / missing | **must not** commit |
 
-**Launch states eligible for reconciler commit (BT-01a/b):** `LAUNCH_CONFIRMED` **or** `EXTERNAL_AGENT_CANCELLED` (reserve still held after LT-14).
+**Launch states eligible for reconciler commit (BT-01a/b):** `LAUNCH_CONFIRMED` **or** `EXTERNAL_AGENT_CANCELLED` (reserve still held after LT-14). From migration `0015`, both `budget_reconciler_apply_usage` and `launch_budget_settle` require that row. A reservation with no launch intent cannot become `COMMITTED`, `OVERRUN`, or `usage_unknown`.
+
+**R6B-2-R1 control gate.** Settlement locks `autopilot_launch_control` and then refuses the write when `autopilot_estop` is true (`estop_active`) or `autopilot_launch_mode` is not `MOCK_ONLY` (`launch_mode_blocked`). Estop and `DISABLED` do not create a special accounting exception. Rows already committed stay as they are.
+
+**R6B-2-R1 cap policy (no new limit).** `per_launch_cap_cents`, the tenant budget, and the global budget are enforced when the reserve is taken. BT-01b remains the settlement rule: a verified charge above the reservation is stored as `OVERRUN` for the verified amount, including an amount above the reservation-time cap. The next reserve is blocked with `overrun_open`. Settlement does not apply a second, undocumented cap.
+
+**R6B-2-R1 recovery token.** The lease token is the worker credential. `launch_protocol_recovery_lease_acquire` returns an existing token only to the same backend (`session_user` plus `pg_backend_pid`). Another session that shares the recovery login does not receive it. Fenced lifecycle calls reject a null, wrong, expired, or replaced token. Settlement does not read the token and does not require it. `autopilot_queue_reconciler` has no `SELECT` on `launch_intents`.
+
+**LOW registry carried forward from Agent J R4.** These stay recorded and are not declared remediated by this note: R4-001, R4-002, R4-003, R4-004, R6B1-011, R6B1-012, adapter read of `recovery_lease_token`, v11 rollback recreating vulnerable functions on an isolated test database, and tests that need a dedicated cluster. R6B1-012 was elevated to HIGH R6B2-003. Migration `0015` is the fix for that HIGH. The other eight LOW items are unchanged.
 
 ### 3.4 Post-RELEASED orphan spend (residual risk)
 

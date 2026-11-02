@@ -11,6 +11,7 @@ from bintrans_autopilot.postgres_queue import MigrationRunner
 from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _AGENT,
     _RUN,
+    _clear_budget_fixtures,
     _ensure_tenant_roles,
     _owner_connect,
     _reseed_tenant_ledgers,
@@ -51,10 +52,11 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
         except Exception:
             cls.dsn = ""
             return
-        if cls.runner.version() < 14:
+        if cls.runner.version() < 15:
             cls.dsn = ""
             return
         if cls.runner.version() >= 2:
+            _clear_budget_fixtures(cls.dsn)
             cls.runner.down_budget_migration(allow_destructive_test=True)
             cls.runner.up()
         _ensure_tenant_roles(cls.dsn, cls.runner)
@@ -71,7 +73,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             os.environ["AUTOPILOT_ENABLED"] = prior
 
     def setUp(self) -> None:
-        if not self.dsn or self.runner.version() < 14:
+        if not self.dsn or self.runner.version() < 15:
             self.skipTest("launch_r6b1r1_migration_unavailable")
         owner = _owner_connect(self.dsn)
         try:
@@ -629,15 +631,15 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             self.assertEqual(self.controller_a.get_reservation(launch_cancel).state, "RELEASED")
             self.assertEqual(self.controller_a.get_reservation(launch_reject).state, "RELEASED")
         finally:
-            while runner.version() < 14:
+            while runner.version() < 15:
                 runner.up()
             _reseed_tenant_ledgers(self.dsn, runner)
 
     def test_r6b1r3_up_down_up_commit_still_absent(self) -> None:
         runner = self.runner
         try:
-            self.assertEqual(runner.down(allow_destructive_test=True), 13)
-            self.assertEqual(runner.up(), 14)
+            self.assertEqual(runner.down(allow_destructive_test=True), 14)
+            self.assertEqual(runner.up(), 15)
             owner = _owner_connect(self.dsn)
             try:
                 count = owner.execute(
@@ -653,7 +655,7 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
             finally:
                 owner.close()
         finally:
-            if runner.version() < 14:
+            if runner.version() < 15:
                 runner.up()
 
 

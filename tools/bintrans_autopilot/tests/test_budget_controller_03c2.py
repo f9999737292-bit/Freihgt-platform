@@ -21,7 +21,8 @@ from bintrans_autopilot.budget_controller import (
 )
 from bintrans_autopilot.config import AutopilotConfig, load_config
 from bintrans_autopilot.postgres_queue import MigrationRunner, QueueError
-from bintrans_autopilot.usage_reconciliation import parse_usage_payload, reconcile_launch_usage
+from bintrans_autopilot.usage_reconciliation import parse_usage_payload
+from bintrans_autopilot.usage_reconciliation import reconcile_launch_usage as _reconcile_launch_usage
 from bintrans_autopilot.usage_verification import usage_verification_refs
 
 _AGENT = "bc-33a0edbc-8fed-47fa-85b7-cc139e900375"
@@ -43,6 +44,26 @@ def _owner_connect(dsn: str):
     import psycopg
 
     return psycopg.connect(dsn, connect_timeout=3)
+
+
+def _clear_budget_fixtures(dsn: str) -> None:
+    connection = _owner_connect(dsn)
+    try:
+        def _has(name: str) -> bool:
+            row = connection.execute("SELECT to_regclass(%s) AS name", (f"autopilot_queue.{name}",)).fetchone()
+            return row is not None and row[0] is not None
+
+        if _has("budget_verified_usage"):
+            connection.execute("DELETE FROM autopilot_queue.budget_verified_usage")
+        if _has("launch_intents"):
+            connection.execute("DELETE FROM autopilot_queue.launch_intents")
+        if _has("budget_reservations"):
+            connection.execute("DELETE FROM autopilot_queue.budget_reservations")
+        if _has("budget_window_usage"):
+            connection.execute("DELETE FROM autopilot_queue.budget_window_usage")
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def _tenant_connect(dsn: str, user: str, password: str):
@@ -89,6 +110,9 @@ def _mark_unknown_verified(
 ) -> None:
     payload = {"rawCostCents": raw_cost_text} if raw_cost_text is not None else {}
     verification_id, payload_digest = _usage_refs(payload, agent_id=agent_id, run_id=run_id)
+    row = controller.get_reservation(launch_id)
+    if row is not None:
+        _arm_confirmed_launch(_dsn(), row.tenant_id, launch_id, agent_id, run_id)
     controller.mark_usage_unknown(
         launch_id,
         agent_id=agent_id,
@@ -96,6 +120,75 @@ def _mark_unknown_verified(
         raw_cost_text=raw_cost_text,
         verification_id=verification_id,
         payload_digest=payload_digest,
+    )
+
+
+def _arm_confirmed_launch(dsn: str, tenant_id: str, launch_id: str, agent_id: str, run_id: str) -> None:
+    """Test fixture only. Positive budget cases need a confirmed mock launch after 0015."""
+    owner = _owner_connect(dsn)
+    try:
+        present = owner.execute("SELECT to_regclass('autopilot_queue.launch_intents')").fetchone()
+        if present is None or present[0] is None:
+            return
+        owner.execute(
+            """
+            UPDATE autopilot_queue.autopilot_launch_control
+            SET autopilot_launch_mode = 'MOCK_ONLY', autopilot_estop = false
+            WHERE id = 1
+            """
+        )
+        existing = owner.execute(
+            """
+            SELECT lifecycle_state
+            FROM autopilot_queue.launch_intents
+            WHERE tenant_id = %s AND launch_id = %s
+            """,
+            (tenant_id, launch_id),
+        ).fetchone()
+        if existing is not None and existing[0] in ("LAUNCH_CONFIRMED", "EXTERNAL_AGENT_CANCELLED"):
+            owner.commit()
+            return
+        owner.execute(
+            """
+            DELETE FROM autopilot_queue.launch_intents
+            WHERE tenant_id = %s AND launch_id = %s
+            """,
+            (tenant_id, launch_id),
+        )
+        owner.execute(
+            """
+            DELETE FROM autopilot_queue.launch_intents
+            WHERE agent_id = %s OR run_id = %s
+            """,
+            (agent_id, run_id),
+        )
+        owner.execute(
+            """
+            INSERT INTO autopilot_queue.launch_intents (
+                tenant_id, launch_id, lifecycle_state, planned_agent_id,
+                agent_id, run_id, create_body_version, create_body_hash,
+                last_outbound_proof_class
+            ) VALUES (
+                %s, %s, 'LAUNCH_CONFIRMED', %s, %s, %s, 1, %s, 'MOCK_TRUSTED'
+            )
+            """,
+            (tenant_id, launch_id, agent_id, agent_id, run_id, "a" * 64),
+        )
+        owner.commit()
+    finally:
+        owner.close()
+
+
+def reconcile_launch_usage(controller, *, launch_id, agent_id, run_id, usage_fetcher):
+    row = controller.get_reservation(launch_id)
+    if row is not None:
+        _arm_confirmed_launch(_dsn(), row.tenant_id, launch_id, agent_id, run_id)
+    return _reconcile_launch_usage(
+        controller,
+        launch_id=launch_id,
+        agent_id=agent_id,
+        run_id=run_id,
+        usage_fetcher=usage_fetcher,
     )
 
 
@@ -110,6 +203,9 @@ def _commit_verified(
 ) -> object:
     payload = {"rawCostCents": raw_cost_text, "chargedCents": charged_text}
     verification_id, payload_digest = _usage_refs(payload, agent_id=agent_id, run_id=run_id)
+    row = controller.get_reservation(launch_id)
+    if row is not None:
+        _arm_confirmed_launch(_dsn(), row.tenant_id, launch_id, agent_id, run_id)
     return controller.commit_usage(
         launch_id,
         raw_cost_text=raw_cost_text,
@@ -278,6 +374,7 @@ class PostgresBudgetControllerTests(unittest.TestCase):
         os.environ["AUTOPILOT_ENABLED"] = "true"
         cls.runner = MigrationRunner(lambda: _owner_connect(cls.dsn))
         cls.runner.up()
+        _clear_budget_fixtures(cls.dsn)
         if cls.runner.version() >= 2:
             cls.runner.down_budget_migration(allow_destructive_test=True)
             cls.runner.up()
@@ -297,6 +394,7 @@ class PostgresBudgetControllerTests(unittest.TestCase):
     def setUp(self) -> None:
         if not self.dsn:
             self.skipTest("postgres_unavailable")
+        _clear_budget_fixtures(self.dsn)
         connection = _owner_connect(self.dsn)
         try:
             if connection.execute(
@@ -534,6 +632,8 @@ class PostgresBudgetControllerTests(unittest.TestCase):
     def test_budget_migration_down_requires_empty_open_reservations(self) -> None:
         self.controller.request_reserve("launch-open", "tenant-a", 10)
         at_version = self.runner.version()
+        if at_version >= 15:
+            self.assertEqual(self.runner.down(), 14)
         if at_version >= 14:
             self.assertEqual(self.runner.down(), 13)
         if at_version >= 13:
