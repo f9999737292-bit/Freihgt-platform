@@ -19,6 +19,17 @@ GAP_B_001_STATUS=OPEN
 GAP_B_001_RUNTIME_IMPLEMENTATION_AUTHORIZED=NO
 PRODUCT_IMPLEMENTATION_AUTHORIZED=NO
 PR_272_CONTINUED=NO
+COMPLETENESS_STATUS_RUNTIME=ABSENT
+TMS_POD_REQUIREMENT_DECISION_WHEN_ROW_ABSENT=UNKNOWN
+DOCUMENTS_COMPLETE_IS_GAP_B_001=NO
+DOCUMENTS_COMPLETE_TRUE_PROVES_REQUIRED_SET=NO
+LEGACY_DRIVER_POD_UPLOAD_IMPLEMENTED=YES
+LEGACY_DRIVER_POD_CREATES_ACTION_EVIDENCE=NO
+LEGACY_DRIVER_POD_CREATES_COMPLETENESS_DECISION=NO
+SHIPMENT_SERVICE_ACTION_EVIDENCE_PROXY=ABSENT
+END_TO_END_POD_ACTION_RUNTIME_READY=NO
+CURRENT_MAIN_CHECKED=643d3f4a72ef44517ae42c30b408e302f2968ee3
+EDO_PATHS_CHANGED_SINCE_BASE=NO
 ```
 
 This note reconciles GAP-B-001 with `origin/main` at `2a99b615a237b6d1f6e6038ca86a7433c567dc78`. It does not add a table, command, route, OpenAPI operation, migration, or gateway change. It does not authorize a completeness runtime. It does not continue pull request #272.
@@ -61,12 +72,16 @@ Pull request #272 head `2bc3ba2b962c0dff207e0ce590d004d3128b6a47` is not an ance
 | document-service call to that TMS read | DEFERRED | No `pod-requirement` client under `services/document-service` except tests that count the TMS table |
 | shipment-service call to `/internal/v1/pod-action-evidence` | DEFERRED | No match under `services/shipment-service` |
 | Gateway route for pod-action evidence | DEFERRED | No match under `services/api-gateway` |
+| Legacy driver POD upload | IMPLEMENTED | Public `/api/v1/driver/me/shipments/{shipmentId}/pod/uploads` calls document-service `/internal/v1/pod-uploads` and writes a shipment-scoped `POD` document. It does not write action evidence or a completeness decision |
+| shipment-service proxy for `documents.pod_delivery_action_evidence` | DEFERRED | No call from `services/shipment-service` to `/internal/v1/pod-action-evidence` |
+| `COMPLETENESS_STATUS` runtime | DEFERRED | The 0.4B values exist only as a contract. No evaluator writes `COMPLETE`, `INCOMPLETE`, or `UNKNOWN` |
+| Control Tower `documentsComplete` | IMPLEMENTED | Gateway boolean. It is not `COMPLETENESS_STATUS` and it is not the TMS decision |
 | `GetApplicableDocumentRequirements` or `EvaluateDocumentCompleteness` | DEFERRED | Not present as a document-service implementation. 0.1A names both as future interfaces |
 | Successor current-document policy | DEFERRED | 0.1A `SUCCESSOR_CURRENT_DOCUMENT_POLICY_FROZEN=NO` |
 | Finance `ACCOUNTING_DOCUMENT_POLICY_DECISION` runtime | DEFERRED | Finance 0.1D `ACCOUNTING_DOCUMENT_POLICY_DECISION_IMPLEMENTED=NO` and `PRODUCT_IMPLEMENTATION_AUTHORIZED=NO` |
 | `OPS_DOCUMENT_COMPLETENESS`, `CAR_DOCUMENT_COMPLETENESS`, `DOC_DOCUMENT_COMPLETENESS` | BLOCKED | Analytics 0.1B and 0.3A keep them `BLOCKED_BY_SOURCE_GAP` on GAP-B-001. Analytics 0.4A implementation column is `NO` |
 | POD satisfaction runtime | DEFERRED | 0.1B `POD_SATISFACTION_RUNTIME=NO` and `POD_ACCEPTANCE_POLICY_EVALUATED=NO` |
-| End-to-end driver upload through shipment-service into document-service | DEFERRED | 0.1B `END_TO_END_POD_ACTION_RUNTIME_READY=NO`. The document-service routes exist. The shipment-service proxy does not |
+| End-to-end action-evidence upload | DEFERRED | 0.1B `END_TO_END_POD_ACTION_RUNTIME_READY=NO`. The internal document-service routes exist. The shipment-service proxy does not. The legacy driver upload does not close this path |
 | Staging schema version, document-service login role, and live row counts | NOT_VERIFIED | This pass did not open a database or a staging host |
 | Grant of `documents.pod_delivery_action_evidence` to a document-service login | NOT_VERIFIED | `000103` creates `freight_migrations`, `company_runtime`, and `shipment_runtime`. `000105` grants `shipment_runtime` `SELECT` on `documents.documents` and on `transport.transport_execution_pod_requirement_decisions`. It does not name `documents.pod_delivery_action_evidence`. No `document_runtime` role is created there |
 
@@ -78,7 +93,7 @@ Migration `000098` stores append-only decision versions for one delivery action.
 
 Migration `000099` stores an action-bound upload intent and an immutable evidence row. `document_tenant_id` must equal `operating_tenant_id`. `shipment_tenant_id` may differ. One document binds to at most one delivery action. Historical shipment-only POD rows are not backfilled. The 0.1B note says present evidence requires a binding row, intent status `completed`, the pinned file, and a document whose `deleted_at` is null. Status `SIGNED` is not presence. The service does not read or write `transport.transport_execution_pod_requirement_decisions`.
 
-`TestPOD_BIND_16And18` completes action evidence and requires the TMS decision count to stay unchanged. `TestPOD_BIND_17` reads evidence after a known not-required decision and requires that decision row to remain. Those tests are in the tree. They were not run in this pass. An earlier historical upload through `/internal/v1/pod-uploads` is asserted not to create `documents.pod_delivery_action_evidence`.
+`TestPOD_BIND_16And18` completes action evidence and requires the TMS decision count to stay unchanged. `TestPOD_BIND_17` reads evidence after a known not-required decision and requires that decision row to remain. Those tests are in the tree. They were not run in this pass. `TestPOD_BIND_15` completes the legacy `/internal/v1/pod-uploads` path and requires `documents.pod_delivery_action_evidence` to stay empty for that document. The legacy upload does not become action evidence.
 
 `OrderExecutionRepository.ListShipmentPODDocuments` still selects `documents.documents` where `related_entity_type = 'SHIPMENT'`, `related_entity_id` is the shipment, and `document_type = 'POD'`. That list is not the action-evidence table and it is not a requirement.
 
@@ -95,13 +110,53 @@ TMS_DECISION_READ=IMPLEMENTED_UNKNOWN_WHEN_ABSENT
 ACTION_EVIDENCE_BINDING=IMPLEMENTED
 REQUIREMENT_POLICY_REGISTRY=ABSENT
 COMPLETENESS_EVALUATOR=ABSENT
+COMPLETENESS_STATUS_RUNTIME=ABSENT
 GAP_B_001_CLOSED_BY_000099=NO
+GAP_B_001_STATUS=OPEN
 SIGNED_STATUS_IS_COMPLETENESS=NO
 DOCUMENT_COUNT_IS_COMPLETENESS=NO
 DOCUMENT_EXISTS_IMPLIES_REQUIREMENT=NO
 POD_UPLOAD_WRITES_TMS_REQUIREMENT=NO
 TMS_REQUIREMENT_WRITES_DOCUMENT_EVIDENCE=NO
+DOCUMENTS_COMPLETE_IS_GAP_B_001=NO
+DOCUMENTS_COMPLETE_TRUE_PROVES_REQUIRED_SET=NO
+LEGACY_DRIVER_POD_CREATES_ACTION_EVIDENCE=NO
+LEGACY_DRIVER_POD_CREATES_COMPLETENESS_DECISION=NO
+SHIPMENT_SERVICE_ACTION_EVIDENCE_PROXY=ABSENT
+END_TO_END_POD_ACTION_RUNTIME_READY=NO
 ```
+
+## Three signals
+
+These three names are not substitutes for one another.
+
+`COMPLETENESS_STATUS` is the GAP-B-001 result. Analytics 0.4A asks document-service for `COMPLETE`, `INCOMPLETE`, or `UNKNOWN` after a required set is composed with canonical evidence. That evaluation is not implemented. No runtime in document-service writes `COMPLETENESS_STATUS`. An absent evaluator is not the value `UNKNOWN` stored on a TMS decision row, and it is not a Control Tower boolean.
+
+The TMS POD requirement decision answers whether POD is required for one delivery action. `PODRequirementService` returns synthetic `decision_state=UNKNOWN` when `transport.transport_execution_pod_requirement_decisions` has no row, and it does not insert that row. `pod_required` stays unset. That `UNKNOWN` means the requirement is unproven. It does not mean the document set is complete, and it does not mean the document set is incomplete.
+
+`documentsComplete` is a Control Tower boolean on `ControlTowerShipment` in `services/api-gateway/internal/controltower/models.go`. `isDocumentsComplete` in `services/api-gateway/internal/controltower/service.go` returns true when the shipment status is `DOCUMENTS_COMPLETED`, `READY_FOR_BILLING`, `INCLUDED_IN_BILLING_REGISTER`, or `FINANCIALLY_CLOSED`. Otherwise it returns true when `shipmentDocumentIDs` contains the shipment. That map's keys are shipment ids. A shipment id is added when a document has `related_entity_type=SHIPMENT`, a non-empty `related_entity_id`, and `document_status` of `SIGNED`, `ACCEPTED`, or `ARCHIVED`. The function does not read a required-document policy, `COMPLETENESS_STATUS`, the TMS decision table, or `documents.pod_delivery_action_evidence`.
+
+```text
+DOCUMENTS_COMPLETE_TRUE_PROVES_REQUIRED_SET=NO
+```
+
+`documentsComplete=true` is not confirmation that the required document set for GAP-B-001 is complete.
+
+## Two POD upload mechanisms
+
+The legacy driver upload is implemented. The shipment-service proxy for action evidence is not. The first does not create the second.
+
+Public gateway routes in `services/api-gateway/internal/http/router.go`:
+
+| Method | Route |
+| --- | --- |
+| POST | `/api/v1/driver/me/shipments/{shipmentId}/pod/uploads` |
+| PUT | `/api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/content` |
+| POST | `/api/v1/driver/me/shipments/{shipmentId}/pod/uploads/{uploadId}/complete` |
+
+`InitiatePODUpload` calls the gateway document client. That client calls document-service `POST /internal/v1/pod-uploads`, then the matching content and complete routes. `pod_upload_service` creates `documents.documents` with `document_type=POD`, `related_entity_type=SHIPMENT`, and `related_entity_id` of that shipment, and it inserts `documents.document_upload_intent`. It does not insert `documents.pod_delivery_action_upload_intent` or `documents.pod_delivery_action_evidence`. It does not insert a TMS requirement decision and it does not write `COMPLETENESS_STATUS`. `TestPOD_BIND_15` is the in-tree assertion that a completed legacy upload leaves action evidence empty. That test was not run in this pass.
+
+The action-evidence routes stay internal. document-service exposes `/internal/v1/pod-action-evidence` only to a shipment-service caller. shipment-service does not call those routes. The public driver routes above do not call them either. `END_TO_END_POD_ACTION_RUNTIME_READY` stays `NO`. A legacy shipment-scoped `POD` document is not action evidence and is not a completeness decision.
 
 The subject mismatch stays unresolved. Completeness 0.4B and Analytics 0.4A name `SHIPMENT` and `TRANSPORT_ORDER`. POD evidence 0.1B names one delivery action. Policy 0.1A classifies `DELIVERY` as `OWNER_DOMAIN_REQUIRED` and `STOP` / `ACTION` as `FUTURE_SUPPORTED`. This rebaseline does not retarget GAP-B-001 and does not add a related-entity value.
 
@@ -120,7 +175,7 @@ This rebaseline is the current document. It does not merge #272 and does not cop
 | Delivery-action evidence read | document-service / Agent B | Present. Internal, shipment-service caller only |
 | POD requirement read | shipment-service / Agent C | Present. Missing row is `UNKNOWN`. No known-decision writer |
 | Known `pod_required` decision | Agent C | DEFERRED. document-service must not insert it. ADR-EDO-009 forbids an EDO edit of shipment-service for that writer |
-| Upload proxy from shipment-service | Agent C | DEFERRED. 0.1A freeze names shipment-service as the upload caller. The proxy is not in this tree |
+| Upload proxy from shipment-service for action evidence | Agent C | DEFERRED. 0.1A freeze names shipment-service as the action-evidence caller. That proxy is not in this tree. The legacy driver upload is a separate gateway path and does not replace it |
 | Accounting requirement decision | Agent G / Finance | DEFERRED. 0.1D decision is not implemented |
 | Successor current-document rule | Agent B, later contract | DEFERRED. Not frozen |
 | KPI publication | Agent E | BLOCKED on GAP-B-001 |
@@ -147,6 +202,15 @@ IMPLEMENTATION_START_AUTHORIZED_BY_THIS_NOTE=NO
 Controller review of this rebaseline comes first. After acceptance, the next EDO document is a composition contract. That contract may name how document-service reads the existing TMS pod-requirement route and the existing action-evidence route. It must keep `UNKNOWN` when the TMS decision is absent, must not copy `transport.transport_execution_pod_requirement_decisions` into `documents`, and must not publish `COMPLETE` or `INCOMPLETE` while the successor policy is unfrozen or while Finance 0.1D has no runtime decision. It is still a document stage unless that later contract is separately authorized to change code.
 
 This note does not authorize that composition contract's product code, a migration, OpenAPI, a gateway route, a KPI, or a restart of pull request #272.
+
+## Currency check
+
+`origin/main` at review time is `643d3f4a72ef44517ae42c30b408e302f2968ee3`. `git diff --name-only 2a99b615a237b6d1f6e6038ca86a7433c567dc78..643d3f4a72ef44517ae42c30b408e302f2968ee3` lists only:
+
+- `docs/architecture/network-optimizer/NLO_0_5B5_ANON_COMMERCIAL_EXPOSURE_CONTRACT.md`
+- `docs/architecture/network-optimizer/NLO_0_5B5_PUBLIC_FIELD_DISCOVERY.md`
+
+EDO requirement policy 0.1A, completeness source 0.4B, POD evidence 0.1A and 0.1B, TMS 0.4C, Finance 0.1D, Analytics 0.4A, ADR-EDO-009, migrations `000098` and `000099`, document-service, shipment-service, and `isDocumentsComplete` are unchanged between those SHAs. This note does not change Finance or Analytics decisions. GAP-B-001 stays `OPEN`. Action-evidence end-to-end readiness stays `NO`.
 
 ## Non-goals
 
