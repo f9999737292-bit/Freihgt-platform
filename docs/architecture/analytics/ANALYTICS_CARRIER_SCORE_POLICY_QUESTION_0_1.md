@@ -18,13 +18,15 @@ GAP_E_001=OPEN
 PRODUCT_CODE_CHANGED=NO
 MIGRATIONS_CHANGED=NO
 MIGRATION_HEAD_OBSERVED=000105
+AN_SCORE_Q_001=CLOSED
+FCI_PR_COMPARISON_MAIN_SHA=643d3f4a72ef44517ae42c30b408e302f2968ee3
 ```
 
 Analytics-0.3C recorded `CARRIER_SCORE_POLICY_DECISION=DEFER` and `NEXT_STAGE=WAIT_FOR_CARRIER_SCORE_BUSINESS_POLICY`. This sheet is that wait, written as questions for the business controller. Every answer below is `NOT_PROVIDED`.
 
 ## Sources
 
-All citations are the tree at `BASE_MAIN_SHA`. No later commit is an input.
+Product and architecture citations are the tree at `BASE_MAIN_SHA`. The Freight Cost Intelligence pull-request relation below is a separate git comparison against `FCI_PR_COMPARISON_MAIN_SHA`. That comparison does not reopen the product facts and does not change the score policy.
 
 | Source | What it establishes |
 | --- | --- |
@@ -115,8 +117,17 @@ FCI is a different product. It is not an input to this question sheet's score.
 | `PRODUCTION_ROLLOUT` | NO | `FINAL_CLOSURE.md` |
 | `FREIGHT_COST_ANALYTICS_PROJECTION_ENABLED` | Default `false` | `services/freight-cost-service/internal/config/config.go` |
 | `NUXT_PUBLIC_FREIGHT_COST_WORKSPACE_ENABLED` | Default off | `docs/freight-cost-management/v2.2/FINAL_CLOSURE.md` and `apps/web-procurement/nuxt.config.ts` |
-| PR #51 | OPEN. Do not resume. | `review/freight-cost-management-v2.1d-final-gate` is 1274 commits behind `origin/main` at this SHA |
-| PR #61 | OPEN. Do not resume. | `ops/freight-cost-intelligence-controlled-rollout-v2.2` is 1182 commits behind `origin/main` at this SHA |
+| PR #51 | OPEN. `DIVERGED`. Do not resume or merge automatically. | See the comparison below. |
+| PR #61 | OPEN. `DIVERGED`. Do not resume or merge automatically. | See the comparison below. |
+
+`DIVERGED` means both sides have commits the other does not. A behind-only count is not this relation. The comparison was repeated against `origin/main` `643d3f4a72ef44517ae42c30b408e302f2968ee3`. Earlier behind-only figures are not reused.
+
+| PR | Head SHA | Merge base | Only in main | Only in PR head |
+| --- | --- | --- | --- | --- |
+| #51 `review/freight-cost-management-v2.1d-final-gate` | `dbb6333a4e98bcc80ea5bee1cd6b9a22617f4dd3` | `6597f52e285a30da2f1b8e993461f44f5cea57fa` | 1277 | 1 |
+| #61 `ops/freight-cost-intelligence-controlled-rollout-v2.2` | `c2ec57f259f67e40656f1893c09697f0d42cf634` | `37c2eb62ccf9377359eb5c2fdf6f71eb9d187140` | 1185 | 2 |
+
+The single commit only on PR #51 is `dbb6333a4e98bcc80ea5bee1cd6b9a22617f4dd3`. The two commits only on PR #61 are `c2ec57f259f67e40656f1893c09697f0d42cf634` and `345e8cea78939e5186be732e2aa085b44c7a46bc`. Each merge base is an ancestor of both `origin/main` and that PR head. This sheet does not rebase, resume, or merge either pull request.
 
 Spend, benchmark, accessorial, and opportunity projections are not catalog components of `CAR_PERFORMANCE_SCORE`. This stage does not add them.
 
@@ -254,7 +265,7 @@ ANSWER=NOT_PROVIDED
 FCI_MEASURES_SELECTED=NO
 ```
 
-No FCI spend, benchmark, accessorial, or savings measure is a selected component. The controller would have to leave them out or name a new component contract. This sheet does not name one. PR #51 and PR #61 stay unmerged and are not the vehicle for that answer.
+No FCI spend, benchmark, accessorial, or savings measure is a selected component. The controller would have to leave them out or name a new component contract. This sheet does not name one. PR #51 and PR #61 are `DIVERGED` from current main. They are not resumed and they are not merged. They are not the vehicle for that answer.
 
 ### Q13. Does an executive pointer stay blocked?
 
@@ -285,7 +296,7 @@ Component ratios use a finite decimal of up to 16 places with trailing zeros tri
 | Agent C source facts GAP-C-001, GAP-C-002, GAP-C-005 | CONTRACT_REQUESTED, implementation NO | Required only if a later answer selects those components. Not selected here. |
 | Agent B document fact GAP-B-001 | CONTRACT_REQUESTED, implementation NO | Same. Blocks `CAR_DOCUMENT_COMPLETENESS` only. |
 | Historical analytics storage | NOT_IMPLEMENTED | Blocks a period score. Does not block writing this question sheet. |
-| FCI v2.2G.1 | Technical closure recorded. Production rollout NO. | Not a score input. Rollout PR #61 is not resumed. |
+| FCI v2.2G.1 | Technical closure recorded. Production rollout NO. | Not a score input. PR #51 and PR #61 are `DIVERGED` and are not resumed or merged. |
 | PR #322 | Draft, head `5c6a44f9d6adbc1b606b3e49b0168f3d103f90d5` | Out of scope. This stage does not change its files. |
 
 Migration head observed on this SHA is `000105_platform_postgres_role_foundation_v0_2_i1`. No `000106` file is in `infrastructure/migrations`. This stage does not add one.
