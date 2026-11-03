@@ -10,10 +10,12 @@ from pathlib import Path
 from bintrans_autopilot.budget_controller import (
     COMMITTED,
     OVERRUN,
+    RELEASED,
     RESERVED,
     BudgetController,
     BudgetControllerError,
 )
+from bintrans_autopilot.launch.mock_transport import mock_identity
 from bintrans_autopilot.mock_orchestrator import AuditJournal, MockOrchestrator, MockTask, OrchestratorError
 from bintrans_autopilot.postgres_queue import MigrationRunner, PostgresQueue, QueueError
 from bintrans_autopilot.tests.test_budget_controller_03c2 import (
@@ -30,6 +32,7 @@ from bintrans_autopilot.tests.test_budget_controller_03c2 import (
     _tenant_connect,
 )
 from bintrans_autopilot.tests.test_launch_lifecycle_r6b import _ADAPTER_LOGIN, _RECOVERY_LOGIN, _connect, _ensure_launch_roles
+from bintrans_autopilot.tests.test_launch_lifecycle_r6b1 import _ADMIN_LOGIN, _ensure_launch_admin
 
 
 def _dsn() -> str:
@@ -102,15 +105,16 @@ class MockOrchestratorR6B3Tests(unittest.TestCase):
         self.assertEqual(first.job_id, second.job_id)
         self.assertFalse(second.created)
         self.assertEqual(runner.run_once(), "committed")
+        settled = runner.budget.get_reservation("launch-dup")
         again = runner.budget.commit_usage(
             "launch-dup",
             raw_cost_text="4",
             charged_text="4",
             charged_known=True,
-            agent_id=_AGENT,
-            run_id=_RUN,
-            verification_id=self._verification("4"),
-            payload_digest=self._digest("4"),
+            agent_id=settled.agent_id,
+            run_id=settled.run_id,
+            verification_id=self._verification("4", settled.agent_id, settled.run_id),
+            payload_digest=self._digest("4", settled.agent_id, settled.run_id),
             source="mock_orchestrator",
         )
         self.assertEqual(again.state, COMMITTED)
@@ -268,6 +272,134 @@ class MockOrchestratorR6B3Tests(unittest.TestCase):
             runner.submit(self._task("launch-next", "idem-next"))
         self.assertEqual(raised.exception.code, "overrun_open")
 
+    def test_r6b3_001_sequential_and_cross_tenant_launches(self) -> None:
+        runner = self._orchestrator()
+        identities = []
+        for index in range(3):
+            launch_id = f"launch-seq-{index}"
+            runner.submit(self._task(launch_id, f"idem-seq-{index}"))
+            self.assertEqual(runner.run_once(), "committed")
+            row = runner.budget.get_reservation(launch_id)
+            self.assertEqual(row.state, COMMITTED)
+            self.assertEqual((row.agent_id, row.run_id), mock_identity("tenant-a", launch_id))
+            self.assertNotEqual(row.agent_id, _AGENT)
+            identities.append(row.agent_id)
+        self.assertEqual(len(set(identities)), 3)
+        self.assertEqual(self._window_committed(), 12)
+        self.assertEqual(self._verified_rows(), 3)
+        other = self._orchestrator(tenant_id="tenant-b", owner="worker-b")
+        other.submit(self._task("launch-tenant-b", "idem-tenant-b", tenant_id="tenant-b"))
+        self.assertEqual(other.run_once(), "committed")
+        foreign = other.budget.get_reservation("launch-tenant-b")
+        self.assertEqual(foreign.state, COMMITTED)
+        self.assertEqual((foreign.agent_id, foreign.run_id), mock_identity("tenant-b", "launch-tenant-b"))
+        self.assertEqual(self._window_committed("tenant-b"), 4)
+        self.assertEqual(runner.cloud_agents_started, 0)
+
+    def test_r6b3_002_unconfirmed_send_reaches_operator_release(self) -> None:
+        runner = self._orchestrator()
+        submitted = runner.submit(self._task("launch-leak", "idem-leak", scenario="timeout"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(runner.mock_sends, 1)
+        self.assertEqual(self._launch_state("launch-leak"), "SEND_STARTED")
+        self.assertEqual(runner.run_once(), "failed")
+        self.assertEqual(runner.mock_sends, 1)
+        self.assertEqual(self._launch_state("launch-leak"), "MANUAL_RECONCILIATION_REQUIRED")
+        self.assertEqual(runner.budget.get_reservation("launch-leak").state, RESERVED)
+        self.assertEqual(self._window_committed(), 0)
+        self.assertGreater(self._window_reserved(), 0)
+        self.assertEqual(self._job_status(submitted.job_id), "FAILED")
+        _ensure_launch_admin(self.dsn)
+        admin = _connect(self.dsn, _ADMIN_LOGIN, _ADMIN_LOGIN)
+        try:
+            admin.execute(
+                "SELECT autopilot_queue.launch_protocol_manual_reject(%s, %s, %s)",
+                ("tenant-a", "launch-leak", "operator release"),
+            )
+            admin.commit()
+        finally:
+            admin.close()
+        self.assertEqual(self._launch_state("launch-leak"), "LAUNCH_REJECTED")
+        self.assertEqual(runner.budget.get_reservation("launch-leak").state, RELEASED)
+        self.assertEqual(self._window_reserved(), 0)
+        self.assertEqual(self._window_committed(), 0)
+        self.assertEqual(self._verified_rows(), 0)
+
+    def test_r6b3_003_estop_after_confirm_retries_settlement(self) -> None:
+        calls = {"n": 0}
+        real = lambda: _reconciler_connect(self.dsn)
+
+        def estop_on_first_settlement():
+            calls["n"] += 1
+            if calls["n"] == 1:
+                self._set_control(mode="MOCK_ONLY", estop=True)
+            return real()
+
+        runner = self._orchestrator(reconcile_connect=estop_on_first_settlement)
+        runner.submit(self._task("launch-estop-late", "idem-estop-late"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(self._launch_state("launch-estop-late"), "LAUNCH_CONFIRMED")
+        self.assertEqual(runner.budget.get_reservation("launch-estop-late").state, RESERVED)
+        self.assertEqual(self._window_committed(), 0)
+        self.assertEqual(self._job_status_for_launch("launch-estop-late"), "PENDING")
+        self._set_control(mode="MOCK_ONLY", estop=False)
+        resumed = self._orchestrator()
+        self.assertEqual(resumed.run_once(), "committed")
+        self.assertEqual(resumed.run_once(), "idle")
+        self.assertEqual(self._window_committed(), 4)
+        self.assertEqual(self._verified_rows(), 1)
+
+    def test_r6b3_004_resume_does_not_send_again(self) -> None:
+        runner = self._orchestrator()
+        runner.submit(self._task("launch-once", "idem-once", scenario="ambiguous"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(runner.mock_sends, 1)
+        self._set_control(mode="MOCK_ONLY", estop=True)
+        self.assertEqual(runner.run_once(), "stopped")
+        self.assertEqual(self._launch_state("launch-once"), "SEND_STARTED")
+        self.assertEqual(runner.budget.get_reservation("launch-once").state, RESERVED)
+        self._set_control(mode="MOCK_ONLY", estop=False)
+        resumed = self._orchestrator()
+        self.assertEqual(resumed.run_once(), "failed")
+        self.assertEqual(resumed.mock_sends, 0)
+        self.assertEqual(self._launch_state("launch-once"), "MANUAL_RECONCILIATION_REQUIRED")
+        self.assertEqual(resumed.budget.get_reservation("launch-once").state, RESERVED)
+        self.assertEqual(self._window_committed(), 0)
+
+    def test_concurrent_distinct_launches_settle_once_each(self) -> None:
+        first = self._orchestrator(owner="worker-a")
+        second = self._orchestrator(owner="worker-b")
+        first.submit(self._task("launch-c1", "idem-c1"))
+        second.submit(self._task("launch-c2", "idem-c2"))
+        outcomes: list[str] = []
+        barrier = threading.Barrier(2)
+
+        def run(active: MockOrchestrator) -> None:
+            barrier.wait(timeout=5)
+            outcomes.append(active.run_once())
+
+        threads = [threading.Thread(target=run, args=(item,)) for item in (first, second)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(10)
+        self.assertCountEqual(outcomes, ["committed", "committed"])
+        self.assertEqual(self._window_committed(), 8)
+        self.assertEqual(self._verified_rows(), 2)
+
+    def test_crash_between_reserve_and_intent_retries_once(self) -> None:
+        runner = self._orchestrator(adapter_connect=self._fail_record_once())
+        runner.submit(self._task("launch-gap-crash", "idem-gap-crash"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertIsNone(self._launch_state("launch-gap-crash"))
+        reserved = runner.budget.get_reservation("launch-gap-crash")
+        self.assertEqual(reserved.state, RESERVED)
+        self.assertEqual(self._window_committed(), 0)
+        resumed = self._orchestrator()
+        self.assertEqual(resumed.run_once(), "committed")
+        self.assertEqual(self._reservation_count("launch-gap-crash"), 1)
+        self.assertEqual(self._window_committed(), 4)
+
     def test_payload_cannot_select_a_callable(self) -> None:
         runner = self._orchestrator()
         with self.assertRaises(QueueError) as raised:
@@ -296,7 +428,14 @@ class MockOrchestratorR6B3Tests(unittest.TestCase):
         self.assertNotIn("http://", source)
         self.assertNotIn("https://", source)
 
-    def _orchestrator(self, *, tenant_id: str = "tenant-a", owner: str = "worker-a", reconcile_connect=None) -> MockOrchestrator:
+    def _orchestrator(
+        self,
+        *,
+        tenant_id: str = "tenant-a",
+        owner: str = "worker-a",
+        reconcile_connect=None,
+        adapter_connect=None,
+    ) -> MockOrchestrator:
         role, password = _TENANTS[tenant_id]
         runtime = lambda: _tenant_connect(self.dsn, role, password)
         budget = BudgetController(
@@ -307,13 +446,23 @@ class MockOrchestratorR6B3Tests(unittest.TestCase):
         return MockOrchestrator(
             PostgresQueue(runtime),
             runtime,
-            lambda: _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN),
+            adapter_connect or (lambda: _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)),
             budget,
+            lambda: _connect(self.dsn, _RECOVERY_LOGIN, _RECOVERY_LOGIN),
             tenant_id=tenant_id,
             owner=owner,
             config=_enabled_config(),
             audit=AuditJournal(self.audit_path),
         )
+
+    def _fail_record_once(self):
+        state = {"armed": True}
+
+        def connect():
+            inner = _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)
+            return _RecordIntentFailure(inner, state)
+
+        return connect
 
     def _task(self, launch_id: str, key: str, **overrides) -> MockTask:
         values = {
@@ -371,21 +520,6 @@ class MockOrchestratorR6B3Tests(unittest.TestCase):
             connection.close()
         return None if row is None else row[0]
 
-    def _window_committed(self) -> int:
-        connection = _owner_connect(self.dsn)
-        try:
-            row = connection.execute(
-                """
-                SELECT COALESCE(sum(committed_cents), 0)
-                FROM autopilot_queue.budget_window_usage
-                WHERE tenant_id = 'tenant-a' AND bucket = 'day'
-                """
-            ).fetchone()
-            connection.rollback()
-        finally:
-            connection.close()
-        return int(row[0])
-
     def _verified_rows(self) -> int:
         connection = _owner_connect(self.dsn)
         try:
@@ -395,15 +529,120 @@ class MockOrchestratorR6B3Tests(unittest.TestCase):
             connection.close()
         return int(row[0])
 
-    def _verification(self, charged: str) -> str:
-        verification, _digest = self._refs(charged)
+    def _verification(self, charged: str, agent_id: str = _AGENT, run_id: str = _RUN) -> str:
+        verification, _digest = self._refs(charged, agent_id, run_id)
         return verification
 
-    def _digest(self, charged: str) -> str:
-        _verification, digest = self._refs(charged)
+    def _digest(self, charged: str, agent_id: str = _AGENT, run_id: str = _RUN) -> str:
+        _verification, digest = self._refs(charged, agent_id, run_id)
         return digest
 
-    def _refs(self, charged: str) -> tuple[str, str]:
+    def _refs(self, charged: str, agent_id: str = _AGENT, run_id: str = _RUN) -> tuple[str, str]:
         from bintrans_autopilot.usage_verification import usage_verification_refs
 
-        return usage_verification_refs(_AGENT, _RUN, {"rawCostCents": charged, "chargedCents": charged})
+        return usage_verification_refs(agent_id, run_id, {"rawCostCents": charged, "chargedCents": charged})
+
+    def _window_committed(self, tenant_id: str = "tenant-a") -> int:
+        return self._window_cents("committed_cents", tenant_id)
+
+    def _window_reserved(self, tenant_id: str = "tenant-a") -> int:
+        return self._window_cents("reserved_cents", tenant_id)
+
+    def _window_cents(self, column: str, tenant_id: str) -> int:
+        if column not in {"committed_cents", "reserved_cents"}:
+            raise AssertionError(column)
+        connection = _owner_connect(self.dsn)
+        try:
+            row = connection.execute(
+                f"""
+                SELECT COALESCE(sum({column}), 0)
+                FROM autopilot_queue.budget_window_usage
+                WHERE scope = 'tenant' AND tenant_id = %s AND bucket = 'day'
+                """,
+                (tenant_id,),
+            ).fetchone()
+            connection.rollback()
+        finally:
+            connection.close()
+        return int(row[0])
+
+    def _job_status(self, job_id: str) -> str:
+        connection = _owner_connect(self.dsn)
+        try:
+            row = connection.execute(
+                "SELECT status FROM autopilot_queue.jobs WHERE job_id = %s",
+                (job_id,),
+            ).fetchone()
+            connection.rollback()
+        finally:
+            connection.close()
+        return row[0]
+
+    def _job_status_for_launch(self, launch_id: str) -> str:
+        connection = _owner_connect(self.dsn)
+        try:
+            row = connection.execute(
+                """
+                SELECT status FROM autopilot_queue.jobs
+                WHERE payload->>'launch_id' = %s
+                """,
+                (launch_id,),
+            ).fetchone()
+            connection.rollback()
+        finally:
+            connection.close()
+        return row[0]
+
+    def _reservation_count(self, launch_id: str) -> int:
+        connection = _owner_connect(self.dsn)
+        try:
+            row = connection.execute(
+                "SELECT count(*) FROM autopilot_queue.budget_reservations WHERE launch_id = %s",
+                (launch_id,),
+            ).fetchone()
+            connection.rollback()
+        finally:
+            connection.close()
+        return int(row[0])
+
+
+class _RecordIntentFailure:
+    def __init__(self, inner, state: dict):
+        self._inner = inner
+        self._state = state
+
+    def cursor(self, *args, **kwargs):
+        return _RecordIntentCursor(self._inner.cursor(*args, **kwargs), self._state)
+
+    def commit(self):
+        return self._inner.commit()
+
+    def rollback(self):
+        return self._inner.rollback()
+
+    def close(self):
+        return self._inner.close()
+
+
+class _RecordIntentCursor:
+    def __init__(self, inner, state: dict):
+        self._inner = inner
+        self._state = state
+
+    def __enter__(self):
+        self._inner.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return self._inner.__exit__(exc_type, exc, tb)
+
+    def execute(self, statement, params=None, **kwargs):
+        if self._state["armed"] and "launch_protocol_record_intent" in str(statement):
+            self._state["armed"] = False
+            raise RuntimeError("store_unavailable")
+        if params is None:
+            return self._inner.execute(statement, **kwargs)
+        return self._inner.execute(statement, params, **kwargs)
+
+    def __getattr__(self, name: str):
+        return getattr(self._inner, name)

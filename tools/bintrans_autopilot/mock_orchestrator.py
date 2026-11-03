@@ -24,7 +24,7 @@ from bintrans_autopilot.budget_controller import (
     _exception_code,
 )
 from bintrans_autopilot.config import AutopilotConfig, load_config
-from bintrans_autopilot.launch.mock_transport import MockCursorTransport
+from bintrans_autopilot.launch.mock_transport import MockCursorTransport, mock_identity
 from bintrans_autopilot.postgres_queue import (
     PostgresQueue,
     QueueError,
@@ -57,6 +57,17 @@ _LOCKED_OFF = (
 )
 _MOCK_BODY_HASH = "a" * 64
 _TERMINAL_SETTLED = {COMMITTED, OVERRUN}
+_RETRYABLE = {
+    "timeout",
+    "ambiguous",
+    "conflict",
+    "handler_failed",
+    "store_unavailable",
+    "recovery_pending",
+    "lease_held_by_other",
+    "estop_active",
+    "launch_mode_blocked",
+}
 
 
 class OrchestratorError(Exception):
@@ -119,6 +130,7 @@ class MockOrchestrator:
         runtime_connect,
         adapter_connect,
         budget: BudgetController,
+        recovery_connect,
         *,
         tenant_id: str,
         owner: str,
@@ -134,11 +146,12 @@ class MockOrchestrator:
         self._config = config or load_config()
         if self._config.autopilot_enabled and not self._config.test_budget_harness:
             raise OrchestratorError("orchestrator_disabled")
-        if not callable(runtime_connect) or not callable(adapter_connect):
+        if not callable(runtime_connect) or not callable(adapter_connect) or not callable(recovery_connect):
             raise OrchestratorError("invalid_input")
         self.queue = queue
         self._runtime_connect = runtime_connect
         self._adapter_connect = adapter_connect
+        self._recovery_connect = recovery_connect
         self.budget = budget
         self.tenant_id = tenant_id
         self.owner = owner
@@ -148,6 +161,7 @@ class MockOrchestrator:
         self.paid_automation_enabled = False
         self.external_calls = 0
         self.cloud_agents_started = 0
+        self.mock_sends = 0
         self._stop = False
 
     def stop(self) -> None:
@@ -190,6 +204,7 @@ class MockOrchestrator:
                 payload=payload,
                 idempotency_key=task.idempotency_key,
                 priority=task.priority,
+                max_attempts=self._attempt_budget(),
                 backoff_seconds=0,
             )
         except QueueError as exc:
@@ -253,11 +268,7 @@ class MockOrchestrator:
                 return "stale"
             return "unavailable" if exc.code == "store_unavailable" else "failed"
         except OrchestratorError as exc:
-            return self._fail(
-                lease,
-                exc.code,
-                retryable=exc.code in {"timeout", "ambiguous", "handler_failed", "store_unavailable"},
-            )
+            return self._fail(lease, exc.code, retryable=exc.code in _RETRYABLE)
         return outcome
 
     def _execute(self, lease, payload: dict) -> str:
@@ -274,8 +285,7 @@ class MockOrchestrator:
         if scenario not in _SCENARIOS:
             raise OrchestratorError("handler_rejected")
         launch_id = payload["launch_id"]
-        agent_id = payload["agent_id"]
-        run_id = payload["run_id"]
+        agent_id, run_id = mock_identity(self.tenant_id, launch_id)
         reserve_cents = int(payload["reserve_cents"])
         charged_cents = int(payload["charged_cents"])
         gate = self._control_gate()
@@ -299,6 +309,7 @@ class MockOrchestrator:
             raise OrchestratorError(reservation.block_reason or "blocked")
         if reservation.state != RESERVED:
             raise OrchestratorError("invalid_state")
+        resumed_send = state == "SEND_STARTED"
         if state is None:
             self._adapter(
                 "SELECT autopilot_queue.launch_protocol_record_intent(%s, %s, %s, %s, %s)",
@@ -312,10 +323,13 @@ class MockOrchestrator:
                 (self.tenant_id, launch_id),
             )
             state = "SEND_STARTED"
+        if resumed_send:
+            self._recover_unconfirmed(launch_id)
         if state == "SEND_STARTED":
             transport = MockCursorTransport(scenario)
+            self.mock_sends += 1
             try:
-                created = transport.create_agent({"launch_id": launch_id})
+                created = transport.create_agent({"tenant_id": self.tenant_id, "launch_id": launch_id})
             except RuntimeError:
                 raise OrchestratorError("handler_failed") from None
             self.external_calls = 0
@@ -391,10 +405,94 @@ class MockOrchestrator:
         )
         return result
 
+    def _recover_unconfirmed(self, launch_id: str) -> None:
+        """One fenced recovery poll. Does not call the mock transport again."""
+
+        state = self._launch_state(launch_id)
+        if state == "SEND_STARTED":
+            self._adapter(
+                "SELECT autopilot_queue.launch_protocol_mark_unknown(%s, %s, NULL)",
+                (self.tenant_id, launch_id),
+            )
+            self.audit.write("launch_unknown", tenant_id=self.tenant_id, launch_id=launch_id, result="LAUNCH_UNKNOWN")
+        elif state != "LAUNCH_UNKNOWN":
+            raise OrchestratorError("invalid_state")
+        connection = self._recovery_connect()
+        try:
+            with _cursor_for(connection) as cursor:
+                cursor.execute(
+                    """
+                    SELECT autopilot_queue.launch_protocol_recovery_lease_acquire(%s, %s) AS token
+                    """,
+                    (self.tenant_id, launch_id),
+                )
+                acquired = _one(cursor)
+                if acquired is None or acquired["token"] is None:
+                    raise OrchestratorError("invalid_lease")
+                token = acquired["token"]
+                decision = ""
+                while True:
+                    cursor.execute(
+                        """
+                        SELECT poll_count, decision
+                        FROM autopilot_queue.launch_protocol_recovery_poll_attempt(%s, %s, %s)
+                        """,
+                        (self.tenant_id, launch_id, token),
+                    )
+                    polled = _one(cursor)
+                    if polled is None:
+                        raise OrchestratorError("invalid_state")
+                    decision = str(polled["decision"])
+                    if decision == "MANUAL":
+                        cursor.execute(
+                            """
+                            SELECT autopilot_queue.launch_protocol_escalate_manual(%s, %s, %s)
+                            """,
+                            (self.tenant_id, launch_id, token),
+                        )
+                        break
+                    if int(polled["poll_count"]) > 100:
+                        raise OrchestratorError("invalid_state")
+            connection.commit()
+        except OrchestratorError:
+            connection.rollback()
+            raise
+        except Exception as exc:
+            connection.rollback()
+            code = _exception_code(exc) or "store_unavailable"
+            raise OrchestratorError(code) from None
+        finally:
+            connection.close()
+        self.audit.write("recovery_poll", tenant_id=self.tenant_id, launch_id=launch_id, result=decision)
+        if decision == "MANUAL":
+            raise OrchestratorError("manual_reconciliation")
+        raise OrchestratorError("recovery_pending")
+
+    def _attempt_budget(self) -> int:
+        connection = self._runtime_connect()
+        try:
+            with _cursor_for(connection) as cursor:
+                _assert_runtime_binding(cursor, self.tenant_id)
+                cursor.execute(
+                    """
+                    SELECT max_recovery_polls
+                    FROM autopilot_queue.autopilot_launch_control
+                    WHERE id = 1
+                    """
+                )
+                row = _one(cursor)
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise OrchestratorError("store_unavailable") from None
+        finally:
+            connection.close()
+        polls = 24 if row is None else int(row["max_recovery_polls"])
+        return min(100, polls + 1)
+
     def _fail(self, lease, code: str, *, retryable: bool) -> str:
         if code in {"estop_active", "launch_mode_blocked"}:
             self.stop()
-            retryable = False
         try:
             saved = self.queue.fail(
                 lease.tenant_id,
