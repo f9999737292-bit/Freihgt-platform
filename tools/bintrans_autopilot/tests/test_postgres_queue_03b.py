@@ -26,6 +26,7 @@ from bintrans_autopilot.postgres_queue import (
     _statements,
 )
 from bintrans_autopilot.task_queue import FileLock, TaskStore
+from bintrans_autopilot.tests.test_budget_controller_03c2 import _clear_budget_fixtures, _reseed_tenant_ledgers
 
 _TENANTS = {
     "tenant-a": ("tenant_a_runtime", "tenant_a_test"),
@@ -291,7 +292,21 @@ class PostgresQueueTests(unittest.TestCase):
             return
         cls.runner = MigrationRunner(lambda: _owner_connect(cls.dsn))
         cls.runner.up()
+        if cls.runner.version() >= 2:
+            _clear_budget_fixtures(cls.dsn)
+            cls.runner.down_budget_migration(allow_destructive_test=True)
+            cls.runner.up()
+            _reseed_tenant_ledgers(cls.dsn, cls.runner)
         _ensure_tenant_roles(cls.dsn, cls.runner)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if not cls.dsn:
+            return
+        if cls.runner.version() < 15:
+            cls.runner.up()
+        if cls.runner.version() >= 2:
+            _reseed_tenant_ledgers(cls.dsn, cls.runner)
 
     def setUp(self) -> None:
         if not self.dsn:
@@ -299,10 +314,21 @@ class PostgresQueueTests(unittest.TestCase):
         connection = _owner_connect(self.dsn)
         try:
             connection.execute("TRUNCATE autopilot_queue.jobs")
+            if self.runner.version() >= 8:
+                connection.execute("DELETE FROM autopilot_queue.manual_reconciliation_audit")
+                connection.execute("DELETE FROM autopilot_queue.recovery_poll_audit")
+                connection.execute("DELETE FROM autopilot_queue.launch_intents")
+            if self.runner.version() >= 2:
+                connection.execute("DELETE FROM autopilot_queue.budget_verified_usage")
+                connection.execute("DELETE FROM autopilot_queue.budget_reservations")
+                connection.execute("DELETE FROM autopilot_queue.budget_window_usage")
             connection.commit()
         finally:
             connection.close()
         _ensure_tenant_roles(self.dsn, self.runner)
+        if self.runner.version() >= 2:
+            _clear_budget_fixtures(self.dsn)
+            self.runner.down_budget_migration(allow_destructive_test=True)
         self.queue = PostgresQueue(lambda: _tenant_connect(self.dsn, "tenant_a_runtime", "tenant_a_test"))
         self.queue_b = PostgresQueue(lambda: _tenant_connect(self.dsn, "tenant_b_runtime", "tenant_b_test"))
 
@@ -664,7 +690,7 @@ class PostgresQueueTests(unittest.TestCase):
         self.assertEqual(before, after)
 
     def test_migration_is_isolated_and_reversible(self) -> None:
-        self.assertEqual(self.runner.up(), 1)
+        self.assertEqual(self.runner.up(), 15)
         connection = _owner_connect(self.dsn)
         try:
             platform = connection.execute("SELECT to_regclass('public.schema_migrations') AS name").fetchone()
@@ -675,14 +701,45 @@ class PostgresQueueTests(unittest.TestCase):
         finally:
             connection.close()
         try:
-            self.assertEqual(self.runner.down(), 0)
-            self.assertEqual(self.runner.up(), 1)
-            self.assertEqual(self.runner.down(), 0)
-            self.assertEqual(self.runner.up(), 1)
+            destructive = {"allow_destructive_test": True}
+            self.assertEqual(self.runner.down(**destructive), 14)
+            self.assertEqual(self.runner.down(**destructive), 13)
+            self.assertEqual(self.runner.down(**destructive), 12)
+            self.assertEqual(self.runner.down(**destructive), 11)
+            self.assertEqual(self.runner.down(**destructive), 10)
+            self.assertEqual(self.runner.down(**destructive), 9)
+            self.assertEqual(self.runner.down(**destructive), 8)
+            self.assertEqual(self.runner.down(**destructive), 7)
+            self.assertEqual(self.runner.down(**destructive), 6)
+            self.assertEqual(self.runner.down(**destructive), 5)
+            self.assertEqual(self.runner.down(**destructive), 4)
+            self.assertEqual(self.runner.down(**destructive), 3)
+            self.assertEqual(self.runner.down(**destructive), 2)
+            self.assertEqual(self.runner.down(**destructive), 1)
+            self.assertEqual(self.runner.down(**destructive), 0)
+            self.assertEqual(self.runner.up(), 15)
+            self.assertEqual(self.runner.down(**destructive), 14)
+            self.assertEqual(self.runner.down(**destructive), 13)
+            self.assertEqual(self.runner.down(**destructive), 12)
+            self.assertEqual(self.runner.down(**destructive), 11)
+            self.assertEqual(self.runner.down(**destructive), 10)
+            self.assertEqual(self.runner.down(**destructive), 9)
+            self.assertEqual(self.runner.down(**destructive), 8)
+            self.assertEqual(self.runner.down(**destructive), 7)
+            self.assertEqual(self.runner.down(**destructive), 6)
+            self.assertEqual(self.runner.down(**destructive), 5)
+            self.assertEqual(self.runner.down(**destructive), 4)
+            self.assertEqual(self.runner.down(**destructive), 3)
+            self.assertEqual(self.runner.down(**destructive), 2)
+            self.assertEqual(self.runner.down(**destructive), 1)
+            self.assertEqual(self.runner.down(**destructive), 0)
+            self.assertEqual(self.runner.up(), 15)
         finally:
-            if self.runner.version() != 1:
+            if self.runner.version() < 15:
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
+            if self.runner.version() >= 2:
+                _reseed_tenant_ledgers(self.dsn, self.runner)
 
     def test_public_sequence_blocks_destructive_rollback(self) -> None:
         self._blocked_public_object(
@@ -736,7 +793,7 @@ class PostgresQueueTests(unittest.TestCase):
             connection.execute("DROP SEQUENCE public.queue_isolation_resume_seq")
             connection.commit()
             self.assertEqual(self.runner.down(allow_destructive_test=True), 0)
-            self.assertEqual(self.runner.up(), 1)
+            self.assertEqual(self.runner.up(), 15)
         finally:
             connection.rollback()
             found = connection.execute("SELECT to_regclass('public.queue_isolation_resume_seq')").fetchone()
@@ -744,7 +801,7 @@ class PostgresQueueTests(unittest.TestCase):
                 connection.execute("DROP SEQUENCE public.queue_isolation_resume_seq")
             connection.commit()
             connection.close()
-            if self.runner.version() != 1:
+            if self.runner.version() != 14:
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
 
@@ -792,7 +849,7 @@ class PostgresQueueTests(unittest.TestCase):
             connection.execute("DROP VIEW IF EXISTS public.autopilot_queue_foreign_view")
             connection.commit()
             connection.close()
-            if self.runner.version() != 1:
+            if self.runner.version() < 2:
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
 
@@ -1036,14 +1093,31 @@ class PostgresQueueTests(unittest.TestCase):
 
     def test_clean_rollback_down_up(self) -> None:
         try:
-            self.assertEqual(self.runner.down(), 0)
+            if self.runner.version() < 15:
+                self.runner.up()
+            destructive = {"allow_destructive_test": True}
+            self.assertEqual(self.runner.down(**destructive), 14)
+            self.assertEqual(self.runner.down(**destructive), 13)
+            self.assertEqual(self.runner.down(**destructive), 12)
+            self.assertEqual(self.runner.down(**destructive), 11)
+            self.assertEqual(self.runner.down(**destructive), 10)
+            self.assertEqual(self.runner.down(**destructive), 9)
+            self.assertEqual(self.runner.down(**destructive), 8)
+            self.assertEqual(self.runner.down(**destructive), 7)
+            self.assertEqual(self.runner.down(**destructive), 6)
+            self.assertEqual(self.runner.down(**destructive), 5)
+            self.assertEqual(self.runner.down(**destructive), 4)
+            self.assertEqual(self.runner.down(**destructive), 3)
+            self.assertEqual(self.runner.down(**destructive), 2)
+            self.assertEqual(self.runner.down(**destructive), 1)
+            self.assertEqual(self.runner.down(**destructive), 0)
             connection = _owner_connect(self.dsn)
             try:
                 self.assertIsNone(_cell(connection.execute("SELECT to_regclass('autopilot_queue.jobs')").fetchone()))
                 connection.rollback()
             finally:
                 connection.close()
-            self.assertEqual(self.runner.up(), 1)
+            self.assertEqual(self.runner.up(), 15)
             connection = _owner_connect(self.dsn)
             try:
                 self._assert_version_and_rls(connection)
@@ -1064,9 +1138,11 @@ class PostgresQueueTests(unittest.TestCase):
             finally:
                 connection.close()
         finally:
-            if self.runner.version() != 1:
+            if self.runner.version() < 15:
                 self.runner.up()
             _ensure_tenant_roles(self.dsn, self.runner)
+            if self.runner.version() >= 2:
+                _reseed_tenant_ledgers(self.dsn, self.runner)
 
     def test_runtime_role_cannot_delete_or_migrate(self) -> None:
         import psycopg
@@ -1097,7 +1173,7 @@ class PostgresQueueTests(unittest.TestCase):
         self._reject_precreated_role("CREATE ROLE autopilot_queue_runtime SUPERUSER LOGIN", "rolsuper")
 
     def test_existing_role_membership_is_rejected(self) -> None:
-        self.runner.down()
+        self.runner.down(allow_destructive_test=True)
         connection = _owner_connect(self.dsn)
         try:
             _detach_runtime(connection)
@@ -1143,7 +1219,7 @@ class PostgresQueueTests(unittest.TestCase):
                 connection.commit()
             finally:
                 connection.close()
-                if self.runner.version() != 1:
+                if self.runner.version() < 2:
                     self.runner.up()
                     _ensure_tenant_roles(self.dsn, self.runner)
 
@@ -1168,13 +1244,15 @@ class PostgresQueueTests(unittest.TestCase):
                     connection.commit()
             finally:
                 connection.close()
-                if self.runner.version() != 1:
+                if self.runner.version() < 2:
                     self.runner.up()
                     _ensure_tenant_roles(self.dsn, self.runner)
 
     def _assert_version_and_rls(self, connection) -> None:
-        versions = connection.execute("SELECT version FROM autopilot_queue.schema_migrations").fetchall()
-        self.assertEqual([_cell(row) for row in versions], [1])
+        versions = connection.execute("SELECT version FROM autopilot_queue.schema_migrations ORDER BY version").fetchall()
+        budget = _cell(connection.execute("SELECT to_regclass('autopilot_queue.budget_reservations')").fetchone())
+        expected = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] if budget else [1]
+        self.assertEqual([_cell(row) for row in versions], expected)
         flags = connection.execute(
             """
             SELECT c.relrowsecurity, c.relforcerowsecurity
@@ -1188,7 +1266,7 @@ class PostgresQueueTests(unittest.TestCase):
         self.assertIsNotNone(_cell(connection.execute("SELECT to_regclass('autopilot_queue.jobs')").fetchone()))
 
     def _reject_precreated_role(self, create_sql: str, column: str) -> None:
-        self.runner.down()
+        self.runner.down(allow_destructive_test=True)
         connection = _owner_connect(self.dsn)
         try:
             _detach_runtime(connection)

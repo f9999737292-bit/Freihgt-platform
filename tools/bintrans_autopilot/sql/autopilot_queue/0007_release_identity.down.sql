@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS autopilot_queue.budget_verified_usage_run_id_uidx;
+DROP INDEX IF EXISTS autopilot_queue.budget_reservations_run_id_uidx;
+DROP FUNCTION IF EXISTS autopilot_queue._budget_assert_release_allowed(autopilot_queue.budget_reservations);

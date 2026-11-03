@@ -1,0 +1,663 @@
+"""Budget controller tests. Database cases require BINTRANS_AUTOPILOT_QUEUE_DSN."""
+
+from __future__ import annotations
+
+import os
+import threading
+import unittest
+from dataclasses import replace
+from decimal import Decimal
+from urllib.parse import urlsplit
+
+from bintrans_autopilot.budget_controller import (
+    BLOCKED,
+    COMMITTED,
+    OVERRUN,
+    RESERVED,
+    BudgetController,
+    BudgetControllerError,
+    RELEASED,
+    limits_from_config,
+)
+from bintrans_autopilot.config import AutopilotConfig, load_config
+from bintrans_autopilot.postgres_queue import MigrationRunner, QueueError
+from bintrans_autopilot.usage_reconciliation import parse_usage_payload
+from bintrans_autopilot.usage_reconciliation import reconcile_launch_usage as _reconcile_launch_usage
+from bintrans_autopilot.usage_verification import usage_verification_refs
+
+_AGENT = "bc-33a0edbc-8fed-47fa-85b7-cc139e900375"
+_RUN = "run-a51658e1-665d-4f7c-9135-c0d720b2210b"
+
+_TENANTS = {
+    "tenant-a": ("tenant_a_runtime", "tenant_a_test"),
+    "tenant-b": ("tenant_b_runtime", "tenant_b_test"),
+}
+_RECONCILER_LOGIN = "budget_reconciler_test"
+_RECONCILER_PASSWORD = "budget_reconciler_test"
+
+
+def _dsn() -> str:
+    return os.environ.get("BINTRANS_AUTOPILOT_QUEUE_DSN", "").strip()
+
+
+def _owner_connect(dsn: str):
+    import psycopg
+
+    return psycopg.connect(dsn, connect_timeout=3)
+
+
+def _clear_budget_fixtures(dsn: str) -> None:
+    connection = _owner_connect(dsn)
+    try:
+        def _has(name: str) -> bool:
+            row = connection.execute("SELECT to_regclass(%s) AS name", (f"autopilot_queue.{name}",)).fetchone()
+            return row is not None and row[0] is not None
+
+        if _has("budget_verified_usage"):
+            connection.execute("DELETE FROM autopilot_queue.budget_verified_usage")
+        if _has("launch_intents"):
+            connection.execute("DELETE FROM autopilot_queue.launch_intents")
+        if _has("budget_reservations"):
+            connection.execute("DELETE FROM autopilot_queue.budget_reservations")
+        if _has("budget_window_usage"):
+            connection.execute("DELETE FROM autopilot_queue.budget_window_usage")
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def _tenant_connect(dsn: str, user: str, password: str):
+    import psycopg
+
+    parts = urlsplit(dsn)
+    return psycopg.connect(
+        host=parts.hostname or "localhost",
+        port=parts.port or 5432,
+        dbname=parts.path.lstrip("/"),
+        user=user,
+        password=password,
+        connect_timeout=3,
+    )
+
+
+def _enabled_config() -> AutopilotConfig:
+    base = load_config()
+    return replace(
+        base,
+        autopilot_enabled=True,
+        budget_max_charged_cents=300,
+        budget_max_charged_cents_daily=500,
+        budget_max_charged_cents_monthly=5000,
+        test_budget_harness=True,
+    )
+
+
+def _reconciler_connect(dsn: str):
+    return _tenant_connect(dsn, _RECONCILER_LOGIN, _RECONCILER_PASSWORD)
+
+
+def _usage_refs(payload: dict, *, agent_id: str = _AGENT, run_id: str = _RUN) -> tuple[str, str]:
+    return usage_verification_refs(agent_id, run_id, payload)
+
+
+def _mark_unknown_verified(
+    controller: BudgetController,
+    launch_id: str,
+    *,
+    raw_cost_text: str | None = None,
+    agent_id: str = _AGENT,
+    run_id: str = _RUN,
+) -> None:
+    payload = {"rawCostCents": raw_cost_text} if raw_cost_text is not None else {}
+    verification_id, payload_digest = _usage_refs(payload, agent_id=agent_id, run_id=run_id)
+    row = controller.get_reservation(launch_id)
+    if row is not None:
+        _arm_confirmed_launch(_dsn(), row.tenant_id, launch_id, agent_id, run_id)
+    controller.mark_usage_unknown(
+        launch_id,
+        agent_id=agent_id,
+        run_id=run_id,
+        raw_cost_text=raw_cost_text,
+        verification_id=verification_id,
+        payload_digest=payload_digest,
+    )
+
+
+def _arm_confirmed_launch(dsn: str, tenant_id: str, launch_id: str, agent_id: str, run_id: str) -> None:
+    """Test fixture only. Positive budget cases need a confirmed mock launch after 0015."""
+    owner = _owner_connect(dsn)
+    try:
+        present = owner.execute("SELECT to_regclass('autopilot_queue.launch_intents')").fetchone()
+        if present is None or present[0] is None:
+            return
+        owner.execute(
+            """
+            UPDATE autopilot_queue.autopilot_launch_control
+            SET autopilot_launch_mode = 'MOCK_ONLY', autopilot_estop = false
+            WHERE id = 1
+            """
+        )
+        existing = owner.execute(
+            """
+            SELECT lifecycle_state
+            FROM autopilot_queue.launch_intents
+            WHERE tenant_id = %s AND launch_id = %s
+            """,
+            (tenant_id, launch_id),
+        ).fetchone()
+        if existing is not None and existing[0] in ("LAUNCH_CONFIRMED", "EXTERNAL_AGENT_CANCELLED"):
+            owner.commit()
+            return
+        owner.execute(
+            """
+            DELETE FROM autopilot_queue.launch_intents
+            WHERE tenant_id = %s AND launch_id = %s
+            """,
+            (tenant_id, launch_id),
+        )
+        owner.execute(
+            """
+            DELETE FROM autopilot_queue.launch_intents
+            WHERE agent_id = %s OR run_id = %s
+            """,
+            (agent_id, run_id),
+        )
+        owner.execute(
+            """
+            INSERT INTO autopilot_queue.launch_intents (
+                tenant_id, launch_id, lifecycle_state, planned_agent_id,
+                agent_id, run_id, create_body_version, create_body_hash,
+                last_outbound_proof_class
+            ) VALUES (
+                %s, %s, 'LAUNCH_CONFIRMED', %s, %s, %s, 1, %s, 'MOCK_TRUSTED'
+            )
+            """,
+            (tenant_id, launch_id, agent_id, agent_id, run_id, "a" * 64),
+        )
+        owner.commit()
+    finally:
+        owner.close()
+
+
+def reconcile_launch_usage(controller, *, launch_id, agent_id, run_id, usage_fetcher):
+    row = controller.get_reservation(launch_id)
+    if row is not None:
+        _arm_confirmed_launch(_dsn(), row.tenant_id, launch_id, agent_id, run_id)
+    return _reconcile_launch_usage(
+        controller,
+        launch_id=launch_id,
+        agent_id=agent_id,
+        run_id=run_id,
+        usage_fetcher=usage_fetcher,
+    )
+
+
+def _commit_verified(
+    controller: BudgetController,
+    launch_id: str,
+    *,
+    raw_cost_text: str | None,
+    charged_text: str,
+    agent_id: str = _AGENT,
+    run_id: str = _RUN,
+) -> object:
+    payload = {"rawCostCents": raw_cost_text, "chargedCents": charged_text}
+    verification_id, payload_digest = _usage_refs(payload, agent_id=agent_id, run_id=run_id)
+    row = controller.get_reservation(launch_id)
+    if row is not None:
+        _arm_confirmed_launch(_dsn(), row.tenant_id, launch_id, agent_id, run_id)
+    return controller.commit_usage(
+        launch_id,
+        raw_cost_text=raw_cost_text,
+        charged_text=charged_text,
+        charged_known=True,
+        agent_id=agent_id,
+        run_id=run_id,
+        verification_id=verification_id,
+        payload_digest=payload_digest,
+    )
+
+
+def _tenant_controller(
+    dsn: str,
+    tenant_key: str,
+    *,
+    config: AutopilotConfig | None = None,
+    now=None,
+) -> BudgetController:
+    role, password = _TENANTS[tenant_key]
+    return BudgetController(
+        lambda: _tenant_connect(dsn, role, password),
+        admin_connect=lambda: _owner_connect(dsn),
+        reconcile_connect=lambda: _reconciler_connect(dsn),
+        config=config or _enabled_config(),
+        now=now,
+    )
+
+
+def _limits_admin(
+    dsn: str,
+    *,
+    config: AutopilotConfig | None = None,
+) -> BudgetController:
+    role, password = _TENANTS["tenant-a"]
+    return BudgetController(
+        lambda: _tenant_connect(dsn, role, password),
+        admin_connect=lambda: _owner_connect(dsn),
+        config=config or _enabled_config(),
+    )
+
+
+def _reseed_tenant_ledgers(
+    dsn: str,
+    runner: MigrationRunner | None = None,
+    *,
+    tenants: tuple[str, ...] | None = None,
+    config: AutopilotConfig | None = None,
+) -> None:
+    """Recreate tenant ledger rows via the trusted admin sync path after test cleanup."""
+    if runner is not None:
+        _ensure_tenant_roles(dsn, runner)
+    tenant_ids = tenants or tuple(_TENANTS)
+    admin = _limits_admin(dsn, config=config)
+    for tenant_id in tenant_ids:
+        admin.sync_tenant_limits(tenant_id)
+    connection = _owner_connect(dsn)
+    try:
+        for tenant_id in tenant_ids:
+            found = connection.execute(
+                "SELECT 1 FROM autopilot_queue.budget_tenant_ledger WHERE tenant_id = %s",
+                (tenant_id,),
+            ).fetchone()
+            if not found:
+                raise RuntimeError(f"ledger_reseed_missing:{tenant_id}")
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def _ensure_reconciler_role(dsn: str) -> None:
+    from psycopg import sql
+
+    connection = _owner_connect(dsn)
+    try:
+        found = connection.execute(
+            "SELECT 1 FROM pg_roles WHERE rolname = %s",
+            (_RECONCILER_LOGIN,),
+        ).fetchone()
+        statement = "ALTER ROLE {} PASSWORD {}" if found else (
+            "CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOBYPASSRLS "
+            "NOCREATEROLE NOCREATEDB NOREPLICATION INHERIT"
+        )
+        connection.execute(
+            sql.SQL(statement).format(
+                sql.Identifier(_RECONCILER_LOGIN),
+                sql.Literal(_RECONCILER_PASSWORD),
+            )
+        )
+        connection.execute(
+            sql.SQL("GRANT {} TO {}").format(
+                sql.Identifier("autopilot_queue_reconciler"),
+                sql.Identifier(_RECONCILER_LOGIN),
+            )
+        )
+        connection.execute("GRANT USAGE ON SCHEMA autopilot_queue TO autopilot_queue_reconciler")
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def _ensure_tenant_roles(dsn: str, runner: MigrationRunner) -> None:
+    from psycopg import sql
+
+    connection = _owner_connect(dsn)
+    try:
+        for _tenant, (role, password) in _TENANTS.items():
+            found = connection.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,)).fetchone()
+            statement = "ALTER ROLE {} PASSWORD {}" if found else (
+                "CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER NOBYPASSRLS "
+                "NOCREATEROLE NOCREATEDB NOREPLICATION INHERIT"
+            )
+            connection.execute(sql.SQL(statement).format(sql.Identifier(role), sql.Literal(password)))
+        connection.commit()
+    finally:
+        connection.close()
+    for tenant, (role, _password) in _TENANTS.items():
+        runner.register_principal(tenant, role)
+
+
+class StaticBudgetControllerTests(unittest.TestCase):
+    def test_limits_from_config_use_integer_cents(self) -> None:
+        config = _enabled_config()
+        limits = limits_from_config(config)
+        self.assertEqual(limits.per_launch_cap_cents, 300)
+        self.assertEqual(limits.daily_limit_cents, 500)
+
+    def test_parse_usage_distinguishes_unknown_and_zero(self) -> None:
+        unknown = parse_usage_payload({"rawCostCents": 12.5})
+        self.assertFalse(unknown.charged_known)
+        empty = parse_usage_payload({"rawCostCents": 1, "chargedCents": ""})
+        self.assertFalse(empty.charged_known)
+        zero = parse_usage_payload({"rawCostCents": 1, "chargedCents": 0})
+        self.assertTrue(zero.charged_known)
+        self.assertEqual(zero.charged_text, "0")
+
+    def test_controller_refuses_live_mode(self) -> None:
+        with self.assertRaises(BudgetControllerError) as raised:
+            BudgetController(lambda: None, mode="live")
+        self.assertEqual(raised.exception.code, "controller_disabled")
+
+    def test_reserve_cents_rejects_bool(self) -> None:
+        controller = BudgetController(lambda: None, config=_enabled_config())
+        with self.assertRaises(BudgetControllerError) as raised:
+            controller.request_reserve("launch-x", "tenant-a", True)  # type: ignore[arg-type]
+        self.assertEqual(raised.exception.code, "invalid_amount")
+
+    def test_source_has_no_cloud_agent_create(self) -> None:
+        from pathlib import Path
+
+        source = (Path(__file__).resolve().parents[1] / "budget_controller.py").read_text(encoding="utf-8")
+        self.assertNotIn("create_agent", source)
+        reconciliation = (Path(__file__).resolve().parents[1] / "usage_reconciliation.py").read_text(encoding="utf-8")
+        self.assertNotIn("create_agent", reconciliation)
+
+
+class PostgresBudgetControllerTests(unittest.TestCase):
+    dsn = ""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.dsn = _dsn()
+        if not cls.dsn:
+            return
+        cls._prior_autopilot_env = os.environ.get("AUTOPILOT_ENABLED")
+        os.environ["AUTOPILOT_ENABLED"] = "true"
+        cls.runner = MigrationRunner(lambda: _owner_connect(cls.dsn))
+        cls.runner.up()
+        _clear_budget_fixtures(cls.dsn)
+        if cls.runner.version() >= 2:
+            cls.runner.down_budget_migration(allow_destructive_test=True)
+            cls.runner.up()
+        _ensure_tenant_roles(cls.dsn, cls.runner)
+        _ensure_reconciler_role(cls.dsn)
+        if cls.dsn and cls.runner.version() >= 2:
+            _reseed_tenant_ledgers(cls.dsn, cls.runner)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        prior = getattr(cls, "_prior_autopilot_env", None)
+        if prior is None:
+            os.environ.pop("AUTOPILOT_ENABLED", None)
+        else:
+            os.environ["AUTOPILOT_ENABLED"] = prior
+
+    def setUp(self) -> None:
+        if not self.dsn:
+            self.skipTest("postgres_unavailable")
+        _clear_budget_fixtures(self.dsn)
+        connection = _owner_connect(self.dsn)
+        try:
+            if connection.execute(
+                "SELECT to_regclass('autopilot_queue.budget_verified_usage') AS name"
+            ).fetchone()[0]:
+                connection.execute("DELETE FROM autopilot_queue.budget_verified_usage")
+            connection.execute("DELETE FROM autopilot_queue.budget_reservations")
+            connection.execute("DELETE FROM autopilot_queue.budget_window_usage")
+            connection.execute("DELETE FROM autopilot_queue.budget_tenant_ledger")
+            connection.execute(
+                """
+                UPDATE autopilot_queue.budget_global_ledger
+                SET daily_reserved_cents = 0,
+                    monthly_reserved_cents = 0,
+                    daily_committed_cents = 0,
+                    monthly_committed_cents = 0
+                """
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        _reseed_tenant_ledgers(self.dsn, self.runner)
+        self.limits_admin = _limits_admin(self.dsn)
+        self.controller = _tenant_controller(self.dsn, "tenant-a")
+
+    def test_reseed_fixture_restores_reserve_after_ledger_wipe(self) -> None:
+        connection = _owner_connect(self.dsn)
+        try:
+            connection.execute("DELETE FROM autopilot_queue.budget_tenant_ledger")
+            connection.commit()
+        finally:
+            connection.close()
+        _reseed_tenant_ledgers(self.dsn, self.runner)
+        row = self.controller.request_reserve("launch-reseed-fixture", "tenant-a", 10)
+        self.assertEqual(row.state, RESERVED)
+
+    def test_reserve_fails_when_tenant_ledger_missing(self) -> None:
+        connection = _owner_connect(self.dsn)
+        try:
+            connection.execute(
+                "DELETE FROM autopilot_queue.budget_tenant_ledger WHERE tenant_id = %s",
+                ("tenant-a",),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        with self.assertRaises(BudgetControllerError) as raised:
+            self.controller.request_reserve("launch-no-ledger", "tenant-a", 10)
+        self.assertEqual(raised.exception.code, "store_unavailable")
+
+    def test_zero_budget_gate_blocks_reserve(self) -> None:
+        controller = _tenant_controller(self.dsn, "tenant-a", config=load_config())
+        gate = controller.evaluate_kill_switch()
+        self.assertFalse(gate.allowed)
+        row = controller.request_reserve("launch-zero", "tenant-a", 10)
+        self.assertEqual(row.state, BLOCKED)
+        self.assertEqual(row.block_reason, "zero_budget")
+
+    def test_fresh_reserved_does_not_block_kill_switch(self) -> None:
+        row = self.controller.request_reserve("launch-pending", "tenant-a", 50)
+        self.assertEqual(row.state, RESERVED)
+        gate = self.controller.evaluate_kill_switch()
+        self.assertTrue(gate.allowed)
+
+    def test_concurrent_reservations_respect_shared_limit(self) -> None:
+        outcomes: list[str] = []
+        barrier = threading.Barrier(2)
+
+        def worker(launch_id: str) -> None:
+            barrier.wait(timeout=5)
+            ctrl = _tenant_controller(self.dsn, "tenant-a")
+            row = ctrl.request_reserve(launch_id, "tenant-a", 260)
+            outcomes.append(row.state)
+
+        threads = [
+            threading.Thread(target=worker, args=("launch-a",)),
+            threading.Thread(target=worker, args=("launch-b",)),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(5)
+            self.assertFalse(thread.is_alive())
+        self.assertEqual(sorted(outcomes), sorted([RESERVED, BLOCKED]))
+
+    def test_global_budget_blocks_second_tenant(self) -> None:
+        first = _tenant_controller(self.dsn, "tenant-a").request_reserve("launch-ga", "tenant-a", 250)
+        self.assertEqual(first.state, RESERVED)
+        second = _tenant_controller(self.dsn, "tenant-b").request_reserve("launch-gb", "tenant-b", 260)
+        self.assertEqual(second.state, BLOCKED)
+        self.assertEqual(second.block_reason, "global_budget_exceeded")
+
+    def test_repeat_launch_id_is_idempotent(self) -> None:
+        first = self.controller.request_reserve("launch-repeat", "tenant-a", 40)
+        second = self.controller.request_reserve("launch-repeat", "tenant-a", 40)
+        self.assertEqual(first.state, RESERVED)
+        self.assertEqual(second.state, RESERVED)
+
+    def test_unknown_usage_blocks_new_reserve(self) -> None:
+        reserved = self.controller.request_reserve("launch-unknown", "tenant-a", 50)
+        self.assertEqual(reserved.state, RESERVED)
+        _mark_unknown_verified(self.controller, "launch-unknown", raw_cost_text="10")
+        gate = self.controller.evaluate_kill_switch()
+        self.assertFalse(gate.allowed)
+        self.assertEqual(gate.reason, "unknown_usage_open")
+
+    def test_partial_commit_and_release(self) -> None:
+        reserved = self.controller.request_reserve("launch-commit", "tenant-a", 80)
+        committed = _commit_verified(
+            self.controller,
+            "launch-commit",
+            raw_cost_text="12.5",
+            charged_text="12",
+        )
+        self.assertEqual(committed.state, COMMITTED)
+        self.assertEqual(committed.charged_text, "12")
+        reserved2 = self.controller.request_reserve("launch-release", "tenant-a", 30)
+        released = self.controller.release("launch-release")
+        self.assertEqual(released.state, RELEASED)
+
+    def test_charge_above_reserve_records_overrun(self) -> None:
+        self.controller.request_reserve("launch-over", "tenant-a", 10)
+        row = _commit_verified(
+            self.controller,
+            "launch-over",
+            raw_cost_text="20",
+            charged_text="20",
+        )
+        self.assertEqual(row.state, OVERRUN)
+        self.assertEqual(row.charged_text, "20")
+        gate = self.controller.evaluate_kill_switch()
+        self.assertFalse(gate.allowed)
+        self.assertEqual(gate.reason, "overrun_open")
+        with self.assertRaises(BudgetControllerError) as raised:
+            self.controller.release("launch-over")
+        self.assertEqual(raised.exception.code, "overrun_open")
+
+    def test_reconciliation_deduplicates_and_handles_timeout(self) -> None:
+        self.controller.request_reserve("launch-reconcile", "tenant-a", 60)
+
+        def fetch(_agent_id: str) -> dict:
+            return {"rawCostCents": 10.5, "chargedCents": 10}
+
+        first = reconcile_launch_usage(
+            self.controller,
+            launch_id="launch-reconcile",
+            agent_id=_AGENT,
+            run_id=_RUN,
+            usage_fetcher=fetch,
+        )
+        self.assertEqual(first.status, "committed")
+        second = reconcile_launch_usage(
+            self.controller,
+            launch_id="launch-reconcile",
+            agent_id=_AGENT,
+            run_id=_RUN,
+            usage_fetcher=fetch,
+        )
+        self.assertEqual(second.status, "committed")
+
+        def retry(_agent_id: str) -> dict:
+            from bintrans_autopilot.cursor_api import CursorApiError
+
+            raise CursorApiError(503, "temporary", "temporary")
+
+        pending = self.controller.request_reserve("launch-retry", "tenant-a", 25)
+        self.assertEqual(pending.state, RESERVED)
+        result = reconcile_launch_usage(
+            self.controller,
+            launch_id="launch-retry",
+            agent_id=_AGENT,
+            run_id=_RUN,
+            usage_fetcher=retry,
+        )
+        self.assertEqual(result.status, "retry")
+
+    def test_tenant_isolation_for_reservations(self) -> None:
+        self.controller.request_reserve("launch-a", "tenant-a", 20)
+        _tenant_controller(self.dsn, "tenant-b").request_reserve("launch-b", "tenant-b", 20)
+        tenant_a = _tenant_controller(self.dsn, "tenant-a")
+        row = tenant_a.get_reservation("launch-a")
+        self.assertIsNotNone(row)
+        self.assertEqual(row.tenant_id, "tenant-a")
+        self.assertIsNone(tenant_a.get_reservation("launch-b"))
+
+    def test_owner_connection_cannot_mutate_budget(self) -> None:
+        owner = BudgetController(
+            lambda: _owner_connect(self.dsn),
+            admin_connect=lambda: _owner_connect(self.dsn),
+            config=_enabled_config(),
+        )
+        with self.assertRaises(BudgetControllerError) as raised:
+            owner.request_reserve("launch-owner", "tenant-a", 10)
+        self.assertEqual(raised.exception.code, "runtime_privileged")
+
+    def test_transaction_rollback_does_not_persist_reserve(self) -> None:
+        connection = _owner_connect(self.dsn)
+        try:
+            connection.execute("BEGIN")
+            connection.execute(
+                """
+                INSERT INTO autopilot_queue.budget_tenant_ledger (
+                    tenant_id, utc_day, utc_month, daily_limit_cents, monthly_limit_cents
+                ) VALUES ('tenant-a', CURRENT_DATE, date_trunc('month', CURRENT_DATE)::date, 500, 5000)
+                ON CONFLICT (tenant_id) DO NOTHING
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO autopilot_queue.budget_reservations (
+                    launch_id, tenant_id, state, reserve_cents,
+                    ledger_utc_day, ledger_utc_month, usage_unknown, charged_known
+                ) VALUES (
+                    'launch-rollback', 'tenant-a', 'RESERVED', 15,
+                    CURRENT_DATE, date_trunc('month', CURRENT_DATE)::date, false, false
+                )
+                """
+            )
+            connection.execute("ROLLBACK")
+        finally:
+            connection.close()
+        self.assertIsNone(self.controller.get_reservation("launch-rollback"))
+
+    def test_kill_switch_env_blocks_even_with_test_config(self) -> None:
+        try:
+            os.environ["PAID_AUTOMATION_ENABLED"] = "true"
+            with self.assertRaises(BudgetControllerError):
+                BudgetController(
+                    lambda: _tenant_connect(self.dsn, "tenant_a_runtime", "tenant_a_test"),
+                    config=_enabled_config(),
+                )
+        finally:
+            os.environ.pop("PAID_AUTOMATION_ENABLED", None)
+
+    def test_budget_migration_down_requires_empty_open_reservations(self) -> None:
+        self.controller.request_reserve("launch-open", "tenant-a", 10)
+        at_version = self.runner.version()
+        if at_version >= 15:
+            self.assertEqual(self.runner.down(), 14)
+        if at_version >= 14:
+            self.assertEqual(self.runner.down(), 13)
+        if at_version >= 13:
+            self.assertEqual(self.runner.down(), 12)
+        if at_version >= 12:
+            self.assertEqual(self.runner.down(), 11)
+        if at_version >= 11:
+            self.assertEqual(self.runner.down(), 10)
+        if at_version >= 10:
+            self.assertEqual(self.runner.down(), 9)
+        if at_version >= 9:
+            self.assertEqual(self.runner.down(), 8)
+        if at_version >= 8:
+            self.assertEqual(self.runner.down(), 7)
+        with self.assertRaises(QueueError) as raised:
+            self.runner.down()
+        self.assertEqual(raised.exception.code, "migration_blocked")
+        self.controller.release("launch-open")
+        while self.runner.version() > 1:
+            self.runner.down_budget_migration(allow_destructive_test=True)
+        self.runner.up()
+        _ensure_tenant_roles(self.dsn, self.runner)
+        _reseed_tenant_ledgers(self.dsn, self.runner)
+
+
+if __name__ == "__main__":
+    unittest.main()

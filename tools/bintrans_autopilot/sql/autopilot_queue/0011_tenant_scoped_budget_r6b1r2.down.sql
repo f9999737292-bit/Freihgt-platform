@@ -1,0 +1,1 @@
+-- Function bodies for v10 are restored by MigrationRunner on isolated down.

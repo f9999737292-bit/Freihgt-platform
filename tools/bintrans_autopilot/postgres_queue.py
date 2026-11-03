@@ -32,6 +32,7 @@ FAILED = "FAILED"
 DEAD = "DEAD"
 STATUSES = (PENDING, RUNNING, SUCCEEDED, FAILED, DEAD)
 RUNTIME_ROLE = "autopilot_queue_runtime"
+RECONCILER_ROLE = "autopilot_queue_reconciler"
 
 _SQL_DIR = Path(__file__).resolve().parent / "sql" / "autopilot_queue"
 _ID = re.compile(r"^[A-Za-z0-9._:-]{1,80}$")
@@ -476,12 +477,68 @@ class MigrationRunner:
         return int(current["version"]) if current else 0
 
     def down(self, *, allow_destructive_test: bool = False) -> int:
-        files = sorted(_SQL_DIR.glob("*.down.sql"), reverse=True)
         with self._cursor() as cursor:
             cursor.execute("SELECT pg_advisory_xact_lock(%s)", (_ADVISORY_LOCK,))
             applied = self._applied(cursor)
             if not applied:
                 return 0
+            target = max(applied)
+            if target == 15:
+                self._down_budget_migration_v15(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 14:
+                self._down_budget_migration_v14(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 13:
+                self._down_budget_migration_v13(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 12:
+                self._down_budget_migration_v12(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 11:
+                self._down_budget_migration_v11(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 10:
+                self._down_budget_migration_v10(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 9:
+                self._down_budget_migration_v9(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 8:
+                self._down_budget_migration_v8(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 7:
+                self._down_budget_migration_v7(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 6:
+                self._down_budget_migration_v6(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 5:
+                self._down_budget_migration_v5(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 4:
+                self._down_budget_migration_v4(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 3:
+                self._down_budget_migration_v3(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
+            if target == 2:
+                self._down_budget_migration(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
             if applied != {1}:
                 raise QueueError("migration_blocked")
             self._lock_queue_tables(cursor)
@@ -489,12 +546,591 @@ class MigrationRunner:
             self._assert_isolated_test_database(cursor)
             if not allow_destructive_test and self._job_count(cursor):
                 raise QueueError("migration_blocked")
-            matches = [path for path in files if int(path.name.split("_", 1)[0]) == 1]
-            if len(matches) != 1:
-                raise QueueError("migration_failed")
-            for statement in _statements(matches[0].read_text(encoding="utf-8")):
-                cursor.execute(statement)
+            self._execute_down_file(cursor, 1)
         return self.version()
+
+    def down_budget_migration(self, *, allow_destructive_test: bool = False) -> int:
+        with self._cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_xact_lock(%s)", (_ADVISORY_LOCK,))
+            applied = self._applied(cursor)
+            if 15 in applied:
+                self._down_budget_migration_v15(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 14 in applied:
+                self._down_budget_migration_v14(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 13 in applied:
+                self._down_budget_migration_v13(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 12 in applied:
+                self._down_budget_migration_v12(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 11 in applied:
+                self._down_budget_migration_v11(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 10 in applied:
+                self._down_budget_migration_v10(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 9 in applied:
+                self._down_budget_migration_v9(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 8 in applied:
+                self._down_budget_migration_v8(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 7 in applied:
+                self._down_budget_migration_v7(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 6 in applied:
+                self._down_budget_migration_v6(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 5 in applied:
+                self._down_budget_migration_v5(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 4 in applied:
+                self._down_budget_migration_v4(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 3 in applied:
+                self._down_budget_migration_v3(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+            if 2 in applied:
+                self._down_budget_migration(cursor, allow_destructive_test=allow_destructive_test)
+        return self.version()
+
+    def _down_budget_migration_v10(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 10 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.launch_intents
+                WHERE lifecycle_state NOT IN (
+                    'CANCELLED_BEFORE_SEND', 'LAUNCH_REJECTED', 'LAUNCH_CONFIRMED', 'EXTERNAL_AGENT_CANCELLED'
+                )
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 10)
+        self._restore_launch_protocol_v9(cursor)
+        self._restore_launch_protocol_v9_one_arg_release(cursor)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 10")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _down_budget_migration_v15(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 15 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.launch_intents
+                WHERE lifecycle_state NOT IN (
+                    'CANCELLED_BEFORE_SEND', 'LAUNCH_REJECTED', 'LAUNCH_CONFIRMED', 'EXTERNAL_AGENT_CANCELLED'
+                )
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 15)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 15")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _down_budget_migration_v14(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 14 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.launch_intents
+                WHERE lifecycle_state NOT IN (
+                    'CANCELLED_BEFORE_SEND', 'LAUNCH_REJECTED', 'LAUNCH_CONFIRMED', 'EXTERNAL_AGENT_CANCELLED'
+                )
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 14)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 14")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _down_budget_migration_v13(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 13 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.launch_intents
+                WHERE lifecycle_state NOT IN (
+                    'CANCELLED_BEFORE_SEND', 'LAUNCH_REJECTED', 'LAUNCH_CONFIRMED', 'EXTERNAL_AGENT_CANCELLED'
+                )
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 13)
+        self._restore_definer_owner_pre_d1(cursor)
+        self._restore_lt06_r6b1r3(cursor)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 13")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _restore_definer_owner_pre_d1(self, cursor) -> None:
+        cursor.execute(
+            """
+            DO $$
+            DECLARE
+                r record;
+            BEGIN
+                FOR r IN
+                    SELECT p.oid::regprocedure AS sig
+                    FROM pg_proc p
+                    JOIN pg_namespace n ON n.oid = p.pronamespace
+                    WHERE n.nspname = 'autopilot_queue'
+                      AND p.prokind = 'f'
+                      AND p.prosecdef
+                LOOP
+                    EXECUTE format('ALTER FUNCTION %s OWNER TO %I', r.sig, session_user);
+                END LOOP;
+            END
+            $$;
+            """
+        )
+        cursor.execute(
+            """
+            DO $$
+            DECLARE
+                r record;
+            BEGIN
+                FOR r IN
+                    SELECT p.oid::regprocedure AS sig
+                    FROM pg_proc p
+                    JOIN pg_namespace n ON n.oid = p.pronamespace
+                    WHERE n.nspname = 'autopilot_queue'
+                      AND p.prokind = 'f'
+                      AND p.prosecdef
+                      AND p.proname NOT IN ('bound_tenant', 'reject_tenant_change')
+                LOOP
+                    EXECUTE format('ALTER FUNCTION %s SET row_security = off', r.sig);
+                END LOOP;
+            END
+            $$;
+            """
+        )
+        cursor.execute("REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA autopilot_queue FROM autopilot_queue_definer_owner")
+        cursor.execute("REVOKE ALL ON ALL TABLES IN SCHEMA autopilot_queue FROM autopilot_queue_definer_owner")
+        cursor.execute("GRANT USAGE ON SCHEMA autopilot_queue TO autopilot_queue_definer_owner")
+
+    def _restore_lt06_r6b1r3(self, cursor) -> None:
+        path = _SQL_DIR / "0012_database_authority_r6b1r3.up.sql"
+        text = path.read_text(encoding="utf-8")
+        end = text.find("DROP FUNCTION IF EXISTS autopilot_queue.budget_protocol_commit")
+        if end < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(text[:end]):
+            cursor.execute(statement)
+
+    def _down_budget_migration_v12(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 12 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.launch_intents
+                WHERE lifecycle_state NOT IN (
+                    'CANCELLED_BEFORE_SEND', 'LAUNCH_REJECTED', 'LAUNCH_CONFIRMED', 'EXTERNAL_AGENT_CANCELLED'
+                )
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 12)
+        self._restore_database_authority_v11_pre_r3(cursor)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 12")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _restore_database_authority_v11_pre_r3(self, cursor) -> None:
+        cursor.execute("DROP FUNCTION IF EXISTS autopilot_queue._launch_proof_class_lt06_eligible(text)")
+        cursor.execute("DROP FUNCTION IF EXISTS autopilot_queue._launch_assert_lt06_proof_class(text)")
+        r11_text = (_SQL_DIR / "0011_tenant_scoped_budget_r6b1r2.up.sql").read_text(encoding="utf-8")
+        commit_start = r11_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_commit(")
+        verified_drop = r11_text.find(
+            "DROP FUNCTION IF EXISTS autopilot_queue._budget_commit_from_verified(text);",
+            commit_start,
+        )
+        if commit_start < 0 or verified_drop < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(r11_text[commit_start:verified_drop]):
+            cursor.execute(statement)
+        apply_marker = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_reconciler_apply_usage("
+        apply_start = r11_text.find(apply_marker)
+        apply_tail = r11_text.find(
+            "REVOKE ALL ON FUNCTION autopilot_queue.budget_reconciler_apply_usage(",
+            apply_start,
+        )
+        if apply_start < 0 or apply_tail < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(r11_text[apply_start:apply_tail]):
+            cursor.execute(statement)
+        for path, start_marker, end_marker in (
+            (
+                _SQL_DIR / "0008_launch_lifecycle.up.sql",
+                "CREATE OR REPLACE FUNCTION autopilot_queue.launch_protocol_report_outbound_result(",
+                "CREATE OR REPLACE FUNCTION autopilot_queue.launch_protocol_mark_unknown(",
+            ),
+            (
+                _SQL_DIR / "0010_launch_lifecycle_r6b1r1.up.sql",
+                "CREATE OR REPLACE FUNCTION autopilot_queue.launch_protocol_reject_definite(",
+                "CREATE OR REPLACE FUNCTION autopilot_queue.launch_protocol_recovery_lease_acquire(",
+            ),
+        ):
+            text = path.read_text(encoding="utf-8")
+            start = text.find(start_marker)
+            end = text.find(end_marker, start)
+            if start < 0 or end < 0:
+                raise QueueError("migration_failed")
+            for statement in _statements(text[start:end]):
+                cursor.execute(statement)
+
+    def _down_budget_migration_v11(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 11 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.launch_intents
+                WHERE lifecycle_state NOT IN (
+                    'CANCELLED_BEFORE_SEND', 'LAUNCH_REJECTED', 'LAUNCH_CONFIRMED', 'EXTERNAL_AGENT_CANCELLED'
+                )
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 11)
+        self._restore_budget_protocol_v10_pre_r2(cursor)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 11")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _restore_launch_protocol_v9(self, cursor) -> None:
+        path = _SQL_DIR / "0009_launch_lifecycle_r6b1.up.sql"
+        for statement in _statements(path.read_text(encoding="utf-8")):
+            cursor.execute(statement)
+
+    def _restore_launch_protocol_v9_one_arg_release(self, cursor) -> None:
+        path = _SQL_DIR / "launch_protocol_v9_one_arg_release_compat.sql"
+        for statement in _statements(path.read_text(encoding="utf-8")):
+            cursor.execute(statement)
+
+    def _restore_budget_protocol_v10_pre_r2(self, cursor) -> None:
+        r11_path = _SQL_DIR / "0011_tenant_scoped_budget_r6b1r2.up.sql"
+        r11_text = r11_path.read_text(encoding="utf-8")
+        release_start = r11_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_release(")
+        commit_start = r11_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_commit(", release_start)
+        if release_start < 0 or commit_start < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(r11_text[release_start:commit_start]):
+            cursor.execute(statement)
+        cursor.execute("DROP FUNCTION IF EXISTS autopilot_queue.budget_protocol_commit(text, text, text, text, text)")
+        cursor.execute(
+            "DROP FUNCTION IF EXISTS autopilot_queue.budget_protocol_mark_unknown(text, text, text, text)"
+        )
+        verified_path = _SQL_DIR / "0006_verified_usage.up.sql"
+        verified_text = verified_path.read_text(encoding="utf-8")
+        commit_marker = "CREATE OR REPLACE FUNCTION autopilot_queue._budget_commit_from_verified(p_launch_id text)"
+        commit_start = verified_text.find(commit_marker)
+        commit_end = verified_text.find(
+            "REVOKE ALL ON FUNCTION autopilot_queue._budget_commit_from_verified(text) FROM PUBLIC;",
+            commit_start,
+        )
+        if commit_start < 0 or commit_end < 0:
+            raise QueueError("migration_failed")
+        cursor.execute("DROP FUNCTION IF EXISTS autopilot_queue._budget_commit_from_verified(text, text)")
+        for statement in _statements(verified_text[commit_start : commit_end + len(
+            "REVOKE ALL ON FUNCTION autopilot_queue._budget_commit_from_verified(text) FROM PUBLIC;"
+        )]):
+            cursor.execute(statement)
+        cursor.execute(
+            "DROP FUNCTION IF EXISTS autopilot_queue.budget_reconciler_apply_usage("
+            "text, text, text, text, text, boolean, text, text, text)"
+        )
+        apply_marker = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_reconciler_apply_usage("
+        apply_start = r11_text.find(apply_marker)
+        apply_tail = r11_text.find("REVOKE ALL ON FUNCTION autopilot_queue.budget_reconciler_apply_usage(", apply_start)
+        apply_grant_end = r11_text.find(
+            "GRANT EXECUTE ON FUNCTION autopilot_queue.budget_reconciler_apply_usage(",
+            apply_tail,
+        )
+        apply_grant_end = r11_text.find(";", apply_grant_end) + 1
+        if apply_start < 0 or apply_tail < 0 or apply_grant_end <= 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(r11_text[apply_start:apply_tail]):
+            cursor.execute(statement)
+        for statement in _statements(r11_text[apply_tail:apply_grant_end]):
+            cursor.execute(statement)
+
+    def _down_budget_migration_v9(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 9 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.launch_intents
+                WHERE lifecycle_state NOT IN (
+                    'CANCELLED_BEFORE_SEND', 'LAUNCH_REJECTED', 'LAUNCH_CONFIRMED', 'EXTERNAL_AGENT_CANCELLED'
+                )
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 9)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 9")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _down_budget_migration_v8(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 8 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.launch_intents
+                WHERE lifecycle_state NOT IN (
+                    'CANCELLED_BEFORE_SEND', 'LAUNCH_REJECTED', 'LAUNCH_CONFIRMED', 'EXTERNAL_AGENT_CANCELLED'
+                )
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 8)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 8")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _down_budget_migration_v7(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 7 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.budget_reservations
+                WHERE state IN ('REQUESTED', 'RESERVED', 'OVERRUN')
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 7)
+        self._restore_budget_protocol_v6_release_identity(cursor)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 7")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _restore_budget_protocol_v6_release_identity(self, cursor) -> None:
+        path = _SQL_DIR / "0006_verified_usage.up.sql"
+        text = path.read_text(encoding="utf-8")
+        release_path = _SQL_DIR / "0005_budget_authority.up.sql"
+        release_text = release_path.read_text(encoding="utf-8")
+        release_start = release_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_release(")
+        release_end = release_text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_mark_unknown(", release_start)
+        if release_start < 0 or release_end < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(release_text[release_start:release_end]):
+            cursor.execute(statement)
+        apply_marker = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_reconciler_apply_usage("
+        apply_start = text.find(apply_marker)
+        apply_tail = text.find(
+            "REVOKE ALL ON FUNCTION autopilot_queue.budget_reconciler_apply_usage(",
+            apply_start,
+        )
+        reserve_create = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_reserve("
+        reserve_start = text.rfind(reserve_create)
+        grant_marker = "GRANT EXECUTE ON FUNCTION autopilot_queue.budget_protocol_reserve(text, bigint, text, text)"
+        grant_end = text.find(";", text.find(grant_marker, reserve_start)) + 1
+        apply_grant_end = text.find(
+            "GRANT EXECUTE ON FUNCTION autopilot_queue.budget_reconciler_apply_usage(",
+            apply_tail,
+        )
+        apply_grant_end = text.find(";", apply_grant_end) + 1
+        if apply_start < 0 or apply_tail < 0 or reserve_start < 0 or grant_end <= 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(text[apply_start:apply_tail]):
+            cursor.execute(statement)
+        for statement in _statements(text[apply_tail:apply_grant_end]):
+            cursor.execute(statement)
+        for statement in _statements(text[reserve_start:grant_end]):
+            cursor.execute(statement)
+
+    def _down_budget_migration_v6(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 6 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.budget_reservations
+                WHERE state IN ('REQUESTED', 'RESERVED', 'OVERRUN')
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        cursor.execute(
+            "DROP FUNCTION IF EXISTS autopilot_queue.budget_reconciler_apply_usage("
+            "text, text, text, text, text, text, boolean, text, text, text)"
+        )
+        cursor.execute("DROP FUNCTION IF EXISTS autopilot_queue._budget_commit_from_verified(text, text)")
+        self._execute_down_file(cursor, 6)
+        self._restore_budget_protocol_v5_runtime_commit(cursor)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 6")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _restore_budget_protocol_v5_runtime_commit(self, cursor) -> None:
+        path = _SQL_DIR / "0005_budget_authority.up.sql"
+        text = path.read_text(encoding="utf-8")
+        reserve_marker = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_reserve("
+        reserve_start = text.find(reserve_marker)
+        reserve_end = text.find("CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_commit(", reserve_start)
+        if reserve_start < 0 or reserve_end < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(text[reserve_start:reserve_end]):
+            cursor.execute(statement)
+        marker = "CREATE OR REPLACE FUNCTION autopilot_queue.budget_protocol_commit("
+        start = text.find(marker)
+        grant_marker = "GRANT EXECUTE ON FUNCTION autopilot_queue.budget_protocol_mark_unknown"
+        end = text.find(grant_marker)
+        if start < 0 or end < 0:
+            raise QueueError("migration_failed")
+        end = text.find(";", end) + 1
+        for statement in _statements(text[start:end]):
+            cursor.execute(statement)
+
+    def _down_budget_migration_v5(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 5 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.budget_reservations
+                WHERE state IN ('REQUESTED', 'RESERVED', 'OVERRUN')
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 5)
+        self._restore_budget_protocol_v4(cursor)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 5")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _restore_budget_protocol_v4(self, cursor) -> None:
+        path = _SQL_DIR / "0004_budget_protocol.up.sql"
+        text = path.read_text(encoding="utf-8")
+        marker = "CREATE OR REPLACE FUNCTION autopilot_queue._budget_bound_tenant()"
+        start = text.find(marker)
+        if start < 0:
+            raise QueueError("migration_failed")
+        for statement in _statements(text[start:]):
+            cursor.execute(statement)
+
+    def _down_budget_migration_v4(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 4 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.budget_reservations
+                WHERE state IN ('REQUESTED', 'RESERVED', 'OVERRUN')
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 4)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 4")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _down_budget_migration_v3(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 3 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.budget_reservations
+                WHERE state IN ('REQUESTED', 'RESERVED', 'OVERRUN')
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 3)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 3")
+        return 2 if 2 in self._applied(cursor) else 1
+
+    def _down_budget_migration(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 2 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.budget_reservations
+                WHERE state IN ('REQUESTED', 'RESERVED')
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 2)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 2")
+
+    def _execute_down_file(self, cursor, version: int) -> None:
+        matches = [path for path in sorted(_SQL_DIR.glob("*.down.sql"), reverse=True) if int(path.name.split("_", 1)[0]) == version]
+        if len(matches) != 1:
+            raise QueueError("migration_failed")
+        for statement in _statements(matches[0].read_text(encoding="utf-8")):
+            cursor.execute(statement)
 
     def register_principal(self, tenant_id: str, role_name: str) -> None:
         tenant_id = _identifier(tenant_id)
