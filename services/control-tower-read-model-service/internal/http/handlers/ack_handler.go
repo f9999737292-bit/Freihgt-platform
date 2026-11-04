@@ -250,15 +250,13 @@ func (h *AckHandler) LookupWorkflows(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, err)
 		return
 	}
-	userID, _ := resolveVerifiedUser(r)
-
 	var payload workflowLookupRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		respond.Error(w, apperrors.Validation("invalid request body", map[string]any{"field": "body"}))
 		return
 	}
 
-	items, err := h.workflowRepo.LookupWorkflowsWithExceptionProcessing(r.Context(), tenantID, payload.EventIDs, userID)
+	items, err := h.workflowRepo.LookupWorkflows(r.Context(), tenantID, payload.EventIDs)
 	if err != nil {
 		respond.Error(w, apperrors.Internal("failed to lookup workflows", err))
 		return
