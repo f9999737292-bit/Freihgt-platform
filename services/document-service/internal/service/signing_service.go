@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -15,6 +16,7 @@ type SigningStore interface {
 	CreateSession(ctx context.Context, documentID uuid.UUID, in domain.CreateSigningSessionInput) (*domain.SigningSession, error)
 	GetSessionByID(ctx context.Context, id uuid.UUID) (*domain.SigningSession, error)
 	GetSessionByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error)
+	MarkSessionExpired(ctx context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error)
 	AddSignature(ctx context.Context, session *domain.SigningSession, in domain.AddSignatureInput) (*domain.Signature, *domain.SigningSession, *domain.Document, error)
 }
 
@@ -38,6 +40,9 @@ func (s *SigningService) CreateSession(ctx context.Context, documentID uuid.UUID
 	if err := domain.ValidateCreateSigningSessionInput(in); err != nil {
 		return nil, err
 	}
+	if err := domain.ValidateSigningSessionExpiry(in.ExpiresAt, time.Now().UTC()); err != nil {
+		return nil, err
+	}
 
 	doc, err := s.documents.GetByIDAndTenant(ctx, documentID, in.TenantID)
 	if err != nil {
@@ -56,7 +61,18 @@ func (s *SigningService) GetSession(ctx context.Context, id, tenantID uuid.UUID)
 	if tenantID == uuid.Nil {
 		return nil, apperrors.Unauthorized("trusted tenant context is required")
 	}
-	return s.signing.GetSessionByIDAndTenant(ctx, id, tenantID)
+	session, err := s.signing.GetSessionByIDAndTenant(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return s.persistOverdue(ctx, session)
+}
+
+func (s *SigningService) persistOverdue(ctx context.Context, session *domain.SigningSession) (*domain.SigningSession, error) {
+	if !domain.SigningSessionIsOverdue(session, time.Now().UTC()) {
+		return session, nil
+	}
+	return s.signing.MarkSessionExpired(ctx, session.ID, session.TenantID)
 }
 
 func (s *SigningService) AddSignature(ctx context.Context, sessionID uuid.UUID, in domain.AddSignatureInput) (*domain.Signature, *domain.SigningSession, *domain.Document, error) {
@@ -70,6 +86,15 @@ func (s *SigningService) AddSignature(ctx context.Context, sessionID uuid.UUID, 
 	session, err := s.signing.GetSessionByIDAndTenant(ctx, sessionID, in.TenantID)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if domain.SigningSessionIsOverdue(session, time.Now().UTC()) {
+		if _, markErr := s.signing.MarkSessionExpired(ctx, session.ID, session.TenantID); markErr != nil {
+			return nil, nil, nil, markErr
+		}
+		return nil, nil, nil, apperrors.Validation("signing session is expired", map[string]any{
+			"field":  "status",
+			"status": domain.SigningSessionStatusExpired,
+		})
 	}
 	if err := domain.ValidateSigningSessionForSignature(session.Status); err != nil {
 		return nil, nil, nil, err

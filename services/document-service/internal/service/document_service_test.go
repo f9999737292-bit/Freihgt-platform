@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -61,6 +62,7 @@ func (m *mockDocumentStore) UpdateDocumentStatus(ctx context.Context, id, tenant
 type mockSigningStore struct {
 	createSessionFn func(ctx context.Context, documentID uuid.UUID, in domain.CreateSigningSessionInput) (*domain.SigningSession, error)
 	getSessionFn    func(ctx context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error)
+	markExpiredFn   func(ctx context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error)
 	addSignatureFn  func(ctx context.Context, session *domain.SigningSession, in domain.AddSignatureInput) (*domain.Signature, *domain.SigningSession, *domain.Document, error)
 }
 
@@ -78,6 +80,12 @@ func (m *mockSigningStore) GetSessionByID(context.Context, uuid.UUID) (*domain.S
 }
 func (m *mockSigningStore) GetSessionByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error) {
 	return m.getSessionFn(ctx, id, tenantID)
+}
+func (m *mockSigningStore) MarkSessionExpired(ctx context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error) {
+	if m.markExpiredFn != nil {
+		return m.markExpiredFn(ctx, id, tenantID)
+	}
+	return nil, apperrors.NotFound("signing session not found")
 }
 func (m *mockSigningStore) AddSignature(ctx context.Context, session *domain.SigningSession, in domain.AddSignatureInput) (*domain.Signature, *domain.SigningSession, *domain.Document, error) {
 	return m.addSignatureFn(ctx, session, in)
@@ -215,6 +223,112 @@ func TestSigningServiceAddSignatureCompletesDocument(t *testing.T) {
 	}
 	if session.Status != domain.SigningSessionStatusCompleted || doc.DocumentStatus != domain.DocumentStatusSigned {
 		t.Fatalf("expected completed signing and SIGNED document")
+	}
+}
+
+func TestSigningServiceAddSignatureRejectsOverdueSession(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.New()
+	sessionID := uuid.New()
+	documentID := uuid.New()
+	expiredAt := time.Now().UTC().Add(-time.Minute)
+	var marked bool
+	var signed bool
+	docRepo := &mockDocumentStore{
+		getByIDAndTenantFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Document, error) {
+			t.Fatal("overdue session must not load the document for signing")
+			return nil, nil
+		},
+	}
+	svc := NewSigningService(&mockSigningStore{
+		getSessionFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.SigningSession, error) {
+			return &domain.SigningSession{
+				ID: sessionID, TenantID: tenantID, DocumentID: documentID,
+				Status: domain.SigningSessionStatusCreated, RequiredSignersCount: 1,
+				ExpiresAt: &expiredAt,
+			}, nil
+		},
+		markExpiredFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.SigningSession, error) {
+			marked = true
+			if id != sessionID || tenant != tenantID {
+				t.Fatalf("expiry update used id=%s tenant=%s", id, tenant)
+			}
+			return &domain.SigningSession{
+				ID: id, TenantID: tenant, DocumentID: documentID,
+				Status: domain.SigningSessionStatusExpired, ExpiresAt: &expiredAt,
+			}, nil
+		},
+		addSignatureFn: func(context.Context, *domain.SigningSession, domain.AddSignatureInput) (*domain.Signature, *domain.SigningSession, *domain.Document, error) {
+			signed = true
+			t.Fatal("overdue session must not store a signature")
+			return nil, nil, nil, nil
+		},
+	}, docRepo)
+
+	_, session, doc, err := svc.AddSignature(context.Background(), sessionID, domain.AddSignatureInput{
+		TenantID: tenantID, SignerUserID: uuid.New(), SignerCompanyID: uuid.New(),
+		SignatureType: domain.SignatureTypeSimpleElectronic,
+	})
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeValidation {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if appErr.Details["status"] != domain.SigningSessionStatusExpired {
+		t.Fatalf("expected EXPIRED status detail, got %#v", appErr.Details)
+	}
+	if !marked || signed || session != nil || doc != nil {
+		t.Fatalf("marked=%v signed=%v session=%v doc=%v", marked, signed, session, doc)
+	}
+}
+
+func TestSigningServiceGetSessionReturnsExpiredStatus(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.New()
+	sessionID := uuid.New()
+	expiredAt := time.Now().UTC().Add(-time.Minute)
+	svc := NewSigningService(&mockSigningStore{
+		getSessionFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.SigningSession, error) {
+			return &domain.SigningSession{
+				ID: sessionID, TenantID: tenantID, Status: domain.SigningSessionStatusInProgress,
+				ExpiresAt: &expiredAt,
+			}, nil
+		},
+		markExpiredFn: func(_ context.Context, id, tenant uuid.UUID) (*domain.SigningSession, error) {
+			return &domain.SigningSession{
+				ID: id, TenantID: tenant, Status: domain.SigningSessionStatusExpired, ExpiresAt: &expiredAt,
+			}, nil
+		},
+	}, &mockDocumentStore{})
+
+	session, err := svc.GetSession(context.Background(), sessionID, tenantID)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if session.Status != domain.SigningSessionStatusExpired || session.ExpiresAt == nil || !session.ExpiresAt.Equal(expiredAt) {
+		t.Fatalf("expected persisted EXPIRED session, got %+v", session)
+	}
+}
+
+func TestSigningServiceCreateSessionRejectsPastExpiry(t *testing.T) {
+	t.Parallel()
+	past := time.Now().UTC().Add(-time.Second)
+	svc := NewSigningService(&mockSigningStore{
+		createSessionFn: func(context.Context, uuid.UUID, domain.CreateSigningSessionInput) (*domain.SigningSession, error) {
+			t.Fatal("past expires_at must not create a session")
+			return nil, nil
+		},
+	}, &mockDocumentStore{
+		getByIDAndTenantFn: func(context.Context, uuid.UUID, uuid.UUID) (*domain.Document, error) {
+			t.Fatal("past expires_at must not load the document")
+			return nil, nil
+		},
+	})
+	_, err := svc.CreateSession(context.Background(), uuid.New(), domain.CreateSigningSessionInput{
+		TenantID: uuid.New(), RequiredSignersCount: 1, ExpiresAt: &past,
+	})
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.CodeValidation || appErr.Details["field"] != "expires_at" {
+		t.Fatalf("expected expires_at validation error, got %v", err)
 	}
 }
 
