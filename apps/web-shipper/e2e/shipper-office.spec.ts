@@ -366,6 +366,20 @@ async function chooseCompany(page: Page) {
   await expect(page.getByTestId('home-shell')).toBeVisible()
 }
 
+/** Gate appears only after layout refreshMemberships() refetches companies post-reload. */
+async function reloadAndExpectCompanyGate(page: Page) {
+  const membershipRefresh = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return url.pathname === '/api/v1/users/user-1/companies'
+      && url.searchParams.get('tenant_id') === 'tenant-1'
+      && response.ok()
+  })
+  await page.reload()
+  await membershipRefresh
+  await expect(page.getByTestId('company-gate')).toBeVisible()
+  await expect(page.getByTestId('home-shell')).toHaveCount(0)
+}
+
 test('shipper admin reads the company-scoped shipment inbox and detail', async ({ page }) => {
   const calls = await installGateway(page, ['SHIPPER_ADMIN'])
   await signIn(page)
@@ -485,12 +499,19 @@ test('tampered selected company is cleared before shipment calls', async ({ page
     sessionStorage.setItem(key, JSON.stringify(raw))
   })
   const marked = calls.length
-  await page.reload()
-  await expect(page.getByTestId('company-gate')).toBeVisible()
+  await reloadAndExpectCompanyGate(page)
   const afterReload = calls.slice(marked)
   expect(afterReload.some((call) => call.includes('co-spoof'))).toBe(false)
   expect(afterReload.some((call) => call.includes('/api/v1/shipper/shipments'))).toBe(false)
-  expect(await page.evaluate(() => sessionStorage.getItem('freight_carrier_tab_session'))).toBeNull()
+  const persistedSelection = await page.evaluate(() => {
+    const raw = sessionStorage.getItem('freight_shipper_tab_session')
+    if (!raw) return { present: false as const, selectedCompanyId: null as string | null }
+    const parsed = JSON.parse(raw) as { selectedCompanyId?: string | null }
+    return { present: true as const, selectedCompanyId: parsed.selectedCompanyId ?? null }
+  })
+  expect(persistedSelection.present).toBe(true)
+  expect(persistedSelection.selectedCompanyId).not.toBe('co-spoof')
+  expect(persistedSelection.selectedCompanyId).toBeNull()
 })
 
 test('shipper admin reads documents for the selected shipment', async ({ page }) => {
