@@ -155,14 +155,14 @@ type RemoteSavedView struct {
 }
 
 type CreateViewInput struct {
-	TenantID  string
-	UserID    string
-	RequestID string
-	Name      string
-	Scope           string
-	WorkspaceScope  string
-	Filters         map[string]any
-	Sort      map[string]any
+	TenantID       string
+	UserID         string
+	RequestID      string
+	Name           string
+	Scope          string
+	WorkspaceScope string
+	Filters        map[string]any
+	Sort           map[string]any
 }
 
 type CreateHandoffInput struct {
@@ -420,6 +420,7 @@ func (c *Client) doWorkspaceJSON(
 	if c == nil {
 		return &DependencyError{Reason: ReasonUnknown, Err: fmt.Errorf("read model client is nil")}
 	}
+	endpoint = c.resolveWorkspaceEndpoint(endpoint)
 	start := time.Now()
 	result := "SUCCESS"
 	var reason FailureReason
@@ -483,6 +484,19 @@ func (c *Client) doWorkspaceJSON(
 		return &DependencyError{Reason: reason, Err: err}
 	}
 	return nil
+}
+
+func (c *Client) resolveWorkspaceEndpoint(endpoint string) string {
+	if c == nil || strings.Contains(endpoint, "://") {
+		return endpoint
+	}
+	if endpoint == "" {
+		return c.baseURL
+	}
+	if !strings.HasPrefix(endpoint, "/") {
+		endpoint = "/" + endpoint
+	}
+	return c.baseURL + endpoint
 }
 
 func setIf(q url.Values, key, value string) {

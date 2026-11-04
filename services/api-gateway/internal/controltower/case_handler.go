@@ -89,6 +89,9 @@ func (h *Handler) RemoveCaseLink(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if h.rejectIfCaseReadModelDisabled(w) {
+		return
+	}
 	path := "/internal/v1/control-tower/cases/" + caseID + "/links/" + linkID
 	depErr := h.service.readModel.ProxyCaseNoContent(r.Context(), http.MethodDelete, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID, path, nil)
 	if depErr != nil {
@@ -153,6 +156,9 @@ func (h *Handler) GetCaseTimeline(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if h.rejectIfCaseReadModelDisabled(w) {
+		return
+	}
 	path := "/internal/v1/control-tower/cases/" + caseID + "/timeline?" + r.URL.RawQuery
 	result, depErr := h.service.readModel.ProxyCaseJSON(r.Context(), http.MethodGet, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID, path, nil)
 	if depErr != nil {
@@ -194,6 +200,9 @@ func (h *Handler) FindCaseDuplicates(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if h.rejectIfCaseReadModelDisabled(w) {
+		return
+	}
 	path := controltowerreadmodel.CaseDuplicatesPath + "?" + r.URL.RawQuery
 	result, depErr := h.service.readModel.ProxyCaseJSON(r.Context(), http.MethodGet, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID, path, nil)
 	if depErr != nil {
@@ -227,6 +236,9 @@ func (h *Handler) RemoveCaseParticipant(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
+	if h.rejectIfCaseReadModelDisabled(w) {
+		return
+	}
 	path := "/internal/v1/control-tower/cases/" + caseID + "/participants/" + userID
 	depErr := h.service.readModel.ProxyCaseNoContent(r.Context(), http.MethodDelete, reqCtx.TenantID, reqCtx.UserID, reqCtx.RequestID, path, nil)
 	if depErr != nil {
@@ -234,6 +246,14 @@ func (h *Handler) RemoveCaseParticipant(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) rejectIfCaseReadModelDisabled(w http.ResponseWriter) bool {
+	if err := h.service.requireReadModel(); err != nil {
+		respond.Error(w, err)
+		return true
+	}
+	return false
 }
 
 func (h *Handler) handleCaseMutation(w http.ResponseWriter, r *http.Request, access func([]string) bool, denied, method, suffix string, status int) {

@@ -33,9 +33,12 @@ func (s *stubAckStore) LookupAcknowledgements(_ context.Context, _ uuid.UUID, _ 
 }
 
 type stubWorkflowStore struct {
-	ackInput domain.AcknowledgeCriticalEventInput
-	ackOut   domain.CriticalEventAcknowledgement
-	workflow domain.CriticalEventWorkflow
+	ackInput        domain.AcknowledgeCriticalEventInput
+	ackOut          domain.CriticalEventAcknowledgement
+	workflow        domain.CriticalEventWorkflow
+	lookupCalls     int
+	processingCalls int
+	lookupOut       []domain.CriticalEventWorkflow
 }
 
 func (s *stubWorkflowStore) AcknowledgeWithWorkflow(_ context.Context, input domain.AcknowledgeCriticalEventInput) (domain.CriticalEventAcknowledgement, domain.CriticalEventWorkflow, error) {
@@ -63,7 +66,8 @@ func (s *stubWorkflowStore) ListActions(context.Context, uuid.UUID, string) ([]d
 }
 
 func (s *stubWorkflowStore) LookupWorkflows(context.Context, uuid.UUID, []string) ([]domain.CriticalEventWorkflow, error) {
-	return nil, nil
+	s.lookupCalls++
+	return s.lookupOut, nil
 }
 
 func (s *stubWorkflowStore) ListOpenWorkflowsBySource(context.Context, uuid.UUID, string) ([]domain.CriticalEventWorkflow, error) {
@@ -79,7 +83,8 @@ func (s *stubWorkflowStore) UpdateException(context.Context, domain.UpdateExcept
 }
 
 func (s *stubWorkflowStore) LookupWorkflowsWithExceptionProcessing(context.Context, uuid.UUID, []string, uuid.UUID) ([]domain.CriticalEventWorkflow, error) {
-	return nil, nil
+	s.processingCalls++
+	return s.lookupOut, nil
 }
 
 func TestAckHandlerAcknowledgeUsesTrustedHeaders(t *testing.T) {
@@ -151,4 +156,30 @@ func TestAckHandlerLookupReturnsItems(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+}
+
+func TestLookupWorkflowsReadsStoredStatusWithoutSLAProcessing(t *testing.T) {
+	t.Parallel()
+	tenantID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	eventID := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	store := &stubWorkflowStore{
+		lookupOut: []domain.CriticalEventWorkflow{{
+			EventID: eventID,
+			Status:  domain.WorkflowStatusAcknowledged,
+		}},
+	}
+	handler := &AckHandler{workflowRepo: store}
+
+	body, err := json.Marshal(map[string]any{"eventIds": []string{eventID}})
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/internal/v1/control-tower/critical-events/workflows/lookup", bytes.NewReader(body))
+	req.Header.Set("X-Tenant-ID", tenantID.String())
+
+	rec := httptest.NewRecorder()
+	handler.LookupWorkflows(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"status":"acknowledged"`)
+	assert.Equal(t, 1, store.lookupCalls)
+	assert.Equal(t, 0, store.processingCalls)
 }
