@@ -135,7 +135,8 @@ func publicComponents(load domain.LoadOpportunity, components []domain.ScoreComp
 				out[i].Explanation = "Delivery to the explicit target is comparatively near or far within the feasible pool"
 			}
 		case domain.ComponentRevenue:
-			if !showAmount {
+			// Anonymized loads never keep a raw rate, even if a later view copies an amount.
+			if anonymized || !showAmount {
 				out[i].RawValue = nil
 				out[i].RawUnit = ""
 				if out[i].Status == domain.ComponentAvailable {
