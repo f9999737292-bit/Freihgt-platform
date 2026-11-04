@@ -182,7 +182,46 @@ func (r *SigningRepository) AddSignature(
 		}
 		defer tx.Rollback(ctx)
 
-		now := time.Now().UTC()
+		const lockQuery = `
+		SELECT id, tenant_id, document_id, status, required_signers_count,
+			completed_signers_count, created_at, expires_at
+		FROM documents.signing_sessions
+		WHERE id = $1 AND tenant_id = $2
+		FOR UPDATE
+	`
+		locked, err := scanSigningSession(tx.QueryRow(ctx, lockQuery, session.ID, session.TenantID))
+		if err != nil {
+			return err
+		}
+		var dbNow time.Time
+		if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&dbNow); err != nil {
+			return mapDBError(err)
+		}
+		if in.TenantID != locked.TenantID {
+			return apperrors.NotFound("signing session not found")
+		}
+		if locked.ExpiresAt != nil && !dbNow.Before(*locked.ExpiresAt) &&
+			(locked.Status == domain.SigningSessionStatusCreated || locked.Status == domain.SigningSessionStatusInProgress) {
+			if _, err := tx.Exec(ctx, `
+				UPDATE documents.signing_sessions
+				SET status = $3
+				WHERE id = $1 AND tenant_id = $2
+					AND status IN ('CREATED', 'IN_PROGRESS')
+			`, locked.ID, locked.TenantID, domain.SigningSessionStatusExpired); err != nil {
+				return mapDBError(err)
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return mapDBError(err)
+			}
+			return apperrors.Validation("signing session is expired", map[string]any{
+				"field":  "status",
+				"status": domain.SigningSessionStatusExpired,
+			})
+		}
+		if err := domain.ValidateSigningSessionForSignature(locked.Status); err != nil {
+			return err
+		}
+
 		const signatureQuery = `
 		INSERT INTO documents.signatures (
 			tenant_id, signing_session_id, document_id,
@@ -196,40 +235,42 @@ func (r *SigningRepository) AddSignature(
 			signed_at, verification_status, created_at
 	`
 		createdSignature, err := scanSignature(tx.QueryRow(ctx, signatureQuery,
-			in.TenantID,
-			session.ID,
-			session.DocumentID,
+			locked.TenantID,
+			locked.ID,
+			locked.DocumentID,
 			in.SignerUserID,
 			in.SignerCompanyID,
 			in.SignatureType,
 			optionalString(in.SignaturePayloadPath),
 			optionalString(in.CertificateFingerprint),
-			now,
+			dbNow.UTC(),
 			domain.SignatureVerificationValid,
 		))
 		if err != nil {
 			return err
 		}
 
-		completed := session.CompletedSignersCount + 1
-		sessionStatus, documentStatus := domain.ResolveSigningAfterSignature(session.RequiredSignersCount, completed)
+		completed := locked.CompletedSignersCount + 1
+		sessionStatus, documentStatus := domain.ResolveSigningAfterSignature(locked.RequiredSignersCount, completed)
 
 		const sessionUpdateQuery = `
 		UPDATE documents.signing_sessions
 		SET status = $1, completed_signers_count = $2
 		WHERE id = $3 AND tenant_id = $4
-			AND status IN ('CREATED', 'IN_PROGRESS')
-			AND (expires_at IS NULL OR expires_at > now())
+			AND status = $5
+			AND completed_signers_count = $6
+			AND (expires_at IS NULL OR expires_at > $7)
 		RETURNING id, tenant_id, document_id, status, required_signers_count,
 			completed_signers_count, created_at, expires_at
 	`
-		updated, err := scanSigningSession(tx.QueryRow(ctx, sessionUpdateQuery, sessionStatus, completed, session.ID, session.TenantID))
+		updated, err := scanSigningSession(tx.QueryRow(ctx, sessionUpdateQuery,
+			sessionStatus, completed, locked.ID, locked.TenantID, locked.Status, locked.CompletedSignersCount, dbNow.UTC()))
 		if err != nil {
 			var appErr *apperrors.AppError
 			if errors.As(err, &appErr) && appErr.Code == apperrors.CodeNotFound {
 				return apperrors.Validation("signing session cannot accept a signature", map[string]any{
 					"field":  "status",
-					"status": session.Status,
+					"status": locked.Status,
 				})
 			}
 			return err
@@ -243,7 +284,7 @@ func (r *SigningRepository) AddSignature(
 			owner_company_id, related_entity_type, related_entity_id, legal_language,
 			created_at, updated_at, version
 	`
-		updatedDoc, err := scanDocument(tx.QueryRow(ctx, docQuery, documentStatus, session.DocumentID, in.TenantID))
+		updatedDoc, err := scanDocument(tx.QueryRow(ctx, docQuery, documentStatus, locked.DocumentID, locked.TenantID))
 		if err != nil {
 			return err
 		}
