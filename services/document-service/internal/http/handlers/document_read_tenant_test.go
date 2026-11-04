@@ -71,6 +71,9 @@ func (s *readStore) GetSessionByID(context.Context, uuid.UUID) (*domain.SigningS
 func (s *readStore) GetSessionByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error) {
 	return s.sessionFn(ctx, id, tenantID)
 }
+func (s *readStore) MarkSessionExpired(context.Context, uuid.UUID, uuid.UUID) (*domain.SigningSession, error) {
+	return nil, apperrors.NotFound("signing session not found")
+}
 func (s *readStore) AddSignature(context.Context, *domain.SigningSession, domain.AddSignatureInput) (*domain.Signature, *domain.SigningSession, *domain.Document, error) {
 	s.writes++
 	return nil, nil, nil, nil

@@ -55,6 +55,12 @@ func (s *signingAuthorityStore) GetSessionByID(context.Context, uuid.UUID) (*dom
 	s.calls++
 	return nil, nil
 }
+func (s *signingAuthorityStore) MarkSessionExpired(_ context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error) {
+	return &domain.SigningSession{
+		ID: id, TenantID: tenantID, DocumentID: s.docID,
+		Status: domain.SigningSessionStatusExpired, RequiredSignersCount: 1, CreatedAt: time.Now(),
+	}, nil
+}
 func (s *signingAuthorityStore) GetSessionByIDAndTenant(_ context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error) {
 	s.touch(tenantID)
 	return &domain.SigningSession{

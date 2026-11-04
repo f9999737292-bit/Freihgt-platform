@@ -135,6 +135,38 @@ func (r *SigningRepository) GetSessionByIDAndTenant(ctx context.Context, id, ten
 	return result, err
 }
 
+func (r *SigningRepository) MarkSessionExpired(ctx context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error) {
+	var result *domain.SigningSession
+	err := measureDB("signing_repository", "expire_signing_session", func() error {
+		const query = `
+		UPDATE documents.signing_sessions
+		SET status = $3
+		WHERE id = $1 AND tenant_id = $2
+			AND status IN ('CREATED', 'IN_PROGRESS')
+			AND expires_at IS NOT NULL
+			AND expires_at <= now()
+		RETURNING id, tenant_id, document_id, status, required_signers_count,
+			completed_signers_count, created_at, expires_at
+	`
+		session, err := scanSigningSession(r.pool.QueryRow(ctx, query, id, tenantID, domain.SigningSessionStatusExpired))
+		if err != nil {
+			var appErr *apperrors.AppError
+			if errors.As(err, &appErr) && appErr.Code == apperrors.CodeNotFound {
+				current, getErr := r.GetSessionByIDAndTenant(ctx, id, tenantID)
+				if getErr != nil {
+					return getErr
+				}
+				result = current
+				return nil
+			}
+			return err
+		}
+		result = session
+		return nil
+	})
+	return result, err
+}
+
 func (r *SigningRepository) AddSignature(
 	ctx context.Context,
 	session *domain.SigningSession,
@@ -185,12 +217,21 @@ func (r *SigningRepository) AddSignature(
 		const sessionUpdateQuery = `
 		UPDATE documents.signing_sessions
 		SET status = $1, completed_signers_count = $2
-		WHERE id = $3
+		WHERE id = $3 AND tenant_id = $4
+			AND status IN ('CREATED', 'IN_PROGRESS')
+			AND (expires_at IS NULL OR expires_at > now())
 		RETURNING id, tenant_id, document_id, status, required_signers_count,
 			completed_signers_count, created_at, expires_at
 	`
-		updated, err := scanSigningSession(tx.QueryRow(ctx, sessionUpdateQuery, sessionStatus, completed, session.ID))
+		updated, err := scanSigningSession(tx.QueryRow(ctx, sessionUpdateQuery, sessionStatus, completed, session.ID, session.TenantID))
 		if err != nil {
+			var appErr *apperrors.AppError
+			if errors.As(err, &appErr) && appErr.Code == apperrors.CodeNotFound {
+				return apperrors.Validation("signing session cannot accept a signature", map[string]any{
+					"field":  "status",
+					"status": session.Status,
+				})
+			}
 			return err
 		}
 

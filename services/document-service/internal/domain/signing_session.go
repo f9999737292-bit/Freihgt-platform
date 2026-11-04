@@ -17,9 +17,9 @@ const (
 	SigningSessionStatusCancelled  = "CANCELLED"
 	SigningSessionStatusFailed     = "FAILED"
 
-	SignatureTypeSimpleElectronic     = "SIMPLE_ELECTRONIC"
-	SignatureTypeEnhancedUnqualified  = "ENHANCED_UNQUALIFIED"
-	SignatureTypeEnhancedQualified    = "ENHANCED_QUALIFIED"
+	SignatureTypeSimpleElectronic    = "SIMPLE_ELECTRONIC"
+	SignatureTypeEnhancedUnqualified = "ENHANCED_UNQUALIFIED"
+	SignatureTypeEnhancedQualified   = "ENHANCED_QUALIFIED"
 
 	SignatureVerificationValid = "VALID"
 )
@@ -103,6 +103,26 @@ func ValidateSignatureType(value string) error {
 		return apperrors.Validation("invalid signature_type", map[string]any{"field": "signature_type", "value": value})
 	}
 	return nil
+}
+
+func ValidateSigningSessionExpiry(expiresAt *time.Time, now time.Time) error {
+	if expiresAt == nil {
+		return nil
+	}
+	if !expiresAt.After(now) {
+		return apperrors.Validation("expires_at must be in the future", map[string]any{"field": "expires_at"})
+	}
+	return nil
+}
+
+func SigningSessionIsOverdue(session *SigningSession, now time.Time) bool {
+	if session == nil || session.ExpiresAt == nil {
+		return false
+	}
+	if session.Status != SigningSessionStatusCreated && session.Status != SigningSessionStatusInProgress {
+		return false
+	}
+	return !now.Before(*session.ExpiresAt)
 }
 
 func ValidateSigningSessionForSignature(status string) error {
