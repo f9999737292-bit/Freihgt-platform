@@ -638,8 +638,9 @@ class LaunchLifecycleR6B1R1SecurityTests(unittest.TestCase):
     def test_r6b1r3_up_down_up_commit_still_absent(self) -> None:
         runner = self.runner
         try:
+            self.assertEqual(runner.down(allow_destructive_test=True), 15)
             self.assertEqual(runner.down(allow_destructive_test=True), 14)
-            self.assertEqual(runner.up(), 15)
+            self.assertEqual(runner.up(), 16)
             owner = _owner_connect(self.dsn)
             try:
                 count = owner.execute(
