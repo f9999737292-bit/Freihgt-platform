@@ -275,18 +275,6 @@ func (s *Service) enrichCriticalEventWorkflows(
 		return
 	}
 
-	seeds := make([]controltowerreadmodel.EnsureExceptionSeed, 0, len(*events))
-	for _, event := range *events {
-		seeds = append(seeds, controltowerreadmodel.EnsureExceptionSeed{
-			EventID:    event.ID,
-			ShipmentID: event.ShipmentID,
-			EventType:  event.Type,
-			Source:     event.Source,
-			OccurredAt: event.OccurredAt,
-			Severity:   event.Severity,
-		})
-	}
-
 	eventIDs := make([]string, 0, len(*events))
 	for _, event := range *events {
 		eventIDs = append(eventIDs, event.ID)
@@ -294,9 +282,6 @@ func (s *Service) enrichCriticalEventWorkflows(
 
 	rmCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.readModelCfg.Timeout)
 	defer cancel()
-
-	createdIDs, _ := s.readModel.EnsureExceptionWorkflows(rmCtx, reqCtx.TenantID, reqCtx.RequestID, seeds)
-	s.triggerExceptionAutomation(reqCtx, seeds, createdIDs)
 
 	lookup, depErr := s.readModel.LookupWorkflows(rmCtx, reqCtx.TenantID, reqCtx.RequestID, eventIDs)
 	if depErr != nil {
@@ -314,7 +299,6 @@ func (s *Service) enrichCriticalEventWorkflows(
 			continue
 		}
 		applyWorkflowLookup(&(*events)[i], item)
-		s.triggerExceptionSLAAutomation(reqCtx, (*events)[i])
 	}
 }
 
