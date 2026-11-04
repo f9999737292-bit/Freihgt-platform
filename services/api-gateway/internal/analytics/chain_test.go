@@ -24,12 +24,14 @@ import (
 
 func TestOperationsFoundationChain(t *testing.T) {
 	const (
-		secret      = "chain-secret"
-		sharedToken = "shared-internal-token"
-		tenantA     = "11111111-1111-1111-1111-111111111111"
-		tenantB     = "22222222-2222-2222-2222-222222222222"
+		secret       = "chain-secret"
+		sharedToken  = "shared-internal-token"
+		gatewayToken = "gateway-caller-token"
+		sourceToken  = "source-caller-token"
+		tenantA      = "11111111-1111-1111-1111-111111111111"
+		tenantB      = "22222222-2222-2222-2222-222222222222"
 	)
-	var sourceTenant, sourceCaller, sourceToken string
+	var sourceTenant, sourceCaller, presentedSourceToken string
 	shipment := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/ready":
@@ -37,7 +39,7 @@ func TestOperationsFoundationChain(t *testing.T) {
 		case "/internal/v1/analytics/operations-foundation-v2":
 			sourceTenant = r.Header.Get("X-Tenant-ID")
 			sourceCaller = r.Header.Get("X-Internal-Service-Name")
-			sourceToken = r.Header.Get("X-Internal-Service-Token")
+			presentedSourceToken = r.Header.Get("X-Internal-Service-Token")
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"tenantId":                  tenantA,
 				"shipmentTotal":             10,
@@ -58,7 +60,7 @@ func TestOperationsFoundationChain(t *testing.T) {
 	}))
 	defer shipment.Close()
 
-	analyticsURL, stop := startAnalyticsProcess(t, shipment.URL, sharedToken)
+	analyticsURL, logs, stop := startAnalyticsProcess(t, shipment.URL, gatewayToken, sourceToken, sharedToken)
 	defer stop()
 
 	identity := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,11 +69,12 @@ func TestOperationsFoundationChain(t *testing.T) {
 	defer identity.Close()
 
 	cfg := config.Config{
-		AuthEnabled:          true,
-		JWTSecret:            secret,
-		ProxyTimeoutSeconds:  5,
-		MaxRequestBodyBytes:  1 << 20,
-		InternalServiceToken: sharedToken,
+		AuthEnabled:                 true,
+		JWTSecret:                   secret,
+		ProxyTimeoutSeconds:         5,
+		MaxRequestBodyBytes:         1 << 20,
+		InternalServiceToken:        sharedToken,
+		AnalyticsGatewayCallerToken: gatewayToken,
 		Services: config.ServiceURLs{
 			Identity:  identity.URL,
 			Analytics: analyticsURL,
@@ -119,8 +122,8 @@ func TestOperationsFoundationChain(t *testing.T) {
 	if payload.Completeness != "PARTIAL" || payload.DataFreshness.Status != "UNKNOWN" || payload.GeneratedAt == "" {
 		t.Fatalf("quality %+v", payload)
 	}
-	if sourceTenant != tenantA || sourceCaller != "analytics-service" || sourceToken != sharedToken {
-		t.Fatalf("source tenant=%s caller=%s tokenSet=%t", sourceTenant, sourceCaller, sourceToken == sharedToken)
+	if sourceTenant != tenantA || sourceCaller != "analytics-service" || presentedSourceToken != sourceToken {
+		t.Fatalf("source tenant=%s caller=%s dedicated=%t", sourceTenant, sourceCaller, presentedSourceToken == sourceToken)
 	}
 
 	carrierReq := httptest.NewRequest(http.MethodGet, "/api/v1/analytics/kpis/CAR_ON_TIME_PICKUP_RATE", nil)
@@ -156,9 +159,80 @@ func TestOperationsFoundationChain(t *testing.T) {
 	if strings.Contains(carrierRec.Body.String(), `"shipmentTotal"`) {
 		t.Fatalf("tenant aggregate leaked: %s", carrierRec.Body.String())
 	}
+
+	querySpoof, err := http.NewRequest(http.MethodGet, analyticsURL+"/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL?tenant_id="+tenantB, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	querySpoof.Header.Set("X-Internal-Service-Token", gatewayToken)
+	querySpoof.Header.Set("X-Internal-Service-Name", "api-gateway")
+	querySpoof.Header.Set("X-Tenant-ID", tenantA)
+	queryResp, err := http.DefaultClient.Do(querySpoof)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queryBody, _ := io.ReadAll(queryResp.Body)
+	_ = queryResp.Body.Close()
+	if queryResp.StatusCode != http.StatusBadRequest || bytes.Contains(queryBody, []byte(`"value"`)) {
+		t.Fatalf("query tenant status=%d body=%s", queryResp.StatusCode, queryBody)
+	}
+	wrongName, err := http.NewRequest(http.MethodGet, analyticsURL+"/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrongName.Header.Set("X-Internal-Service-Token", gatewayToken)
+	wrongName.Header.Set("X-Internal-Service-Name", "analytics-service")
+	wrongName.Header.Set("X-Tenant-ID", tenantA)
+	wrongNameResp, err := http.DefaultClient.Do(wrongName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrongNameBody, _ := io.ReadAll(wrongNameResp.Body)
+	_ = wrongNameResp.Body.Close()
+	if wrongNameResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("wrong name status=%d body=%s", wrongNameResp.StatusCode, wrongNameBody)
+	}
+
+	spoof, err := http.NewRequest(http.MethodGet, analyticsURL+"/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL?tenant_id="+tenantB, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spoof.Header.Set("X-Internal-Service-Token", sharedToken)
+	spoof.Header.Set("X-Internal-Service-Name", "api-gateway")
+	spoof.Header.Set("X-Tenant-ID", tenantB)
+	spoofResp, err := http.DefaultClient.Do(spoof)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spoofBody, _ := io.ReadAll(spoofResp.Body)
+	_ = spoofResp.Body.Close()
+	if spoofResp.StatusCode != http.StatusUnauthorized && spoofResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("shared token status=%d body=%s", spoofResp.StatusCode, spoofBody)
+	}
+	foreign, err := http.NewRequest(http.MethodGet, analyticsURL+"/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign.Header.Set("X-Internal-Service-Token", sourceToken)
+	foreign.Header.Set("X-Internal-Service-Name", "api-gateway")
+	foreign.Header.Set("X-Tenant-ID", tenantA)
+	foreignResp, err := http.DefaultClient.Do(foreign)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreignBody, _ := io.ReadAll(foreignResp.Body)
+	_ = foreignResp.Body.Close()
+	if foreignResp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("foreign secret status=%d body=%s", foreignResp.StatusCode, foreignBody)
+	}
+	for _, secretValue := range []string{sharedToken, gatewayToken, sourceToken} {
+		if bytes.Contains(logs.Bytes(), []byte(secretValue)) || bytes.Contains(spoofBody, []byte(secretValue)) || bytes.Contains(foreignBody, []byte(secretValue)) || bytes.Contains(queryBody, []byte(secretValue)) || bytes.Contains(wrongNameBody, []byte(secretValue)) {
+			t.Fatal("credential appeared in analytics logs or an error response")
+		}
+	}
 }
 
-func startAnalyticsProcess(t *testing.T, shipmentURL, token string) (string, func()) {
+func startAnalyticsProcess(t *testing.T, shipmentURL, gatewayToken, sourceToken, sharedToken string) (string, *bytes.Buffer, func()) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -181,7 +255,9 @@ func startAnalyticsProcess(t *testing.T, shipmentURL, token string) (string, fun
 	cmd.Env = append(os.Environ(),
 		"ANALYTICS_SERVICE_PORT="+strconv.Itoa(port),
 		"SHIPMENT_SERVICE_URL="+shipmentURL,
-		"INTERNAL_SERVICE_TOKEN="+token,
+		"ANALYTICS_GATEWAY_CALLER_TOKEN="+gatewayToken,
+		"ANALYTICS_SOURCE_CALLER_TOKEN="+sourceToken,
+		"INTERNAL_SERVICE_TOKEN="+sharedToken,
 		"ENVIRONMENT=test",
 		"LOG_LEVEL=error",
 	)
@@ -205,14 +281,14 @@ func startAnalyticsProcess(t *testing.T, shipmentURL, token string) (string, fun
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				return base, stop
+				return base, &logs, stop
 			}
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
 	stop()
 	t.Fatalf("analytics-service did not become healthy\n%s", logs.String())
-	return "", func() {}
+	return "", &logs, func() {}
 }
 
 func signChainToken(t *testing.T, secret, tenantID string) string {

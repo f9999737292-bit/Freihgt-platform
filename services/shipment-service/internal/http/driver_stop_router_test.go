@@ -20,7 +20,7 @@ type pingDB struct{}
 func (pingDB) Ping(context.Context) error { return nil }
 
 func TestDriverStopRouterValidation(t *testing.T) {
-	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), pingDB{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "token", nil)
+	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), pingDB{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "token", nil, "analytics-source-caller")
 	tenant := uuid.NewString()
 	user := uuid.NewString()
 	stopID := uuid.NewString()

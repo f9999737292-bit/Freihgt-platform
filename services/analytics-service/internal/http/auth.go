@@ -11,8 +11,9 @@ import (
 	"github.com/freight-platform/analytics-service/internal/platform/respond"
 )
 
-// Ingress trusts a shared internal token plus the caller name api-gateway.
-// S2S_IDENTITY_CRYPTO_BOUND=NO: the caller is not bound cryptographically.
+// Ingress authenticates api-gateway by ANALYTICS_GATEWAY_CALLER_TOKEN.
+// X-Internal-Service-Name must name that same caller and is not a credential.
+// INTERNAL_SERVICE_TOKEN is not accepted.
 
 const (
 	headerToken      = "X-Internal-Service-Token"

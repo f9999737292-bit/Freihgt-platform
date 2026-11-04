@@ -17,11 +17,11 @@ import (
 
 func TestOperationsAnalyticsRouteFollowsDatabase(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	plain := shipmenthttp.NewRouter(log, analyticsPingOnly{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "analytics-token", nil)
+	plain := shipmenthttp.NewRouter(log, analyticsPingOnly{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "analytics-token", nil, "analytics-source-caller")
 	if code := analyticsRouteStatus(plain); code != http.StatusNotFound {
 		t.Fatalf("route without query database: %d", code)
 	}
-	wired := shipmenthttp.NewRouter(log, analyticsQueryDB{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "analytics-token", nil)
+	wired := shipmenthttp.NewRouter(log, analyticsQueryDB{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "analytics-token", nil, "analytics-source-caller")
 	if code := analyticsRouteStatus(wired); code == http.StatusNotFound {
 		t.Fatal("query database did not register the internal route")
 	}
@@ -41,7 +41,7 @@ func analyticsRouteStatus(router http.Handler) int {
 
 func analyticsRouteStatusPath(router http.Handler, path string) int {
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("X-Internal-Service-Token", "analytics-token")
+	req.Header.Set("X-Internal-Service-Token", "analytics-source-caller")
 	req.Header.Set("X-Internal-Service-Name", "analytics-service")
 	req.Header.Set("X-Tenant-ID", uuid.NewString())
 	rec := httptest.NewRecorder()

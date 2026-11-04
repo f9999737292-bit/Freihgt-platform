@@ -140,7 +140,7 @@ func TestExecutionStopTrackingEvents(t *testing.T) {
 			{{0, domain.ActionTypePickup}, {1, domain.ActionTypePickup}},
 		})
 		repo := repository.NewTransportExecutionRepository(env.pool)
-		router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "ctx-token", repo)
+		router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "ctx-token", repo, "analytics-source-caller")
 		path := "/internal/v1/transport-executions/" + fx.execution.String() + "/stops/" + fx.stops[0].String() + "/tracking-context"
 		if status, _ := contextRequest(router, path, "", fx.operating.String()); status != http.StatusUnauthorized {
 			t.Fatalf("missing token status %d", status)

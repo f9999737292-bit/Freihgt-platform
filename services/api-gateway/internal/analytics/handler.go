@@ -34,7 +34,7 @@ func NewHandler(log *slog.Logger, cfg config.Config) *Handler {
 	httpClient := &http.Client{Timeout: time.Duration(timeout) * time.Second}
 	return &Handler{
 		log:         log,
-		client:      NewClient(httpClient, cfg.Services.Analytics, cfg.InternalServiceToken),
+		client:      NewClient(httpClient, cfg.Services.Analytics, cfg.AnalyticsGatewayCallerToken),
 		identity:    routeauth.NewIdentityClient(httpClient, cfg.Services.Identity),
 		authEnabled: cfg.AuthEnabled,
 		devTenantID: cfg.DevTenantID,

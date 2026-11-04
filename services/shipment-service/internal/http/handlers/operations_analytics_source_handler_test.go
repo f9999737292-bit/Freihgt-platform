@@ -11,12 +11,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/freight-platform/shared-go/internalauth"
 	"github.com/freight-platform/shipment-service/internal/domain"
-	apperrors "github.com/freight-platform/shipment-service/internal/platform/errors"
 )
 
-const analyticsSourcePath = "/internal/v1/analytics/operations-foundation"
+const (
+	analyticsSourcePath = "/internal/v1/analytics/operations-foundation"
+	platformToken       = "shared-platform-token"
+	callerToken         = "analytics-source-token"
+)
 
 type analyticsSourceStub struct {
 	tenant uuid.UUID
@@ -31,12 +33,12 @@ func (s *analyticsSourceStub) OperationsFoundation(_ context.Context, tenantID u
 	return s.snap, nil
 }
 
-func analyticsSourceRouter(stub *analyticsSourceStub, token string) http.Handler {
+func analyticsSourceRouter(stub *analyticsSourceStub) http.Handler {
 	handler := NewOperationsAnalyticsSourceHandler(stub)
-	auth := internalauth.Config{Token: token}
+	auth := RequireAnalyticsSourceCaller(platformToken, callerToken)
 	r := chi.NewRouter()
-	r.With(auth.Middleware, RequireAnalyticsCaller).Get(analyticsSourcePath, handler.Get)
-	r.With(auth.Middleware, RequireAnalyticsCaller).Get(OperationsFoundationV2Path, handler.GetExtended)
+	r.With(auth).Get(analyticsSourcePath, handler.Get)
+	r.With(auth).Get(OperationsFoundationV2Path, handler.GetExtended)
 	return r
 }
 
@@ -44,7 +46,7 @@ func TestOperationsAnalyticsSourceAuth(t *testing.T) {
 	tenant := uuid.New()
 	foreign := uuid.New()
 	stub := &analyticsSourceStub{snap: domain.OperationsAnalyticsSourceSnapshot{ShipmentTotal: 2, OnTimeDeliveryDenominator: 1, OnTimeDeliveryNumerator: 1}}
-	router := analyticsSourceRouter(stub, "analytics-token")
+	router := analyticsSourceRouter(stub)
 
 	t.Run("missing token", func(t *testing.T) {
 		rec := analyticsSourceCall(router, "", "", tenant.String(), "")
@@ -58,32 +60,41 @@ func TestOperationsAnalyticsSourceAuth(t *testing.T) {
 			t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
 		}
 	})
+	t.Run("shared platform token", func(t *testing.T) {
+		rec := analyticsSourceCall(router, platformToken, AuthorizedAnalyticsCaller, tenant.String(), "")
+		if rec.Code != http.StatusUnauthorized || stub.tenant != uuid.Nil {
+			t.Fatalf("status %d tenant %s body %s", rec.Code, stub.tenant, rec.Body.String())
+		}
+		if strings.Contains(rec.Body.String(), platformToken) || strings.Contains(rec.Body.String(), callerToken) {
+			t.Fatalf("response disclosed a credential: %s", rec.Body.String())
+		}
+	})
 	t.Run("missing caller", func(t *testing.T) {
-		rec := analyticsSourceCall(router, "analytics-token", "", tenant.String(), "")
+		rec := analyticsSourceCall(router, callerToken, "", tenant.String(), "")
 		if rec.Code != http.StatusForbidden {
 			t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
 		}
 	})
 	t.Run("wrong caller", func(t *testing.T) {
-		rec := analyticsSourceCall(router, "analytics-token", "network-optimizer-service", tenant.String(), "")
+		rec := analyticsSourceCall(router, callerToken, "network-optimizer-service", tenant.String(), "")
 		if rec.Code != http.StatusForbidden {
 			t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
 		}
 	})
 	t.Run("missing tenant", func(t *testing.T) {
-		rec := analyticsSourceCall(router, "analytics-token", AuthorizedAnalyticsCaller, "", "")
+		rec := analyticsSourceCall(router, callerToken, AuthorizedAnalyticsCaller, "", "")
 		if rec.Code != http.StatusUnauthorized {
 			t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
 		}
 	})
 	t.Run("invalid tenant", func(t *testing.T) {
-		rec := analyticsSourceCall(router, "analytics-token", AuthorizedAnalyticsCaller, "not-a-uuid", "")
+		rec := analyticsSourceCall(router, callerToken, AuthorizedAnalyticsCaller, "not-a-uuid", "")
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
 		}
 	})
 	t.Run("authorized", func(t *testing.T) {
-		rec := analyticsSourceCall(router, "analytics-token", AuthorizedAnalyticsCaller, tenant.String(), foreign.String())
+		rec := analyticsSourceCall(router, callerToken, AuthorizedAnalyticsCaller, tenant.String(), foreign.String())
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
 		}
@@ -119,8 +130,8 @@ func TestOperationsAnalyticsSourceAuth(t *testing.T) {
 func TestOperationsAnalyticsSourceEmptyTenantIsOK(t *testing.T) {
 	tenant := uuid.New()
 	stub := &analyticsSourceStub{}
-	router := analyticsSourceRouter(stub, "analytics-token")
-	rec := analyticsSourceCall(router, "analytics-token", AuthorizedAnalyticsCaller, tenant.String(), "")
+	router := analyticsSourceRouter(stub)
+	rec := analyticsSourceCall(router, callerToken, AuthorizedAnalyticsCaller, tenant.String(), "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d", rec.Code)
 	}
@@ -133,19 +144,18 @@ func TestOperationsAnalyticsSourceEmptyTenantIsOK(t *testing.T) {
 	}
 }
 
-func TestRequireAnalyticsCallerDoesNotReplaceTokenFailure(t *testing.T) {
+func TestAnalyticsSourceCallerRejectsCollidingOrSharedSecret(t *testing.T) {
 	handler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		t.Fatal("handler ran")
 	})
-	auth := internalauth.Config{Token: "analytics-token"}
 	router := chi.NewRouter()
-	router.With(auth.Middleware, RequireAnalyticsCaller).Get(analyticsSourcePath, handler)
-	rec := analyticsSourceCall(router, "", AuthorizedAnalyticsCaller, uuid.NewString(), "")
+	router.With(RequireAnalyticsSourceCaller(platformToken, platformToken)).Get(analyticsSourcePath, handler)
+	rec := analyticsSourceCall(router, platformToken, AuthorizedAnalyticsCaller, uuid.NewString(), "")
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), string(apperrors.CodeUnauthorized)) && !strings.Contains(rec.Body.String(), "UNAUTHORIZED") {
-		t.Fatalf("%s", rec.Body.String())
+	if strings.Contains(rec.Body.String(), platformToken) {
+		t.Fatalf("response disclosed a credential: %s", rec.Body.String())
 	}
 }
 
@@ -160,8 +170,8 @@ func TestOperationsAnalyticsSourceV1StaysCompatible(t *testing.T) {
 			OnTimeDeliveryDenominator: 2, OnTimeDeliveryNumerator: 1,
 		}},
 	}}
-	router := analyticsSourceRouter(stub, "analytics-token")
-	rec := analyticsSourceCall(router, "analytics-token", AuthorizedAnalyticsCaller, tenant.String(), uuid.NewString())
+	router := analyticsSourceRouter(stub)
+	rec := analyticsSourceCall(router, callerToken, AuthorizedAnalyticsCaller, tenant.String(), uuid.NewString())
 	decoder := json.NewDecoder(strings.NewReader(rec.Body.String()))
 	decoder.DisallowUnknownFields()
 	var payload struct {
@@ -192,7 +202,7 @@ func TestOperationsAnalyticsSourceV2AuthAndFacts(t *testing.T) {
 			OnTimeDeliveryDenominator: 1, OnTimeDeliveryNumerator: 1,
 		}},
 	}}
-	router := analyticsSourceRouter(stub, "analytics-token")
+	router := analyticsSourceRouter(stub)
 	call := func(token, caller, headerTenant, queryTenant string) *httptest.ResponseRecorder {
 		path := OperationsFoundationV2Path
 		if queryTenant != "" {
@@ -215,10 +225,13 @@ func TestOperationsAnalyticsSourceV2AuthAndFacts(t *testing.T) {
 	if rec := call("", AuthorizedAnalyticsCaller, tenant.String(), ""); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("missing token %d", rec.Code)
 	}
-	if rec := call("analytics-token", "network-optimizer-service", tenant.String(), ""); rec.Code != http.StatusForbidden {
+	if rec := call(callerToken, "network-optimizer-service", tenant.String(), ""); rec.Code != http.StatusForbidden {
 		t.Fatalf("wrong caller %d", rec.Code)
 	}
-	rec := call("analytics-token", AuthorizedAnalyticsCaller, tenant.String(), foreign.String())
+	if rec := call(platformToken, AuthorizedAnalyticsCaller, tenant.String(), ""); rec.Code != http.StatusUnauthorized || stub.tenant != uuid.Nil {
+		t.Fatalf("shared token status %d tenant %s", rec.Code, stub.tenant)
+	}
+	rec := call(callerToken, AuthorizedAnalyticsCaller, tenant.String(), foreign.String())
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d %s", rec.Code, rec.Body.String())
 	}

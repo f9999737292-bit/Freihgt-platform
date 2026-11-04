@@ -32,6 +32,7 @@ func NewRouter(
 	evidenceSvc *service.ExecutionEvidenceService,
 	internalToken string,
 	trackingContext handlers.TrackingContextReader,
+	analyticsSourceCallerToken string,
 ) http.Handler {
 	shipmentHandler := handlers.NewShipmentHandler(shipmentSvc)
 	orderExecutionHandler := handlers.NewOrderExecutionHandler(orderExecutionSvc)
@@ -191,11 +192,11 @@ func NewRouter(
 		sourceHandler := handlers.NewOperationsAnalyticsSourceHandler(
 			service.NewOperationsAnalyticsSourceService(repository.NewOperationsAnalyticsSourceRepository(sourceDB)),
 		)
-		r.With(internalAuth.Middleware, handlers.RequireAnalyticsCaller).Get(
+		r.With(handlers.RequireAnalyticsSourceCaller(internalToken, analyticsSourceCallerToken)).Get(
 			"/internal/v1/analytics/operations-foundation",
 			sourceHandler.Get,
 		)
-		r.With(internalAuth.Middleware, handlers.RequireAnalyticsCaller).Get(
+		r.With(handlers.RequireAnalyticsSourceCaller(internalToken, analyticsSourceCallerToken)).Get(
 			handlers.OperationsFoundationV2Path,
 			sourceHandler.GetExtended,
 		)

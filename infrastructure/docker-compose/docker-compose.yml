@@ -142,6 +142,7 @@ services:
       SHIPMENT_SERVICE_PORT: 8085
       DATABASE_URL: postgres://freight:freight_password@postgres:5432/freight_platform?sslmode=disable
       LOG_LEVEL: info
+      ANALYTICS_SOURCE_CALLER_TOKEN: ${ANALYTICS_SOURCE_CALLER_TOKEN}
     # Development-only host port mapping. Production must not expose shipment-service publicly;
     # external traffic enters through api-gateway (8080) on the internal Docker/Kubernetes network.
     ports:
@@ -322,6 +323,7 @@ services:
       CONTROL_TOWER_READ_MODEL_BASE_URL: http://control-tower-read-model-service:8089
       CONTROL_TOWER_READ_MODEL_TIMEOUT: 800ms
       CONTROL_TOWER_READ_MODEL_REQUIRE_CONSUMER_RUNNING: "true"
+      ANALYTICS_GATEWAY_CALLER_TOKEN: ${ANALYTICS_GATEWAY_CALLER_TOKEN}
     ports:
       - "8080:8080"
     depends_on:

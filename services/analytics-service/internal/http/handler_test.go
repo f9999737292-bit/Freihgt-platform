@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	testToken  = "internal-token"
-	testTenant = "11111111-1111-1111-1111-111111111111"
+	testToken   = "gateway-caller-token"
+	sourceToken = "source-caller-token"
+	sharedToken = "shared-internal-token"
+	testTenant  = "11111111-1111-1111-1111-111111111111"
 )
 
 type stubSource struct {
@@ -37,10 +39,11 @@ func testRouter(t *testing.T, src FoundationSource) http.Handler {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return NewRouter(log, config.Config{
-		Environment:   "test",
-		ShipmentURL:   "http://shipment.test",
-		InternalToken: testToken,
-		SourceTimeout: time.Second,
+		Environment:        "test",
+		ShipmentURL:        "http://shipment.test",
+		GatewayCallerToken: testToken,
+		SourceCallerToken:  sourceToken,
+		SourceTimeout:      time.Second,
 	}, src)
 }
 
@@ -73,11 +76,14 @@ func TestIngressAndKPIRoute(t *testing.T) {
 	}{
 		{"no token", "", "api-gateway", testTenant, "", "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", http.StatusUnauthorized},
 		{"wrong token", "other", "api-gateway", testTenant, "", "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", http.StatusUnauthorized},
+		{"shared token with gateway name", sharedToken, "api-gateway", testTenant, "", "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", http.StatusUnauthorized},
+		{"source token with gateway name", sourceToken, "api-gateway", testTenant, "", "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", http.StatusUnauthorized},
 		{"no caller", testToken, "", testTenant, "", "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", http.StatusForbidden},
 		{"wrong caller", testToken, "shipment-service", testTenant, "", "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", http.StatusForbidden},
 		{"missing tenant", testToken, "api-gateway", "", "", "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", http.StatusUnauthorized},
 		{"invalid tenant", testToken, "api-gateway", "not-a-uuid", "", "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", http.StatusBadRequest},
 		{"filter rejected", testToken, "api-gateway", testTenant, "?carrier=x", "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", http.StatusBadRequest},
+		{"query tenant spoof", testToken, "api-gateway", testTenant, "?tenant_id=22222222-2222-2222-2222-222222222222", "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", http.StatusBadRequest},
 		{"unknown kpi", testToken, "api-gateway", testTenant, "", "/v1/analytics/kpis/OPS_OTIF", http.StatusNotFound},
 	}
 	for _, tt := range cases {
@@ -85,6 +91,9 @@ func TestIngressAndKPIRoute(t *testing.T) {
 			rec := request(t, router, http.MethodGet, tt.path+tt.query, tt.token, tt.caller, tt.tenant, "")
 			if rec.Code != tt.want {
 				t.Fatalf("status=%d want %d body=%s", rec.Code, tt.want, rec.Body.String())
+			}
+			if strings.Contains(rec.Body.String(), testToken) || strings.Contains(rec.Body.String(), sourceToken) || strings.Contains(rec.Body.String(), sharedToken) {
+				t.Fatalf("response disclosed a credential: %s", rec.Body.String())
 			}
 		})
 	}
@@ -138,11 +147,12 @@ func TestOmittedSourceFieldReturnsNoKPI(t *testing.T) {
 			defer server.Close()
 			log := slog.New(slog.NewTextHandler(io.Discard, nil))
 			router := NewRouter(log, config.Config{
-				Environment:   "test",
-				ShipmentURL:   server.URL,
-				InternalToken: testToken,
-				SourceTimeout: time.Second,
-			}, source.NewClient(config.Config{ShipmentURL: server.URL, InternalToken: testToken, SourceTimeout: time.Second}))
+				Environment:        "test",
+				ShipmentURL:        server.URL,
+				GatewayCallerToken: testToken,
+				SourceCallerToken:  sourceToken,
+				SourceTimeout:      time.Second,
+			}, source.NewClient(config.Config{ShipmentURL: server.URL, SourceCallerToken: sourceToken, SourceTimeout: time.Second}))
 			rec := request(t, router, http.MethodGet, "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", testToken, "api-gateway", testTenant, "")
 			if rec.Code != http.StatusServiceUnavailable || strings.Contains(rec.Body.String(), `"kpiId"`) {
 				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
@@ -176,11 +186,12 @@ func TestHandlerMapsLiveSourceFailures(t *testing.T) {
 			defer server.Close()
 			log := slog.New(slog.NewTextHandler(io.Discard, nil))
 			router := NewRouter(log, config.Config{
-				Environment:   "test",
-				ShipmentURL:   server.URL,
-				InternalToken: testToken,
-				SourceTimeout: 40 * time.Millisecond,
-			}, source.NewClient(config.Config{ShipmentURL: server.URL, InternalToken: testToken, SourceTimeout: 40 * time.Millisecond}))
+				Environment:        "test",
+				ShipmentURL:        server.URL,
+				GatewayCallerToken: testToken,
+				SourceCallerToken:  sourceToken,
+				SourceTimeout:      40 * time.Millisecond,
+			}, source.NewClient(config.Config{ShipmentURL: server.URL, SourceCallerToken: sourceToken, SourceTimeout: 40 * time.Millisecond}))
 			rec := request(t, router, http.MethodGet, "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", testToken, "api-gateway", testTenant, "")
 			if rec.Code != http.StatusServiceUnavailable {
 				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())

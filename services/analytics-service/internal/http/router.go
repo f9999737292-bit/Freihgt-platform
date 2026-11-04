@@ -25,7 +25,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, source FoundationSource) htt
 	r.Use(chimiddleware.Recoverer)
 	r.Get("/health", observability.HealthHandler(serviceName))
 	r.Get("/ready", func(w http.ResponseWriter, req *http.Request) {
-		if cfg.InternalToken == "" || cfg.ShipmentURL == "" || cfg.Environment == "" {
+		if cfg.GatewayCallerToken == "" || cfg.SourceCallerToken == "" || cfg.GatewayCallerToken == cfg.SourceCallerToken || cfg.ShipmentURL == "" || cfg.Environment == "" {
 			respond.JSON(w, http.StatusServiceUnavailable, map[string]any{"status": "not_ready", "service": serviceName})
 			return
 		}
@@ -38,6 +38,6 @@ func NewRouter(log *slog.Logger, cfg config.Config, source FoundationSource) htt
 		respond.JSON(w, http.StatusOK, map[string]any{"status": "ok", "service": serviceName})
 	})
 	r.Handle("/metrics", stats.Handler())
-	r.With(requireGateway(cfg.InternalToken)).Get("/v1/analytics/kpis/{kpiId}", handler.GetKPI)
+	r.With(requireGateway(cfg.GatewayCallerToken)).Get("/v1/analytics/kpis/{kpiId}", handler.GetKPI)
 	return r
 }

@@ -47,7 +47,7 @@ func NewClient(cfg config.Config) *Client {
 	}
 	return &Client{
 		baseURL: strings.TrimRight(cfg.ShipmentURL, "/"),
-		token:   cfg.InternalToken,
+		token:   cfg.SourceCallerToken,
 		httpClient: &http.Client{
 			Timeout: timeout,
 			CheckRedirect: func(*http.Request, []*http.Request) error {

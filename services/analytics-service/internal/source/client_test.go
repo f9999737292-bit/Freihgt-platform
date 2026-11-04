@@ -33,7 +33,7 @@ func TestClientValidatesSource(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(completeSource(tenantA, 4, 2, 2, 1, 0))
 	}))
 	defer server.Close()
-	client := NewClient(config.Config{ShipmentURL: server.URL, InternalToken: "secret", SourceTimeout: time.Second})
+	client := NewClient(config.Config{ShipmentURL: server.URL, SourceCallerToken: "secret", SourceTimeout: time.Second})
 	snap, err := client.Fetch(context.Background(), tenantA)
 	if err != nil {
 		t.Fatal(err)
@@ -254,7 +254,7 @@ func TestClientFailClosed(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			client := NewClient(config.Config{ShipmentURL: server.URL, InternalToken: "secret", SourceTimeout: 30 * time.Millisecond})
+			client := NewClient(config.Config{ShipmentURL: server.URL, SourceCallerToken: "secret", SourceTimeout: 30 * time.Millisecond})
 			_, err := client.Fetch(context.Background(), tenantA)
 			sourceErr, ok := err.(*Error)
 			if !ok || sourceErr.Reason != tt.reason {
