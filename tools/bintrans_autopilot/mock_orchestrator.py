@@ -309,7 +309,7 @@ class MockOrchestrator:
             raise OrchestratorError(reservation.block_reason or "blocked")
         if reservation.state != RESERVED:
             raise OrchestratorError("invalid_state")
-        resumed_send = state == "SEND_STARTED"
+        resume_unconfirmed = state in {"SEND_STARTED", "LAUNCH_UNKNOWN"}
         if state is None:
             self._adapter(
                 "SELECT autopilot_queue.launch_protocol_record_intent(%s, %s, %s, %s, %s)",
@@ -323,7 +323,7 @@ class MockOrchestrator:
                 (self.tenant_id, launch_id),
             )
             state = "SEND_STARTED"
-        if resumed_send:
+        if resume_unconfirmed:
             self._recover_unconfirmed(launch_id)
         if state == "SEND_STARTED":
             transport = MockCursorTransport(scenario)
@@ -417,7 +417,10 @@ class MockOrchestrator:
             self.audit.write("launch_unknown", tenant_id=self.tenant_id, launch_id=launch_id, result="LAUNCH_UNKNOWN")
         elif state != "LAUNCH_UNKNOWN":
             raise OrchestratorError("invalid_state")
-        connection = self._recovery_connect()
+        try:
+            connection = self._recovery_connect()
+        except Exception:
+            raise OrchestratorError("store_unavailable") from None
         try:
             with _cursor_for(connection) as cursor:
                 cursor.execute(
@@ -444,6 +447,10 @@ class MockOrchestrator:
                         raise OrchestratorError("invalid_state")
                     decision = str(polled["decision"])
                     if decision == "MANUAL":
+                        gate = self._control_gate()
+                        if gate != "allowed":
+                            self.stop()
+                            raise OrchestratorError(gate)
                         cursor.execute(
                             """
                             SELECT autopilot_queue.launch_protocol_escalate_manual(%s, %s, %s)
@@ -505,7 +512,7 @@ class MockOrchestrator:
         except QueueError as exc:
             self.audit.write("job_failed", tenant_id=self.tenant_id, job_id=lease.job_id, result=exc.code)
             return "unavailable" if exc.code == "store_unavailable" else "failed"
-        self.audit.write("job_failed", tenant_id=self.tenant_id, job_id=lease.job_id, result=saved.status.lower())
+        self.audit.write("job_failed", tenant_id=self.tenant_id, job_id=lease.job_id, result=code)
         if saved.status == "DEAD":
             return "dead"
         if saved.status == "PENDING":

@@ -419,6 +419,243 @@ class MockOrchestratorR6B3Tests(unittest.TestCase):
             )
         self.assertEqual(raised.exception.code, "invalid_input")
 
+    def test_t1_unknown_after_recovery_connect_failure_retries(self) -> None:
+        calls = {"n": 0}
+        real = lambda: _connect(self.dsn, _RECOVERY_LOGIN, _RECOVERY_LOGIN)
+
+        def recovery_connect():
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("recovery down")
+            return real()
+
+        runner = self._orchestrator(recovery_connect=recovery_connect)
+        submitted = runner.submit(self._task("launch-t1", "idem-t1", scenario="timeout"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(self._launch_state("launch-t1"), "SEND_STARTED")
+        self.assertEqual(runner.mock_sends, 1)
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(self._launch_state("launch-t1"), "LAUNCH_UNKNOWN")
+        self.assertEqual(self._job_status(submitted.job_id), "PENDING")
+        self.assertEqual(self._job_error(submitted.job_id), "store_unavailable")
+        self.assertEqual(runner.budget.get_reservation("launch-t1").state, RESERVED)
+        self.assertEqual(runner.run_once(), "failed")
+        self.assertEqual(runner.mock_sends, 1)
+        self.assertEqual(self._launch_state("launch-t1"), "MANUAL_RECONCILIATION_REQUIRED")
+        self.assertEqual(runner.budget.get_reservation("launch-t1").state, RESERVED)
+        self.assertEqual(self._window_committed(), 0)
+        self.assertGreater(self._poll_rows("launch-t1"), 0)
+        self.assertIn("job_failed", self.audit_path.read_text(encoding="utf-8"))
+
+    def test_t2_unknown_resume_acquires_polls_and_escalates(self) -> None:
+        runner = self._orchestrator(recovery_connect=self._fail_recovery_once())
+        runner.submit(self._task("launch-t2", "idem-t2", scenario="ambiguous"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(self._launch_state("launch-t2"), "LAUNCH_UNKNOWN")
+        self.assertEqual(runner.run_once(), "failed")
+        self.assertEqual(self._launch_state("launch-t2"), "MANUAL_RECONCILIATION_REQUIRED")
+        self.assertGreater(self._poll_rows("launch-t2"), 0)
+        self.assertEqual(runner.budget.get_reservation("launch-t2").state, RESERVED)
+        self.assertEqual(self._verified_rows(), 0)
+
+    def test_t3_recovery_connect_runtime_error_stays_managed(self) -> None:
+        def recovery_connect():
+            raise RuntimeError("recovery down")
+
+        runner = self._orchestrator(recovery_connect=recovery_connect)
+        submitted = runner.submit(self._task("launch-t3", "idem-t3", scenario="timeout"))
+        self.assertEqual(runner.run_once(), "retry")
+        outcome = runner.run_once()
+        self.assertEqual(outcome, "retry")
+        self.assertEqual(self._job_status(submitted.job_id), "PENDING")
+        self.assertEqual(self._job_error(submitted.job_id), "store_unavailable")
+        self.assertEqual(self._launch_state("launch-t3"), "LAUNCH_UNKNOWN")
+        self.assertIn("store_unavailable", self.audit_path.read_text(encoding="utf-8"))
+
+    def test_t4_second_claim_from_unknown_does_not_send(self) -> None:
+        runner = self._orchestrator(recovery_connect=self._fail_recovery_once())
+        runner.submit(self._task("launch-t4", "idem-t4", scenario="conflict"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(runner.mock_sends, 1)
+        self.assertEqual(runner.run_once(), "retry")
+        resumed = self._orchestrator()
+        self.assertEqual(resumed.run_once(), "failed")
+        self.assertEqual(resumed.mock_sends, 0)
+        self.assertEqual(runner.mock_sends, 1)
+        self.assertEqual(self._launch_state("launch-t4"), "MANUAL_RECONCILIATION_REQUIRED")
+
+    def test_t5_repeated_settlement_does_not_post_twice(self) -> None:
+        runner = self._orchestrator()
+        runner.submit(self._task("launch-t5", "idem-t5"))
+        self.assertEqual(runner.run_once(), "committed")
+        settled = runner.budget.get_reservation("launch-t5")
+        again = runner.budget.commit_usage(
+            "launch-t5",
+            raw_cost_text="4",
+            charged_text="4",
+            charged_known=True,
+            agent_id=settled.agent_id,
+            run_id=settled.run_id,
+            verification_id=self._verification("4", settled.agent_id, settled.run_id),
+            payload_digest=self._digest("4", settled.agent_id, settled.run_id),
+            source="mock_orchestrator",
+        )
+        self.assertEqual(again.state, COMMITTED)
+        self.assertEqual(self._window_committed(), 4)
+        self.assertEqual(self._verified_rows(), 1)
+        unknown = self._orchestrator(recovery_connect=self._fail_recovery_once())
+        unknown.submit(self._task("launch-t5-open", "idem-t5-open", scenario="timeout"))
+        self.assertEqual(unknown.run_once(), "retry")
+        self.assertEqual(unknown.run_once(), "retry")
+        agent_id, run_id = mock_identity("tenant-a", "launch-t5-open")
+        with self.assertRaises(BudgetControllerError) as raised:
+            unknown.budget.commit_usage(
+                "launch-t5-open",
+                raw_cost_text="4",
+                charged_text="4",
+                charged_known=True,
+                agent_id=agent_id,
+                run_id=run_id,
+                verification_id=self._verification("4", agent_id, run_id),
+                payload_digest=self._digest("4", agent_id, run_id),
+                source="mock_orchestrator",
+            )
+        self.assertIn(raised.exception.code, {"invalid_caller_or_state", "not_found"})
+        self.assertEqual(self._window_committed(), 4)
+        self.assertEqual(unknown.budget.get_reservation("launch-t5-open").state, RESERVED)
+
+    def test_t6_t7_operator_resolution_uses_recovery_then_admin(self) -> None:
+        runner = self._orchestrator(recovery_connect=self._fail_recovery_once())
+        runner.submit(self._task("launch-t6", "idem-t6", scenario="timeout"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(self._launch_state("launch-t6"), "LAUNCH_UNKNOWN")
+        _ensure_launch_admin(self.dsn)
+        admin = _connect(self.dsn, _ADMIN_LOGIN, _ADMIN_LOGIN)
+        try:
+            with self.assertRaises(Exception) as rejected:
+                admin.execute(
+                    "SELECT autopilot_queue.launch_protocol_manual_reject(%s, %s, %s)",
+                    ("tenant-a", "launch-t6", "too early"),
+                )
+            self.assertIn("invalid_caller_or_state", str(rejected.exception).lower())
+            admin.rollback()
+        finally:
+            admin.close()
+        self.assertEqual(self._launch_state("launch-t6"), "LAUNCH_UNKNOWN")
+        self.assertEqual(runner.budget.get_reservation("launch-t6").state, RESERVED)
+        self._recovery_escalate("launch-t6")
+        self.assertEqual(self._launch_state("launch-t6"), "MANUAL_RECONCILIATION_REQUIRED")
+        self.assertEqual(runner.budget.get_reservation("launch-t6").state, RESERVED)
+        self._admin_reject("launch-t6")
+        self.assertEqual(self._launch_state("launch-t6"), "LAUNCH_REJECTED")
+        self.assertEqual(runner.budget.get_reservation("launch-t6").state, RELEASED)
+        self.assertEqual(self._window_reserved(), 0)
+        self.assertEqual(self._window_committed(), 0)
+        self.assertEqual(self._verified_rows(), 0)
+        nxt = self._orchestrator()
+        nxt.submit(self._task("launch-t7", "idem-t7"))
+        self.assertEqual(nxt.run_once(), "rejected")
+        self.assertEqual(self._window_committed(), 0)
+        self.assertEqual(nxt.run_once(), "committed")
+        self.assertEqual(self._window_committed(), 4)
+
+    def test_t8_other_tenant_resumes_after_unknown_is_resolved(self) -> None:
+        runner = self._orchestrator(recovery_connect=self._fail_recovery_once())
+        runner.submit(self._task("launch-t8", "idem-t8", scenario="timeout"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(runner.run_once(), "retry")
+        other = self._orchestrator(tenant_id="tenant-b", owner="worker-b")
+        with self.assertRaises(OrchestratorError) as blocked:
+            other.submit(self._task("launch-t8b", "idem-t8b", tenant_id="tenant-b"))
+        self.assertEqual(blocked.exception.code, "launch_reconciliation_open")
+        self._recovery_escalate("launch-t8")
+        self._admin_reject("launch-t8")
+        self.assertEqual(runner.budget.get_reservation("launch-t8").state, RELEASED)
+        other.submit(self._task("launch-t8b", "idem-t8b", tenant_id="tenant-b"))
+        self.assertEqual(other.run_once(), "committed")
+        self.assertEqual(self._window_committed("tenant-b"), 4)
+        self.assertEqual(other.budget.get_reservation("launch-t8b").tenant_id, "tenant-b")
+
+    def test_t9_expired_recovery_lease_can_be_acquired_again(self) -> None:
+        runner = self._orchestrator(recovery_connect=self._acquire_then_fail("launch-t9"))
+        runner.submit(self._task("launch-t9", "idem-t9", scenario="timeout"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(self._launch_state("launch-t9"), "LAUNCH_UNKNOWN")
+        self.assertEqual(self._job_error_for_launch("launch-t9"), "store_unavailable")
+        held = self._orchestrator()
+        self.assertEqual(held.run_once(), "retry")
+        self.assertEqual(self._job_error_for_launch("launch-t9"), "lease_held_by_other")
+        self.assertEqual(self._launch_state("launch-t9"), "LAUNCH_UNKNOWN")
+        self._expire_recovery_lease("launch-t9")
+        resumed = self._orchestrator()
+        self.assertEqual(resumed.run_once(), "failed")
+        self.assertEqual(resumed.mock_sends, 0)
+        self.assertEqual(self._launch_state("launch-t9"), "MANUAL_RECONCILIATION_REQUIRED")
+        self.assertEqual(runner.budget.get_reservation("launch-t9").state, RESERVED)
+        self.assertEqual(self._window_committed(), 0)
+
+    def test_t10_estop_during_unknown_does_not_settle_or_release(self) -> None:
+        runner = self._orchestrator(recovery_connect=self._fail_recovery_once())
+        submitted = runner.submit(self._task("launch-t10", "idem-t10", scenario="timeout"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(self._launch_state("launch-t10"), "LAUNCH_UNKNOWN")
+        sends = runner.mock_sends
+        self._set_control(mode="MOCK_ONLY", estop=True)
+        self.assertEqual(runner.run_once(), "stopped")
+        self.assertEqual(self._launch_state("launch-t10"), "LAUNCH_UNKNOWN")
+        self.assertEqual(self._job_status(submitted.job_id), "PENDING")
+        self.assertEqual(runner.budget.get_reservation("launch-t10").state, RESERVED)
+        self.assertEqual(runner.mock_sends, sends)
+        self.assertEqual(self._window_committed(), 0)
+        self._set_control(mode="MOCK_ONLY", estop=False)
+        resumed = self._orchestrator()
+        self.assertEqual(resumed.run_once(), "failed")
+        self.assertEqual(resumed.mock_sends, 0)
+        self.assertEqual(self._launch_state("launch-t10"), "MANUAL_RECONCILIATION_REQUIRED")
+        self.assertEqual(resumed.budget.get_reservation("launch-t10").state, RESERVED)
+
+    def test_t11_second_recovery_worker_does_not_take_a_live_lease(self) -> None:
+        runner = self._orchestrator(recovery_connect=self._acquire_then_fail("launch-t11"))
+        runner.submit(self._task("launch-t11", "idem-t11", scenario="ambiguous"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(runner.run_once(), "retry")
+        contender = self._orchestrator(owner="worker-b")
+        self.assertEqual(contender.run_once(), "retry")
+        self.assertEqual(self._job_error_for_launch("launch-t11"), "lease_held_by_other")
+        self.assertEqual(self._launch_state("launch-t11"), "LAUNCH_UNKNOWN")
+        self.assertEqual(contender.mock_sends, 0)
+        self.assertEqual(runner.budget.get_reservation("launch-t11").state, RESERVED)
+        self.assertEqual(self._window_committed(), 0)
+        self.assertEqual(self._verified_rows(), 0)
+
+    def test_t12_unknown_launch_cannot_settle_under_r6b2_gate(self) -> None:
+        runner = self._orchestrator(recovery_connect=self._fail_recovery_once())
+        runner.submit(self._task("launch-t12", "idem-t12", scenario="crash_before_response"))
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(runner.run_once(), "retry")
+        self.assertEqual(self._launch_state("launch-t12"), "LAUNCH_UNKNOWN")
+        agent_id, run_id = mock_identity("tenant-a", "launch-t12")
+        with self.assertRaises(BudgetControllerError) as raised:
+            runner.budget.commit_usage(
+                "launch-t12",
+                raw_cost_text="4",
+                charged_text="9",
+                charged_known=True,
+                agent_id=agent_id,
+                run_id=run_id,
+                verification_id=self._verification("9", agent_id, run_id),
+                payload_digest=self._digest("9", agent_id, run_id),
+                source="mock_orchestrator",
+            )
+        self.assertIn(raised.exception.code, {"invalid_caller_or_state", "not_found"})
+        self.assertEqual(runner.budget.get_reservation("launch-t12").state, RESERVED)
+        self.assertEqual(self._window_committed(), 0)
+        self.assertEqual(self._verified_rows(), 0)
+
     def test_source_has_no_network_or_migration_down(self) -> None:
         source = Path(__file__).resolve().parents[1].joinpath("mock_orchestrator.py").read_text(encoding="utf-8")
         self.assertNotIn("subprocess", source)
@@ -435,6 +672,7 @@ class MockOrchestratorR6B3Tests(unittest.TestCase):
         owner: str = "worker-a",
         reconcile_connect=None,
         adapter_connect=None,
+        recovery_connect=None,
     ) -> MockOrchestrator:
         role, password = _TENANTS[tenant_id]
         runtime = lambda: _tenant_connect(self.dsn, role, password)
@@ -448,12 +686,78 @@ class MockOrchestratorR6B3Tests(unittest.TestCase):
             runtime,
             adapter_connect or (lambda: _connect(self.dsn, _ADAPTER_LOGIN, _ADAPTER_LOGIN)),
             budget,
-            lambda: _connect(self.dsn, _RECOVERY_LOGIN, _RECOVERY_LOGIN),
+            recovery_connect or (lambda: _connect(self.dsn, _RECOVERY_LOGIN, _RECOVERY_LOGIN)),
             tenant_id=tenant_id,
             owner=owner,
             config=_enabled_config(),
             audit=AuditJournal(self.audit_path),
         )
+
+    def _fail_recovery_once(self):
+        state = {"failed": False}
+        real = lambda: _connect(self.dsn, _RECOVERY_LOGIN, _RECOVERY_LOGIN)
+
+        def connect():
+            if not state["failed"]:
+                state["failed"] = True
+                raise RuntimeError("recovery down")
+            return real()
+
+        return connect
+
+    def _acquire_then_fail(self, launch_id: str):
+        state = {"failed": False}
+
+        def connect():
+            if not state["failed"]:
+                state["failed"] = True
+                connection = _connect(self.dsn, _RECOVERY_LOGIN, _RECOVERY_LOGIN)
+                connection.execute(
+                    "SELECT autopilot_queue.launch_protocol_recovery_lease_acquire(%s, %s)",
+                    ("tenant-a", launch_id),
+                )
+                connection.commit()
+                connection.close()
+                raise RuntimeError("recovery down")
+            return _connect(self.dsn, _RECOVERY_LOGIN, _RECOVERY_LOGIN)
+
+        return connect
+
+    def _recovery_escalate(self, launch_id: str) -> None:
+        connection = _connect(self.dsn, _RECOVERY_LOGIN, _RECOVERY_LOGIN)
+        try:
+            token = connection.execute(
+                "SELECT autopilot_queue.launch_protocol_recovery_lease_acquire(%s, %s)",
+                ("tenant-a", launch_id),
+            ).fetchone()[0]
+            decision = ""
+            while decision != "MANUAL":
+                decision = connection.execute(
+                    """
+                    SELECT decision
+                    FROM autopilot_queue.launch_protocol_recovery_poll_attempt(%s, %s, %s)
+                    """,
+                    ("tenant-a", launch_id, token),
+                ).fetchone()[0]
+            connection.execute(
+                "SELECT autopilot_queue.launch_protocol_escalate_manual(%s, %s, %s)",
+                ("tenant-a", launch_id, token),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+    def _admin_reject(self, launch_id: str) -> None:
+        _ensure_launch_admin(self.dsn)
+        admin = _connect(self.dsn, _ADMIN_LOGIN, _ADMIN_LOGIN)
+        try:
+            admin.execute(
+                "SELECT autopilot_queue.launch_protocol_manual_reject(%s, %s, %s)",
+                ("tenant-a", launch_id, "operator release"),
+            )
+            admin.commit()
+        finally:
+            admin.close()
 
     def _fail_record_once(self):
         state = {"armed": True}
@@ -565,6 +869,60 @@ class MockOrchestratorR6B3Tests(unittest.TestCase):
         finally:
             connection.close()
         return int(row[0])
+
+    def _poll_rows(self, launch_id: str) -> int:
+        connection = _owner_connect(self.dsn)
+        try:
+            row = connection.execute(
+                "SELECT count(*) FROM autopilot_queue.recovery_poll_audit WHERE launch_id = %s",
+                (launch_id,),
+            ).fetchone()
+            connection.rollback()
+        finally:
+            connection.close()
+        return int(row[0])
+
+    def _job_error(self, job_id: str) -> str:
+        connection = _owner_connect(self.dsn)
+        try:
+            row = connection.execute(
+                "SELECT last_error FROM autopilot_queue.jobs WHERE job_id = %s",
+                (job_id,),
+            ).fetchone()
+            connection.rollback()
+        finally:
+            connection.close()
+        return row[0]
+
+    def _job_error_for_launch(self, launch_id: str) -> str:
+        connection = _owner_connect(self.dsn)
+        try:
+            row = connection.execute(
+                """
+                SELECT last_error FROM autopilot_queue.jobs
+                WHERE payload->>'launch_id' = %s
+                """,
+                (launch_id,),
+            ).fetchone()
+            connection.rollback()
+        finally:
+            connection.close()
+        return row[0]
+
+    def _expire_recovery_lease(self, launch_id: str) -> None:
+        connection = _owner_connect(self.dsn)
+        try:
+            connection.execute(
+                """
+                UPDATE autopilot_queue.launch_intents
+                SET recovery_lease_expires_at = clock_timestamp() - interval '1 second'
+                WHERE launch_id = %s
+                """,
+                (launch_id,),
+            )
+            connection.commit()
+        finally:
+            connection.close()
 
     def _job_status(self, job_id: str) -> str:
         connection = _owner_connect(self.dsn)
