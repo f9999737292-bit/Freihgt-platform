@@ -7,6 +7,8 @@ import (
 	"math"
 	"sort"
 
+	"github.com/google/uuid"
+
 	"github.com/freight-platform/network-optimizer-service/internal/domain"
 	apperrors "github.com/freight-platform/network-optimizer-service/internal/platform/errors"
 	"github.com/freight-platform/network-optimizer-service/internal/repository"
@@ -53,9 +55,16 @@ func scoreEligible(rows []evaluatedLoad, profile domain.ScoreProfile, policy dom
 		index = append(index, i)
 	}
 	scored := domain.ScorePool(profile, facts, policy.RankingCurrency)
+	return assignPoolScores(rows, index, scored)
+}
+
+// assignPoolScores writes a ScorePool result onto eligible rows and ranks only
+// rows that have a total. It does not treat a missing component as zero.
+func assignPoolScores(rows []evaluatedLoad, index []int, scored map[uuid.UUID]domain.CandidateScore) (ranked, unranked int) {
 	rankedIDs := make([]int, 0)
 	for _, i := range index {
 		rows[i].score = scored[rows[i].load.ID]
+		rows[i].rank = nil
 		if rows[i].score.Status == domain.ScoreRanked {
 			rankedIDs = append(rankedIDs, i)
 			ranked++
@@ -82,6 +91,52 @@ func scoreEligible(rows []evaluatedLoad, profile domain.ScoreProfile, policy dom
 		rows[i].rank = &rank
 	}
 	return ranked, unranked
+}
+
+// projectPublicRevenue rebuilds the public score when an anonymized load has a
+// hidden amount. That amount stays in the stored private score. It is omitted
+// from the public pool instead of being inserted as zero, so published
+// normalization, totals, and ranks cannot be reversed into the hidden rate.
+func projectPublicRevenue(rows []evaluatedLoad, profile domain.ScoreProfile, policy domain.NextLoadSearchPolicy, prediction *domain.PredictedCapacity, capacity domain.Capacity) []evaluatedLoad {
+	if !profileHasComponent(profile, domain.ComponentRevenue) || !anonymizedRevenueInPool(rows) {
+		return rows
+	}
+	cloned := append([]evaluatedLoad(nil), rows...)
+	facts := make([]domain.ScoreFacts, 0, len(cloned))
+	index := make([]int, 0, len(cloned))
+	for i := range cloned {
+		if len(cloned[i].reasons) > 0 {
+			continue
+		}
+		fact := scoreFacts(cloned[i], policy, prediction, capacity)
+		if cloned[i].load.VisibilityScope == domain.VisAnonymized {
+			fact.Revenue = nil
+			fact.RevenueCurrency = ""
+		}
+		facts = append(facts, fact)
+		index = append(index, i)
+	}
+	assignPoolScores(cloned, index, domain.ScorePool(profile, facts, policy.RankingCurrency))
+	return cloned
+}
+
+func profileHasComponent(profile domain.ScoreProfile, code string) bool {
+	for _, component := range profile.Components {
+		if component.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+func anonymizedRevenueInPool(rows []evaluatedLoad) bool {
+	for _, row := range rows {
+		if len(row.reasons) > 0 || row.load.VisibilityScope != domain.VisAnonymized || row.load.Commercial.Amount == nil {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func scoreFacts(row evaluatedLoad, policy domain.NextLoadSearchPolicy, prediction *domain.PredictedCapacity, capacity domain.Capacity) domain.ScoreFacts {
@@ -135,10 +190,19 @@ func publicComponents(load domain.LoadOpportunity, components []domain.ScoreComp
 				out[i].Explanation = "Delivery to the explicit target is comparatively near or far within the feasible pool"
 			}
 		case domain.ComponentRevenue:
-			if !showAmount {
+			// Anonymized loads never keep a raw rate or the points derived from it.
+			if anonymized || !showAmount {
 				out[i].RawValue = nil
 				out[i].RawUnit = ""
-				if out[i].Status == domain.ComponentAvailable {
+				if anonymized {
+					out[i].NormalizedPoints = nil
+					out[i].WeightedPoints = nil
+				}
+				if anonymized && out[i].Status == domain.ComponentAvailable {
+					out[i].Status = domain.ComponentUnavailable
+					out[i].ReasonCode = domain.ReasonCommercialUnavailable
+					out[i].Explanation = "Published commercial amount is absent"
+				} else if out[i].Status == domain.ComponentAvailable {
 					out[i].Explanation = "Published commercial amount compared within the feasible pool"
 				}
 			}

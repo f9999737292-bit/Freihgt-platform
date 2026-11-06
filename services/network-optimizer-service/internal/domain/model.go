@@ -213,13 +213,15 @@ func (l LoadOpportunity) MarketplaceView() MarketplaceLoad {
 		view.Delivery = l.Delivery
 		owner := l.OwnerTenantID
 		view.OwnerTenantID = &owner
+		// Published commercial terms stay on identified marketplace and invited loads.
+		// Anonymized publication must not receive mode, amount, or currency.
+		if commercial := l.Commercial; commercial.Mode != "" || commercial.Amount != nil {
+			copy := commercial
+			view.Commercial = &copy
+		}
 	} else {
 		view.Pickup = l.Pickup.CoarseDisplay()
 		view.Delivery = l.Delivery.CoarseDisplay()
-	}
-	if commercial := l.Commercial; commercial.Mode != "" || commercial.Amount != nil {
-		copy := commercial
-		view.Commercial = &copy
 	}
 	return view
 }

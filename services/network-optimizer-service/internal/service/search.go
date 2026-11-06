@@ -141,7 +141,7 @@ func (s *Service) SearchNextLoad(ctx context.Context, actor Actor, cmd SearchCom
 	if err := s.persistSearch(ctx, runID, actor.TenantID, capacity, effective, profile, providerName, started, now, evaluated); err != nil {
 		return Result{}, err
 	}
-	response := s.publicSearch(runID, capacity, effective, profile, evaluated, cmd.CandidateLimit)
+	response := s.publicSearch(runID, capacity, effective, profile, evaluated, cmd.CandidateLimit, prediction)
 	raw, err := json.Marshal(response)
 	if err != nil {
 		return Result{}, err
@@ -705,7 +705,8 @@ func (s *Service) persistSearch(ctx context.Context, id, tenant uuid.UUID, capac
 	}, stored)
 }
 
-func (s *Service) publicSearch(id uuid.UUID, capacity domain.Capacity, policy domain.NextLoadSearchPolicy, profile domain.ScoreProfile, rows []evaluatedLoad, limit *int) SearchResponse {
+func (s *Service) publicSearch(id uuid.UUID, capacity domain.Capacity, policy domain.NextLoadSearchPolicy, profile domain.ScoreProfile, rows []evaluatedLoad, limit *int, prediction *domain.PredictedCapacity) SearchResponse {
+	rows = projectPublicRevenue(rows, profile, policy, prediction, capacity)
 	counts := map[string]int{}
 	unrankedCounts := map[string]int{}
 	rankedCount := 0
