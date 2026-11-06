@@ -41,31 +41,32 @@ type ControlTowerConfig struct {
 }
 
 type Config struct {
-	ServiceName                string
-	Environment                string
-	HTTPPort                   int
-	LogLevel                   string
-	Services                   ServiceURLs
-	ControlTower               ControlTowerConfig
-	AuthEnabled                bool
-	JWTSecret                  string
-	IntegrationJWTSecret       string
-	TrustedProxyCIDRs          string
-	TrustedProxyNetworks       []*net.IPNet
-	DevTenantID                string
-	CORSAllowedOrigins         []string
-	ProxyTimeoutSeconds        int
-	ReadyCheckTimeoutMS        int
-	OpenAPIDir                 string
-	RateLimitEnabled           bool
-	RateLimitRPS               float64
-	RateLimitBurst             int
-	MaxRequestBodyBytes        int64
-	TrackingInternalToken      string
-	InternalServiceToken       string
-	RfxExcelExchangeEnabled    bool
-	IntegrationAuthEnabled     bool
-	IntegrationRateLimitPerMin int
+	ServiceName                 string
+	Environment                 string
+	HTTPPort                    int
+	LogLevel                    string
+	Services                    ServiceURLs
+	ControlTower                ControlTowerConfig
+	AuthEnabled                 bool
+	JWTSecret                   string
+	IntegrationJWTSecret        string
+	TrustedProxyCIDRs           string
+	TrustedProxyNetworks        []*net.IPNet
+	DevTenantID                 string
+	CORSAllowedOrigins          []string
+	ProxyTimeoutSeconds         int
+	ReadyCheckTimeoutMS         int
+	OpenAPIDir                  string
+	RateLimitEnabled            bool
+	RateLimitRPS                float64
+	RateLimitBurst              int
+	MaxRequestBodyBytes         int64
+	TrackingInternalToken       string
+	InternalServiceToken        string
+	AnalyticsGatewayCallerToken string
+	RfxExcelExchangeEnabled     bool
+	IntegrationAuthEnabled      bool
+	IntegrationRateLimitPerMin  int
 }
 
 func Load() (Config, error) {
@@ -168,7 +169,7 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	return Config{
+	cfg := Config{
 		ServiceName: "api-gateway",
 		Environment: environment,
 		HTTPPort:    port,
@@ -199,25 +200,39 @@ func Load() (Config, error) {
 			NetworkOptimizer: getEnv("NETWORK_OPTIMIZER_SERVICE_URL", "http://localhost:8096"),
 			Analytics:        getEnv("ANALYTICS_SERVICE_URL", "http://localhost:8097"),
 		},
-		AuthEnabled:                authEnabled,
-		JWTSecret:                  jwtSecret,
-		IntegrationJWTSecret:       integrationJWTSecret,
-		TrustedProxyCIDRs:          trustedProxyCIDRs,
-		TrustedProxyNetworks:       trustedProxyNetworks,
-		DevTenantID:                getEnv("DEV_TENANT_ID", ""),
-		CORSAllowedOrigins:         parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:5173")),
-		ProxyTimeoutSeconds:        proxyTimeout,
-		ReadyCheckTimeoutMS:        readyTimeoutMS,
-		RateLimitEnabled:           rateLimitEnabled,
-		RateLimitRPS:               rateLimitRPS,
-		RateLimitBurst:             rateLimitBurst,
-		MaxRequestBodyBytes:        maxBodyBytes,
-		TrackingInternalToken:      getEnv("TRACKING_INTERNAL_SERVICE_TOKEN", getEnv("INTERNAL_SERVICE_TOKEN", "dev_internal_tracking_token")),
-		InternalServiceToken:       getEnv("INTERNAL_SERVICE_TOKEN", ""),
-		RfxExcelExchangeEnabled:    parseBool(getEnv("RFX_EXCEL_EXCHANGE_ENABLED", "false")),
-		IntegrationAuthEnabled:     integrationAuthEnabled,
-		IntegrationRateLimitPerMin: intEnv("INTEGRATION_RATE_LIMIT_PER_MIN", 60),
-	}, nil
+		AuthEnabled:                 authEnabled,
+		JWTSecret:                   jwtSecret,
+		IntegrationJWTSecret:        integrationJWTSecret,
+		TrustedProxyCIDRs:           trustedProxyCIDRs,
+		TrustedProxyNetworks:        trustedProxyNetworks,
+		DevTenantID:                 getEnv("DEV_TENANT_ID", ""),
+		CORSAllowedOrigins:          parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:5173")),
+		ProxyTimeoutSeconds:         proxyTimeout,
+		ReadyCheckTimeoutMS:         readyTimeoutMS,
+		RateLimitEnabled:            rateLimitEnabled,
+		RateLimitRPS:                rateLimitRPS,
+		RateLimitBurst:              rateLimitBurst,
+		MaxRequestBodyBytes:         maxBodyBytes,
+		TrackingInternalToken:       getEnv("TRACKING_INTERNAL_SERVICE_TOKEN", getEnv("INTERNAL_SERVICE_TOKEN", "dev_internal_tracking_token")),
+		InternalServiceToken:        getEnv("INTERNAL_SERVICE_TOKEN", ""),
+		AnalyticsGatewayCallerToken: strings.TrimSpace(os.Getenv("ANALYTICS_GATEWAY_CALLER_TOKEN")),
+		RfxExcelExchangeEnabled:     parseBool(getEnv("RFX_EXCEL_EXCHANGE_ENABLED", "false")),
+		IntegrationAuthEnabled:      integrationAuthEnabled,
+		IntegrationRateLimitPerMin:  intEnv("INTEGRATION_RATE_LIMIT_PER_MIN", 60),
+	}
+	if err := validateAnalyticsGatewayCaller(cfg.AnalyticsGatewayCallerToken, cfg.InternalServiceToken); err != nil {
+		return Config{}, err
+	}
+	return cfg, nil
+}
+
+func validateAnalyticsGatewayCaller(callerToken, sharedToken string) error {
+	callerToken = strings.TrimSpace(callerToken)
+	sharedToken = strings.TrimSpace(sharedToken)
+	if callerToken == "" || callerToken == sharedToken {
+		return fmt.Errorf("ANALYTICS_GATEWAY_CALLER_TOKEN must be set and distinct from INTERNAL_SERVICE_TOKEN")
+	}
+	return nil
 }
 
 func isProductionEnvironment(environment string) bool {

@@ -18,7 +18,7 @@ import (
 
 func TestPODRequirementRouteRequiresInternalToken(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := shipmenthttp.NewRouter(log, podQueryDB{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "pod-token", nil)
+	router := shipmenthttp.NewRouter(log, podQueryDB{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "pod-token", nil, "analytics-source-caller")
 	path := "/internal/v1/transport-executions/" + uuid.NewString() + "/actions/" + uuid.NewString() + "/pod-requirement"
 	missing := httptest.NewRequest(http.MethodGet, path, nil)
 	missing.Header.Set("X-Tenant-ID", uuid.NewString())
@@ -44,7 +44,7 @@ func TestPODRequirementRouteRequiresInternalToken(t *testing.T) {
 
 func TestPODRequirementDependencyFailureDoesNotInventKnownFalse(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := shipmenthttp.NewRouter(log, podFailDB{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "pod-token", nil)
+	router := shipmenthttp.NewRouter(log, podFailDB{}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "pod-token", nil, "analytics-source-caller")
 	req := httptest.NewRequest(http.MethodGet, "/internal/v1/transport-executions/"+uuid.NewString()+"/actions/"+uuid.NewString()+"/pod-requirement", nil)
 	req.Header.Set("X-Internal-Service-Token", "pod-token")
 	req.Header.Set("X-Tenant-ID", uuid.NewString())

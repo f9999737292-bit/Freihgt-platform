@@ -407,7 +407,7 @@ func TestPODRequirementFoundation(t *testing.T) {
 }
 
 func podRouter(env *execEnv) http.Handler {
-	return shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "pod-token", nil)
+	return shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "pod-token", nil, "analytics-source-caller")
 }
 
 func podPath(executionID, actionID uuid.UUID) string {

@@ -31,7 +31,7 @@ func TestDriverDeliveryDisposition(t *testing.T) {
 	drivers := repository.NewDriverRepository(env.pool)
 	stops := service.NewDriverStopService(drivers, commands)
 	stops.BindDeliveryDisposition(repo)
-	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, stops, nil, "test-token", repo)
+	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, stops, nil, "test-token", repo, "analytics-source-caller")
 
 	t.Run("DRV-RET-01 partial rejection", func(t *testing.T) {
 		seed, user, driverID, actionID := assignDriverDelivery(t, env, 10)

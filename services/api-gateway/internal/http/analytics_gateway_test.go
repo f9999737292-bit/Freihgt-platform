@@ -175,11 +175,12 @@ func TestAnalyticsGatewayDependencyDown(t *testing.T) {
 func analyticsRouter(t *testing.T, secret, token, identityURL, analyticsURL string) http.Handler {
 	t.Helper()
 	cfg := config.Config{
-		AuthEnabled:          true,
-		JWTSecret:            secret,
-		ProxyTimeoutSeconds:  2,
-		MaxRequestBodyBytes:  1 << 20,
-		InternalServiceToken: token,
+		AuthEnabled:                 true,
+		JWTSecret:                   secret,
+		ProxyTimeoutSeconds:         2,
+		MaxRequestBodyBytes:         1 << 20,
+		InternalServiceToken:        "shared-platform-token",
+		AnalyticsGatewayCallerToken: token,
 		Services: config.ServiceURLs{
 			Identity:  identityURL,
 			Analytics: analyticsURL,

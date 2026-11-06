@@ -152,6 +152,7 @@ func newFlowEnv(t *testing.T) *flowEnv {
 		"SHIPMENT_SERVICE_PORT":               fmt.Sprintf("%d", shipmentPort),
 		"HTTP_PORT":                           fmt.Sprintf("%d", shipmentPort),
 		"INTERNAL_SERVICE_TOKEN":              internalToken,
+		"ANALYTICS_SOURCE_CALLER_TOKEN":       "analytics-source-caller-isolated-test",
 		"DRIVER_NOTIFICATION_ENABLED":         "false",
 		"SHIPMENT_OUTBOX_ENABLED":             "true",
 		"SHIPMENT_OUTBOX_TRANSPORT":           "kafka",

@@ -91,7 +91,10 @@ func startProductionGatewayProcessOnce(binaryPath string, env []string) (string,
 	}
 
 	cmd := exec.Command(binaryPath)
-	cmd.Env = append(append([]string{}, env...), fmt.Sprintf("API_GATEWAY_PORT=%d", port))
+	cmd.Env = append(append([]string{}, env...),
+		fmt.Sprintf("API_GATEWAY_PORT=%d", port),
+		"ANALYTICS_GATEWAY_CALLER_TOKEN=analytics-gateway-caller-isolated-test",
+	)
 	proc := &browserGatewayProcess{cmd: cmd, done: make(chan struct{})}
 	cmd.Stdout = &proc.output
 	cmd.Stderr = &proc.output

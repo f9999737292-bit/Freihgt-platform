@@ -54,7 +54,8 @@ func TestOperationsAnalyticsSourceContract(t *testing.T) {
 	insertAnalyticsCase(t, env, tenantB, execB, domain.DispositionReturnToOrigin)
 	insertAnalyticsCase(t, env, tenantB, execB, domain.DispositionRedirect)
 
-	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "analytics-token", nil)
+	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "analytics-token", nil, "analytics-source-caller")
+	assertAnalyticsCallerRejected(t, router, tenantA)
 	before := readAnalyticsSource(t, router, tenantA)
 	wantA := domain.OperationsAnalyticsSourceSnapshot{
 		TenantID: tenantA, ShipmentTotal: 6, OnTimeDeliveryDenominator: 3, OnTimeDeliveryNumerator: 2, ReturnCaseCount: 2, RedirectCaseCount: 1,
@@ -80,10 +81,35 @@ func assertAnalyticsV1(t *testing.T, got, want domain.OperationsAnalyticsSourceS
 	}
 }
 
+func assertAnalyticsCallerRejected(t *testing.T, router http.Handler, tenantID uuid.UUID) {
+	t.Helper()
+	call := func(token, caller string) int {
+		req := httptest.NewRequest(http.MethodGet, "/internal/v1/analytics/operations-foundation-v2?tenant_id="+uuid.NewString(), nil)
+		req.Header.Set("X-Internal-Service-Token", token)
+		req.Header.Set("X-Internal-Service-Name", caller)
+		req.Header.Set("X-Tenant-ID", tenantID.String())
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if token != "" && strings.Contains(rec.Body.String(), token) {
+			t.Fatalf("response disclosed a credential")
+		}
+		return rec.Code
+	}
+	if code := call("analytics-token", "analytics-service"); code != http.StatusUnauthorized {
+		t.Fatalf("shared token status %d", code)
+	}
+	if code := call("analytics-source-caller", "api-gateway"); code != http.StatusForbidden {
+		t.Fatalf("wrong caller status %d", code)
+	}
+	if code := call("", "analytics-service"); code != http.StatusUnauthorized {
+		t.Fatalf("empty token status %d", code)
+	}
+}
+
 func readAnalyticsSource(t *testing.T, router http.Handler, tenantID uuid.UUID) domain.OperationsAnalyticsSourceSnapshot {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/internal/v1/analytics/operations-foundation?tenant_id="+uuid.NewString(), nil)
-	req.Header.Set("X-Internal-Service-Token", "analytics-token")
+	req.Header.Set("X-Internal-Service-Token", "analytics-source-caller")
 	req.Header.Set("X-Internal-Service-Name", "analytics-service")
 	req.Header.Set("X-Tenant-ID", tenantID.String())
 	rec := httptest.NewRecorder()
@@ -258,7 +284,7 @@ func TestOperationsAnalyticsSourcePickupAndCarriers(t *testing.T) {
 	graphB := seedAnalyticsGraph(t, env, tenantB)
 	insertAnalyticsOperationalShipment(t, env, tenantB, graphB, &graphB.carrier, &equalAt, &equalAt, &equalAt, &equalAt, false)
 
-	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "analytics-token", nil)
+	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "analytics-token", nil, "analytics-source-caller")
 	got := readAnalyticsSourceV2(t, router, tenantA, tenantB)
 	if got.TenantID != tenantA || got.ShipmentTotal != 6 || got.OnTimePickupDenominator != 4 || got.OnTimePickupNumerator != 3 || got.OnTimeDeliveryDenominator != 4 || got.OnTimeDeliveryNumerator != 3 || got.ReturnCaseCount != 0 || got.RedirectCaseCount != 0 {
 		t.Fatalf("SRC03B tenant %+v", got)
@@ -311,7 +337,7 @@ func TestOperationsAnalyticsSourcePickupAndCarriers(t *testing.T) {
 func readAnalyticsSourceV2(t *testing.T, router http.Handler, tenantID, spoofed uuid.UUID) domain.OperationsAnalyticsSourceSnapshot {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/internal/v1/analytics/operations-foundation-v2?tenant_id="+spoofed.String(), nil)
-	req.Header.Set("X-Internal-Service-Token", "analytics-token")
+	req.Header.Set("X-Internal-Service-Token", "analytics-source-caller")
 	req.Header.Set("X-Internal-Service-Name", "analytics-service")
 	req.Header.Set("X-Tenant-ID", tenantID.String())
 	rec := httptest.NewRecorder()

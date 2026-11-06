@@ -112,7 +112,7 @@ func main() {
 	}
 	router := httpserver.WithShipmentRelationshipCreate(
 		httpserver.WithShipmentSourceAuthority(
-			httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, driverStopSvc, evidenceSvc, cfg.InternalServiceToken, executionRepo),
+			httpserver.NewRouter(log, db.Pool, shipmentSvc, orderExecutionSvc, statusHistorySvc, statusSummarySvc, driverSvc, vehicleSvc, driverOpsSvc, driverTaskSvc, driverStopSvc, evidenceSvc, cfg.InternalServiceToken, executionRepo, cfg.AnalyticsSourceCallerToken),
 			cfg.CompanyRelationshipRevalidationToken,
 			service.NewShipmentSourceAuthority(sourceRepo),
 		),

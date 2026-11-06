@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"crypto/subtle"
 	"net/http"
 	"strings"
 
@@ -28,16 +29,28 @@ type operationsFoundationV1Response struct {
 	RedirectCaseCount         int64     `json:"redirectCaseCount"`
 }
 
-// RequireAnalyticsCaller rejects any internal caller other than analytics-service.
-// The shared internal token middleware must already have accepted the request.
-func RequireAnalyticsCaller(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.TrimSpace(r.Header.Get(HeaderInternalServiceName)) != AuthorizedAnalyticsCaller {
-			respond.Error(w, apperrors.Forbidden("caller is not allowed to read analytics source facts"))
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+// RequireAnalyticsSourceCaller authenticates analytics-service by its dedicated
+// secret. The shared INTERNAL_SERVICE_TOKEN is not accepted. The caller name
+// must agree with that secret and does not select the caller by itself.
+// An empty secret or a secret equal to the platform token fails closed.
+func RequireAnalyticsSourceCaller(platformToken, callerToken string) func(http.Handler) http.Handler {
+	platformToken = strings.TrimSpace(platformToken)
+	callerToken = strings.TrimSpace(callerToken)
+	configured := callerToken != "" && callerToken != platformToken
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			presented := strings.TrimSpace(r.Header.Get("X-Internal-Service-Token"))
+			if !configured || presented == "" || subtle.ConstantTimeCompare([]byte(presented), []byte(callerToken)) != 1 {
+				respond.Error(w, apperrors.Unauthorized("internal service authentication failed"))
+				return
+			}
+			if strings.TrimSpace(r.Header.Get(HeaderInternalServiceName)) != AuthorizedAnalyticsCaller {
+				respond.Error(w, apperrors.Forbidden("caller is not allowed to read analytics source facts"))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 type OperationsAnalyticsSourceReader interface {

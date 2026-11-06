@@ -22,7 +22,7 @@ import (
 func TestExecutionProjectionAPI(t *testing.T) {
 	env := startPostgres(t)
 	repo := repository.NewTransportExecutionRepository(env.pool)
-	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "projection-token", repo)
+	router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "projection-token", repo, "analytics-source-caller")
 
 	t.Run("I1-01 I1-06 I1-07 valid projection returns committed ack", func(t *testing.T) {
 		cmd := projectionAPICommand(t, env)

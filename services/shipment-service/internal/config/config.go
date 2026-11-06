@@ -19,6 +19,7 @@ type Config struct {
 	DatabaseURL                          string
 	Outbox                               OutboxConfig
 	InternalServiceToken                 string
+	AnalyticsSourceCallerToken           string
 	JWTSecret                            string
 	CompanyRelationshipBaseURL           string
 	ShipmentRelationshipServiceToken     string
@@ -92,6 +93,7 @@ func Load() (Config, error) {
 		DatabaseURL:                          databaseURL,
 		Outbox:                               outbox,
 		InternalServiceToken:                 strings.TrimSpace(os.Getenv("INTERNAL_SERVICE_TOKEN")),
+		AnalyticsSourceCallerToken:           strings.TrimSpace(os.Getenv("ANALYTICS_SOURCE_CALLER_TOKEN")),
 		JWTSecret:                            strings.TrimSpace(os.Getenv("JWT_SECRET")),
 		CompanyRelationshipBaseURL:           strings.TrimRight(strings.TrimSpace(os.Getenv("COMPANY_RELATIONSHIP_BASE_URL")), "/"),
 		ShipmentRelationshipServiceToken:     strings.TrimSpace(os.Getenv("SHIPMENT_RELATIONSHIP_SERVICE_TOKEN")),
@@ -105,6 +107,9 @@ func Load() (Config, error) {
 	}
 	if _, err := HTTPListenAddr(cfg.HTTPListenHost, cfg.HTTPPort); err != nil {
 		return Config{}, err
+	}
+	if cfg.AnalyticsSourceCallerToken == "" || cfg.AnalyticsSourceCallerToken == cfg.InternalServiceToken {
+		return Config{}, fmt.Errorf("ANALYTICS_SOURCE_CALLER_TOKEN must be set and distinct from INTERNAL_SERVICE_TOKEN")
 	}
 	return cfg, nil
 }

@@ -376,6 +376,7 @@ func startShipmentProcess(t *testing.T, databaseURL string) (baseURL string, sto
 		integrationDBIdleEnv,
 		"LOG_LEVEL=error",
 		"ENVIRONMENT=test",
+		"ANALYTICS_SOURCE_CALLER_TOKEN=analytics-source-caller-isolated-test",
 	}, "HTTP_PORT", "/ready")
 	return baseURL, func() {}, nil
 }

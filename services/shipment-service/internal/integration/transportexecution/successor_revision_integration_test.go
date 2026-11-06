@@ -312,7 +312,7 @@ func TestSuccessorRevision(t *testing.T) {
 
 	t.Run("http uses verified tenant", func(t *testing.T) {
 		seed := seedSuccessorRoute(t, env)
-		router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "successor-token", repo)
+		router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "successor-token", repo, "analytics-source-caller")
 		cmd := successorCommand(seed, "http-1")
 		body := map[string]any{
 			"operatingTenantId":         uuid.NewString(),

@@ -341,7 +341,7 @@ func TestDeliveryDisposition(t *testing.T) {
 		}
 		httpSeed := seedDelivery(t, env, 4, true)
 		arriveStop(t, env, httpSeed.stopID)
-		router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "return-token", repo)
+		router := shipmenthttp.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), env.pool, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "return-token", repo, "analytics-source-caller")
 		body := map[string]any{
 			"operatingTenantId": uuid.NewString(), "shipmentTenantId": uuid.NewString(),
 			"expectedCurrentRevisionId": httpSeed.revisionID.String(), "sourceExecutionStopId": httpSeed.stopID.String(),
