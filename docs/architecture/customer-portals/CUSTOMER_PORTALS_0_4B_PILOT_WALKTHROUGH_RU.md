@@ -35,11 +35,16 @@
 | B.3 | **Заявки** | Строка **TO-1**, статус **CONFIRMED** | `transport-orders`, ссылка на деталь |
 | B.4 | Открыть заявку | Статус заказа, при наличии — shipment ref и ссылка tracking | `order-status`, `open-tracking` href `/shipments/.../tracking` |
 | B.5 | **Отслеживание** (по shipment ref) | Tracking **ACTIVE**, ETA, окна | только `/api/v1/carrier/shipments/...?carrier_company_id=co-1` |
-| B.6 | **Документы** по shipment | **DOC-1**, вложение `pod.pdf`, download без секретов storage | carrier documents route |
+| B.6 | **Документы** по shipment (из списка заявок) | На экране документов по shipment отображается номер **DOC-1** | `data-testid=document-number` содержит `DOC-1` |
 | B.7 | Deep link чужой перевозки | `/shipments/shipment-b/tracking` при выбранной `co-1` | Сообщение **Отслеживание недоступно для выбранной компании**; запросы с `carrier_company_id=co-1` |
 | B.8 | Запрет чужой компании | Нет business API до выбора компании; tamper очищается после reload | `reloadAndExpectCompanyGate` в полном suite |
 
-**Автоматизация пилота:** `apps/web-carrier/e2e/pilot-walkthrough.spec.ts` — happy path (B.1–B.6) и cross-company (B.7).
+**Автоматизация Carrier**
+
+- **PILOT SMOKE** — `apps/web-carrier/e2e/pilot-walkthrough.spec.ts`: happy path **B.1–B.6**, где **B.6 ограничен** переходом к документам по shipment и проверкой `document-number` = `DOC-1`; отдельный сценарий в том же файле покрывает **B.7** (реакция UI на mock 404 cross-shipment tracking).
+- **OFFICE REGRESSION** — `apps/web-carrier/e2e/carrier-office.spec.ts`, тест `documents open from the server shipment reference`: `open-documents` href `/shipments/shipment-A/documents`; список и деталь **DOC-1**; строка вложения `pod.pdf`; клик **Скачать** инициирует mock-запрос `.../attachments/att-1/content` (проверка URL в журнале вызовов, не проверка бинарного скачивания файла); отсутствие `secret-bucket` / `secret-object-key` в UI.
+
+В pilot smoke шаг **B.6** не проверяет вложение `pod.pdf` и не выполняет скачивание. Эти шаги относятся к office regression выше. Оба набора используют **mock API** и не подтверждают реальное object storage, backend tenant isolation или staging pilot.
 
 ---
 
