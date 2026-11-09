@@ -98,7 +98,7 @@ O: `30+25+30+25+15+15+15+25+15+10+10+5+10+5 = 235`.
 | PR #341 | OPEN Draft, snapshot-to-closing money identity | Нет |
 | PR #346 | OPEN Draft, контракт permanent-error. Не исправление consumer | Нет |
 | Issue #343 | OPEN, document write routes | Блокер внешнего document write и production |
-| Issue #344 | OPEN, Kafka permanent retry | `PRODUCTION_CONSUMER_READINESS=BLOCKED` |
+| Issue #344 | OPEN. Узкая классификация `CORE-P0-003A` = `3–8 PERSON_DAYS`, `CONFIDENCE=LOW`. `CORE-P0-003B` и `CORE-P0-003C` = `NOT_ESTIMABLE`. `REBALANCE_DESIGN=BLOCKED`. PR #346 не чинит consumer | `PRODUCTION_CONSUMER_READINESS=BLOCKED`. 3–8 дней не закрывают issue |
 | Issue #345 | OPEN LOW, test-only shipment→tracking import | Не блокер runtime по тексту принятого аудита |
 | `CT_MUTATION_EQUALS_VIEW` | OPEN в контракте 0.9B | Блокер операторского пилота Control Tower |
 | `SHIPMENT_TRUSTS_GATEWAY_TENANT_HEADER` | OPEN в принятом отчёте. Эксплуатация не воспроизводилась | Блокер external pilot и production для shipment-service. Не является #343 и не является RLS |
@@ -114,6 +114,8 @@ O: `30+25+30+25+15+15+15+25+15+10+10+5+10+5 = 235`.
 ## 8. P3, развитие полной платформы
 
 Приоритеты P0 и P1 пути грузовладельца живут в Core-отчёте и в решении. Здесь только то, что не требуется для первого Core-пилота.
+
+`PARTIAL_ESTIMATED_SUBTOTAL=47_TO_112_PERSON_DAYS` в файле решения — сумма уже оценённых строк. `TOTAL_REMAINING_EFFORT_TO_PILOT=NOT_ESTIMABLE`. Из subtotal исключены: внешние tracking providers, интеграции ERP и WMS, routing providers, стоимость сторонних услуг, разработки дополнительного security audit, юридические работы вне инженерной описи, неоценённая часть Issue #344 (`CORE-P0-003B` и `CORE-P0-003C`). Этот редакционный split не повышает готовность платформы.
 
 Трудозатраты — человеко-дни, не календарь. `NOT_ESTIMABLE` стоит там, где размер внешнего контура не измерялся.
 
@@ -140,6 +142,7 @@ O: `30+25+30+25+15+15+15+25+15+10+10+5+10+5 = 235`.
 | Diff только отчёта | `git diff --name-only f58f13b5 HEAD` | 2026-11-10 |
 | CI | run `42701751576` | 2026-11-10 |
 | PR #340 #341 #346 Draft | `gh pr list` | 2026-11-10 |
-| Issues #343 #344 #345 #337 #334 #313 OPEN | `gh issue list` | 2026-11-10 |
+| Issues повторно | `gh issue list` 2026-11-10: #345, #344, #343, #337, #334, #313. Шесть. Не перенесено без проверки | 2026-11-10 |
+| Снимок PR | `OPEN_PRS_BEFORE_PR348=17`. `OPEN_PRS_AFTER_PR348_CREATION=18`. Повторная длина списка 18, включает #348 | 2026-11-10 |
 | Autopilot dry-run | принятый раздел 23, PR #320 | этот SHA |
 | Колоночные суммы | сложение ячеек раздела 2 этого файла | 2026-11-10 |

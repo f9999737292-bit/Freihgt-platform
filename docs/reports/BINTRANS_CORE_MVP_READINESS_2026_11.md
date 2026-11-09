@@ -26,7 +26,8 @@ Shipper Portal и Carrier Portal посчитаны отдельно. Показ
 - Принятый отчёт PR #347 находится в `main`.
 - От `f58f13b5` до этого SHA изменился только тот отчёт. Продуктовый код не менялся, поэтому новые PASS не появляются из факта merge.
 - Post-merge CI run `42701751576`, event `push`, head `9d577fe1`, conclusion `success`, 75 jobs success. Отдельные логи jobs в этой оценке заново не читались.
-- Открытые PR на 2026-11-10: 17. Открытые Issues: 6. PR #347 merged и в открытый список не входит.
+- Открытые PR до создания PR #348: `OPEN_PRS_BEFORE_PR348=17`. После появления PR #348: `OPEN_PRS_AFTER_PR348_CREATION=18`. Число 17 не является текущей полной численностью. Повторная проверка `gh pr list --state open` 2026-11-10: длина 18, среди них #348.
+- Issues проверены заново тем же вечером, не перенесены по допущению: #345, #344, #343, #337, #334, #313. Шесть.
 - Draft PR #340, #341, #346 в готовность `main` не входят.
 - Живой staging, production, backup и restore не опрашивались. Локальные тесты этой оценкой не запускались.
 
@@ -139,7 +140,7 @@ Shipper Portal и Carrier Portal посчитаны отдельно. Показ
 | Driver / vehicle | `driver-mobile` partial, spec-файлов нет. PR #13 не merged | Fleet UI carrier есть. Native app не готова | Не доказан E2E | Нет связанного E2E | Нет | Нет | Персональные данные водителя | Для Pilot A допустим диспетчер в carrier portal без native app |
 | Pickup | Контракт stop-event | Нет отдельного подтверждённого экрана водителя | Consumer есть | `TestStopEventTrackingContract09B` PASS в принятом аудите | Нет live | Контракт, не рейс | Issue #344 на боевом consumer | Событие на стенде либо честное исключение tracking |
 | Delivery | Тот же контракт, включая `FAIL_DELIVERY_ACTION` | Не доказан как UI рейса | То же | То же | Нет live | То же | Issue #344 | То же |
-| Tracking | Consumer и publisher есть. Провайдер `NOT_VERIFIED` | Страницы shipper и carrier | Да | Контракт Apply. Живой поток `NOT_RUN` | Mock | Publisher→consumer не прогонялся здесь | Issue #344 OPEN | Классификация постоянных ошибок до приёмки tracking |
+| Tracking | Consumer и publisher есть. Провайдер `NOT_VERIFIED` | Страницы shipper и carrier | Да | Контракт Apply. Живой поток `NOT_RUN` | Mock | Publisher→consumer не прогонялся здесь | Issue #344 OPEN | `CORE-P0-003A` не закрывает issue. 003B и 003C — `NOT_ESTIMABLE` |
 | POD | Миграция `000099`, страницы documents | Список и вложение в тестах UI | Write path под Issue #343 | Не сквозной upload | Mock показывает `pod.pdf` | Не доказан | Issue #343, `POTENTIAL_IMPACT=HIGH`, exposure `NOT_ESTABLISHED` | Запись только после review границы |
 | Completion | `000093` delivery disposition | Не доказан как экран завершения | Частично | Не полный рейс | Нет | Нет | Зависит от shipment и POD | Критерий приёмки назвать явно: статус, не устное «доехало» |
 
@@ -155,7 +156,7 @@ Shipper Portal и Carrier Portal посчитаны отдельно. Показ
 | Service-to-service | PR #336 закрыл analytics caller. Полнота остальных internal routes `NOT_VERIFIED` | P1 для сервисов пути |
 | `SHIPMENT_TRUSTS_GATEWAY_TENANT_HEADER` | OPEN. `resolveVerifiedTenant` берёт `X-Tenant-ID`. Эксплуатация не воспроизводилась | P0. Не смешивать с RLS и с Issue #343 |
 | Issue #343 | OPEN. Прямые write routes document-service | P0 для POD и любого внешнего document write |
-| Issue #344 | OPEN. Постоянная ошибка inbox sequence ретраится | P0, если приёмка включает живой tracking |
+| Issue #344 | OPEN. Постоянная ошибка inbox sequence ретраится. `CORE-P0-003A` оценивает только узкую классификацию в `3–8 PERSON_DAYS`, `CONFIDENCE=LOW`. Карантин и rebalance — `NOT_ESTIMABLE` | P0, если приёмка включает живой tracking. 3–8 дней не означают закрытие issue |
 | Права Shipper / Carrier | Middleware уводит на `/login`. Матрица ролей не доказана | P1 |
 | POD | Код и миграция есть. Запись блокируется границей #343 | P0 вместе с #343 |
 | Backup / restore | `NOT_VERIFIED` | P0 до загрузки данных, которые нельзя выбросить |
@@ -164,9 +165,27 @@ Shipper Portal и Carrier Portal посчитаны отдельно. Показ
 
 24/7 Autopilot в Core MVP не входит. PR #320 на `main` — dry-run foundation. Issue #313 OPEN. `AUTOPILOT_24_7_READY=NO`. Техническая возможность не является разрешением на эксплуатацию.
 
-## 9. Что сознательно вне Core MVP
+## 9. Что сознательно вне Core MVP и вне subtotal
 
 Finance, юридический ЭДО, slot booking, consignee, forwarder, network optimizer, analytics KPI, Autopilot. Они остаются в полной платформе. Finance и ЭДО возвращаются как обязательные только в Commercial MVP.
+
+`PARTIAL_ESTIMATED_SUBTOTAL=47_TO_112_PERSON_DAYS` — сумма уже оценённых строк P0 и P1 в файле решения. `TOTAL_REMAINING_EFFORT_TO_PILOT=NOT_ESTIMABLE`. Диапазон 47–112 не является всем объёмом работ до полноценного пилота.
+
+Из этого диапазона прямо исключены:
+
+- Внешние tracking providers.
+- Интеграции ERP и WMS.
+- Routing providers.
+- Стоимость сторонних услуг.
+- Разработки, которые выявит дополнительный security audit.
+- Юридические работы за пределами инженерной описи.
+- Неоценённая часть Issue #344: `CORE-P0-003B` и `CORE-P0-003C`.
+
+`CORE-P0-003A` — узкая классификация постоянных ошибок, идемпотентный точный duplicate и ограниченные unit tests: `3–8 PERSON_DAYS`, `CONFIDENCE=LOW`. Это не production-ready Kafka consumer.  
+`CORE-P0-003B` — durable quarantine, offset safety и связанные тесты: `NOT_ESTIMABLE`.  
+`CORE-P0-003C` — rebalance safety: `NOT_ESTIMABLE`, `REBALANCE_DESIGN=BLOCKED`. Реализация 0.1B не разрешена. PR #346 остаётся Draft и не является работающим исправлением.
+
+Pilot A может использовать согласованные стендовые события вместо боевого tracking provider. Для Pilot B такое исключение возможно только при документально принятом способе получения реальных событий перевозки.
 
 ## 10. Решения по запуску
 
@@ -187,7 +206,9 @@ Finance, юридический ЭДО, slot booking, consignee, forwarder, netw
 | main SHA | `git rev-parse origin/main` | 2026-11-10 |
 | Только отчёт между `f58f13b5` и HEAD | `git diff --name-only` | 2026-11-10 |
 | Post-merge CI 75 success | run `42701751576` | 2026-11-10 |
-| Открытые PR 17, Issues 6 | `gh pr list`, `gh issue list` | 2026-11-10 |
+| Открытые PR до #348 | `OPEN_PRS_BEFORE_PR348=17`. Не текущая полная численность | 2026-11-10 |
+| Открытые PR после создания #348 | `OPEN_PRS_AFTER_PR348_CREATION=18` | 2026-11-10 |
+| Повторный снимок PR и Issues | `gh pr list` длина 18, включает #348. `gh issue list`: шесть issues, номера #345 #344 #343 #337 #334 #313 | 2026-11-10 |
 | 14-модульная матрица и 34% | принятый отчёт, раздел 5 | 2026-11-09, файл в этом SHA |
 | Shipper login и tenant field | `apps/web-shipper/pages/login.vue` | 2026-11-10 |
 | Shipper pages без RFx | `apps/web-shipper/pages` | 2026-11-10 |

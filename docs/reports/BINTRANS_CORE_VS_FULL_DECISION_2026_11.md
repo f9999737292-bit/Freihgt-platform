@@ -20,8 +20,8 @@ FULL: `docs/reports/BINTRANS_FULL_PLATFORM_READINESS_2026_11.md`
 | Pilot readiness | `NO` для полноценного пилота. Pilot A только `CONDITIONAL` | `NO` |
 | Commercial readiness | `NO` | `NOT_ESTIMABLE` и `COMMERCIAL_LAUNCH_READY=NO` |
 | Main blockers | Tenant header OPEN, Issue #343, Issue #344, backup `NOT_VERIFIED`, стенд `NOT_VERIFIED` | Те же границы плюс деньги не на `main`, юридический ЭДО не начат, провайдеры не подключены, 24/7 запрещён |
-| Remaining work | P0 и P1 из раздела 4 | P3 полной платформы. Коммерческий объём `NOT_ESTIMABLE` |
-| Estimated effort | P0: 23–56 человеко-дней. P1: 24–56 человеко-дней. Это не календарь | `NOT_ESTIMABLE` |
+| Remaining work | Оценённые P0 и P1 плюс неоценённые CORE-P0-003B и CORE-P0-003C. Полный объём `NOT_ESTIMABLE` | P3 полной платформы. Коммерческий объём `NOT_ESTIMABLE` |
+| Estimated effort | `PARTIAL_ESTIMATED_SUBTOTAL=47_TO_112_PERSON_DAYS`. `TOTAL_REMAINING_EFFORT_TO_PILOT=NOT_ESTIMABLE`. Subtotal не включает CORE-P0-003B, CORE-P0-003C и исключения раздела 5 | `NOT_ESTIMABLE` |
 
 Сводка Core при равных весах направлений: `37.6_PERCENT`. При `PROPOSED_WEIGHTS_NOT_APPROVED`: `39.675_PERCENT`. Сводка Full при равных весах 14 модулей: `34_PERCENT`, без изменения после docs-only merge.
 
@@ -35,7 +35,7 @@ FULL: `docs/reports/BINTRANS_FULL_PLATFORM_READINESS_2026_11.md`
 
 1. Review границы `SHIPMENT_TRUSTS_GATEWAY_TENANT_HEADER` с картой маршрутов. Обход tenant isolation не предлагается.
 2. Границу записи document-service, Issue #343, до любой загрузки POD.
-3. Классификацию постоянных ошибок Kafka, Issue #344, до приёмки живого tracking.
+3. Issue #344 до приёмки живого tracking. Узкая классификация `CORE-P0-003A` — это 3–8 человеко-дней и не закрывает issue. Карантин `CORE-P0-003B` и rebalance `CORE-P0-003C` остаются `NOT_ESTIMABLE`.
 4. Доказательство, что компания грузовладельца и компания перевозчика не читают чужие данные.
 5. Backup и restore стенда, на котором лежат данные пилота, и зафиксированный migration head.
 6. Один живой прогон пути: вход, выбор компании, тендер в procurement UI, ставка перевозчика, award, transport order, shipment, назначение, pickup, delivery, чтение tracking, POD, завершение. Mock Playwright этот пункт не закрывает.
@@ -54,7 +54,7 @@ FULL: `docs/reports/BINTRANS_FULL_PLATFORM_READINESS_2026_11.md`
 
 Обязательные функции: login, выбор компании, создание RFx в `web-procurement` (shipper UI тендер не создаёт), ставка в carrier portal, award, transport order, shipment, назначение перевозчика, событие pickup и delivery, чтение tracking, запись POD через уже проверенную границу, статус завершения.
 
-Допустимые исключения: native `driver-mobile` и PR #13; consignee; forwarder; slot booking; optimizer; акты и платежи; юридический ЭДО; Autopilot; боевой tracking provider, если событие пишет сам стенд и это написано в протоколе.
+Допустимые исключения: native `driver-mobile` и PR #13; consignee; forwarder; slot booking; optimizer; акты и платежи; юридический ЭДО; Autopilot. Pilot A может использовать согласованные стендовые события вместо боевого tracking provider. Это исключение пишется в протокол и не объявляет consumer production-ready.
 
 Запрещённые компромиссы: отключить проверку tenant; принять клиентский `X-Tenant-ID` как доверенный без review; открыть document write в интернет до Issue #343; считать mock Playwright приёмкой; считать unit test сквозным путём; удалять тома как способ «починить» стенд.
 
@@ -76,7 +76,7 @@ Launch blockers: три открытые границы, отсутствие ba
 
 Документы: внутренний POD допустим только после закрытия Issue #343. Юридически значимый ЭДО можно исключить письменным решением заказчика. Это исключение не разрешает открытые write routes.
 
-Tracking: Issue #344 закрыт, провайдер либо подключён, либо события идут из согласованного приложения, и это сказано в договоре пилота.
+Tracking: `CORE-P0-003A` не считается закрытием Issue #344. Для Pilot B отказ от боевого tracking provider допустим только при документально принятом способе получения реальных событий перевозки. Стендовые события Pilot A этот способ не заменяют.
 
 Персональные данные: список полей, срок хранения, кто имеет доступ. Оценка юридического текста здесь `NOT_ESTIMABLE`.
 
@@ -119,7 +119,9 @@ Launch blockers: всё из Pilot B, PR #341 не на `main`, GAP-B-001, backu
 ```text
 P0-001 tenant header review
 P0-002 Issue #343
-P0-003 Issue #344
+P0-003A narrow classifier, 3-8 person-days, not full #344
+P0-003B quarantine, NOT_ESTIMABLE
+P0-003C rebalance, NOT_ESTIMABLE, REBALANCE_DESIGN=BLOCKED
         \        |        /
          \       |       /
           P0-004 backup
@@ -136,7 +138,7 @@ P0-003 Issue #344
                  Commercial MVP
 ```
 
-P0-001, P0-002 и P0-003 можно вести параллельно. P0-006 стоит после них и после стенда. P1-004 (живая запись POD) зависит от P0-002. Календарные даты из этой схемы не выводятся.
+P0-001, P0-002 и P0-003A можно вести параллельно. P0-003B и P0-003C остаются на пути к закрытию Issue #344 и не имеют оценки в человеко-днях. `REBALANCE_DESIGN=BLOCKED`: реализация 0.1B не разрешена, Draft PR #346 не является работающим исправлением. P0-006 стоит после стенда. Для Pilot A он может идти на согласованных стендовых событиях и этим не закрывает 003B и 003C. P1-004 зависит от P0-002. Календарные даты из этой схемы не выводятся.
 
 `CRITICAL_PATH_DEFINED=YES`.
 
@@ -148,7 +150,9 @@ P0-001, P0-002 и P0-003 можно вести параллельно. P0-006 с
 |---|---|---|---|---|---|---|---|---|---|---|
 | CORE-P0-001 | TMS | Карта маршрутов shipment и review `X-Tenant-ID` | `tenant.go`, комментарий successor handler, `jwt.go` не читает заголовок | Gateway | Для каждого write/detail маршрута назван доверенный вызывающий. Прямой доступ либо закрыт, либо признан | security | риск в отчёте #347, отдельного issue нет | P0 | 5–12 | LOW |
 | CORE-P0-002 | EDO / documents | Закрыть прямые write routes | Issue #343 OPEN. Signing recovery 403 не закрывает остальные writes | Нет | Внешний вызов write без доверенной границы получает отказ. POD пилота ходит только в принятый путь | security + documents | #343 | P0 | 5–15 | MEDIUM на факт, LOW на размер |
-| CORE-P0-003 | Tracking | Классифицировать постоянную ошибку inbox sequence | Issue #344. PR #346 только контракт | Consumer на `main` | Постоянная ошибка не крутит партицию бесконечно. Контрактный тест остаётся зелёным | tracking | #344, #346 Draft | P0 | 3–8 | MEDIUM |
+| CORE-P0-003A | Tracking | Узкая классификация постоянных ошибок. Точный duplicate остаётся идемпотентным. Ограниченные unit tests. Это не production-ready consumer | Issue #344 OPEN. PR #346 Draft и не является исправлением | Consumer на `main` | Классификация и тесты duplicate есть. Карантин, offset и rebalance этой строкой не сдаются | tracking | #344, #346 Draft | P0 | `3–8 PERSON_DAYS` | `LOW` |
+| CORE-P0-003B | Tracking | Durable quarantine в PostgreSQL, идемпотентная запись, commit offset только после надёжного сохранения, тесты ошибок commit и повторной доставки, restart/recovery, persistent execution fence, защита tenant isolation | Тот же Issue #344. Объём этой части не измерялся | CORE-P0-003A не заменяет эту строку | Перечисленные свойства доказаны тестами. Числовая оценка не ставится | tracking | #344 | P0 | `NOT_ESTIMABLE` | LOW на факт пробела |
+| CORE-P0-003C | Tracking | Безопасная модель ownership partition, запрет позднего commit после утраты владения, запрет rewind offset, два consumer members, отмена, смена владельца, перезапуск, независимый security/architecture review | `REBALANCE_DESIGN=BLOCKED`. Реализация 0.1B не разрешена | Дизайн rebalance. Решения Draft PR #346 не являются работающим исправлением | Review принят и сценарии смены владельца проверены. Числовая оценка не ставится | security + tracking | #344, #346 Draft | P0 | `NOT_ESTIMABLE` | LOW |
 | CORE-P0-004 | Operations | Backup и restore стенда пилота | В принятом аудите `NOT_VERIFIED` | Выделенный стенд, не production | Есть свежий backup и проверенное восстановление до записи пилотных данных | ops | нет | P0 | 3–6 | LOW |
 | CORE-P0-005 | Operations | Зафиксировать изолированный стенд и migration head | Git head `000105`. Живая база `NOT_VERIFIED` | Разрешение на стенд | Head записан, production не используется, тома не удаляются | ops | нет | P0 | 2–5 | LOW |
 | CORE-P0-006 | Path | Один живой прогон 14 шагов | Сейчас `CORE_E2E_VERIFIED=0`. CI jobs частичные | P0-001…005 | Протокол по каждому шагу на одном SHA | QA + TMS | jobs award, order-execution, stop-event | P0 | 5–10 | LOW |
@@ -160,10 +164,25 @@ P0-001, P0-002 и P0-003 можно вести параллельно. P0-006 с
 | CORE-P1-006 | Portals | Матрица shipper, carrier, procurement | Три приложения есть | P1-001 | Роль не открывает чужой контур | portal QA | нет | P1 | 3–6 | LOW |
 | CORE-P1-007 | Platform | S2S для сервисов пути | PR #336 закрыл analytics | Gateway, rfx, shipment, tracking, document | Вызов без caller identity отвергается на этих сервисах | security | #336 merged, полнота нет | P1 | 5–12 | LOW |
 
-Сумма нижних границ P0: `5+5+3+3+2+5 = 23`. Верхних: `12+15+8+6+5+10 = 56`.  
-Сумма нижних границ P1: `3+4+3+4+2+3+5 = 24`. Верхних: `8+10+8+8+4+6+12 = 56`. Инженерная опись P1-005 взята как 2–4; юридический текст в сумму не входит.
+Состав оценённых числовых строк не изменился. В прежней сумме `3–8` стояли одной строкой CORE-P0-003. Теперь те же `3–8` относятся только к CORE-P0-003A. CORE-P0-003B и CORE-P0-003C в сложение не входят, поэтому subtotal заново не пересчитывался.
 
-`ESTIMATED_REMAINING_EFFORT` до безопасного полноценного пилота: P0+P1, 47–112 человеко-дней при последовательном сложении, confidence LOW. До коммерческого MVP и до полной платформы: `NOT_ESTIMABLE`.
+Сумма нижних границ оценённых строк P0: `5+5+3+3+2+5 = 23`. Верхних: `12+15+8+6+5+10 = 56`. Второе слагаемое `3` и `8` — это CORE-P0-003A.  
+Сумма нижних границ P1: `3+4+3+4+2+3+5 = 24`. Верхних: `8+10+8+8+4+6+12 = 56`. Инженерная опись P1-005 взята как 2–4.
+
+`PARTIAL_ESTIMATED_SUBTOTAL=47_TO_112_PERSON_DAYS` (`23+24` и `56+56`). Это сумма уже оценённых частей, не объём работ до пилота.  
+`TOTAL_REMAINING_EFFORT_TO_PILOT=NOT_ESTIMABLE`. В subtotal нет обязательных CORE-P0-003B и CORE-P0-003C.
+
+Прямые исключения из диапазона 47–112:
+
+- Внешние tracking providers.
+- Интеграции ERP и WMS.
+- Routing providers.
+- Стоимость сторонних услуг.
+- Разработки, которые выявит дополнительный security audit.
+- Юридические работы за пределами инженерной описи P1-005.
+- Неоценённая часть Issue #344: CORE-P0-003B и CORE-P0-003C.
+
+До коммерческого MVP и до полной платформы оценка тоже `NOT_ESTIMABLE`.
 
 ## 6. Evidence register
 
@@ -171,7 +190,11 @@ P0-001, P0-002 и P0-003 можно вести параллельно. P0-006 с
 |---|---|---|
 | SHA и docs-only diff | worktree на `9d577fe1` | 2026-11-10 |
 | CI | run `42701751576` | 2026-11-10 |
-| Открытые PR 17 и Issues 6 | `gh pr list`, `gh issue list` | 2026-11-10 |
+| `OPEN_PRS_BEFORE_PR348=17` | снимок до создания PR #348. Это не текущая полная численность | 2026-11-10 |
+| `OPEN_PRS_AFTER_PR348_CREATION=18` | появление PR #348 | 2026-11-10 |
+| Повторная проверка открытых PR | `gh pr list --state open`, длина 18, включает #348. Снимок момента проверки | 2026-11-10 |
+| Повторная проверка Issues | `gh issue list`: #345, #344, #343, #337, #334, #313. Шесть. Число проверено заново, не перенесено по памяти | 2026-11-10 |
+| Kafka split | CORE-P0-003A `3–8 PERSON_DAYS` `LOW`; 003B и 003C `NOT_ESTIMABLE` | 2026-11-10 |
 | Баллы Core | `BINTRANS_CORE_MVP_READINESS_2026_11.md`, арифметика в файле | 2026-11-10 |
 | Баллы Full | принятая матрица, пересчитанные суммы колонок | 2026-11-10 |
 | Mock E2E | spec-файлы shipper и carrier | 2026-11-10 |
