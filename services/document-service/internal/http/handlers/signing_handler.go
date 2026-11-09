@@ -135,6 +135,57 @@ func (h *SigningHandler) AddSignature(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// RejectSigningRecovery closes the document-service HTTP entry.
+// A tenant header, bearer token, or service token is not write authority.
+// The handler does not call RecoverExpiredSigning.
+func RejectSigningRecovery(w http.ResponseWriter, _ *http.Request) {
+	respond.Error(w, apperrors.Forbidden("signing recovery is not available"))
+}
+
+type recoverSigningRequest struct {
+	TenantID         string `json:"tenant_id"`
+	SigningSessionID string `json:"signing_session_id"`
+	ExpectedVersion  int    `json:"expected_version"`
+}
+
+func (h *SigningHandler) RecoverExpiredSigning(w http.ResponseWriter, r *http.Request) {
+	documentID, err := domain.ParseUUID(chi.URLParam(r, "id"), "id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	var req recoverSigningRequest
+	if err := decodeJSONBody(r, &req); err != nil {
+		respond.Error(w, apperrors.Validation("invalid JSON body", map[string]any{"field": "body"}))
+		return
+	}
+	tenantID, err := trustedTenantID(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if err := reconcileTenant(tenantID, req.TenantID); err != nil {
+		respond.Error(w, err)
+		return
+	}
+	sessionID, err := domain.ParseUUID(req.SigningSessionID, "signing_session_id")
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	document, session, err := h.service.RecoverExpiredSigning(r.Context(), documentID, domain.RecoverSigningInput{
+		TenantID: tenantID, SigningSessionID: sessionID, ExpectedVersion: req.ExpectedVersion,
+	})
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	respond.JSON(w, http.StatusOK, map[string]any{
+		"document":        toDocumentResponse(document),
+		"signing_session": toSigningSessionResponse(session),
+	})
+}
+
 func toSigningSessionResponse(s *domain.SigningSession) map[string]any {
 	return map[string]any{
 		"id":                      s.ID.String(),

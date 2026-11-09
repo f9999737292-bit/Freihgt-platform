@@ -58,6 +58,36 @@ func (r *SigningRepository) CreateSession(ctx context.Context, documentID uuid.U
 		}
 		defer tx.Rollback(ctx)
 
+		status, _, err := lockDocumentForSigning(ctx, tx, documentID, in.TenantID)
+		if err != nil {
+			return err
+		}
+		if status != domain.DocumentStatusReadyForSigning {
+			return apperrors.Validation("document must be READY_FOR_SIGNING to create a signing session", map[string]any{
+				"field":  "document_status",
+				"status": status,
+			})
+		}
+		active, err := tx.Query(ctx, `
+			SELECT id
+			FROM documents.signing_sessions
+			WHERE document_id = $1 AND tenant_id = $2
+				AND status IN ('CREATED', 'IN_PROGRESS')
+			ORDER BY id
+			FOR UPDATE
+		`, documentID, in.TenantID)
+		if err != nil {
+			return mapDBError(err)
+		}
+		hasActive := active.Next()
+		active.Close()
+		if err := active.Err(); err != nil {
+			return mapDBError(err)
+		}
+		if hasActive {
+			return apperrors.Conflict("document already has an active signing session", nil)
+		}
+
 		const sessionQuery = `
 		INSERT INTO documents.signing_sessions (
 			tenant_id, document_id, status, required_signers_count, expires_at
@@ -80,9 +110,14 @@ func (r *SigningRepository) CreateSession(ctx context.Context, documentID uuid.U
 		UPDATE documents.documents
 		SET document_status = $1, version = version + 1, updated_at = now()
 		WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL
+			AND document_status = $4
 	`
-		if _, err := tx.Exec(ctx, docQuery, domain.DocumentStatusSigningInProgress, documentID, in.TenantID); err != nil {
+		tag, err := tx.Exec(ctx, docQuery, domain.DocumentStatusSigningInProgress, documentID, in.TenantID, domain.DocumentStatusReadyForSigning)
+		if err != nil {
 			return mapDBError(err)
+		}
+		if tag.RowsAffected() != 1 {
+			return apperrors.Conflict("document status changed before signing session creation", nil)
 		}
 
 		if err := tx.Commit(ctx); err != nil {
@@ -181,6 +216,10 @@ func (r *SigningRepository) AddSignature(
 			return mapDBError(err)
 		}
 		defer tx.Rollback(ctx)
+
+		if _, _, err := lockDocumentForSigning(ctx, tx, session.DocumentID, session.TenantID); err != nil {
+			return err
+		}
 
 		const lockQuery = `
 		SELECT id, tenant_id, document_id, status, required_signers_count,
@@ -298,6 +337,98 @@ func (r *SigningRepository) AddSignature(
 		return nil
 	})
 	return signature, updatedSession, doc, err
+}
+
+func (r *SigningRepository) RecoverExpiredSigning(ctx context.Context, documentID uuid.UUID, in domain.RecoverSigningInput) (*domain.Document, *domain.SigningSession, error) {
+	var document *domain.Document
+	var session *domain.SigningSession
+	err := measureDB("signing_repository", "recover_expired_signing", func() error {
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return mapDBError(err)
+		}
+		defer tx.Rollback(ctx)
+
+		status, version, err := lockDocumentForSigning(ctx, tx, documentID, in.TenantID)
+		if err != nil {
+			return err
+		}
+		rows, err := tx.Query(ctx, `
+			SELECT id, tenant_id, document_id, status, required_signers_count,
+				completed_signers_count, created_at, expires_at
+			FROM documents.signing_sessions
+			WHERE document_id = $1 AND tenant_id = $2
+			ORDER BY id
+			FOR UPDATE
+		`, documentID, in.TenantID)
+		if err != nil {
+			return mapDBError(err)
+		}
+		sessions := make([]domain.SigningSession, 0)
+		for rows.Next() {
+			item, scanErr := scanSigningSession(rows)
+			if scanErr != nil {
+				rows.Close()
+				return scanErr
+			}
+			sessions = append(sessions, *item)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return mapDBError(err)
+		}
+		if err := domain.DecideSigningRecovery(status, version, in, sessions); err != nil {
+			return err
+		}
+		var source domain.SigningSession
+		for i := range sessions {
+			if sessions[i].ID == in.SigningSessionID {
+				source = sessions[i]
+				break
+			}
+		}
+		updated, err := scanDocument(tx.QueryRow(ctx, `
+			UPDATE documents.documents
+			SET document_status = $1, version = version + 1, updated_at = now()
+			WHERE id = $2 AND tenant_id = $3 AND version = $4
+				AND document_status = $5 AND deleted_at IS NULL
+			RETURNING id, tenant_id, document_number, document_type, document_status,
+				owner_company_id, related_entity_type, related_entity_id, legal_language,
+				created_at, updated_at, version
+		`, domain.DocumentStatusReadyForSigning, documentID, in.TenantID, version, domain.DocumentStatusSigningInProgress))
+		if err != nil {
+			var appErr *apperrors.AppError
+			if errors.As(err, &appErr) && appErr.Code == apperrors.CodeNotFound {
+				return apperrors.Conflict("document changed before signing recovery", nil)
+			}
+			return err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return mapDBError(err)
+		}
+		document = updated
+		session = &source
+		return nil
+	})
+	return document, session, err
+}
+
+func lockDocumentForSigning(ctx context.Context, tx pgx.Tx, documentID, tenantID uuid.UUID) (string, int, error) {
+	var status string
+	var version int
+	err := tx.QueryRow(ctx, `
+		SELECT document_status, version
+		FROM documents.documents
+		WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		FOR UPDATE
+	`, documentID, tenantID).Scan(&status, &version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", 0, apperrors.NotFound("document not found")
+	}
+	if err != nil {
+		return "", 0, mapDBError(err)
+	}
+	return status, version, nil
 }
 
 func scanSigningSession(row rowScanner) (*domain.SigningSession, error) {

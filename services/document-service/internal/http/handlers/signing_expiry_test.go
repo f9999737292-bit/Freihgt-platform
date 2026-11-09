@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/document-service/internal/domain"
+	apperrors "github.com/freight-platform/document-service/internal/platform/errors"
 	"github.com/freight-platform/document-service/internal/service"
 )
 
@@ -50,6 +51,9 @@ func (s *expiryStore) MarkSessionExpired(context.Context, uuid.UUID, uuid.UUID) 
 func (s *expiryStore) AddSignature(context.Context, *domain.SigningSession, domain.AddSignatureInput) (*domain.Signature, *domain.SigningSession, *domain.Document, error) {
 	s.signed++
 	return nil, nil, nil, nil
+}
+func (s *expiryStore) RecoverExpiredSigning(context.Context, uuid.UUID, domain.RecoverSigningInput) (*domain.Document, *domain.SigningSession, error) {
+	return nil, nil, apperrors.NotFound("signing session not found")
 }
 
 func TestAddSignatureRejectsOverdueSessionAndGetReturnsExpired(t *testing.T) {

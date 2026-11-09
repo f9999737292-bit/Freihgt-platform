@@ -12,6 +12,24 @@ import (
 	gatewayhttp "github.com/freight-platform/api-gateway/internal/http"
 )
 
+func TestSigningRecoveryIsNotProxied(t *testing.T) {
+	proxy, err := gatewayhttp.NewProxyHandler(testConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := gatewayhttp.NewRouter(testLogger(), testConfig(), proxy, nil, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/documents/11111111-1111-1111-1111-111111111111/signing-recovery", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	body := readBody(t, rec)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status=%d body=%s", rec.Code, body)
+	}
+	if !strings.Contains(body, "FORBIDDEN") {
+		t.Fatalf("body=%s", body)
+	}
+}
+
 func TestUnknownRouteReturnsRouteNotFound(t *testing.T) {
 	proxy, err := gatewayhttp.NewProxyHandler(testConfig())
 	if err != nil {
