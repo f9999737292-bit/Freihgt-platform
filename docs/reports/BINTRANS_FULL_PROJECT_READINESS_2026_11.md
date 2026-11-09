@@ -13,26 +13,33 @@ BINTRANS сегодня — работающий в репозитории ка�
 
 | Вопрос | Ответ |
 |---|---|
-| Общая готовность | `NOT_ESTIMABLE` как утверждённая метрика. Иллюстративное среднее 14 модулей при равных весах: **34%** (`ASSUMED_EQUAL_WEIGHTS`) |
+| Смешанная модульная оценка | `BLENDED_MODULE_READINESS=34_PERCENT`. `BLENDED_READINESS_METHOD=ASSUMED_EQUAL_WEIGHTS`. Это не функциональная готовность |
+| Среднее экспертных F | `FUNCTIONAL_F_EXPERT_AVERAGE=43.6_PERCENT`. `FUNCTIONAL_F_EXPERT_AVERAGE_STATUS=ILLUSTRATIVE_ONLY`. Это не подтверждённая функциональная готовность |
+| Официальная функциональная готовность | `OFFICIAL_FUNCTIONAL_READINESS=NOT_ESTIMABLE` |
+| Официальная общая готовность | `OFFICIAL_OVERALL_READINESS=NOT_ESTIMABLE` |
+| Коммерческая готовность | `COMMERCIAL_READINESS_PERCENT=NOT_ESTIMABLE`. `COMMERCIAL_LAUNCH_READY=NO` |
 | Технический пилот | `CONDITIONAL`. Живой стенд в этом аудите `NOT_VERIFIED` |
 | Коммерческий пилот | `NO` |
 | Production | `NO` |
 | Модули матрицы из 14 | 0 полностью готовых, 13 `PARTIAL`, 1 `DESIGNED_ONLY` (slot booking) |
 | Каркасы внутри частичных модулей | consignee UI, finance UI, forwarder app, юридический оператор ЭДО, режим Autopilot 24/7 |
-| Не начато после поиска | 0 пустых доменов. `apps/web-forwarder` отсутствует и учтён как designed-only |
+| Не начато после поиска | 0 пустых доменов. `apps/web-forwarder` отсутствует. Это function-level `DESIGNED_ONLY` внутри модуля K, не пятнадцатый модуль |
 | Открытые критические проблемы запуска | 5 |
 | Autopilot 24/7 | `NO`. PR #320 merged как dry-run foundation, не как автономный режим |
 
-Иллюстративные срезы при тех же равных весах и тех же модульных баллах (не утверждённая готовность):
+34% и 43,6% ниже — иллюстрации экспертной таблицы. Ни одно из этих чисел не является подтверждённой функциональной готовностью. Пометка confidence `MEDIUM` в матрице относится к качеству собранных технических свидетельств, а не к статистической точности этих процентов.
 
-| Срез | Значение | Почему не официальная цифра |
+| Срез | Значение | Статус |
 |---|---|---|
-| Functional | 34% `ASSUMED_EQUAL_WEIGHTS` | равные веса 14 модулей не утверждены |
-| Integration | `NOT_ESTIMABLE` | отдельные CI jobs есть; один сквозной путь из 16 сценариев в этом аудите не запускался |
+| Blended module mean | `34_PERCENT` | `ASSUMED_EQUAL_WEIGHTS`. Среднее шести показателей по 14 модулям. Не functional readiness |
+| Expert F average | `43.6_PERCENT` | `ILLUSTRATIVE_ONLY`. Среднее только колонки F: 610/14. Исходные F не менялись |
+| Official functional | `NOT_ESTIMABLE` | веса и обязательный набор функций не утверждены |
+| Official overall | `NOT_ESTIMABLE` | то же |
+| Integration | `NOT_ESTIMABLE` | отдельные CI jobs есть; полный путь из 16 сценариев не запускался |
 | Security | `NOT_ESTIMABLE` | открытые границы есть, pentest не выполнялся |
 | Operational | `NOT_ESTIMABLE` | живые серверы не опрашивались |
 | Pilot | `NOT_ESTIMABLE` | документ walkthrough есть, живые пользователи не подтверждены |
-| Commercial | `NOT_ESTIMABLE` | юридический ЭДО, деньги и production tracking не закрыты |
+| Commercial | `NOT_ESTIMABLE` | `COMMERCIAL_LAUNCH_READY=NO` |
 
 Пять главных блокеров:
 
@@ -69,7 +76,11 @@ BINTRANS сегодня — работающий в репозитории ка�
 
 `ModuleReadiness = 0.25F + 0.15UI + 0.20I + 0.15T + 0.15S + 0.10O`
 
-Каждый показатель 0–100. Это не официальная метрика продукта. Уверенность MEDIUM означает: код, тесты и CI на `main` прочитаны, живой стенд нет. LOW означает: в основном документы или каркас. 100% не ставится из-за зелёных unit tests.
+Каждый показатель 0–100 и помечен `EXPLICIT_EXPERT_ESTIMATE`. Все 84 балла F/UI/I/T/S/O — экспертные оценки по прочитанным свидетельствам, не измерения. Формула не менялась. Исходные баллы в R1 не менялись.
+
+`BLENDED_MODULE_READINESS=34_PERCENT` при `BLENDED_READINESS_METHOD=ASSUMED_EQUAL_WEIGHTS` — среднее итоговых Score. `FUNCTIONAL_F_EXPERT_AVERAGE=43.6_PERCENT` — среднее только колонки F, статус `ILLUSTRATIVE_ONLY`. `OFFICIAL_FUNCTIONAL_READINESS=NOT_ESTIMABLE`. `OFFICIAL_OVERALL_READINESS=NOT_ESTIMABLE`. `COMMERCIAL_READINESS_PERCENT=NOT_ESTIMABLE`. `COMMERCIAL_LAUNCH_READY=NO`.
+
+Уверенность MEDIUM означает качество собранных технических свидетельств: код, тесты и CI на `main` прочитаны, живой стенд нет. MEDIUM не означает статистическую точность процентов. LOW означает: в основном документы или каркас. 100% не ставится из-за зелёных unit tests.
 
 Если доказательства нет, статус `NOT_VERIFIED`, не PASS.
 
@@ -130,7 +141,7 @@ Public/internal route tables по каждому сервису в этом ау
 
 ## 5. Module Readiness Matrix
 
-Баллы аналитические. Confidence MEDIUM, кроме строк LOW.
+Все 84 значения F, UI, I, T, S и O — `EXPLICIT_EXPERT_ESTIMATE`. Числа в R1 не пересматривались. Confidence в таблице говорит о полноте свидетельств по модулю, не о точности процента. MEDIUM: код, тесты и CI прочитаны. LOW: в основном документы или каркас.
 
 | Модуль | F | UI | I | T | S | O | Score | Confidence | Класс |
 |---|---:|---:|---:|---:|---:|---:|---:|---|---|
@@ -149,15 +160,15 @@ Public/internal route tables по каждому сервису в этом ау
 | M Integrations | 25 | 15 | 20 | 25 | 20 | 10 | 20 | LOW | PARTIAL |
 | N Autopilot | 30 | 5 | 15 | 25 | 20 | 5 | 19 | MEDIUM | PARTIAL |
 
-Сумма scores = 475. Равное среднее = 475/14 = **33.9%**, в executive округлено до 34%. `ASSUMED_EQUAL_WEIGHTS`.
+Сумма экспертных Score = 475. `BLENDED_MODULE_READINESS=34_PERCENT` (`33.9` до округления, `ASSUMED_EQUAL_WEIGHTS`). Сумма экспертных F = 610. `FUNCTIONAL_F_EXPERT_AVERAGE=43.6_PERCENT` (`ILLUSTRATIVE_ONLY`). Оба числа не являются `OFFICIAL_FUNCTIONAL_READINESS`. Она остаётся `NOT_ESTIMABLE`.
 
 Почему не 100% при зелёном CI: CI доказывает, что зарегистрированные jobs этого workflow прошли на этом SHA. Он не доказывает пилот, юридический ЭДО, деньги, slot booking и production consumer.
 
 ## 6. Overall Readiness
 
-Утверждённые веса модулей отсутствуют, поэтому общий процент как официальная готовность: `NOT_ESTIMABLE`.
+`OFFICIAL_OVERALL_READINESS=NOT_ESTIMABLE`. `OFFICIAL_FUNCTIONAL_READINESS=NOT_ESTIMABLE`. `COMMERCIAL_READINESS_PERCENT=NOT_ESTIMABLE`. `COMMERCIAL_LAUNCH_READY=NO`.
 
-Иллюстрация `ASSUMED_EQUAL_WEIGHTS`: functional inventory около 34%. Она не отменяет блокеры безопасности, ЭДО, финансов и непроверенной инфраструктуры.
+`BLENDED_MODULE_READINESS=34_PERCENT` при равных весах 14 модулей — иллюстрация таблицы раздела 5, не функциональная готовность. `FUNCTIONAL_F_EXPERT_AVERAGE=43.6_PERCENT` — иллюстрация только колонки F. Ни 34%, ни 43,6% не отменяют блокеры безопасности, ЭДО, финансов и непроверенной инфраструктуры.
 
 Непройденные launch gates:
 
@@ -276,6 +287,19 @@ Mock Playwright не приравнивается к пилоту. PR #338 до�
 | SEC-345 | LOW | тестовая зависимость модулей | Issue #345 | перенос контрактного теста. Не дефект runtime по тексту issue | tracking | NO | NO |
 | SEC-SECRETS | UNKNOWN | утечка конфигурации | секреты не читались | не публиковать env. Управление секретами на сервере `NOT_VERIFIED` | ops | UNKNOWN | YES, пока не проверено |
 | SEC-334 | LOW | follow-up read safety CT | Issue #334 OPEN | три LOW, не закрывают #343 | CT | NO как единственный блокер | NO |
+| SHIPMENT_TRUSTS_GATEWAY_TENANT_HEADER | MEDIUM, статус OPEN. Эксплуатация не воспроизводилась | смена tenant context, если заголовок доходит до сервиса без доверенного вызывающего | `handlers/tenant.go` `resolveVerifiedTenant`; комментарий в `successor_revision_handler.go`; `userauth/jwt.go` заголовок не читает | отдельный security review границ маршрутов. Код shipment-service этим аудитом не менялся | не назначен | YES для external pilot, пока review не закрыт | YES, пока review не закрыт |
+
+`SHIPMENT_TRUSTS_GATEWAY_TENANT_HEADER` не является Issue #343 и не является вопросом database RLS.
+
+Что известно. `resolveVerifiedTenant` в `services/shipment-service/internal/http/handlers/tenant.go` берёт tenant только из `X-Tenant-ID` и проверяет, что значение непустое и является UUID. Комментарий функции говорит, что заголовок выставляет API Gateway. `successor_revision_handler.go` повторяет: operating tenant comes from the verified gateway header, never from the body. `RequireJWT` в `services/shipment-service/internal/http/userauth/jwt.go` проверяет bearer и прямо не читает `X-Tenant-ID` и `X-User-ID`.
+
+Граница доверия. Для маршрутов, которые вызывают `resolveVerifiedTenant`, сервис считает заголовок уже доверенным. Этот аудит не составил карту, какие маршруты стоят за gateway, какие за `RequireJWT`, и какие доступны напрямую.
+
+Потенциальное влияние. Если прямой вызов shipment-service принимает клиентский `X-Tenant-ID` без проверки вызывающего, tenant context можно подменить. Это описание границы, не подтверждённая эксплуатация. Воспроизведения не было.
+
+Что не проверялось. Сетевая достижимость сервиса, полнота middleware на каждом маршруте, соответствие tenant в JWT и в заголовке, staging и production.
+
+Нужен отдельный security review. Статус риска: OPEN. До него external pilot и production, которые ходят в shipment-service с этим заголовком, не считаются закрытыми по tenant boundary.
 
 JWT: `AuthService.CreateAccessToken` в identity-service. Это реализация выпуска токена, не доказательство, что каждый прямой порт сервиса её требует.
 
@@ -305,7 +329,11 @@ E2E на реальном сервере из этого аудита прово
 
 ## 21. E2E Test Coverage
 
-Полный сценарий из 16 шагов одним прогоном: `NOT_RUN`.
+`E2E_FULL_PATHS_TOTAL=16`. `E2E_FULL_PATHS_VERIFIED=0`. `E2E_BLOCKED_ATTRIBUTE=4`. `E2E_LIVE_NOT_RUN_ATTRIBUTE=16`.
+
+`BLOCKED` и `NOT_RUN` — пересекающиеся признаки одной и той же таблицы, не две доли, которые можно сложить. Четыре сценария со статусом BLOCKED (7, 9, 10, 13) тоже не проходили полный live E2E, поэтому они входят в 16 `NOT_RUN`. Сумма 4+16 не равна 20 и не используется.
+
+`CI TESTED` в колонке статуса означает конкретный частичный тест или job. Успех интеграционного теста не подтверждает полный пилотный сценарий. Частичные доказательства ниже сохранены.
 
 | # | Сценарий | Статус | Почему |
 |---|---|---|---|
@@ -326,7 +354,7 @@ E2E на реальном сервере из этого аудита прово
 | 15 | Portal → real backend | TESTED в CI browser jobs | пилот `NOT_VERIFIED`. Playwright ≠ пилот |
 | 16 | Slot booking → execution | NOT_STARTED | booking UI вне скоупа документов и не найден как продукт |
 
-`E2E_SCENARIOS_VERIFIED=0` как полные живые цепочки. Компонентные CI-проверки перечислены выше и не повышают это число до PASS.
+`E2E_FULL_PATHS_VERIFIED` остаётся 0. Строки со словом TESTED не повышают это число.
 
 ## 22. CI/CD Health
 
@@ -362,7 +390,11 @@ Issue #313 OPEN: model-cost and provider gates before paid activation.
 
 ## 24. Open PRs and Issues
 
-Открытые PR: **17**. Открытые Issues: **6**. Снимок `gh` 2026-11-09.
+Снимок автора отчёта, `gh pr list` 2026-11-09, до того как этот PR стал предметом ревью: `AUTHOR_SNAPSHOT_OPEN_PRS=17`. Открытые Issues в том же снимке: 6.
+
+Независимый ревью-снимок: `INDEPENDENT_REVIEW_SNAPSHOT_OPEN_PRS=18`. Разница — появление PR #347.
+
+Повторная проверка R1, `gh pr list --state open` 2026-11-09: открытых PR 18, среди них #347. Исторические 17 не подменяются этим числом и не выдаются за полный текущий реестр без этой пометки. Состав остальных открытых PR ниже относится к авторскому снимку и в R1 заново не переписывался.
 
 Особые PR:
 
@@ -389,6 +421,10 @@ Issues:
 Существенные merged PR по `git log` этого SHA, не полный исторический список: #342 stop-event contract, #339 signing recovery, #338 portal walkthrough docs, #336 analytics caller identity, #333 NLO commercial isolation, #332 document completeness fix, #330 shipper e2e tamper hardening. Номера взяты из сообщений merge-коммитов, не из пересчёта всех PR репозитория.
 
 ## 25. Unimplemented Functionality
+
+`FUNCTION_LEVEL_CLASSIFICATION`. Таблица ниже классифицирует функции, не модули.
+
+`MODULE_LEVEL`: `IMPLEMENTED=0`, `PARTIAL=13`, `DESIGNED_ONLY=1` (slot booking как модуль L). Эта матрица из 14 модулей в R1 не менялась. Function-level `DESIGNED_ONLY` внутри частичного модуля не добавляет модуль. Consignee UI, Finance UI и forwarder portal лежат внутри модуля K. Юридический ЭДО лежит внутри модуля F. Режим 24/7 Autopilot лежит внутри модуля N.
 
 | Функция | Класс | Основание |
 |---|---|---|
@@ -421,29 +457,28 @@ Performance suite, замер Kafka throughput, concurrent users и latency на
 
 ## 27. Competitor Feature Gap
 
-Источники конкурентов, проверенные 2026-11-09:
+Сравнение с Transporeon и Oracle OTM не является launch gate BINTRANS.
 
-- Transporeon platform, Time Slot Management, Carrier Interfaces, No-Touch Order: страницы `transporeon.com` (поиск в этот день).
-- Oracle Transportation Management: `oracle.com/scm/logistics/transportation-management/` и data sheet `oracle-transportation-management-cloud-ds.pdf`, плюс docs 25c planning/execution.
+`EXTERNAL_COMPARISON_EVIDENCE=EXTERNAL_COMPARISON_NOT_VERIFIED`. В R1 колонки конкурентов не используются как доказанные преимущества или недостатки BINTRANS. Предыдущие формулировки «страница заявляет» сняты: точные URL, версии страниц и дословные выдержки в этом исправлении заново не проверялись и по памяти не восстанавливаются.
 
-Колонки конкурентов описывают только то, что эти страницы прямо заявляют. Где страница молчит, стоит `EXTERNAL_COMPARISON_NOT_VERIFIED`, а не догадка.
+Колонка BINTRANS остаётся выводом по репозиторию `f58f13b5`.
 
 | FUNCTION | BINTRANS | TRANSPOREON | ORACLE_OTM | GAP |
 |---|---|---|---|---|
-| Transportation management | PARTIAL, сервисы shipment и transport-order на `main` | заявляет execution и no-touch order | заявляет order management и shipment management | нет доказанного коммерческого контура |
-| Procurement | PARTIAL, самый зрелый CI | заявляет RFQ, lane и spot tenders | заявляет transportation procurement | нет живой сети перевозчиков |
-| Carrier network | портал и RFx есть, сеть `NOT_VERIFIED` | заявляет carrier network и interfaces | заявляет carrier and rate management | нет подключённой сети |
-| Execution | контракт stop-event PASS, production consumer BLOCKED | заявляет transport execution | заявляет tendering и execution | Kafka #344 |
-| Tracking | consumer есть, провайдер `NOT_VERIFIED` | заявляет status, geo, ETA | заявляет visibility and event management | нет боевого провайдера |
-| Visibility | Control Tower partial | заявляет real-time visibility в связке продуктов | заявляет milestone monitoring | `CT_MUTATION_EQUALS_VIEW` |
-| Slot booking | DESIGNED_ONLY | заявляет Time Slot Management и self-book | `EXTERNAL_COMPARISON_NOT_VERIFIED` на прочитанных страницах как отдельный dock product | продукта нет |
-| Optimization | расчётный NLO partial | `EXTERNAL_COMPARISON_NOT_VERIFIED` как отдельный solver на прочитанных страницах | заявляет planning и bulk plan | adapter не на main, исполнение отдельно |
-| Tender management | RFx partial | заявляет tenders | заявляет booking and tendering | пилот не подтверждён |
-| Analytics | 4 теста, часть KPI не опубликована | `EXTERNAL_COMPARISON_NOT_VERIFIED` на прочитанных страницах как BI suite | заявляет transportation intelligence | источники OTIF/POD не закрыты |
-| Finance | billing/payment partial, identity Draft | заявляет settlement в carrier interface и в пресс-странице | заявляет freight payment, billing, claims | деньги и акты не закрыты |
-| Integrations | контракты ERP/Excel, провайдеры `NOT_VERIFIED` | заявляет carrier interfaces и GS1 для слотов | заявляет XML и integration logs | нет боевых ERP/WMS |
-| Enterprise security | JWT есть, открытые границы #343 и RLS не доказан | страница слотов заявляет MFA | `EXTERNAL_COMPARISON_NOT_VERIFIED` как полный IAM | нельзя заявлять паритет |
-| Customer portals | shipper/carrier/procurement partial; три роли — каркас | заявляет carrier portal для слотов | `EXTERNAL_COMPARISON_NOT_VERIFIED` как набор порталов на прочитанных страницах | forwarder/consignee/finance UI пустые |
+| Transportation management | PARTIAL, сервисы shipment и transport-order на `main` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | коммерческий контур BINTRANS не доказан |
+| Procurement | PARTIAL, самый зрелый CI в репозитории | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | живая сеть перевозчиков BINTRANS `NOT_VERIFIED` |
+| Carrier network | портал и RFx есть, сеть `NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | сеть не подключена доказанно |
+| Execution | контракт stop-event PASS, production consumer BLOCKED | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | Issue #344 |
+| Tracking | consumer есть, провайдер `NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | боевой провайдер не подтверждён |
+| Visibility | Control Tower partial | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `CT_MUTATION_EQUALS_VIEW` OPEN |
+| Slot booking | DESIGNED_ONLY как продукт | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | booking workflow не начат |
+| Optimization | расчётный NLO partial | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | production adapter не на `main` |
+| Tender management | RFx partial | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | пилот не подтверждён |
+| Analytics | 4 теста, часть KPI не опубликована | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | источники OTIF/POD не закрыты |
+| Finance | billing/payment partial, identity Draft | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | деньги и акты не закрыты |
+| Integrations | контракты ERP/Excel, провайдеры `NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | боевые ERP/WMS не подтверждены |
+| Enterprise security | JWT есть, Issue #343 и tenant header shipment OPEN, RLS платформы не доказан | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | паритет не заявляется |
+| Customer portals | shipper/carrier/procurement partial; consignee, finance UI и forwarder — каркас внутри модуля K | `EXTERNAL_COMPARISON_NOT_VERIFIED` | `EXTERNAL_COMPARISON_NOT_VERIFIED` | три роли не являются отдельными модулями |
 
 ## 28. Minimal Pilot Plan
 
@@ -507,6 +542,7 @@ Scope поверх MVP: forwarder portal, slot booking, подключённые
 4. NLO и slot facts легко перепутать с исполнением перевозки и записью на склад.
 5. Отсутствие платформенного RLS в миграциях не равно доказанной дыре и не равно доказанной изоляции.
 6. Draft PR не являются функциями `main`. Особенно #340, #341, #346, #329, #335.
+7. `SHIPMENT_TRUSTS_GATEWAY_TENANT_HEADER` остаётся OPEN. Это отдельный review границы `X-Tenant-ID` в shipment-service. Эксплуатация не воспроизводилась. Риск не складывается с Issue #343 и не заменяет вопрос RLS. До отдельного review он держит external pilot и production открытыми по этой границе.
 
 ## 32. Final Controller Recommendations
 
@@ -515,6 +551,7 @@ Scope поверх MVP: forwarder portal, slot booking, подключённые
 3. Не мержить этот отчёт автоматически. Это docs-only Draft.
 4. Следующий инженерный этап выбирать отдельно: либо #343, либо #344, либо money identity. Не все сразу и не Autopilot.
 5. Полевой staging smoke — только новым разрешением, без SSH из этого аудита.
+6. `SHIPMENT_TRUSTS_GATEWAY_TENANT_HEADER` вынести в отдельный security review. Это не подтверждённая эксплуатация и не замена Issue #343 или проверки RLS.
 
 ## Evidence register
 
@@ -531,12 +568,16 @@ Scope поверх MVP: forwarder portal, slot booking, подключённые
 | Issues #343 #344 #345 | `gh issue view` | 2026-11-09 |
 | PR #320 merged dry-run | `gh pr view 320` | 2026-11-09 |
 | PR #340 #341 #346 draft | `gh pr list` | 2026-11-09 |
-| Open PR 17, open issues 6 | `gh pr list`, `gh issue list` | 2026-11-09 |
+| Open PR author snapshot 17 | `gh pr list` до ревью PR #347 | 2026-11-09 |
+| Open PR independent snapshot 18 | ревью зафиксировало 18 из-за PR #347 | 2026-11-09 |
+| Open PR R1 recheck 18 | `gh pr list --state open`, длина 18, включает #347 | 2026-11-09 |
+| Shipment tenant header | `services/shipment-service/internal/http/handlers/tenant.go` `resolveVerifiedTenant`; `successor_revision_handler.go`; `internal/http/userauth/jwt.go` | 2026-11-09 |
+| R1 terminology | экспертные F не менялись; 610/14 = 43.6 иллюстративно; blended 475/14 = 34 | 2026-11-09 |
 | JWT issuance | `services/identity-service/internal/service/auth_service.go` | 2026-11-09 |
 | VAT basis constant | `services/payment-service/internal/domain/outbox.go` | 2026-11-09 |
 | CT view equals mutation | `docs/architecture/tms/TMS_STOP_EVENT_TRACKING_CONTRACT_0_9B.md` | 2026-11-09 |
 | GAP-B-001 open | `docs/architecture/edo-document-completeness-source-v0.4b.md` | 2026-11-09 |
 | Slot booking out of scope | `docs/engineering/parallel/pilots/control-tower-slot-intelligence-v0.7.2/ARCHITECTURE.md` | 2026-11-09 |
-| Competitor claims | страницы Transporeon и Oracle, перечисленные в разделе 27 | 2026-11-09 |
+| Competitor columns | `EXTERNAL_COMPARISON_NOT_VERIFIED`. URL в R1 не восстанавливались | 2026-11-09 |
 | Live servers | не проверялись | `NOT_VERIFIED` |
 | Local tests this audit | не запускались | `NOT_RUN` |
