@@ -125,6 +125,10 @@ test.describe('buyer XLSX create live stack', () => {
     const body = await commitResp.json() as { event_id: string; status: string; creation_channel: string }
     expect(body.event_id).toMatch(/^[0-9a-f-]{36}$/)
     await expect(page).toHaveURL(new RegExp(`/tenders/${body.event_id}`))
+    await expect(page.getByTestId('tender-status').locator('.ui-badge')).toHaveText('DRAFT')
+    await expect(page.getByTestId('tender-status').locator('badge')).toHaveCount(0)
+    await expect(page.getByTestId('tender-rfx-number')).toHaveText(rfxNumber)
+    await expect(page.getByTestId('tender-creation-channel')).toHaveText('Created from Excel')
 
     const eventGet = await page.request.get(`${gatewayURL}/api/v1/rfx-events/${body.event_id}`, {
       headers: authHeaders(buyerJwt, buyerCompanyId),
