@@ -90,6 +90,9 @@ func (m *mockSigningStore) MarkSessionExpired(ctx context.Context, id, tenantID 
 func (m *mockSigningStore) AddSignature(ctx context.Context, session *domain.SigningSession, in domain.AddSignatureInput) (*domain.Signature, *domain.SigningSession, *domain.Document, error) {
 	return m.addSignatureFn(ctx, session, in)
 }
+func (m *mockSigningStore) RecoverExpiredSigning(context.Context, uuid.UUID, domain.RecoverSigningInput) (*domain.Document, *domain.SigningSession, error) {
+	return nil, nil, apperrors.NotFound("signing session not found")
+}
 
 func TestDocumentServiceCreateValidation(t *testing.T) {
 	t.Parallel()
