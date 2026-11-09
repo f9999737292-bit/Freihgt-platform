@@ -4,6 +4,7 @@ package freightbillingclosing
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/freight-platform/billing-register-service/internal/domain"
@@ -22,12 +24,12 @@ import (
 const maxMigrationFile = "000056_payment_outbox_aggregate_version_v2.1B.up.sql"
 
 type env struct {
-	pool        *pgxpool.Pool
-	settlements *service.FreightSettlementService
+	pool           *pgxpool.Pool
+	settlements    *service.FreightSettlementService
 	settlementRepo *repository.FreightSettlementRepository
-	registers   *service.BillingRegisterService
-	registerRepo *repository.BillingRegisterRepository
-	closing     *service.ClosingDocumentService
+	registers      *service.BillingRegisterService
+	registerRepo   *repository.BillingRegisterRepository
+	closing        *service.ClosingDocumentService
 }
 
 type fixture struct {
@@ -99,14 +101,25 @@ func applyMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 			return readErr
 		}
 		if _, execErr := pool.Exec(ctx, string(content)); execErr != nil {
-			msg := execErr.Error()
-			if strings.Contains(msg, "already exists") || strings.Contains(msg, "duplicate key") {
+			if migrationAlreadyApplied(execErr) {
 				continue
 			}
 			return execErr
 		}
 	}
 	return nil
+}
+
+func migrationAlreadyApplied(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "42P07", "42701", "42710", "23505":
+			return true
+		}
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "already exists") || strings.Contains(msg, "duplicate key")
 }
 
 func locateMigrationsDir() (string, error) {
