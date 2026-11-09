@@ -8,27 +8,36 @@ Internal `SIGNED` remains an internal document status. It is not confirmation of
 
 `GAP-B-001` stays open. This stage does not authorize requirement-policy runtime or an EDO operator.
 
-## Endpoint
+## HTTP availability
 
-Document service:
+`PUBLIC_SIGNING_RECOVERY=DISABLED`
 
-`POST /v1/documents/{id}/signing-recovery`
+`EXPECTED_PUBLIC_RESPONSE=403`
 
-OpenAPI path, generated from `scripts/openapi/generate_openapi.py` in the same shape as the other signing routes:
+Both of these routes reject the request and do not call recovery:
 
-`POST /api/v1/documents/{id}/signing-recovery`
+- API gateway: `POST /api/v1/documents/{id}/signing-recovery`
+- document-service: `POST /v1/documents/{id}/signing-recovery`
 
-The method is `POST`. `GET` does not recover a document.
+`X-Tenant-ID`, a bearer token, a body `tenant_id`, and `X-Internal-Service-Token` do not authorize this operation. `RequireOperatorShipmentRead` is not document write authority. The document-service router returns `403` without reading those credentials and without calling `RecoverExpiredSigning`.
 
-Request body:
+The OpenAPI operation is generated from `scripts/openapi/generate_openapi.py` with `PUBLIC_SIGNING_RECOVERY=DISABLED` and response `403`. It does not describe a successful recovery and does not treat `bearerAuth` as authority.
 
-- `signing_session_id` (required)
-- `expected_version` (required, the stored document version)
-- `tenant_id` (optional echo)
+Shipper and carrier document routes stay read-only.
 
-Authority is the trusted `X-Tenant-ID` header established by the gateway. A body or query `tenant_id` is not the source of authority. When the body contains `tenant_id`, it must equal the trusted header; otherwise the response is `401`.
+## Internal operation
 
-Success is `200` with the updated document and the unchanged expired session. The response does not contain a new session.
+`SigningService.RecoverExpiredSigning` and `SigningRepository.RecoverExpiredSigning` remain available to trusted in-process callers. They are not registered on the HTTP router.
+
+The internal request identifies:
+
+- `signing_session_id`
+- `expected_version`, the stored document version
+- the trusted tenant already held by the caller
+
+A caller-supplied tenant is not the source of authority. When an HTTP handler is exercised directly in a unit test, a body `tenant_id` must equal that trusted tenant or the handler returns `401`. That unit test is not the document-service route.
+
+A successful internal call returns the updated document and the unchanged expired session. It does not create a session.
 
 ## Allowed transition
 
@@ -70,8 +79,6 @@ An `expires_at` that is not in the future is rejected, and no session is inserte
 | Session is not persisted `EXPIRED`, or document status is not `SIGNING_IN_PROGRESS` | 400 |
 | Stale `expected_version`, active session, completed attempt, or an older expired session | 409 |
 
-## Public gateway
+## Write authority
 
-`POST /api/v1/documents/{id}/signing-recovery` is registered before the document wildcard and returns `403`. `RequireOperatorShipmentRead` is not a document write-authority contract, and this stage does not publish the mutation through that wildcard. Shipper and carrier document routes stay read-only.
-
-`AUTHORIZATION_BLOCKER`: no document write-authority contract is available for a public recovery route.
+No document write-authority contract is defined. This stage does not add one. `GAP-B-001` stays open.

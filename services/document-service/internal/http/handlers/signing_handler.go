@@ -135,6 +135,13 @@ func (h *SigningHandler) AddSignature(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// RejectSigningRecovery closes the document-service HTTP entry.
+// A tenant header, bearer token, or service token is not write authority.
+// The handler does not call RecoverExpiredSigning.
+func RejectSigningRecovery(w http.ResponseWriter, _ *http.Request) {
+	respond.Error(w, apperrors.Forbidden("signing recovery is not available"))
+}
+
 type recoverSigningRequest struct {
 	TenantID         string `json:"tenant_id"`
 	SigningSessionID string `json:"signing_session_id"`

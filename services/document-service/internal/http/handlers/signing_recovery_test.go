@@ -61,6 +61,9 @@ func (s *recoveryHTTPStore) RecoverExpiredSigning(_ context.Context, documentID 
 	return &doc, &session, nil
 }
 
+// HANDLER_UNIT_TEST_ONLY exercises RecoverExpiredSigning through a router
+// created in this test. It does not prove that document-service.NewRouter
+// exposes or authorizes signing recovery.
 func TestRecoverExpiredSigningHTTP(t *testing.T) {
 	tenantID := uuid.New()
 	documentID := uuid.New()

@@ -306,7 +306,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/documents/{id}/attachments/{attachmentId}/signatures", "post", "Attach signature metadata", "Documents", True, True, "edo_attachment_signature_create"),
     ("/api/v1/documents/{id}/attachments/{attachmentId}/signatures/{signatureId}", "get", "Get attachment signature verification status", "Documents", True, True, "edo_attachment_signature_get"),
     ("/api/v1/documents/{id}/ready-for-signing", "post", "Move document to ready for signing", "Documents", True, True, None),
-    ("/api/v1/documents/{id}/signing-recovery", "post", "Recover a document after its current signing session expired", "Signing", True, True, None),
+    ("/api/v1/documents/{id}/signing-recovery", "post", "Signing recovery is not available", "Signing", True, False, "signing_recovery_disabled"),
     ("/api/v1/documents/{id}/signing-sessions", "post", "Create signing session", "Signing", True, True, None),
     ("/api/v1/documents/{id}/cancel", "post", "Cancel document", "Documents", True, True, None),
     ("/api/v1/documents/{id}/archive", "post", "Archive document", "Documents", True, True, None),
@@ -677,6 +677,7 @@ PROFILE_OPERATION_IDS = {
     "edo_attachment_finalize": "post_document_attachment_finalize",
     "edo_attachment_signature_create": "post_document_attachment_signature",
     "edo_attachment_signature_get": "get_document_attachment_signature",
+    "signing_recovery_disabled": "post_signing_recovery_disabled",
 }
 
 EXCEL_EXCHANGE_COMMIT_PROFILES = frozenset({"xlsx_import_commit_buyer_draft", "xlsx_import_commit_carrier_response"})
@@ -1833,6 +1834,33 @@ def render_operation(
         f"      summary: {summary}",
         f"      operationId: {operation_id}",
     ]
+    if profile == "signing_recovery_disabled":
+        lines.extend(
+            [
+                "      description: |",
+                "        PUBLIC_SIGNING_RECOVERY=DISABLED",
+                "        EXPECTED_PUBLIC_RESPONSE=403",
+                "        The API gateway and the document-service HTTP router both reject this operation.",
+                "        A bearer token, X-Tenant-ID, body tenant_id, or service token does not authorize it.",
+                "        The request does not change a document, signing session, or signature.",
+                "      parameters:",
+                "        - name: id",
+                "          in: path",
+                "          required: true",
+                "          schema:",
+                "            type: string",
+                "            format: uuid",
+                "      responses:",
+                "        '403':",
+                "          description: Signing recovery is disabled. Authentication is not write authority.",
+                "          content:",
+                "            application/json:",
+                "              schema:",
+                "                $ref: '#/components/schemas/ErrorResponse'",
+                "",
+            ]
+        )
+        return "\n".join(lines)
 
     if profile == "bno_foundation_mutation":
         lines.append("      description: |")

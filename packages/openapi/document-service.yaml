@@ -919,69 +919,24 @@ paths:
   /api/v1/documents/{id}/signing-recovery:
     post:
       tags: [Signing]
-      summary: Recover a document after its current signing session expired
-      operationId: post_recover_a_document_after_its_current_signing_session_expired
+      summary: Signing recovery is not available
+      operationId: post_signing_recovery_disabled
+      description: |
+        PUBLIC_SIGNING_RECOVERY=DISABLED
+        EXPECTED_PUBLIC_RESPONSE=403
+        The API gateway and the document-service HTTP router both reject this operation.
+        A bearer token, X-Tenant-ID, body tenant_id, or service token does not authorize it.
+        The request does not change a document, signing session, or signature.
       parameters:
-        - $ref: '#/components/parameters/XRequestID'
-        - $ref: '#/components/parameters/XTenantID'
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XLocale'
-        - $ref: '#/components/parameters/Authorization'
         - name: id
           in: path
           required: true
           schema:
             type: string
             format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
       responses:
-        '201':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
+          description: Signing recovery is disabled. Authentication is not write authority.
           content:
             application/json:
               schema:

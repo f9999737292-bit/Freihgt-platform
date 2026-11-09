@@ -56,7 +56,7 @@ func NewRouter(
 		r.Get("/{id}/attachments/{attachmentId}/signatures/{signatureId}", attachmentHandler.GetSignature)
 		r.Post("/{id}/ready-for-signing", documentHandler.ReadyForSigning)
 		r.Post("/{id}/signing-sessions", signingHandler.CreateSession)
-		r.Post("/{id}/signing-recovery", signingHandler.RecoverExpiredSigning)
+		r.Post("/{id}/signing-recovery", handlers.RejectSigningRecovery)
 		r.Post("/{id}/cancel", documentHandler.Cancel)
 		r.Post("/{id}/archive", documentHandler.Archive)
 	})
