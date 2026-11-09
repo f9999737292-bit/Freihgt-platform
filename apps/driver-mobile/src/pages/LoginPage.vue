@@ -53,7 +53,7 @@ async function onSubmit() {
       </ion-toolbar>
       <OfflineBanner />
     </ion-header>
-    <ion-content class="ion-padding">
+    <ion-content class="ion-padding form-content">
       <form class="login-form" @submit.prevent="onSubmit">
         <ion-item lines="full">
           <ion-label position="stacked">{{ t('login.email') }}</ion-label>

@@ -120,7 +120,7 @@ async function submit() {
       </ion-toolbar>
       <OfflineBanner />
     </ion-header>
-    <ion-content class="ion-padding">
+    <ion-content class="ion-padding form-content">
       <ion-list>
         <ion-item>
           <ion-label position="stacked">{{ t('delay.reason') }}</ion-label>
