@@ -14,7 +14,7 @@ Document service:
 
 `POST /v1/documents/{id}/signing-recovery`
 
-OpenAPI path:
+OpenAPI path, generated from `scripts/openapi/generate_openapi.py` in the same shape as the other signing routes:
 
 `POST /api/v1/documents/{id}/signing-recovery`
 

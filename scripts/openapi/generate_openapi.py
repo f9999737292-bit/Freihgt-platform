@@ -306,6 +306,7 @@ ENDPOINTS: list[tuple[str, str, str, str, bool, bool, str | None]] = [
     ("/api/v1/documents/{id}/attachments/{attachmentId}/signatures", "post", "Attach signature metadata", "Documents", True, True, "edo_attachment_signature_create"),
     ("/api/v1/documents/{id}/attachments/{attachmentId}/signatures/{signatureId}", "get", "Get attachment signature verification status", "Documents", True, True, "edo_attachment_signature_get"),
     ("/api/v1/documents/{id}/ready-for-signing", "post", "Move document to ready for signing", "Documents", True, True, None),
+    ("/api/v1/documents/{id}/signing-recovery", "post", "Recover a document after its current signing session expired", "Signing", True, True, None),
     ("/api/v1/documents/{id}/signing-sessions", "post", "Create signing session", "Signing", True, True, None),
     ("/api/v1/documents/{id}/cancel", "post", "Cancel document", "Documents", True, True, None),
     ("/api/v1/documents/{id}/archive", "post", "Archive document", "Documents", True, True, None),
