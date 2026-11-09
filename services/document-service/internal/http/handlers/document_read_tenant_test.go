@@ -78,6 +78,10 @@ func (s *readStore) AddSignature(context.Context, *domain.SigningSession, domain
 	s.writes++
 	return nil, nil, nil, nil
 }
+func (s *readStore) RecoverExpiredSigning(context.Context, uuid.UUID, domain.RecoverSigningInput) (*domain.Document, *domain.SigningSession, error) {
+	s.writes++
+	return nil, nil, apperrors.NotFound("signing session not found")
+}
 
 func TestGetDocumentIgnoresQueryTenantAndRepeatedReadDoesNotWrite(t *testing.T) {
 	tenantA := uuid.New()

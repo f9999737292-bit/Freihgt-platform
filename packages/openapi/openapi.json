@@ -21966,6 +21966,39 @@
         }
       }
     },
+    "/api/v1/documents/{id}/signing-recovery": {
+      "post": {
+        "tags": [
+          "Signing"
+        ],
+        "summary": "Signing recovery is not available",
+        "operationId": "post_signing_recovery_disabled",
+        "description": "PUBLIC_SIGNING_RECOVERY=DISABLED\nEXPECTED_PUBLIC_RESPONSE=403\nThe API gateway and the document-service HTTP router both reject this operation.\nA bearer token, X-Tenant-ID, body tenant_id, or service token does not authorize it.\nThe request does not change a document, signing session, or signature.\n",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Signing recovery is disabled. Authentication is not write authority.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/documents/{id}/signing-sessions": {
       "post": {
         "tags": [

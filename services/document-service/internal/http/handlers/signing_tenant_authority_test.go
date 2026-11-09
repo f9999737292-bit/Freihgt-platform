@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/freight-platform/document-service/internal/domain"
+	apperrors "github.com/freight-platform/document-service/internal/platform/errors"
 	"github.com/freight-platform/document-service/internal/service"
 )
 
@@ -83,6 +84,9 @@ func (s *signingAuthorityStore) AddSignature(_ context.Context, session *domain.
 		LegalLanguage: "ru-RU", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	return signature, session, doc, nil
+}
+func (s *signingAuthorityStore) RecoverExpiredSigning(context.Context, uuid.UUID, domain.RecoverSigningInput) (*domain.Document, *domain.SigningSession, error) {
+	return nil, nil, apperrors.NotFound("signing session not found")
 }
 
 func TestSigningTenantAuthority(t *testing.T) {

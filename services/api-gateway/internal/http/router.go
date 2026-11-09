@@ -265,6 +265,7 @@ func NewRouter(log *slog.Logger, cfg config.Config, proxy *ProxyHandler, control
 	r.Get("/api/v1/carrier/documents/{documentId}/attachments", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, http.HandlerFunc(carrierDocuments.ListAttachments)))
 	r.Get("/api/v1/carrier/documents/{documentId}/attachments/{attachmentId}", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, http.HandlerFunc(carrierDocuments.GetAttachment)))
 	r.Get("/api/v1/carrier/documents/{documentId}/attachments/{attachmentId}/content", carrierCompany.RequireCarrierRead(companycontext.SelectCarrierCompany, http.HandlerFunc(carrierDocuments.GetAttachmentContent)))
+	r.Post("/api/v1/documents/{id}/signing-recovery", document.RejectSigningRecovery)
 	r.Handle("/api/v1/documents", carrierCompany.RequireOperatorShipmentRead(proxy))
 	r.Handle("/api/v1/documents/*", carrierCompany.RequireOperatorShipmentRead(proxy))
 	r.Handle("/api/v1/signing-sessions", carrierCompany.RequireOperatorShipmentRead(proxy))

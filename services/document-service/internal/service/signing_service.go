@@ -18,6 +18,7 @@ type SigningStore interface {
 	GetSessionByIDAndTenant(ctx context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error)
 	MarkSessionExpired(ctx context.Context, id, tenantID uuid.UUID) (*domain.SigningSession, error)
 	AddSignature(ctx context.Context, session *domain.SigningSession, in domain.AddSignatureInput) (*domain.Signature, *domain.SigningSession, *domain.Document, error)
+	RecoverExpiredSigning(ctx context.Context, documentID uuid.UUID, in domain.RecoverSigningInput) (*domain.Document, *domain.SigningSession, error)
 }
 
 type DocumentLookup interface {
@@ -125,4 +126,14 @@ func (s *SigningService) AddSignature(ctx context.Context, sessionID uuid.UUID, 
 	}
 
 	return s.signing.AddSignature(ctx, session, in)
+}
+
+func (s *SigningService) RecoverExpiredSigning(ctx context.Context, documentID uuid.UUID, in domain.RecoverSigningInput) (*domain.Document, *domain.SigningSession, error) {
+	if documentID == uuid.Nil {
+		return nil, nil, apperrors.Validation("id is required", map[string]any{"field": "id"})
+	}
+	if err := domain.ValidateRecoverSigningInput(in); err != nil {
+		return nil, nil, err
+	}
+	return s.signing.RecoverExpiredSigning(ctx, documentID, in)
 }
