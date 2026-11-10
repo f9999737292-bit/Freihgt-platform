@@ -632,6 +632,8 @@ class PostgresBudgetControllerTests(unittest.TestCase):
     def test_budget_migration_down_requires_empty_open_reservations(self) -> None:
         self.controller.request_reserve("launch-open", "tenant-a", 10)
         at_version = self.runner.version()
+        if at_version >= 16:
+            self.assertEqual(self.runner.down(), 15)
         if at_version >= 15:
             self.assertEqual(self.runner.down(), 14)
         if at_version >= 14:
