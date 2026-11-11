@@ -104,6 +104,7 @@ func TestStandRunnerImageStaysOffline(t *testing.T) {
 	for _, token := range []string{
 		"ENV GOPROXY=off",
 		"ENV GOFLAGS=-mod=readonly",
+		"COPY services/tracking-service",
 		"COPY services/shipment-service",
 		"COPY services/control-tower-read-model-service",
 		"COPY tests/bintrans-e2e-transport-flow",
@@ -131,6 +132,79 @@ func TestStandRunnerImageStaysOffline(t *testing.T) {
 	if strings.Contains(entrypoint, "echo \"$TEST_DATABASE_URL\"") || strings.Contains(entrypoint, "echo $TEST_DATABASE_URL") {
 		t.Fatal("entrypoint prints TEST_DATABASE_URL")
 	}
+}
+
+func TestStandImageCopiesLocalGoReplaces(t *testing.T) {
+	root := standRepoRoot(t)
+	dockerfile := readStandFile(t, filepath.Join(root, "infrastructure", "docker", "bintrans-e2e-stand", "Dockerfile"))
+	copied := map[string]bool{}
+	for _, line := range strings.Split(dockerfile, "\n") {
+		line = strings.TrimSpace(strings.TrimSuffix(line, "\r"))
+		if !strings.HasPrefix(line, "COPY ") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			t.Fatalf("COPY line %q", line)
+		}
+		src := filepath.ToSlash(filepath.Clean(fields[1]))
+		if src == "." || strings.HasPrefix(src, "/") {
+			t.Fatalf("image copies an unexpected source %s", src)
+		}
+		copied[src] = true
+	}
+	if !copied["services/tracking-service"] {
+		t.Fatal("tracking-service is absent from the Docker image")
+	}
+	var missing []string
+	for src := range copied {
+		modPath := filepath.Join(root, filepath.FromSlash(src), "go.mod")
+		info, err := os.Stat(modPath)
+		if err != nil || info.IsDir() {
+			continue
+		}
+		for _, target := range localReplaceTargets(readStandFile(t, modPath)) {
+			resolved := filepath.ToSlash(filepath.Clean(filepath.Join(filepath.FromSlash(src), target)))
+			if !copied[resolved] {
+				missing = append(missing, src+" => "+resolved)
+			}
+		}
+	}
+	sort.Strings(missing)
+	if len(missing) > 0 {
+		t.Fatalf("local Go modules missing from the image: %s", strings.Join(missing, "; "))
+	}
+}
+
+func localReplaceTargets(text string) []string {
+	var targets []string
+	inBlock := false
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(strings.TrimSuffix(line, "\r"))
+		switch {
+		case strings.HasPrefix(line, "replace ("):
+			inBlock = true
+			continue
+		case inBlock && line == ")":
+			inBlock = false
+			continue
+		}
+		if !strings.HasPrefix(line, "replace ") && !inBlock {
+			continue
+		}
+		parts := strings.SplitN(line, "=>", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		target := strings.TrimSpace(parts[1])
+		if i := strings.Index(target, "//"); i >= 0 {
+			target = strings.TrimSpace(target[:i])
+		}
+		if strings.HasPrefix(target, ".") {
+			targets = append(targets, target)
+		}
+	}
+	return targets
 }
 
 func TestStandCleanupIsProjectScoped(t *testing.T) {
