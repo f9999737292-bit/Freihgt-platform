@@ -12,6 +12,7 @@ COPY packages/statussnapshot /src/packages/statussnapshot
 COPY services/contract-rate-service /src/services/contract-rate-service
 COPY services/transport-order-service /src/services/transport-order-service
 COPY services/rfx-service /src/services/rfx-service
+COPY services/tracking-service /src/services/tracking-service
 COPY services/shipment-service /src/services/shipment-service
 COPY services/document-service /src/services/document-service
 COPY services/billing-register-service /src/services/billing-register-service
@@ -29,6 +30,7 @@ RUN chmod +x /usr/local/bin/runner-entrypoint.sh \
     && cd /src/services/contract-rate-service && go mod download \
     && cd /src/services/transport-order-service && go mod download \
     && cd /src/services/rfx-service && go mod download \
+    && cd /src/services/tracking-service && go mod download \
     && cd /src/services/shipment-service && go mod download \
     && cd /src/services/document-service && go mod download \
     && cd /src/services/billing-register-service && go mod download \
