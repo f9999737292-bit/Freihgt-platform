@@ -94,3 +94,9 @@ Policy only. `ANALYTICS_0_3C_CARRIER_SCORE_POLICY.md` records `CARRIER_SCORE_POL
 Docs only. `ANALYTICS_0_4A_KPI_SOURCE_CONTRACTS.md` requests source facts for GAP-C-001, GAP-C-002, GAP-C-005, and GAP-B-001.
 
 `CURRENT_KPI_COUNT=11`. No new KPI is defined and no current formula changes. The four source gaps stay unimplemented. `CONTRACT_REQUESTED` is not closed. GAP-E-001 stays open and `CARRIER_SCORE_READY=NO`. `DWH_IMPLEMENTED=NO`. No UI and no staging deploy are part of 0.4A. Agent B and Agent C implementation is not authorized.
+
+## Analytics source readiness 0.4A
+
+Discovery only. `ANALYTICS_SOURCE_READINESS_0_4A.md` classifies the eleven live KPIs against real Core MVP facts. It does not replace the source-contract request above and does not close a gap.
+
+Three current-state counts read shipment and disposition rows. Eight punctuality KPIs stay `PARTIAL` because actual timestamps are command time. RFx, tracking, and Control Tower are not inputs. No mock fixture is production evidence. `COMMERCIAL_PILOT_READY=NO`.
