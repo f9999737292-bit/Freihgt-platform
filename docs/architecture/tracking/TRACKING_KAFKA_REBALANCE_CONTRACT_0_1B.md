@@ -1,6 +1,6 @@
 # TRACKING-KAFKA-REBALANCE-CONTRACT-0.1B
 
-Status: R3 remediation after Agent J's R2 review. Production code, SQL, Kafka configuration, and migrations are unchanged. Implementation of 0.1B has not started. No broker test has passed the mechanism below, so it is not a safety proof.
+Status: R4 remediation after Agent J's R3 review. Production code, SQL, Kafka configuration, and migrations are unchanged. Implementation of 0.1B has not started. Broker safety is not proven. `SHIPMENT_OWNER_RACE=OPEN`. The mixed-version gate is specified and not enabled.
 
 | Pin | Value |
 |---|---|
@@ -108,7 +108,7 @@ J-KRB-003 splits every quarantine row into one class:
 
 | Class | When | Commit on first sight | Commit on replay of the same hash, size, and epoch |
 |---|---|---|---|
-| `TERMINAL` | Section 5 has proved `COMMITTED_STATE_EFFECT` or `VERIFIED_EQUIVALENT_PRIOR_EFFECT` for these bytes. A duplicate hash is not enough on its own. | Only after that proof is committed in PostgreSQL | Yes, once, if section 7 still accepts the hash and size and the prior state effect is still present |
+| `TERMINAL` | Section 5 has proved `COMMITTED_STATE_EFFECT` in this transaction, or `VERIFIED_EQUIVALENT_PRIOR_EFFECT` once `last_event_id` stores that proof. A duplicate hash is not enough. | Only after the in-transaction proof commits | Not until `last_event_id` is present and matches. Until then replay is `NON_TERMINAL` |
 | `NON_TERMINAL` | Invalid JSON, unknown type, missing `execution_id` or `event_sequence`, foreign-tenant occupation, a legitimate event whose effect was not stored, hash or size or epoch mismatch, 401, 403, or an unknown constraint | No | No |
 
 Invalid JSON, an unknown type, and missing execution identity stay `NON_TERMINAL` even when the bytes are stored. Replay of those bytes does not commit. The partition stays parked under `PARTITION_POLICY=CONTIGUOUS_HOLD`.
@@ -125,36 +125,54 @@ J-KRB-R2-001. `Apply` returning nil is not a terminal result. A missing change t
 
 Every other outcome is `NON_TERMINAL` until a check in this section proves one of those two. A quarantine row, an inbox insert, and a committed database transaction are not substitutes for that proof.
 
-`COMMITTED_STATE_EFFECT` means this same transaction changed `execution_tracking_state` for the trusted owner and then committed. The change is an upsert, a `ClearExecutionTarget` that updates a row, or a `TouchExecutionSequence` that updates a row. `RowsAffected = 0` is not an effect. The proof is the locked row after the write, not the nil error.
+J-KRB-R3-003. `COMMITTED_STATE_EFFECT` is a new effect in this transaction. All of the following are required:
 
-`VERIFIED_EQUIVALENT_PRIOR_EFFECT` is the only legitimate no-op. It is terminal only when all of the following are true:
+1. The transaction commits. A rollback is not an effect.
+2. The locked `execution_tracking_state` row changes in a way this event's operation was supposed to change it.
+3. `RowsAffected > 0` for that update or upsert. `RowsAffected = 0` is `NON_TERMINAL`, including when `Apply` returns nil.
+4. After the write, and before commit, the same transaction reads the locked row again.
+5. That re-read shows `last_execution_event_sequence` equal to this event's sequence. A greater value does not count. A greater stored sequence does not prove that this event was applied.
+6. The re-read tenant equals the trusted owner, the payload claim equals that owner, and the inbox row written in this same transaction has this `event_id`, execution, sequence, and event type. A tenant or identity conflict is `NON_TERMINAL`.
 
-- this transaction does not change `execution_tracking_state`;
-- a state row for this execution is already committed;
-- its `OperatingTenantID` equals the trusted owner, and the payload claim equals that same owner;
-- `last_execution_event_sequence` is already greater than or equal to this event's sequence;
-- the existing inbox row for this `event_id` matches that owner, execution, sequence, and event type;
-- section 7 accepts the stored hash and size for these exact bytes.
+`VERIFIED_EQUIVALENT_PRIOR_EFFECT` is the only replay no-op that can be terminal. It requires a full identity match: tenant, execution, sequence, event type, a section 7 hash, and `len(raw)`. It also requires proof that a state effect for this event was stored earlier. `last_execution_event_sequence` being equal to this sequence is necessary and not sufficient. The current state row does not store the `event_id` that wrote it, so a later process cannot tell this event from another writer that left the same sequence number.
 
-A new `event_id` whose sequence is already behind the cursor is not that no-op. The cursor does not prove that this payload was applied. That attempt rolls back, writes no inbox row, and does not commit the offset.
+The required future column is `tracking.execution_tracking_state.last_event_id`, written in the same transaction as the state effect and equal to this `event_id`. It is not added here. Until that column exists and is non-null, a replay cannot prove the prior effect. Replay stays `NON_TERMINAL`. This document does not call that proof implemented.
 
-The business behavior that today commits an inbox row and leaves state unchanged for a stale sequence is not accepted as a terminal no-op. The only accepted no-op is the identity-matched redelivery above.
+A new `event_id` whose sequence is behind the cursor is not a prior effect. The higher cursor is not terminal for that event. The attempt rolls back, writes no inbox row, and does not commit the offset.
+
+The current behavior that commits an inbox row and leaves state unchanged for a stale sequence is not a terminal no-op.
 
 Current `Apply` branches in `services/tracking-service/internal/service/execution_consumer.go`, and the class this contract assigns. The code is unchanged; several branches still return nil without an effect.
 
 | Lines | What returns nil today | Class |
 |---|---|---|
-| 104–106 | `event_id` already exists, so the insert reports not inserted and the transaction commits with no new state write | `NON_TERMINAL` until section 7 and the prior-effect checks above pass. Otherwise it is not a duplicate success. |
+| 104–106 | `event_id` already exists, so the insert reports not inserted and the transaction commits with no new state write | `NON_TERMINAL` on replay until `last_event_id` can prove the prior effect. A hash match without that column is not enough. |
 | 111–113 | State exists and `state.OperatingTenantID` differs from the payload tenant. The inbox insert is kept and state is not changed. | `NON_TERMINAL`. This is the cross-tenant commit. Section 6 forbids the insert. |
-| 114–116 | State exists, the tenant comparison passed, and `event_sequence` is less than or equal to `last_execution_event_sequence`. The new inbox row is kept. | `NON_TERMINAL` unless the prior-effect checks pass for this same identity. A different `event_id` fails that test. |
+| 114–116 | State exists, the tenant comparison passed, and `event_sequence` is less than or equal to `last_execution_event_sequence`. The new inbox row is kept. | `NON_TERMINAL`. A different `event_id` is not this event. A higher stored sequence is not proof. |
 | 118–120 | `route_stop.current` has no view, because the context was missing or the revision differed. The inbox row is kept and state is not changed. | `NON_TERMINAL`. |
-| 121–125 | `UpsertExecutionTrackingState` runs and the transaction commits. | `COMMITTED_STATE_EFFECT` only if the upsert wrote the state row and the commit succeeds. |
+| 121–125 | `UpsertExecutionTrackingState` runs and the transaction commits. | `COMMITTED_STATE_EFFECT` only when `RowsAffected > 0`, the re-read sequence equals this event's sequence, and the tenant and `event_id` checks pass. |
 | 126–129 | `route_stop.completed` finds no state row and commits the inbox. | `NON_TERMINAL`. |
-| 130–132 | `ClearExecutionTarget` returns nil. The SQL updates a row only when the tenant matches and the sequence is newer. | `COMMITTED_STATE_EFFECT` only when the update changes a row. Zero rows is `NON_TERMINAL`. |
+| 130–132 | `ClearExecutionTarget` returns nil. The SQL updates a row only when the tenant matches and the sequence is newer. | `COMMITTED_STATE_EFFECT` only when `RowsAffected > 0` and the re-read sequence equals this event. Zero rows is `NON_TERMINAL`. |
 | 133–136 | Any other stop type finds no state row and commits the inbox. | `NON_TERMINAL`. |
-| 137–141 | `TouchExecutionSequence` returns nil, then line 141 commits. The SQL updates a row only when the tenant matches and the sequence is newer. The same line 141 commit follows a successful upsert or clear. | `COMMITTED_STATE_EFFECT` only when that update changes a row and the commit succeeds. Zero rows is `NON_TERMINAL`. |
+| 137–141 | `TouchExecutionSequence` returns nil, then line 141 commits. The same commit follows a successful upsert or clear. | `COMMITTED_STATE_EFFECT` only when `RowsAffected > 0`, the re-read sequence equals this event, and the commit succeeds. Zero rows is `NON_TERMINAL`. |
 
-A known non-stop record is not an `Apply` result. `isExecutionStopEvent` returns false for a parsed `event_type` outside the five stop types, and the current consumer then commits that record without calling `Apply`. This contract still allows that one commit, under the name `VERIFIED_NON_STOP_SKIP`, because the bytes were classified before `Apply`. Invalid JSON takes the same false return today and must not use this exception: it stays `NON_TERMINAL`.
+J-KRB-R3-001. A parsed `event_type` outside the five stop types is not a known non-stop event. `isExecutionStopEvent` returns false for invalid JSON and for every other string, and the current consumer then commits without `Apply`. That commit is not accepted here.
+
+`INVALID_JSON` is `NON_TERMINAL`. `UNKNOWN_EVENT` is `NON_TERMINAL`. Absence from the allowlist does not permit an offset commit. A syntactically present `event_type` is not a business contract.
+
+`VERIFIED_NON_STOP_SKIP` applies only to a type on the allowlist below. The allowlist is empty. No type is authorized to skip.
+
+The producer does publish other types on `shipment.status.v1`. `resolveKafkaTopic` sends every non-driver event to that topic. `isKnownKafkaEventType` accepts the execution types in `IsExecutionKafkaEventType` and the shipment outbox types in `outbox.go`. Those lists are a publish gate. They are not a tracking decision that state may stay unchanged. Execution payloads from `emitExecutionEvent` carry `event_type`. Shipment status payloads are `ShipmentStatusEventData` and do not carry that field; the type is the outbox event type and the header `eventType`, which this consumer does not read. A body with no `event_type` is not on the allowlist.
+
+Observed on the topic, and not authorized to skip:
+
+| Type | Where it is defined | Why it is not a skip |
+|---|---|---|
+| `shipment.execution_plan.created`, `shipment.execution_plan.superseded` | `transport_execution_commands.go` | Execution events. No tracking contract says they have no state effect. |
+| `shipment.delivery.partially_rejected`, `shipment.delivery.rejected`, `shipment.cargo.disposition_pending`, `shipment.cargo.return_authorized`, `shipment.cargo.redirect_authorized`, `shipment.cargo.return_completed`, `shipment.cargo.redirect_completed` | `transport_execution_disposition.go`, included by `IsExecutionKafkaEventType` | Same. They are execution events, not the five stop types. |
+| `shipment.created`, `shipment.status.changed`, `shipment.cancelled`, `shipment.ready_for_billing`, `shipment.documents_completed`, `shipment.financially_closed` | `outbox.go` | Shipment lifecycle events. No tracking contract says a missing state effect is success. |
+
+Open question: a controller may later add one of these types to the allowlist, one type at a time, with a written business rule that tracking must not change state for it. Until that rule exists, the partition parks on the record under `CONTIGUOUS_HOLD`. Parking is the specified behavior, not permission to commit.
 
 The proposed order is not implemented:
 
@@ -220,7 +238,7 @@ Existing conflicting row, read only after the failed insert has rolled back:
 
 | Stored row | Incoming event | Result |
 |---|---|---|
-| Same `event_id`, and section 7 matches, and section 5 proves `VERIFIED_EQUIVALENT_PRIOR_EFFECT` | Redelivery of an event that already changed state | Duplicate. No new state change. `TERMINAL`. A hash match without that prior state effect stays `NON_TERMINAL`. |
+| Same `event_id`, and section 7 matches | Redelivery | `NON_TERMINAL` until `last_event_id` proves `VERIFIED_EQUIVALENT_PRIOR_EFFECT`. A hash match without that column does not commit. |
 | Same authoritative tenant, different `event_id` | Legitimate event that was not stored | The slot is already used by a different event. `NON_TERMINAL`. Do not commit. Do not call the incoming event handled. |
 | Tenant is not the authoritative owner | Legitimate event that was not stored | Stolen sequence. `NON_TERMINAL`. Do not commit. Do not delete or overwrite the stored row in this stage. Alert. |
 | Authoritative owner | Foreign claim | Foreign event was not stored. `NON_TERMINAL`. Do not commit. The stored legitimate row stays. |
@@ -232,7 +250,7 @@ Migration compatibility, with no migration in this change:
 
 - Keep the `event_id` primary key and `uq_execution_event_inbox_sequence`.
 - Do not drop that unique key, and do not add the tenant into it in the same step. Rows that already occupy a sequence must remain readable. Rewriting them is not part of this stage.
-- A later migration may add nullable `payload_sha256` and `payload_size` on `tracking.execution_event_inbox`, filled in the same transaction as a new insert. Existing rows stay null. A null hash fails closed under section 7.
+- A later migration may add nullable `payload_sha256` and `payload_size` on `tracking.execution_event_inbox`, and nullable `last_event_id` and `owner_epoch` on `tracking.execution_tracking_state`. None of those columns are created here. Old rows stay null and fail closed.
 - The quarantine table, if it is added later, is a new table. It does not replace the inbox unique key.
 
 ## 7. Repeated event_id
@@ -257,13 +275,13 @@ Retry budget for transient and unknown errors: 5 attempts, 200ms initial delay, 
 
 | Event | Stored | Offset | After restart or redelivery |
 |---|---|---|---|
-| Duplicate `event_id` with a section 7 match and a section 5 prior state effect | Existing inbox row and existing state effect | Commit | Second apply does not change state |
+| Duplicate `event_id` with a section 7 match | Existing inbox row | Uncommitted until `last_event_id` proves the prior effect | Replay stays `NON_TERMINAL`. A hash match alone does not commit |
 | Duplicate `event_id` with a null hash or any mismatch | Existing inbox row, plus a `NON_TERMINAL` quarantine row | Uncommitted | Stay on that offset |
 | Legitimate event whose effect was not stored | `NON_TERMINAL` row, state unchanged | Uncommitted | Do not treat it as handled |
 | Foreign occupation | No new inbox row, `NON_TERMINAL` quarantine | Uncommitted | Stay on that offset |
 | Invalid JSON, unknown type, or missing execution identity | `NON_TERMINAL` bytes | Uncommitted | Same hash still does not commit |
 | Crash before the database transaction commits | Nothing new | Uncommitted | Classify again |
-| Crash after a `TERMINAL` row commits and before `CommitRecords` returns | One terminal row | Unknown until the broker cursor is read | Hash match, then one commit if the cursor is still below this offset |
+| Crash after a state-effect transaction commits and before `CommitRecords` returns | The state row, still without `last_event_id` in this stage | Unknown until `OffsetFetch` | Replay stays `NON_TERMINAL` until `last_event_id` matches. Do not commit from a hash match alone |
 | Crash after a `NON_TERMINAL` row commits | One non-terminal row | Uncommitted | Do not commit |
 | `CommitRecords` error, timeout, or `commit_unknown` | Whatever database transaction already committed | Unknown to this process | Read the broker cursor. Do not start the next offset. Do not send a second commit for this one. |
 | Context cancel before a commit starts | No partial terminal row | Uncommitted | Replay |
@@ -273,44 +291,68 @@ Redelivery of the same bytes is safe for a matched `event_id` and for the quaran
 
 ## 9. Broker evidence
 
-J-KRB-R2-002. A local lost set, an `OnPartitionsRevoked` or `OnPartitionsLost` callback, and `Client.GroupMetadata` are not proof of partition ownership. They are client memory. The acceptance rule is independent of them: an `OffsetCommit` that the broker accepts after that member has lost ownership fails the safety case, even if the callback already ran or the application refused a later call.
+J-KRB-R2-002 and J-KRB-R3-002. A local lost set, a revoke or lost callback, and `Client.GroupMetadata` are not proof of partition ownership. An `OffsetCommit` the broker accepts after the member has lost ownership fails the safety case even if the callback already ran.
 
-The ordinary Kafka API does not provide a historical snapshot of coordinator state at the moment each RPC was applied. `OffsetFetch` returns the latest committed offset. `DescribeGroups` returns the current members and assignment. Neither says which generation owned the partition when an earlier commit was stored. This contract does not pretend that they do.
+`PROXY_FRAME_ORDER_IS_BROKER_ACCEPTANCE_TIME=NO`. The order of frames at a proxy is not the order in which the coordinator applies RPCs. These times are different, and a test must name which one it observed:
 
-What an isolated test can record, and only if it inserts a recording proxy on the client-to-broker connection:
+| Moment | What can observe it |
+|---|---|
+| Client sends the request | The proxy sees the request bytes arrive from the client. |
+| Request is delivered to the broker | The proxy releases the bytes toward the broker. A held request has not been delivered. |
+| Coordinator processes the request | Not visible on the ordinary Kafka API, and not visible from proxy frame order. |
+| Client receives the response | The proxy sees the response bytes. A delayed response can arrive after a rebalance even when the coordinator processed the request before that rebalance. |
+| Committed offset changes | A later `OffsetFetch` shows the stored offset. It does not timestamp the apply. |
+| Ownership of the partition changes | `DescribeGroups` or a completed sync shows the assignment at the sample time. It is not a history of the coordinator at each RPC. |
 
-- `OffsetCommit` request fields: group, generation, member id, topic, partition, and the committed offset (`record offset + 1`). The response error code per partition. Error `0` is acceptance.
-- `SyncGroup` request and response on that same ordered connection: generation, member id, and assignment. A later `DescribeGroups` is a point-in-time check, not a substitute for the ordered log.
-- The next `Fetch` after restart or rebalance: member id and the offset it asks to read. That is the first offset B reads. B's application log is not this evidence.
+A successful response that is observed after a rebalance does not prove the commit was applied after the rebalance. `DELAYED_RESPONSE_IS_NOT_PROOF=YES`.
 
-Ownership at acceptance is the proxy order. The commit was accepted after the loss if the response has error `0` and, earlier in that log, a completed sync or removal already took that partition away from that member id. If the proxy cannot order the response against that assignment change, the ownership criterion for that run is `NOT_PROVEN`. It is not filled in from the client.
+The ordinary API still has no historical coordinator snapshot. Default broker logs are not that snapshot. A unit test that stubs `CommitRecords` is not a case here.
 
-Redpanda request logs are not the oracle unless the test enables a documented debug line that contains those same fields and the test captures it before rotation. Default broker logs are not assumed to contain them. A unit test that stubs `CommitRecords` is not a case in this section.
+### Delayed-request test
 
-Separate from the ownership rule, every case also records:
+`DELAYED_REQUEST_TEST_DEFINED=YES`. This is the controlled experiment. It is not implemented.
 
-- contiguous terminal prefix: the committed offset is the first offset that is not terminal, or the end of the log when every offset in the prefix is terminal. Committing past a `NON_TERMINAL` offset fails this check.
-- commit order: the proxy shows one in-flight `OffsetCommit` for the partition, no second request before its response, and no later request that moves the cursor backward.
-- B recovery: after restart or rebalance, B's first `Fetch` offset equals the `OffsetFetch` value taken before that fetch.
-- no lost event: every offset from that fetch through the log end was applied by B, is still uncommitted, or was accepted by the broker while the proxy still showed A as the owner.
+1. Consumer A builds one `OffsetCommit`.
+2. The proxy holds that request and does not deliver it to the coordinator.
+3. The test confirms A is gone from the assignment and the partition is assigned to B. The confirmation is `DescribeGroups` or the completed sync sampled while the request is still held.
+4. Only after that confirmation, the proxy delivers the held request.
+5. The test records the coordinator response.
+6. A separate `OffsetFetch` reads the committed offset.
+7. B's first `Fetch` is recorded from the proxy.
+8. The unprocessed event is not past the cursor unless B read it or A had a terminal result whose commit was delivered while A still owned the partition.
 
-These four checks can pass or fail on their own evidence. A pass on them does not prove the ownership rule when the proxy order is missing.
+What this experiment can show: the request was not delivered until after the sampled assignment change. If the response is then success and `OffsetFetch` moves to A's offset, the broker accepted a commit that had not been delivered until after that sample. That fails the safety case. If the response is a group error and `OffsetFetch` does not move to A's offset, the broker rejected this held request. That result covers this shape only.
+
+What it cannot show: the coordinator's apply instant. It cannot show that a response which was merely slow, after a request already delivered, was applied after the rebalance. A request that reached the broker before the rebalance is a different test. Its response time is not apply time. That run is `NOT_TESTABLE_WITH_CURRENT_ORACLE` for the apply-versus-loss question. `BROKER_SAFETY_PROVEN=NO`.
+
+### Late commit rewind
+
+`LATE_COMMIT_REWIND_RISK=DOCUMENTED`. `CommitRecords` stores `offset + 1`. The library documents that member A can commit offset 30 after member B has committed offset 50, and the cursor moves back to 30. Classic `OffsetCommit` stores the offset in the request. It does not reject a lower offset because a higher one is already stored. The rewind is possible when a commit carrying 30 is accepted after a commit carrying 50, including when A's request was held and delivered late, and including when A's request was already at the broker before B's commit and the coordinator applies A's request second.
+
+`SINGLE_FLIGHT_BLOCKED_COMMIT` stops a new local commit after the application has recorded the loss, and it does not cancel an RPC already sent. It does not stop the coordinator from applying a request that is in flight or held. It is not protection against every rewind. The delayed-request test fails the mechanism if `OffsetFetch` moves from 50 back to 30. No other local callback repairs that.
+
+Separate checks, which do not prove apply time:
+
+- contiguous terminal prefix, from `OffsetFetch` and the classified records;
+- commit order, from requests the proxy actually delivered, not from response arrival;
+- B's first `Fetch` against the `OffsetFetch` taken before it;
+- no skipped unprocessed event on that fetch.
 
 ## 10. Broker test matrix
 
-These cases are not implemented. They are not authorized against staging or production. PR #372 does not satisfy them. One isolated topic, one partition, group `tracking-execution-stop`, autocommit disabled, and the proxy from section 9. A case that needs B and never moves the partition does not pass.
+These cases are not implemented. They are not authorized against staging or production. PR #372 does not satisfy them. One isolated topic, one partition, group `tracking-execution-stop`, autocommit disabled, and the proxy from section 9. A case that needs B and never moves the partition does not pass. Each case is `TESTABLE`, `PARTIALLY_TESTABLE`, or `NOT_TESTABLE_WITH_CURRENT_ORACLE`. A delayed response is not classified as proof of apply time.
 
 ### 1. Commit during rebalance
 
-- Setup: A has applied offset 10 with a `COMMITTED_STATE_EFFECT`. The proxy holds the `OffsetCommit` before the broker answers. B joins.
+- Setup: A has a state effect for offset 10. The proxy holds the request so the coordinator has not received it. This is the delayed-request shape, not a delayed response. B joins.
 - A: one commit in flight. No second commit after the assignment changes.
-- B: joins and waits for the held RPC to finish, then fetches.
-- Broker evidence: ordered proxy log of A's commit response and the sync that moves the partition.
-- Inbox: the effect row for offset 10 is committed. No second inbox row from B unless B actually fetches offset 10.
-- Tracking: the state effect from A's transaction stays. B does not write a second effect if it does not read the record.
-- Expected committed offset: `11` only if A's response is success and the proxy shows A still owned the partition at that response. Otherwise the cursor stays at the previous commit.
-- Oracle: fail if the response is success after the sync removed A's ownership. Also fail the lost-event check if the cursor passes 10 and B never reads it.
-- Limit: without proxy order, the ownership half is `NOT_PROVEN`. The prefix and B's first fetch can still be recorded.
+- B: joins. The partition must be B's before the proxy releases A's request.
+- Broker evidence: held request, sampled assignment, then the released request, its response, `OffsetFetch`, and B's first `Fetch`.
+- Inbox: the effect row for offset 10 may already be committed in PostgreSQL. No second inbox row unless B reads the record.
+- Tracking: A's state effect stays. B does not write another effect unless it reads the record.
+- Expected committed offset: the previous cursor, unless the response is success for a request released while the sample still showed A as owner. A success after the sample showed B fails the case.
+- Oracle: fail if `OffsetFetch` advances on a request that was released only after B owned the partition. A slow response to a request already delivered is not this oracle.
+- Limit: `PARTIALLY_TESTABLE`. The hold proves delivery time. It does not prove the coordinator's apply instant. `BROKER_SAFETY_PROVEN=NO`.
 
 ### 2. Slow in-flight commit
 
@@ -362,15 +404,15 @@ These cases are not implemented. They are not authorized against staging or prod
 
 ### 6. Replay after restart
 
-- Setup: stop the process after a `VERIFIED_EQUIVALENT_PRIOR_EFFECT` row is committed and before `CommitRecords` returns. Restart the member. Repeat with invalid JSON, an unknown type, and a payload with no execution id.
+- Setup: stop the process after a state-effect transaction commits and before `CommitRecords` returns. Restart. Repeat with invalid JSON, an unknown type, and a payload with no execution id. `last_event_id` does not exist yet.
 - A: the restarted process is the only member.
 - B: none until a second member is added. The first `Fetch` after restart is the recovery evidence.
 - Broker evidence: `OffsetFetch` before the restart fetch, then the first `Fetch` offset.
-- Inbox: the prior-effect row remains for the duplicate. The invalid records have a `NON_TERMINAL` quarantine row and no new inbox row.
-- Tracking: unchanged by the replay.
-- Expected committed offset: one step forward for the verified duplicate, once. Unchanged for the three `NON_TERMINAL` records, including on a second restart.
-- Oracle: a second advance for the duplicate, or any advance for invalid JSON, unknown type, or missing identity, fails.
-- Limit: the restart fetch shows where the member started. It does not reconstruct a commit response that was in flight at the crash. That part uses case 3.
+- Inbox: the existing row remains. The invalid records have a `NON_TERMINAL` quarantine row and no new inbox row.
+- Tracking: unchanged by the replay. The state row has a sequence and no `last_event_id`.
+- Expected committed offset: unchanged for the duplicate and for the three invalid records. Replay is `NON_TERMINAL` until `last_event_id` matches.
+- Oracle: any advance on these records fails, including a hash match without `last_event_id`.
+- Limit: `TESTABLE` for the refusal to commit. `NOT_TESTABLE_WITH_CURRENT_ORACLE` for a future durable prior-effect proof, because the column is not in the schema. The in-flight response uses case 3.
 
 ### 7. Same event_id, different SHA-256
 
@@ -442,18 +484,148 @@ These cases are not implemented. They are not authorized against staging or prod
 - Tracking: the existing effect stays. It is not rolled back and not duplicated.
 - Expected committed offset: advances by one only after the member who reads the record commits under section 3, and only because the prior effect verifies.
 - Oracle: a first fetch that starts past the record fails the lost-event check. A commit that happens without the prior-effect proof also fails.
-- Limit: B's application counter is not the evidence. The `Fetch` offset on the proxy is.
+- Limit: B's application counter is not the evidence. The `Fetch` offset on the proxy is. Replay is `NON_TERMINAL` until `last_event_id` exists, so this case does not advance the cursor on restart today.
 
-## 11. Decisions still requiring approval
+### 13. Known non-stop event
 
-1. Accept or reject `SINGLE_FLIGHT_BLOCKED_COMMIT`. It is proposed, not proven. `GENERATION_FENCED_MANUAL_COMMIT` is not a sufficient substitute.
-2. No implementation starts before section 10 has passed on an isolated broker, including the proxy order where a case needs it. A case left `NOT_PROVEN` does not open the gate. The production consumer stays blocked either way.
-3. The 2 second commit budget and the 8 second poll window against the 45 second session timeout and the 60 second rebalance timeout.
-4. Whether HTTP 404 stays the PR #346 inbox-commit behavior or becomes the non-insert, non-commit rule in section 6. This draft does not edit PR #346.
-5. Investigator role, payload retention, and the later clearance stage. This stage does not include clearance or replay tooling.
-6. The unresolved-age alert threshold.
-7. Whether the nullable inbox hash columns are approved as a later migration. They are not created here.
+- Preconditions: the allowlist in section 5 is empty. A record uses one of the producer types listed there, which is not a stop type.
+- Stimulus: the consumer reads it.
+- Expected changes: no inbox insert and no state write. Class `NON_TERMINAL`.
+- Expected committed offset: unchanged.
+- Replay: still `NON_TERMINAL`. The same type does not become a skip on the second read.
+- Observable evidence: `OffsetFetch` and the unchanged tables.
+- Limit: `TESTABLE` for the refusal to commit. `NOT_TESTABLE_WITH_CURRENT_ORACLE` for a future allowlist entry, because no business rule authorizes one.
 
-## 12. Boundary
+### 14. Unknown parsed event type
 
-This document does not implement the consumer, the tables, the hash columns, the tests, or a rebalance hook. It does not change SQL, Kafka configuration, or migrations. It does not change PR #346 or PR #372. It does not close issue #344. Staging and production are unchanged. The consumer must not be started as a production reader on the strength of this proposal.
+- Preconditions: the JSON parses and `event_type` is a non-empty string outside the five stop types and outside the empty allowlist.
+- Stimulus: the consumer reads it.
+- Expected changes: no state effect. `UNKNOWN_EVENT` is `NON_TERMINAL`.
+- Expected committed offset: unchanged.
+- Replay: unchanged and still uncommitted.
+- Observable evidence: parsed type, `OffsetFetch`, empty state change.
+- Limit: `TESTABLE`. The producer publish gate is not evidence that this type may be skipped.
+
+### 15. Invalid JSON
+
+- Preconditions: the record value is not JSON.
+- Stimulus: the consumer reads it. `isExecutionStopEvent` returns false today and the current code would commit. This contract must not.
+- Expected changes: no inbox row and no state row.
+- Expected committed offset: unchanged.
+- Replay: still `NON_TERMINAL`.
+- Observable evidence: `OffsetFetch` stays below the record.
+- Limit: `TESTABLE`.
+
+### 16. Delayed request versus delayed response
+
+- Preconditions: two runs of the same `OffsetCommit`. Run R holds the request before delivery. Run S delivers the request immediately and holds only the response.
+- Stimulus: B receives the partition during the hold.
+- Expected changes: run R is case 1. Run S records the response time and does not call it the apply time.
+- Expected committed offset: run R as in case 1. Run S reports `OffsetFetch` without claiming when the coordinator stored it.
+- Replay: neither run classifies the event terminal because a response arrived late.
+- Observable evidence: proxy hold point, assignment sample, response, `OffsetFetch`, B's first `Fetch`.
+- Limit: run R is `PARTIALLY_TESTABLE`. Run S is `NOT_TESTABLE_WITH_CURRENT_ORACLE` for apply-versus-loss. `DELAYED_RESPONSE_IS_NOT_PROOF=YES`.
+
+### 17. Offset rewind from 50 to 30
+
+- Preconditions: B has a stored commit at 50. A's `OffsetCommit` carries 30 and is held until after that store, then released. This is the delayed-request shape.
+- Stimulus: release A's request.
+- Expected changes: the safety case fails if the cursor moves from 50 to 30. `SINGLE_FLIGHT_BLOCKED_COMMIT` is not a pass by itself.
+- Expected committed offset: remains 50. A move to 30 fails the case.
+- Replay: B's next fetch must not start at 30 unless 30 was the last accepted owner commit, which this setup says it was not.
+- Observable evidence: `OffsetFetch` before and after the release, and B's first `Fetch`.
+- Limit: `PARTIALLY_TESTABLE` for a request held until after B's commit. A pair of requests already inside the broker is `NOT_TESTABLE_WITH_CURRENT_ORACLE` for which one the coordinator applied last.
+
+### 18. Stale sequence and a different event_id
+
+- Preconditions: state `last_execution_event_sequence` is 5 for the trusted owner. The new record has `event_sequence` 2 and a new `event_id`.
+- Stimulus: `Apply`.
+- Expected changes: rollback, no new inbox row, no state change. The higher sequence is not terminal for this event.
+- Expected committed offset: unchanged.
+- Replay: the same record stays `NON_TERMINAL`.
+- Observable evidence: row counts, sequence still 5, `OffsetFetch`.
+- Limit: `TESTABLE` against PostgreSQL and `OffsetFetch`. It is not a unit test with a fake repository.
+
+### 19. RowsAffected = 0
+
+- Preconditions: `TouchExecutionSequence` or `ClearExecutionTarget` matches no row. The SQL returns success with zero rows.
+- Stimulus: the call and the following commit of the database transaction, as the current code does.
+- Expected changes: no state change. Class `NON_TERMINAL` even though the error is nil.
+- Expected committed offset: unchanged.
+- Replay: still `NON_TERMINAL`.
+- Observable evidence: `RowsAffected`, the re-read sequence, `OffsetFetch`.
+- Limit: `TESTABLE`. `Apply == nil` is not the oracle.
+
+### 20. Shipment owner epoch changed
+
+- Preconditions: the in-transaction lookup returns epoch 4, then a second lookup before the insert returns epoch 5. No shared transaction with shipment exists.
+- Stimulus: the consumer reaches the insert decision.
+- Expected changes: rollback, reason `OWNER_EPOCH_CHANGED`, no tenant ids in the reason, no insert.
+- Expected committed offset: unchanged.
+- Replay: `NON_TERMINAL` while the epochs differ.
+- Observable evidence: the two epoch values and the unchanged tables. The shipment write that happened between them is outside this database.
+- Limit: `PARTIALLY_TESTABLE` if the test controls both lookup results. The real race remains `NOT_TESTABLE_WITH_CURRENT_ORACLE` as a closed proof, and `SHIPMENT_OWNER_RACE=OPEN`.
+
+### 21. Mixed-version consumer group
+
+- Preconditions: member A advertises the old contract and member B advertises the new one. The old member does not take the advisory lock.
+- Stimulus: both remain in the group, and the old member commits an `Apply` nil with no state effect.
+- Expected changes: the new mode does not start. B does not commit. A's already stored offset is not rewritten by B.
+- Expected committed offset: whatever A stored, left in place. B does not advance it and does not move it backward.
+- Replay: historical conflicts stay for the later recovery plan. They are not auto-cleared.
+- Observable evidence: `DescribeGroups` member metadata and `OffsetFetch` before and after B starts.
+- Limit: `TESTABLE` as a refusal to enter the new mode. `NOT_TESTABLE_WITH_CURRENT_ORACLE` as a claim that the two versions are safe together. They are not compatible.
+
+## 11. Shipment owner race
+
+`SHIPMENT_OWNER_RACE=OPEN`. Section 6 locks tracking writers. It does not lock the shipment service. A second read of the owner, without a transaction that contains both databases, can still be stale before the tracking commit.
+
+The candidate fence is a monotonic ownership epoch minted by shipment. It is not implemented, and this stage adds no migration.
+
+- Source: shipment, at execution creation and at each change of operating owner. The counter increases by one and is never reused. The payload is not the source.
+- Change: only shipment advances it, in the same shipment transaction that changes the owner.
+- Read: the tracking lookup returns the owner and the epoch together. Tracking stores neither value as authority until the checks below pass.
+- Identity: the epoch is not part of `event_id`. An event does not become a different event because the epoch changed. The epoch fences the write.
+- Check: inside the tracking transaction, after the advisory lock and before the insert, read the epoch again. If a state row exists, its stored epoch must equal that second read, and the second read must equal the first read in this decision. Otherwise roll back.
+- Concurrent owner change: two tracking transactions can both read epoch 4, shipment can move to epoch 5, and both can still write. The second read does not serialize with shipment. That is why the race stays open.
+- Source unavailable: `NON_TERMINAL`, reason `OWNER_EPOCH_UNAVAILABLE`, no insert and no offset commit.
+- Epoch changed between the two reads, or the stored state epoch differs: `NON_TERMINAL`, reason `OWNER_EPOCH_CHANGED`. The reason carries no tenant id.
+
+A future column `owner_epoch` on `execution_tracking_state` would record the epoch that matched at the write. It is not created here. Re-reading the epoch is not a sufficient fence. `SHIPMENT_OWNER_RACE=OPEN`.
+
+## 12. Mixed consumer deployment
+
+`MIXED_CONSUMER_DEPLOYMENT_GATE=CLOSED`. Old and new members are not compatible, and this stage does not roll anything out.
+
+- The old consumer does not take the execution advisory lock.
+- The old consumer can still commit an `Apply` nil that has no state effect, and it can still commit an offset for invalid JSON or an unknown type.
+- The new consumer does not repair an offset the old consumer has already committed. It does not move that cursor backward to hide the old commit.
+- Two versions in one group are not treated as compatible because they share a group id.
+
+The gate, when a later stage builds it, has all of these conditions:
+
+1. Contract version on each member, carried in client identity the group coordinator returns. `Client.GroupMetadata` is not the roster.
+2. `DescribeGroups` lists every active member and the version it advertises.
+3. The new mode stays off until every member advertises the new version and none advertises the old one.
+4. Before the mode is allowed, read `OffsetFetch` and the inbox. An offset already past a `NON_TERMINAL` record is a historical conflict.
+5. If a mixed member appears, stop. The new member does not poll for a commit and does not stay in the new mode. It alerts and leaves or refuses the assignment.
+6. Recovery of those historical conflicts is a later clearance plan. It is not automatic and it is not this stage.
+
+Until that gate exists and passes, the new binary must not run in a group where an old binary can still join.
+
+## 13. Decisions still requiring approval
+
+1. Accept or reject `SINGLE_FLIGHT_BLOCKED_COMMIT`. It is not sufficient against every rewind. `GENERATION_FENCED_MANUAL_COMMIT` remains withdrawn.
+2. No implementation starts before section 10 has run on an isolated broker. A case that is `NOT_TESTABLE_WITH_CURRENT_ORACLE` or `PARTIALLY_TESTABLE` for apply time does not open the gate. `BROKER_SAFETY_PROVEN=NO`. The production consumer stays blocked.
+3. The 2 second commit budget and the 8 second poll window.
+4. Whether HTTP 404 stays the PR #346 inbox-commit behavior or the non-insert rule in section 6. This draft does not edit PR #346.
+5. Whether any producer type in section 5 may later be added to the empty non-stop allowlist. None are authorized now.
+6. Investigator role, payload retention, and clearance. Not in this stage.
+7. The unresolved-age alert threshold.
+8. Later migrations for the inbox hash columns, `last_event_id`, and `owner_epoch`. None are created here.
+9. `SHIPMENT_OWNER_RACE` stays open until a fence that serializes with shipment exists. A second read is not that fence.
+10. The mixed-version gate stays closed until the six conditions in section 12 are implemented and observed. This stage does not enable it.
+
+## 14. Boundary
+
+This document does not implement the consumer, the tables, the hash columns, `last_event_id`, `owner_epoch`, the tests, or a rebalance hook. It does not change SQL, Kafka configuration, or migrations. It does not change PR #346 or PR #372. It does not close issue #344. It does not roll out a mixed consumer group. Staging and production are unchanged. The consumer must not be started as a production reader on the strength of this proposal.
