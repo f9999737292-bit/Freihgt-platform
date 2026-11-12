@@ -45,7 +45,7 @@ Expected SQL: one inbox row for that `event_id` or zero if both lose the race to
 
 Setup: execution epoch 1 and no `tracking.execution_tracking_state` row.
 Stimulus: a matching event runs the full order.
-Expected SQL: one state row with `owner_epoch = 1`, `last_event_id` equal to the event, and one inbox row with the same id, hash, and size.
+Expected SQL: one inbox row with that `event_id`, hash, and size, inserted before the state insert in the same transaction. One state row with `owner_epoch = 1` and `last_event_id` equal to the event.
 `PASS`: the insert follows a lock return for that execution.
 `FAIL`: the insert runs when the function returns no execution row.
 
@@ -148,3 +148,65 @@ Expected: `OWNER_STATE_MISMATCH`, `ROLLBACK`, no state update, and no offset com
 
 `PASS`: the state row and the Kafka offset are unchanged, and the transaction does not commit.
 `FAIL`: the state tenant becomes A, any approach column changes, or the offset advances.
+
+## 15. Privilege and order oracles
+
+T1 through T8 are designed and not executed. No migration is applied for them. A result recorded here is the specified outcome, not a server result.
+
+### T1. Qualified function invocation
+
+Setup: `tracking_service_login` inherits `tracking_runtime`. That role has `USAGE ON SCHEMA transport` and `EXECUTE` on `transport.lock_execution_owner(uuid)` only.
+Stimulus: the login calls `transport.lock_execution_owner` for an existing execution.
+`PASS`: the qualified name resolves and the call returns the locked tenant and epoch.
+`FAIL`: the name is not resolved, or this login is rejected.
+
+### T2. No table DML
+
+Setup: the same login as T1.
+Stimulus: direct `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on `transport.transport_executions`.
+`PASS`: each statement fails with `42501`. The stored row is unchanged. The function owner is not the session role in this test.
+`FAIL`: any direct table statement by this login succeeds.
+
+### T3. PUBLIC function grants
+
+Setup: `tracking_runtime` has schema `USAGE`. An unrelated login is not a member of `tracking_runtime`. The migration text through `000105` revokes `PUBLIC` from the transport functions created in `000103` and does not revoke `PUBLIC` from the earlier `RETURNS trigger` functions listed in the security document.
+Stimulus: the unrelated login and `tracking_runtime` attempt every function in schema `transport` other than `transport.lock_execution_owner`. The catalog `proacl` is read in the same test.
+`PASS`: every non-trigger function except `transport.lock_execution_owner` returns `42501` for both sessions. `PUBLIC` cannot execute `transport.lock_execution_owner`. Trigger functions are recorded separately, because a direct call fails as a trigger function even when `EXECUTE` remains granted to `PUBLIC`.
+`FAIL`: either session calls another function successfully, or `PUBLIC` can execute the lock function.
+This test is not a pass in this stage. `PUBLIC_FUNCTION_EXECUTE_AUDIT=REQUIRED`.
+
+### T4. NOINHERIT and SET ROLE
+
+Setup: one login is a member of `tracking_runtime` `WITH INHERIT FALSE, SET TRUE`. A second login is `tracking_service_login`, the accepted membership `WITH INHERIT TRUE, SET FALSE`.
+Stimulus: read `session_user`, `current_user`, `pg_has_role(..., 'MEMBER')`, and `pg_has_role(..., 'USAGE')` before and after `SET ROLE tracking_runtime`. Then call the function from each login. The predicate is the PostgreSQL 16 definition cited in the security document. PostgreSQL 17 uses the same `pg_has_role` sentence. This stage does not claim the result for an older major version.
+`PASS`: before `SET ROLE`, the `NOINHERIT` login has `MEMBER` true and `USAGE` false, and the call does not commit a state effect. After `SET ROLE`, `session_user` is still that login, `USAGE` on `session_user` is still false, and the body still rejects the call even if `GRANT EXECUTE` allows entry. The inheriting login does not use `SET ROLE`, `USAGE` is true, and its call is the accepted path.
+`FAIL`: a predicted boolean differs from the server, the `NOINHERIT` login's `USAGE` result changes because of `SET ROLE`, or that login commits a state effect.
+`SET_ROLE_BYPASS=NOT_CLAIMED_SAFE_WITHOUT_TEST` until this test has a server result. This stage has none.
+
+### T5. Immediate foreign key
+
+Setup: an immediate foreign key from `last_event_id` to the inbox `event_id`, and a new event whose tenant, execution, and identity match the locked execution.
+Stimulus: the transaction inserts the inbox row and then writes the state proof, including `last_event_id`, in that same transaction.
+`PASS`: commit leaves one inbox row and a state row whose `last_event_id`, tenant, execution, and sequence match that inbox row.
+`FAIL`: the state row is written before the inbox insert, or commit succeeds when `last_event_id` points at an inbox UUID for another tenant, execution, or event identity.
+
+### T6. State failure rollback
+
+Setup: the lock and the epoch check have succeeded, and the inbox insert has been executed but not committed.
+Stimulus: the state update raises an error or changes zero rows.
+`PASS`: rollback leaves the pre-test inbox count and the pre-test state row. The offset is unchanged.
+`FAIL`: the new inbox row remains, the state row changes, or the offset advances.
+
+### T7. Cross-tenant mismatch
+
+Setup: the locked execution is tenant A. The event claims tenant B.
+Stimulus: the transaction compares the claim after the lock and before any inbox insert.
+`PASS`: `OWNER_STATE_MISMATCH`, rollback, no state effect, no new inbox row, and no offset commit.
+`FAIL`: a state column changes, an inbox row for the event remains, or the offset advances.
+
+### T8. Shared freight login
+
+Setup: the session is `freight`. If that role applied `000088`, it may own `transport.transport_executions`. It is not a member of `tracking_runtime`.
+Stimulus: direct `UPDATE` of the execution row, direct `UPDATE` of `tracking.execution_tracking_state`, and a call to `transport.lock_execution_owner`. Record each server result.
+The specified grant design rejects the function call. A successful direct `UPDATE` is a bypass. This test does not have a `PASS` that proves least privilege. A rejected `EXECUTE` does not prove that `freight` lacks table-owner rights. `SHARED_FREIGHT_RISK=OPEN`.
+`FAIL`: the report treats this session as evidence that the privilege set is least privilege, or the function call succeeds for `freight`.
