@@ -4,14 +4,87 @@ The controller has not chosen a model. This document compares three shapes and r
 
 ## 1. What must be true before a binding can authorize a target read
 
-A binding used by `ListActiveTargetsForActors` needs two server-owned facts, checked at use time:
+A binding used by `ListActiveTargetsForActors` needs server-owned facts, checked at use time. The facts that exist in code today are narrower than the full decision.
 
-1. Shipment assignment: `transport.shipments` for that tenant has this `driver_id` on this shipment, and `transport.drivers` for that tenant and user is active. The existing check is `CanDriverAccessShipment` (`services/shipment-service/internal/domain/driver_operations.go:271-278`) after `GetByUserIDAndTenant` (`services/shipment-service/internal/repository/driver_repository.go:82-86`).
-2. Execution assignment, when the read is an execution target: `transport.transport_executions.operating_tenant_id` and `driver_id` or `vehicle_id` (`000088_tms_transport_execution_foundation_v0_1a.up.sql:12-15`) match that scope. Shipment command code already compares those on a locked row (`services/shipment-service/internal/repository/transport_execution_command_repository.go:159-187`). Tracking does not call it.
-
-Shipment tenant and execution operating tenant are different columns. `000088:6-7` says shipment ownership is not moved. A shipment-tenant match is not an execution-owner match.
+Shipment tenant and execution operating tenant are different columns. `000088_tms_transport_execution_foundation_v0_1a.up.sql:6-7` says shipment ownership is not moved. A shipment-tenant match is not an execution-owner match.
 
 `X-Tenant-ID`, `X-Driver-ID`, the shared token, a driver UUID, a vehicle UUID, and a stored binding are not substitutes for those rows.
+
+`CURRENT_BINDING_TRUST=CALLER_CLAIMS`
+
+`BINDING_IS_AUTHORIZATION_PROOF=NO`
+
+`DIRECT_BINDING_INSERT_BYPASS=OPEN`
+
+`ON_CONFLICT_DO_NOTHING_RACE=OPEN`
+
+`SHIPMENT_AUTHORITY_SOURCE=DESIGNED_NOT_IMPLEMENTED`
+
+`J_DML_001=NOT_CLOSED`
+
+The insert at `services/tracking-service/internal/repository/tracking_repository.go:472-477` stores the caller values. It does not call `CanDriverAccessShipment` or `authorizeCommand`.
+
+## 1.1 J-TBA-001 — checks that exist, and checks that do not
+
+`EXISTING_DRIVER_CHECK=VERIFIED_BY_CODE`
+
+`EXISTING_VEHICLE_CHECK=NOT_IMPLEMENTED_IN_THIS_PATH`
+
+`VEHICLE_CHECK=PROPOSED`
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| Driver identity for a shipment user | Existing on the shipment driver route | `GetByUserIDAndTenant` selects `transport.drivers` by `user_id` and `tenant_id` (`services/shipment-service/internal/repository/driver_repository.go:82-86`). |
+| Driver assignment on a shipment | Existing on that same route | `CanDriverAccessShipment` (`services/shipment-service/internal/domain/driver_operations.go:271-278`) requires `shipment.TenantID == tenantID` and `shipment.DriverID == driverID`. It does not read `vehicle_id`. |
+| Operating tenant on an execution command | Existing for that command | `authorizeCommand` (`services/shipment-service/internal/repository/transport_execution_command_repository.go:159-161`) returns tenant denied when `cmd.OperatingTenantID` differs from the locked execution tenant. |
+| Driver actor on that command | Existing when the actor kind is driver | The same function (`:181-187`) requires the locked `driver_id` to equal `cmd.ActorID`. The locked columns are `operating_tenant_id, driver_id` (`:70-75`). `vehicle_id` is not selected and is not a parameter. |
+| Vehicle assignment | Not implemented on the binding path or in those two functions | `VEHICLE_CHECK=PROPOSED`. See section 1.2. |
+| Shipment-to-execution linkage | Not implemented on this path | `transport.transport_executions` has no `shipment_id` (`000088:4-7`). The active link is `transport.transport_execution_active_shipments` (`000088:76-81`). Neither cited function reads it. |
+| Owner epoch and current assignment at reuse | Specified, not enforced | PR #375. `current_revision_id` is a different column and is not an owner epoch. |
+
+One function does not check driver and vehicle together. `authorizeCommand` checks the operating tenant and, for a driver actor, the driver. `CanDriverAccessShipment` checks the shipment tenant and the shipment driver.
+
+## 1.2 Vehicle authority — proposed
+
+`VEHICLE_CHECK_SOURCE=CURRENT_SHIPMENT_AND_EXECUTION_ROWS_WHEN_CLAIMED`
+
+`transport.shipments.vehicle_id` is nullable (`infrastructure/migrations/000003_create_transport_tables.up.sql:169`). `transport.transport_executions.vehicle_id` is nullable (`000088:14`). A shipment is not required to have a vehicle.
+
+Shipment assignment of a vehicle is a separate operation from driver assignment. `AssignVehicle` (`services/shipment-service/internal/service/shipment_service.go:274-299`) loads the vehicle in the shipment tenant and requires the vehicle's `carrier_company_id` to match the shipment's carrier. The update writes `vehicle_id` (`services/shipment-service/internal/repository/shipment_repository.go:472-475`). It does not compare the vehicle with the shipment driver, and it does not read the execution.
+
+Execution `vehicle_id` is written by the projection insert (`services/shipment-service/internal/repository/transport_execution_repository.go:294-300`). Production updates of `transport.transport_executions` found in shipment-service change `current_revision_id` (`transport_execution_repository.go:92-96`, `transport_execution_successor_repository.go:172-176`) or `event_seq` (`transport_execution_command_repository.go:1225-1227`). They do not assign a new `vehicle_id`.
+
+`X-Vehicle-ID` on the tracking route (`services/tracking-service/internal/http/handlers/tracking_handler.go:116-123`) is not an authorized vehicle. The gateway driver location call passes an empty vehicle (`services/api-gateway/internal/driver/handler.go:264`).
+
+`DRIVER_ONLY_POLICY=ALLOWED_FOR_DRIVER_MATCH_ONLY`
+
+When the binding names no vehicle, a future decision may still authorize the driver. That scope allows a location for the authorized shipment and an execution target whose current `driver_id` equals that driver. It does not add the execution's `vehicle_id` as a match key. Approach and ETA must not accept the scope through a vehicle-only comparison. A shipment that also has a vehicle does not, by that fact, reject the driver-only scope.
+
+When the binding names a vehicle, the future decision must show that same vehicle on the current `transport.shipments.vehicle_id` for that tenant and shipment. For an execution target, the same vehicle must also be the current `transport.transport_executions.vehicle_id` of the linked execution. A vehicle that is current on a different shipment or execution is not a match. A null shipment vehicle denies a claimed vehicle.
+
+`VEHICLE_REASSIGNMENT_POLICY=CLAIMED_VEHICLE_MUST_MATCH_CURRENT_ROW`
+
+A later `AssignVehicle` changes the shipment column. The old claimed vehicle fails the next check. The stored binding is not reused as proof. An execution `vehicle_id` that still holds the old value is still the execution column that must match a claimed vehicle. This stage does not assert that the two columns move together.
+
+`EXECUTION_REVISION_POLICY=STALE_REVISION_IS_NOT_ACTIVE`
+
+`current_revision_id` moves without rewriting `driver_id` or `vehicle_id` (`transport_execution_successor_repository.go:172-176`). A future decision that recorded a revision id is not ACTIVE when `current_revision_id` has changed. Use requires a new decision against the current revision. `authorizeCommand` does not compare the revision. The revision read at `transport_execution_command_repository.go:86-89` happens after the tenant and driver check and is not a vehicle check. Owner epoch remains a separate, unenforced write fence.
+
+`SHIPMENT_EXECUTION_LINK=PROPOSED`
+
+The future execution half must find `transport.transport_execution_active_shipments` for the shipment tenant and shipment id (`000088:76-81`) and then apply the driver check, and the vehicle check when a vehicle is claimed, on that execution. Historical participant rows are not that link. The comment at `000088:74-75` says the active slot is removed when the shipment leaves the route.
+
+A future shipment-owned decision, still `DESIGNED_NOT_IMPLEMENTED`, must re-check at every use:
+
+- tenant
+- shipment
+- driver
+- vehicle, when the binding claims one
+- the current execution assignment, including the active shipment link and the current revision
+- a company relationship pin when the business contract for that execution requires one
+- that the decision is still current
+
+Historical binding rows are not promoted into that decision. `HISTORICAL_BINDING_POLICY=NOT_A_GRANT`.
 
 ## 2. Option A — Gateway authorized binding
 
@@ -39,7 +112,7 @@ Assessment: necessary as the user-entry boundary, not sufficient as the assignme
 
 ## 3. Option B — Shipment-owned binding authority
 
-Source of truth: shipment-service's current rows. Driver identity is `transport.drivers` for the gateway user. Shipment assignment is `transport.shipments`. Execution assignment is `transport.transport_executions`. A relationship pin, when the target execution has one, stays shipment-owned (`000103_tms_relationship_pins_security_foundation_v0_1.up.sql:128`). Tracking does not consult that pin today.
+Source of truth: shipment-service's current rows. Driver identity is `transport.drivers` for the gateway user. The existing shipment check is the driver assignment in section 1.1. Execution operating tenant and execution driver are what `authorizeCommand` compares for a driver command. Vehicle match, the active shipment link, the current revision, and owner epoch are proposed additions. They are not that function. A relationship pin, when the business contract for the target execution requires one, stays shipment-owned (`000103_tms_relationship_pins_security_foundation_v0_1.up.sql:128`). Tracking does not consult that pin today. The pin is not required for every binding.
 
 Trust boundary: those rows, read at creation and again at use. The gateway remains the component that turns a JWT into a user id and tenant. Tracking does not accept `X-Driver-ID` as the driver.
 
@@ -86,7 +159,7 @@ Assessment: a signed copy of a shipment decision is still option B. A separate o
 
 `RECOMMENDED_AUTHORITY_MODEL=B_SHIPMENT_OWNED_NOT_APPROVED`
 
-Option B is the recommendation because shipment-service already resolves the driver, checks the shipment assignment, and locks the execution assignment. Option A remains the required user-entry boundary and does not own those rows. Option C adds an issuer the repository does not have.
+Option B is the recommendation because shipment-service already resolves the driver and checks the shipment driver assignment, and the execution command path already compares the operating tenant and the driver actor. Vehicle, shipment-to-execution linkage, current revision, and owner epoch stay proposed. Option A remains the required user-entry boundary and does not own those rows. Option C adds an issuer the repository does not have.
 
 The recommendation is not an implementation approval. The controller decides. Until that decision, tracking continues to store caller claims, and those rows are not authority for `ListActiveTargetsForActors`.
 

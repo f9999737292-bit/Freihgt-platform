@@ -10,10 +10,10 @@ Current behavior is the inventory. The lifecycle here is the proposed architectu
 | --- | --- |
 | CREATED | Tracking has a row or a request, and no shipment decision is attached. |
 | VERIFIED | The current shipment assignment matches the tenant, shipment, and driver. This does not by itself authorize an execution target. |
-| ACTIVE | VERIFIED, and, for an execution target, the current execution owner and actor match that scope. Computed at use. |
+| ACTIVE | VERIFIED, and, for an execution target, the current execution operating tenant and driver match, the active shipment link matches, and a claimed vehicle matches the current vehicle rows. Computed at use. The vehicle, link, and revision parts are proposed. |
 | REVOKED | The shipment assignment or the driver row no longer grants the scope, or a later explicit revoke says so. |
 | EXPIRED | A validity interval on the decision has ended. |
-| INVALIDATED_BY_REASSIGNMENT | The shipment or execution driver or vehicle changed after the row was stored. |
+| INVALIDATED_BY_REASSIGNMENT | The current shipment or execution driver no longer matches, or a claimed vehicle no longer matches the current vehicle column. The vehicle half is proposed. |
 
 A row can be `status = 'active'` in the table and still be CREATED, EXPIRED, REVOKED, or INVALIDATED_BY_REASSIGNMENT under these labels. Target search uses ACTIVE only.
 
@@ -29,11 +29,21 @@ There is no separate activator. ACTIVE is the use-time result of the shipment as
 
 ## 4. How assignment is checked
 
-Shipment half: `CanDriverAccessShipment` (`driver_operations.go:271-278`) against the current shipment row, after the driver row is active (`driver_operations_service.go:72-76`).
+`EXISTING_DRIVER_CHECK=VERIFIED_BY_CODE`
 
-Execution half, only for target reads: current `operating_tenant_id` and driver or vehicle on `transport.transport_executions`. The command function that compares them today is `authorizeCommand` (`transport_execution_command_repository.go:159-187`). The proposed read repeats that comparison. It does not call the command and does not take the command's write lock.
+`EXISTING_VEHICLE_CHECK=NOT_IMPLEMENTED_IN_THIS_PATH`
 
-Carrier company is on the driver row (`000003_create_transport_tables.up.sql:102`) and on the execution (`000088:13`). Neither is compared during the current insert. The proposed shipment decision includes the carrier only when shipment already treats it as part of the assignment. This stage does not add a new carrier rule.
+`VEHICLE_CHECK=PROPOSED`
+
+Shipment half, existing: `CanDriverAccessShipment` (`driver_operations.go:271-278`) against the current shipment row, after the driver row is active (`driver_operations_service.go:72-76`). The predicate is tenant and `driver_id`. It does not confirm a vehicle.
+
+Execution half, existing and only inside an execution command: `authorizeCommand` (`transport_execution_command_repository.go:159-187`) compares `cmd.OperatingTenantID` with the locked operating tenant (`:160-161`) and, for a driver actor, `cmd.ActorID` with the locked `driver_id` (`:181-187`). The lock reads those two columns by execution id (`:70-75`). It does not read `vehicle_id`. Tracking does not call this function. The proposed target read must not be described as repeating a vehicle comparison that this function does not perform.
+
+`SHIPMENT_AUTHORITY_SOURCE=DESIGNED_NOT_IMPLEMENTED`
+
+The future use-time decision adds the checks that these functions do not perform: a claimed vehicle against the current shipment and execution vehicle columns, the active shipment link (`000088:76-81`), the current revision, and a relationship pin when that execution's business contract requires one. Owner epoch stays the PR #375 write fence and is not this comparison. The proposed read does not take the command write lock.
+
+Carrier company is on the driver row (`000003_create_transport_tables.up.sql:102`) and on the execution (`000088:13`). `AssignDriver` compares the driver's carrier with the shipment carrier (`shipment_service.go:266-267`). `AssignVehicle` does the same for a vehicle (`shipment_service.go:294-296`). Neither comparison runs during the tracking binding insert. This stage does not add a new carrier rule.
 
 ## 5. Who revokes
 
@@ -47,7 +57,17 @@ When `transport.shipments.driver_id` or `transport.transport_executions.driver_i
 
 ## 7. Vehicle change
 
-The gateway path stores no vehicle (`driver/handler.go:264` passes an empty vehicle id). A vehicle on the binding is a claim today. Proposed: a vehicle is part of the scope only when the shipment decision includes the shipment's current `vehicle_id`. A later change of that column invalidates a scope that was bound to the old vehicle. A scope that was driver-only does not gain a vehicle from the caller header.
+`DRIVER_ONLY_POLICY=ALLOWED_FOR_DRIVER_MATCH_ONLY`
+
+`VEHICLE_REASSIGNMENT_POLICY=CLAIMED_VEHICLE_MUST_MATCH_CURRENT_ROW`
+
+`EXECUTION_REVISION_POLICY=STALE_REVISION_IS_NOT_ACTIVE`
+
+The gateway path stores no vehicle (`driver/handler.go:264` passes an empty vehicle id). A vehicle on the binding is a claim today. `EXISTING_VEHICLE_CHECK=NOT_IMPLEMENTED_IN_THIS_PATH`. An `X-Vehicle-ID` value is not authorized.
+
+A shipment may have no vehicle (`000003:169` is nullable). A driver-only binding is allowed for the driver match in section 4. It permits a location for that shipment and an execution target whose current `driver_id` matches. It does not authorize a vehicle-id match. Approach and ETA do not treat the empty vehicle as every vehicle on that execution.
+
+`VEHICLE_CHECK=PROPOSED`. When the binding names a vehicle, the future decision confirms that vehicle on the current `transport.shipments.vehicle_id` and, for an execution target, on the current `transport.transport_executions.vehicle_id`. A vehicle that belongs to another current assignment fails. After `AssignVehicle` (`shipment_repository.go:472-475`) the old claim fails the next check. The old row is not a grant. A changed `current_revision_id` (`transport_execution_successor_repository.go:172-176`) likewise requires a new decision even when the vehicle column is unchanged. Historical rows without a decision stay unconfirmed.
 
 ## 8. Operating tenant change
 
