@@ -27,6 +27,7 @@ This directory holds the Analytics-0.1A inventory and the Analytics-0.1B archite
 | [ANALYTICS_0_1B_ARCHITECTURE.md](ANALYTICS_0_1B_ARCHITECTURE.md) | Canonical KPI and analytics architecture freeze |
 | [ANALYTICS_0_3C_CARRIER_SCORE_POLICY.md](ANALYTICS_0_3C_CARRIER_SCORE_POLICY.md) | Carrier performance score policy decision |
 | [ANALYTICS_0_4A_KPI_SOURCE_CONTRACTS.md](ANALYTICS_0_4A_KPI_SOURCE_CONTRACTS.md) | Source-contract requests for four blocked KPI facts |
+| [ANALYTICS_COMPANY_ISOLATION_0_4C.md](ANALYTICS_COMPANY_ISOLATION_0_4C.md) | Policy A company isolation and the unverified return/redirect link |
 | [adr/ADR-AN-001-canonical-kpi-ownership.md](adr/ADR-AN-001-canonical-kpi-ownership.md) | Who owns KPI meaning |
 | [adr/ADR-AN-002-analytics-storage-boundary.md](adr/ADR-AN-002-analytics-storage-boundary.md) | First storage boundary |
 | [adr/ADR-AN-003-time-late-event-restatement.md](adr/ADR-AN-003-time-late-event-restatement.md) | Time, late events, restatement |
@@ -94,3 +95,9 @@ Policy only. `ANALYTICS_0_3C_CARRIER_SCORE_POLICY.md` records `CARRIER_SCORE_POL
 Docs only. `ANALYTICS_0_4A_KPI_SOURCE_CONTRACTS.md` requests source facts for GAP-C-001, GAP-C-002, GAP-C-005, and GAP-B-001.
 
 `CURRENT_KPI_COUNT=11`. No new KPI is defined and no current formula changes. The four source gaps stay unimplemented. `CONTRACT_REQUESTED` is not closed. GAP-E-001 stays open and `CARRIER_SCORE_READY=NO`. `DWH_IMPLEMENTED=NO`. No UI and no staging deploy are part of 0.4A. Agent B and Agent C implementation is not authorized.
+
+## Analytics-0.4C
+
+Policy A. `ANALYTICS_COMPANY_ISOLATION_0_4C.md` records server-owned company scope. A carrier membership reads only that carrier's shipments. A shipper membership reads only that shipper's shipments. `PLATFORM_ADMIN` from a tenant-global Identity role remains tenant-wide. Missing or ambiguous membership fails closed. Client company headers are not authority.
+
+`transport.delivery_disposition_cases` has no company column, so company-scoped `OPS_RETURN_CASES` and `OPS_REDIRECT_CASES` are denied. Tenant scope still reads the existing case counts. The eleven KPI ids, `definitionVersion=1`, punctuality comparison, and `dataFreshness.status=UNKNOWN` stay. The three count mappings stay `COMPLETE` for a resolved population and the eight punctuality KPIs stay `PARTIAL`. Independent security review is required. No merge and no deploy are authorized.

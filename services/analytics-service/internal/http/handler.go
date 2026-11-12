@@ -17,7 +17,7 @@ import (
 )
 
 type FoundationSource interface {
-	Fetch(ctx context.Context, tenantID string) (kpi.Snapshot, error)
+	Fetch(ctx context.Context, tenantID string, scope kpi.ReadScope) (kpi.Snapshot, error)
 	Ready(ctx context.Context) error
 }
 
@@ -58,7 +58,13 @@ func (h *Handler) GetKPI(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, apperrors.Unauthorized("tenant context is required"))
 		return
 	}
-	snap, err := h.source.Fetch(r.Context(), tenantID)
+	scope, ok := scopeFrom(r.Context())
+	if !ok || scope.Kind == "" {
+		result = "forbidden"
+		respond.Error(w, apperrors.Forbidden("analytics company scope is not available"))
+		return
+	}
+	snap, err := h.source.Fetch(r.Context(), tenantID, kpi.ReadScope{Kind: scope.Kind, CompanyID: scope.CompanyID})
 	if err != nil {
 		result = "unavailable"
 		var sourceErr *source.Error
@@ -70,6 +76,25 @@ func (h *Handler) GetKPI(w http.ResponseWriter, r *http.Request) {
 		h.log.Error("operations foundation source failed", slog.String("reason", result))
 		respond.Error(w, apperrors.Unavailable("operations analytics source is unavailable"))
 		return
+	}
+	if kpiID == kpi.ReturnCases || kpiID == kpi.RedirectCases {
+		if scope.Kind == kpi.ScopeTenant {
+			if snap.DispositionScope != kpi.DispositionScopeTenant {
+				result = "unavailable"
+				h.stats.SourceError("inconsistent")
+				respond.Error(w, apperrors.Unavailable("operations analytics source is unavailable"))
+				return
+			}
+		} else if snap.DispositionScope == kpi.DispositionScopeTenant {
+			result = "unavailable"
+			h.stats.SourceError("inconsistent")
+			respond.Error(w, apperrors.Unavailable("operations analytics source is unavailable"))
+			return
+		} else {
+			result = "forbidden"
+			respond.Error(w, apperrors.Forbidden("analytics company scope is not available for this kpi"))
+			return
+		}
 	}
 	if kpi.CarrierKPI(kpiID) {
 		body, err := kpi.BuildCarrier(kpiID, snap, h.now())

@@ -7,6 +7,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/google/uuid"
+
+	"github.com/freight-platform/api-gateway/internal/analyticsrbac"
 )
 
 const gatewayCaller = "api-gateway"
@@ -34,7 +38,7 @@ func refuseAnalyticsRedirect(*http.Request, []*http.Request) error {
 	return errors.New("analytics service redirect is not followed")
 }
 
-func (c *Client) GetKPI(ctx context.Context, kpiID, tenantID, rawQuery string) (int, []byte, error) {
+func (c *Client) GetKPI(ctx context.Context, kpiID, tenantID, rawQuery string, scope analyticsrbac.Scope) (int, []byte, error) {
 	if c == nil || c.baseURL == "" || strings.TrimSpace(c.token) == "" || strings.TrimSpace(tenantID) == "" {
 		return 0, nil, errUnavailable
 	}
@@ -49,6 +53,22 @@ func (c *Client) GetKPI(ctx context.Context, kpiID, tenantID, rawQuery string) (
 	req.Header.Set("X-Internal-Service-Token", c.token)
 	req.Header.Set("X-Internal-Service-Name", gatewayCaller)
 	req.Header.Set("X-Tenant-ID", tenantID)
+	switch scope.Kind {
+	case analyticsrbac.ScopeTenant:
+		if scope.CompanyID != "" {
+			return 0, nil, errUnavailable
+		}
+		req.Header.Set("X-Analytics-Scope", analyticsrbac.ScopeTenant)
+	case analyticsrbac.ScopeShipper, analyticsrbac.ScopeCarrier:
+		parsed, err := uuid.Parse(scope.CompanyID)
+		if err != nil || parsed == uuid.Nil {
+			return 0, nil, errUnavailable
+		}
+		req.Header.Set("X-Analytics-Scope", scope.Kind)
+		req.Header.Set("X-Analytics-Company-ID", parsed.String())
+	default:
+		return 0, nil, errUnavailable
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

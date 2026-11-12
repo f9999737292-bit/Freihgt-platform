@@ -112,6 +112,7 @@ func readAnalyticsSource(t *testing.T, router http.Handler, tenantID uuid.UUID) 
 	req.Header.Set("X-Internal-Service-Token", "analytics-source-caller")
 	req.Header.Set("X-Internal-Service-Name", "analytics-service")
 	req.Header.Set("X-Tenant-ID", tenantID.String())
+	req.Header.Set("X-Analytics-Scope", domain.AnalyticsScopeTenant)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -332,6 +333,58 @@ func TestOperationsAnalyticsSourcePickupAndCarriers(t *testing.T) {
 	if legacy.ShipmentTotal != 6 || legacy.OnTimeDeliveryDenominator != 4 || legacy.OnTimeDeliveryNumerator != 3 || legacy.OnTimePickupDenominator != 0 || legacy.OnTimePickupNumerator != 0 || legacy.Carriers != nil {
 		t.Fatalf("SRC03B_14 %+v", legacy)
 	}
+	own := readAnalyticsSourceScoped(t, router, tenantA, domain.AnalyticsScopeCarrier, graphA.carrier)
+	if own.ShipmentTotal != 3 || own.DispositionScope != domain.DispositionScopeUnavailable || own.ReturnCaseCount != 0 || own.RedirectCaseCount != 0 || len(own.Carriers) != 1 || own.Carriers[0].CarrierCompanyID != graphA.carrier {
+		t.Fatalf("carrier scope %+v", own)
+	}
+	if own.OnTimePickupDenominator != 2 || own.OnTimePickupNumerator != 2 || own.OnTimeDeliveryDenominator != 2 || own.OnTimeDeliveryNumerator != 1 {
+		t.Fatalf("carrier punctuality %+v", own)
+	}
+	otherCarrier := readAnalyticsSourceScoped(t, router, tenantA, domain.AnalyticsScopeCarrier, carrierB)
+	if otherCarrier.ShipmentTotal != 2 || len(otherCarrier.Carriers) != 1 || otherCarrier.Carriers[0].CarrierCompanyID != carrierB {
+		t.Fatalf("other carrier %+v", otherCarrier)
+	}
+	shipper := readAnalyticsSourceScoped(t, router, tenantA, domain.AnalyticsScopeShipper, graphA.shipper)
+	if shipper.ShipmentTotal != 6 || len(shipper.Carriers) != 2 || shipper.DispositionScope != domain.DispositionScopeUnavailable {
+		t.Fatalf("shipper scope %+v", shipper)
+	}
+	foreignShipper := seedCompany(t, env, tenantA, "SHIPPER", "Analytics other shipper")
+	otherGraph := graphA
+	otherGraph.shipper = foreignShipper
+	insertAnalyticsOperationalShipment(t, env, tenantA, otherGraph, &carrierB, &equalAt, &equalAt, &equalAt, &equalAt, false)
+	after := readAnalyticsSourceV2(t, router, tenantA, tenantB)
+	if after.ShipmentTotal != 7 {
+		t.Fatalf("tenant after extra shipper %+v", after)
+	}
+	stillOwn := readAnalyticsSourceScoped(t, router, tenantA, domain.AnalyticsScopeShipper, graphA.shipper)
+	if stillOwn.ShipmentTotal != 6 {
+		t.Fatalf("shipper saw another company %+v", stillOwn)
+	}
+	crossTenant := readAnalyticsSourceScoped(t, router, tenantB, domain.AnalyticsScopeCarrier, graphA.carrier)
+	if crossTenant.ShipmentTotal != 0 || len(crossTenant.Carriers) != 0 {
+		t.Fatalf("cross tenant company %+v", crossTenant)
+	}
+}
+
+func readAnalyticsSourceScoped(t *testing.T, router http.Handler, tenantID uuid.UUID, kind string, companyID uuid.UUID) domain.OperationsAnalyticsSourceSnapshot {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/internal/v1/analytics/operations-foundation-v2?tenant_id="+uuid.NewString(), nil)
+	req.Header.Set("X-Internal-Service-Token", "analytics-source-caller")
+	req.Header.Set("X-Internal-Service-Name", "analytics-service")
+	req.Header.Set("X-Tenant-ID", tenantID.String())
+	req.Header.Set("X-Company-ID", uuid.NewString())
+	req.Header.Set("X-Analytics-Scope", kind)
+	req.Header.Set("X-Analytics-Company-ID", companyID.String())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+	}
+	var snap domain.OperationsAnalyticsSourceSnapshot
+	if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
+		t.Fatal(err)
+	}
+	return snap
 }
 
 func readAnalyticsSourceV2(t *testing.T, router http.Handler, tenantID, spoofed uuid.UUID) domain.OperationsAnalyticsSourceSnapshot {
@@ -340,6 +393,7 @@ func readAnalyticsSourceV2(t *testing.T, router http.Handler, tenantID, spoofed 
 	req.Header.Set("X-Internal-Service-Token", "analytics-source-caller")
 	req.Header.Set("X-Internal-Service-Name", "analytics-service")
 	req.Header.Set("X-Tenant-ID", tenantID.String())
+	req.Header.Set("X-Analytics-Scope", domain.AnalyticsScopeTenant)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {

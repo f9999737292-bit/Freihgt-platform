@@ -360,6 +360,10 @@ See [docs/WINDOWS_ENVIRONMENT.md](docs/WINDOWS_ENVIRONMENT.md).
 | API design v0.1 | `docs/api/api-design-v0.1.md` |
 | Event catalog v0.1 | `docs/events/event-catalog-v0.1.md` |
 
+## Analytics company isolation
+
+Policy A limits analytics reads to a server-resolved company. See [docs/architecture/analytics/ANALYTICS_COMPANY_ISOLATION_0_4C.md](docs/architecture/analytics/ANALYTICS_COMPANY_ISOLATION_0_4C.md). Return and redirect cases have no verified company column, so those two KPIs are denied outside tenant scope.
+
 ## Architecture notes
 
 - **Local dev**: all DB schemas in one PostgreSQL instance

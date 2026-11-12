@@ -31,7 +31,7 @@ func TestOperationsFoundationChain(t *testing.T) {
 		tenantA      = "11111111-1111-1111-1111-111111111111"
 		tenantB      = "22222222-2222-2222-2222-222222222222"
 	)
-	var sourceTenant, sourceCaller, presentedSourceToken string
+	var sourceTenant, sourceCaller, presentedSourceToken, sourceScope, sourceCompany string
 	shipment := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/ready":
@@ -40,6 +40,8 @@ func TestOperationsFoundationChain(t *testing.T) {
 			sourceTenant = r.Header.Get("X-Tenant-ID")
 			sourceCaller = r.Header.Get("X-Internal-Service-Name")
 			presentedSourceToken = r.Header.Get("X-Internal-Service-Token")
+			sourceScope = r.Header.Get("X-Analytics-Scope")
+			sourceCompany = r.Header.Get("X-Analytics-Company-ID")
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"tenantId":                  tenantA,
 				"shipmentTotal":             10,
@@ -53,6 +55,7 @@ func TestOperationsFoundationChain(t *testing.T) {
 					map[string]any{"carrierCompanyId": "33333333-3333-3333-3333-333333333333", "onTimePickupDenominator": 1, "onTimePickupNumerator": 1, "onTimeDeliveryDenominator": 2, "onTimeDeliveryNumerator": 1},
 					map[string]any{"carrierCompanyId": "22222222-2222-2222-2222-222222222222", "onTimePickupDenominator": 1, "onTimePickupNumerator": 0, "onTimeDeliveryDenominator": 2, "onTimeDeliveryNumerator": 2},
 				},
+				"dispositionScope": "TENANT",
 			})
 		default:
 			http.NotFound(w, r)
@@ -64,7 +67,14 @@ func TestOperationsFoundationChain(t *testing.T) {
 	defer stop()
 
 	identity := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{"roles": []string{"CARRIER_DISPATCHER"}})
+		switch {
+		case strings.Contains(r.URL.Path, "/roles"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"items": []any{map[string]any{"code": "PLATFORM_ADMIN"}}})
+		case strings.Contains(r.URL.Path, "/companies"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"items": []any{}})
+		default:
+			http.NotFound(w, r)
+		}
 	}))
 	defer identity.Close()
 
@@ -122,8 +132,8 @@ func TestOperationsFoundationChain(t *testing.T) {
 	if payload.Completeness != "PARTIAL" || payload.DataFreshness.Status != "UNKNOWN" || payload.GeneratedAt == "" {
 		t.Fatalf("quality %+v", payload)
 	}
-	if sourceTenant != tenantA || sourceCaller != "analytics-service" || presentedSourceToken != sourceToken {
-		t.Fatalf("source tenant=%s caller=%s dedicated=%t", sourceTenant, sourceCaller, presentedSourceToken == sourceToken)
+	if sourceTenant != tenantA || sourceCaller != "analytics-service" || presentedSourceToken != sourceToken || sourceScope != "TENANT" || sourceCompany != "" {
+		t.Fatalf("source tenant=%s caller=%s scope=%s company=%s dedicated=%t", sourceTenant, sourceCaller, sourceScope, sourceCompany, presentedSourceToken == sourceToken)
 	}
 
 	carrierReq := httptest.NewRequest(http.MethodGet, "/api/v1/analytics/kpis/CAR_ON_TIME_PICKUP_RATE", nil)
@@ -167,6 +177,7 @@ func TestOperationsFoundationChain(t *testing.T) {
 	querySpoof.Header.Set("X-Internal-Service-Token", gatewayToken)
 	querySpoof.Header.Set("X-Internal-Service-Name", "api-gateway")
 	querySpoof.Header.Set("X-Tenant-ID", tenantA)
+	querySpoof.Header.Set("X-Analytics-Scope", "TENANT")
 	queryResp, err := http.DefaultClient.Do(querySpoof)
 	if err != nil {
 		t.Fatal(err)
@@ -183,6 +194,7 @@ func TestOperationsFoundationChain(t *testing.T) {
 	wrongName.Header.Set("X-Internal-Service-Token", gatewayToken)
 	wrongName.Header.Set("X-Internal-Service-Name", "analytics-service")
 	wrongName.Header.Set("X-Tenant-ID", tenantA)
+	wrongName.Header.Set("X-Analytics-Scope", "TENANT")
 	wrongNameResp, err := http.DefaultClient.Do(wrongName)
 	if err != nil {
 		t.Fatal(err)
@@ -200,6 +212,7 @@ func TestOperationsFoundationChain(t *testing.T) {
 	spoof.Header.Set("X-Internal-Service-Token", sharedToken)
 	spoof.Header.Set("X-Internal-Service-Name", "api-gateway")
 	spoof.Header.Set("X-Tenant-ID", tenantB)
+	spoof.Header.Set("X-Analytics-Scope", "TENANT")
 	spoofResp, err := http.DefaultClient.Do(spoof)
 	if err != nil {
 		t.Fatal(err)
@@ -216,6 +229,7 @@ func TestOperationsFoundationChain(t *testing.T) {
 	foreign.Header.Set("X-Internal-Service-Token", sourceToken)
 	foreign.Header.Set("X-Internal-Service-Name", "api-gateway")
 	foreign.Header.Set("X-Tenant-ID", tenantA)
+	foreign.Header.Set("X-Analytics-Scope", "TENANT")
 	foreignResp, err := http.DefaultClient.Do(foreign)
 	if err != nil {
 		t.Fatal(err)
