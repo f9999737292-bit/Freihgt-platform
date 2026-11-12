@@ -1,4 +1,5 @@
 import type { AuthUser } from '~/types/api'
+import { hasBuyerAwardManageRole } from '~/utils/buyerAwardAccess'
 import { hasBuyerXlsxManageRole } from '~/utils/buyerXlsxAccess'
 
 const TENDER_MANAGE_ROLES = [
@@ -102,6 +103,11 @@ export function usePermissions() {
     return canManageTenders()
   }
 
+  /** Gateway PolicyBuyerManage — award and other buyer-manage RFx writes (excludes SHIPPER_LOGIST). */
+  function canBuyerAwardManage(): boolean {
+    return isPlatformAdmin() || hasBuyerAwardManageRole(userRoles())
+  }
+
   function canBuyerXlsxExchange(): boolean {
     return isPlatformAdmin() || hasBuyerXlsxManageRole(userRoles())
   }
@@ -185,6 +191,7 @@ export function usePermissions() {
     isPlatformAdmin,
     canReadTenders,
     canManageTenders,
+    canBuyerAwardManage,
     canPublishTenders,
     canBuyerXlsxExchange,
     isBuyerRole,

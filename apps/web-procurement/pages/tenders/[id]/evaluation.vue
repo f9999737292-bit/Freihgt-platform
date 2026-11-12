@@ -21,7 +21,7 @@ const route = useRoute()
 const { getRfxEvent } = useRfxApi()
 const { listCompanies } = useCompanies()
 const { setCompany } = useTenantContext()
-const { canManageTenders } = usePermissions()
+const { canManageTenders, canBuyerAwardManage } = usePermissions()
 const {
   listEvaluationResponses,
   recalculateEvaluation,
@@ -352,7 +352,7 @@ onMounted(loadCompanies)
               </td>
               <td>
                 <Button
-                  v-if="canManageTenders() && !item.awarded && item.offer_complete"
+                  v-if="canBuyerAwardManage() && !item.awarded && item.offer_complete"
                   size="sm"
                   variant="danger"
                   data-testid="evaluation-award"
