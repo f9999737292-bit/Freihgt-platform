@@ -64,3 +64,12 @@ PR #357 is not edited. A later revision of that contract, before any consumer im
 - `docs/architecture/tracking/TRACKING_OWNER_FENCE_0_1D_TEST_PLAN.md`
 
 Implementation, migrations, broker tests, and deployment remain stopped.
+
+## R2
+
+`J_TOF_001=CLOSED`. The caller check uses `session_user` membership and inheritance. `current_user` inside `SECURITY DEFINER` is the function owner and is not the caller check. `EXECUTE` is granted only to `tracking_runtime`. `freight` does not receive it.
+`J_TOF_002=CLOSED`. `tracking_execution_fence` is `NOLOGIN`, `NOSUPERUSER`, and `NOBYPASSRLS`. Its only `UPDATE` column is `updated_at`. It has no `UPDATE` on `operating_tenant_id` or `owner_epoch`. The privilege test was not executed.
+`J_TOF_003=CLOSED`. `MarkApproachEmitted` has a separate epoch oracle and a separate tenant oracle. A pre-lock read is not the authoritative epoch.
+`DIRECT_DML_ENFORCEMENT_CHOSEN=NO`. `ALL_WRITERS_FENCED=NO`.
+`OPEN_RISKS=SHARED_LOGIN_FREIGHT,TABLE_OWNER_AND_SUPERUSER_BYPASS,DIRECT_STATE_UPDATE_WITHOUT_EPOCH_CHECK,COLUMN_UPDATE_SUFFICIENCY_NOT_EXECUTED,LIVE_TABLE_OWNER_NOT_QUERIED,RLS_ABSENT_AND_NO_POLICY_DESIGNED,SHIPMENT_RUNTIME_HAS_TABLE_UPDATE,OPERATOR_SQL_NOT_VERIFIED,TENANT_ISOLATION_NOT_IMPLEMENTED,EPOCH_MONOTONIC_TRIGGER_NOT_CREATED,OLD_CONSUMER_CAN_BE_STARTED_AGAIN`.
+`SHIPMENT_OWNER_RACE=OPEN_UNTIL_IMPLEMENTED`. `BROKER_SAFETY_PROVEN=NO`. `MIXED_CONSUMER_GATE=CLOSED`.

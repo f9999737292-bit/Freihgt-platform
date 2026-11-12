@@ -43,18 +43,22 @@ A tracking transaction that acquires the lock after epoch 5 has committed reads 
 | Tenant on the event differs from the locked tenant | Roll back. The `WHERE` tenant predicate also changes zero rows if a write is attempted. Zero rows are `NON_TERMINAL`. |
 | Event epoch differs from the locked epoch | Roll back. A higher event epoch is not accepted as authority. |
 | `RowsAffected = 0` | Roll back. A nil driver error is not a state effect. |
-| Lock wait exceeds `lock_timeout` | The statement fails. Roll back. `NON_TERMINAL`. No offset commit. |
+| Lock wait exceeds `lock_timeout` | The statement fails with `55P03`. Roll back. `NON_TERMINAL`. No offset commit. |
 | Deadlock `40P01` | Roll back. `NON_TERMINAL`. The prescribed order is execution row, then tracking state. |
-| Crash before commit | PostgreSQL rolls the transaction back. State and inbox stay as they were. The offset is not committed. |
+| Null epoch on the locked row or on the event | Roll back. `NON_TERMINAL`. Null is not stored as `1`. |
+| Crash after the lock and before commit | PostgreSQL ends the session transaction. The lock is released. State and inbox stay as they were. The offset is not committed. |
+| State update fails after the lock, including `RowsAffected = 0` | Roll back. The inbox insert does not remain. The offset is not committed. |
 | Crash after commit and before `CommitRecords` | The proof remains. Replay uses that proof. The offset stays uncommitted until a later attempt sees the proof and then commits the offset once. |
 | Isolation other than `READ COMMITTED` | Not this contract. A snapshot taken before the lock is not a second source of truth. |
+
+A future foreign key from `tracking.execution_tracking_state.last_event_id` to `tracking.execution_event_inbox.event_id` requires the inbox insert to precede the state update inside the same uncommitted transaction. The inbox row is visible to that foreign key before commit. If the state update fails, both the inbox insert and the state change roll back together. The inbox insert is not committed on its own.
 
 ## 4. Counterexamples the order closes
 
 - The current consumer reads shipment over HTTP at `execution_consumer.go:77-87` and writes state later in another transaction. That read is not step 4.
 - A second call to the lock function in a new transaction releases the first lock before the state write. The state write must stay in the transaction that holds the lock.
 - `pg_advisory_xact_lock` on the tracking session does not lock `transport.transport_executions`.
-- An old consumer that calls `UpsertExecutionTrackingState` directly skips the function. Section 5 of the security document keeps that binary out of the group.
+- An old consumer that calls `UpsertExecutionTrackingState` directly skips the function. The security document records that this binary stays behind the closed mixed-group gate, and that returning it is a separate controller action.
 
 ## 5. Deadlock
 

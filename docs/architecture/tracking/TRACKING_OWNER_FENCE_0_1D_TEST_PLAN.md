@@ -105,4 +105,46 @@ Expected SQL: the new mode writes nothing. If the old session is still connected
 `PASS`: the new consumer does not join, and no new-mode transaction commits.
 `FAIL`: the new mode runs beside the old session, or the gate treats that session as compatible.
 
-`MarkApproachEmitted` is covered by the same rule as test 11. A call at `approach.go:94` that updates state after the execution epoch has moved, without holding `lock_execution_owner` in that transaction, is a `FAIL`.
+## 13. MarkApproachEmitted epoch oracle
+
+Calling `transport.lock_execution_owner` is not by itself evidence that the approach write is safe. `ListActiveTargetsForActors` at `services/tracking-service/internal/service/approach.go:69` runs before the execution lock. Its result is not the authoritative epoch.
+
+Setup:
+
+```text
+Authoritative execution:
+tenant=A
+owner_epoch=5
+
+Existing tracking state:
+tenant=A
+owner_epoch=4
+```
+
+Stimulus: one transaction runs `BEGIN`, calls `lock_execution_owner`, checks the returned owner and epoch against this approach target, and then reaches `MarkApproachEmitted` at `approach.go:94`.
+
+Expected: `ROLLBACK`. `tracking.execution_tracking_state` keeps tenant A, epoch 4, and the same `approach_emitted_at`. The inbox count is unchanged. `OffsetFetch` is unchanged.
+
+`PASS`: all four of those values match the setup after the session ends.
+`FAIL`: `approach_emitted_at` changes, the state epoch changes, an inbox row appears, or the offset advances. A successful function call followed by the `UPDATE` is this failure.
+
+## 14. MarkApproachEmitted tenant oracle
+
+Setup:
+
+```text
+Authoritative execution:
+tenant=A
+owner_epoch=5
+
+Tracking state:
+tenant=B
+owner_epoch=5
+```
+
+Stimulus: the same transaction locks the execution, compares tenant B with the returned tenant A, and does not treat the payload tenant or the pre-lock list as the owner.
+
+Expected: `OWNER_STATE_MISMATCH`, `ROLLBACK`, no state update, and no offset commit. The state row stays tenant B and epoch 5.
+
+`PASS`: the state row and the Kafka offset are unchanged, and the transaction does not commit.
+`FAIL`: the state tenant becomes A, any approach column changes, or the offset advances.

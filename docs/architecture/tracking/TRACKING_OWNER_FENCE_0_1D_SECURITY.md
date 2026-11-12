@@ -2,72 +2,151 @@
 
 Status: recommendation only. No grant and no function are created.
 `DB_PRIVILEGE_MODEL=SECURITY_DEFINER_LOCK_FUNCTION`.
-The recommendation is not an implementation approval.
+`CURRENT_USER_CHECK_REMOVED=YES`.
+`TENANT_ISOLATION_IMPLEMENTED=NO`.
+`ALL_WRITERS_FENCED=NO`.
+The recommendation is not an implementation approval. A written grant is not a technical restriction until a later migration installs it.
 
-Tracking-service must not receive broad rights on schema `transport`. `SELECT` or `UPDATE` on all of `transport.transport_executions` would let the tracking login read or change shipment columns that this fence does not need.
+Tracking-service must not receive broad rights on schema `transport`. The repository already uses `SECURITY DEFINER` with `search_path = pg_catalog` for guarded functions. The company-service static check lists both at `services/company-service/internal/repository/activation_security_migration_static_test.go:18`.
 
-The repository already uses `SECURITY DEFINER` with `search_path = pg_catalog` for guarded functions. The company-service static check lists both at `services/company-service/internal/repository/activation_security_migration_static_test.go:18`.
+## 1. Caller identity
 
-## 1. Recommended variant
+Inside a `SECURITY DEFINER` function, `current_user` is the function owner. It is not the caller. This design does not read `current_user` to decide who called `transport.lock_execution_owner`.
 
-Name: `SECURITY_DEFINER_LOCK_FUNCTION`.
+The caller gate is the privilege system plus `session_user`, which stays the login that opened the session:
 
-A later migration, numbered only after a fresh head check above `000105`, creates one function:
+1. `REVOKE ALL ON FUNCTION transport.lock_execution_owner(uuid) FROM PUBLIC`. PostgreSQL grants `EXECUTE` to `PUBLIC` on a new function unless this revoke is present.
+2. `GRANT EXECUTE ON FUNCTION transport.lock_execution_owner(uuid) TO tracking_runtime` and to no other role. `freight` does not receive `EXECUTE`. `shipment_runtime` does not receive `EXECUTE`.
+3. The function body rejects the call unless both are true: `pg_has_role(session_user, 'tracking_runtime', 'MEMBER')` and `pg_has_role(session_user, 'tracking_runtime', 'USAGE')`. `MEMBER` is direct or indirect membership. `USAGE` is true when that membership is inherited or the role was activated with `SET ROLE`. A member created `NOINHERIT` that has not run `SET ROLE` fails `USAGE`.
+4. A login that is not granted `tracking_runtime` has no `EXECUTE` privilege. The call fails before the body. The membership check is a second gate if `EXECUTE` is later granted more widely.
 
-`transport.lock_execution_owner(p_execution_id uuid)`
+`tracking_runtime` is `NOLOGIN`, `NOSUPERUSER`, and `NOBYPASSRLS`. The future login that should call the function is a dedicated tracking login that inherits `tracking_runtime`. That login is not `freight`.
 
-The function returns `operating_tenant_id` and `owner_epoch` for that primary key. It executes as a new `NOLOGIN` owner role that can `SELECT` the two columns and lock that one table. The function is `SECURITY DEFINER`, sets `search_path` to `pg_catalog`, and schema-qualifies every name. The body is a fixed `SELECT ... FOR UPDATE`. It takes no tenant, no epoch, and no SQL text from the caller. `EXECUTE` is revoked from `PUBLIC`.
+These grants do not constrain a superuser. They do not constrain the owner of the function or the owner of `transport.transport_executions`. `pg_has_role` does not remove a superuser's privileges.
 
-Until the role split described at `000103:6-7`, `EXECUTE` is granted to the shared login `freight` and to no other runtime login. After that split, `EXECUTE` moves to `tracking_runtime` and is revoked from the shared login. `shipment_runtime` does not receive `EXECUTE`. The function checks `pg_catalog.current_user` and raises an exception for any other caller.
+## 2. Shared login `freight`
 
-The function runs inside the caller's transaction and does not commit. The execution-row lock therefore survives until the tracking transaction ends. That is the property the fence needs. A procedure with its own commit would release the lock before the state write and would miss the race.
+`000103_tms_relationship_pins_security_foundation_v0_1.up.sql:6-7` states that `freight` stays the shared login until a later role split. The production repository methods use that `DATABASE_URL` login. No production Go path in `services/` executes `SET ROLE`.
 
-### Why this variant
+`freight` is therefore one login for shipment-service and tracking-service. Granting `EXECUTE` to `freight` would let every service on that login call the function. This design does not do that. The current services cannot call the function until a dedicated tracking login exists. That is a blocker for implementation, not a reason to grant `EXECUTE` to `freight`.
 
-- The tracking login cannot `UPDATE` shipment columns. The owner role can lock the row, and the function does not expose that update right.
-- The statement is static, so the execution id is a bound uuid. There is no string concatenation.
-- Tenant authority is the row returned under the lock. The caller cannot pass a tenant that replaces it.
-- Lock order stays in the application transaction: this call first, the tracking state lock second.
-- A test can open two sessions on one database, call the function in one, and attempt the epoch update in the other.
-- The operational risk is a superuser or table owner bypassing the function. The contract does not pretend otherwise. The old consumer is the same class of bypass and stays behind the closed mixed-group gate.
+If the role that applied `000088_tms_transport_execution_foundation_v0_1a.up.sql` was `freight`, then `freight` owns `transport.transport_executions`. This repository never runs `ALTER TABLE transport.transport_executions OWNER TO ...`. The live owner is the migration role and is not re-read from a server in this stage. A table owner is not limited by `GRANT` or `REVOKE`. Direct `UPDATE` by that owner remains possible. `ALL_WRITERS_FENCED=NO`.
 
-## 2. Narrow grant adapter
+## 3. Tenant authorization
 
-Name: `MINIMAL_GRANT_ADAPTER`.
+The function accepts `p_execution_id uuid` and no tenant. It returns `operating_tenant_id` and `owner_epoch` from the locked row.
 
-Tracking would receive `SELECT` and the rights required to `SELECT FOR UPDATE` on `transport.transport_executions`, limited to `id`, `operating_tenant_id`, and `owner_epoch` if the server allows that column list. In PostgreSQL, `FOR UPDATE` requires `UPDATE` privilege on the target. A column-limited `UPDATE` grant still allows the tracking login to assign those columns. That is a wider right than locking and reading. A mistake in a query can change `operating_tenant_id` or `owner_epoch` from tracking-service.
+After that return, the same tracking transaction compares the event's tenant claim with the returned `operating_tenant_id`. The returned value is the authoritative owner. The payload tenant, `X-Tenant-ID`, and any tenant argument are claims. A claim that differs from the locked owner ends the transaction with `OWNER_STATE_MISMATCH`: rollback, no state update, no remaining inbox row, and no Kafka offset commit. The state row keeps the tenant it already had.
 
-SQL injection risk matches the function if the statements stay static. Tenant isolation depends on every tracking query using the locked row rather than the payload. Lock order depends on every caller. The variant is testable. The privilege-escalation risk is the reason it is not recommended. It remains a possible controller choice if the function form is rejected.
+This comparison is not in the current consumer. Tenant isolation is not implemented.
 
-## 3. Single authoritative writer
+## 4. Function owner
 
-Name: `SHIPMENT_SINGLE_WRITER`.
+Role name: `tracking_execution_fence`.
 
-Shipment-service would be the only session that writes `tracking.execution_tracking_state`, inside the same transaction that locks and updates the execution row. Tracking-service would not write that table. The fence holds because the stale session has no write.
+Attributes: `NOLOGIN`, `NOSUPERUSER`, `NOBYPASSRLS`, `NOINHERIT`, `NOCREATEDB`, `NOCREATEROLE`. The role is not the owner of `transport.transport_executions` and is not `shipment_runtime`. `000103:1225` grants `shipment_runtime` table-level `INSERT` and `UPDATE` on that table. The fence role does not receive that grant.
 
-This removes the tracking bypass only if ETA ingest and `MarkApproachEmitted` also stop writing, or move into the shipment transaction. Those writers are in tracking-service today (`eta_ingest_service.go:247` and `approach.go:94`). `shipment_runtime` has no grant on schema `tracking` through migration `000105`. Giving shipment that write moves execution-tracking state across the service boundary. The Kafka consumer would still need a later proof read before `CommitRecords`, and PR #357 would need a contract revision.
+Rights of `tracking_execution_fence`, and no others on this table:
 
-The variant is coherent. It is a larger boundary change than the lock function. It is not the recommendation. A controller can still choose it. This document does not.
+- `USAGE` on schema `transport`.
+- `SELECT (id, operating_tenant_id, owner_epoch)`.
+- `UPDATE (updated_at)` only.
 
-## 4. Comparison
+No `INSERT`. No `DELETE`. No `UPDATE` on `operating_tenant_id`. No `UPDATE` on `owner_epoch`. No `UPDATE` on `event_seq`, `current_revision_id`, `driver_id`, `vehicle_id`, or `carrier_company_id`.
 
-| Risk | Lock function | Column grant | Single writer |
-|---|---|---|---|
-| SQL injection | Bound uuid, static SQL | Static SQL if every query is static | Static SQL in shipment |
-| Privilege escalation | `EXECUTE` only | `UPDATE` on owner columns | Shipment gains tracking writes |
-| Tenant isolation | Row under lock is the authority | Caller can still write a payload tenant if a query forgets the check | Shipment row is the authority |
-| Lock order | Caller must keep the lock through commit | Caller must lock execution first | One transaction owns both rows |
-| Tests | Two sessions, one database | Two sessions, one database | One session writes both tables |
-| Operations | Superuser bypass remains | Tracking can change the epoch column | ETA and approach must move or stop |
+`updated_at` is the single `UPDATE` column because PostgreSQL requires `UPDATE` on at least one column for `SELECT ... FOR UPDATE`, in addition to `SELECT` on the columns the statement reads. `updated_at` does not name the owner or the epoch. The function body does not issue `UPDATE`. The grant exists so the lock permission check can succeed. A later test must show that an `UPDATE` of `operating_tenant_id` or `owner_epoch` by this role fails with `42501`. This stage does not run that test. If a server rejects `FOR UPDATE` unless more columns are granted, the grant is not widened to `operating_tenant_id` or `owner_epoch`. That result stays unresolved until the controller sees the server error.
 
-## 5. Old consumer
+The function is `SECURITY DEFINER`, owned by `tracking_execution_fence`, with `search_path = pg_catalog`. Every name in the body is schema-qualified. The body is one fixed statement:
 
-The current binary reaches T1–T3 without the function. A mixed group lets that binary commit a state row after epoch 5. `MIXED_CONSUMER_GATE` stays `CLOSED`. The new mode does not start while that member can join. The function does not repair an offset the old binary has already committed.
+```sql
+SELECT operating_tenant_id, owner_epoch
+FROM transport.transport_executions
+WHERE id = p_execution_id
+FOR UPDATE
+```
 
-## 6. Acceptance
+There is no dynamic SQL and no `COMMIT`. The lock lasts until the caller commits or rolls back.
 
-- `TRACKING_TRANSPORT_SCHEMA_GRANT=NONE`.
+No migration in this repository enables row level security, and none creates a policy on `transport.transport_executions`. With row level security off, `NOBYPASSRLS` does not hide the row. If a later migration enables row level security without a policy for `tracking_execution_fence`, the function returns no row and the caller treats that as a missing execution. No such policy is part of this design.
+
+Schema `USAGE` is required and is not granted today because the role does not exist. The live owner of `transport.transport_executions` was not queried. Those two facts are `OPEN_RISKS`, not a claim that the privilege set was executed.
+
+## 5. Privilege tests required later
+
+These tests are specified and not run.
+
+1. Session A calls the function for an existing execution. Session B's `UPDATE` of that row waits until A commits or rolls back. `PASS`: B blocks and then proceeds. `FAIL`: B changes the row while A still holds the transaction.
+2. As `tracking_execution_fence`, `UPDATE transport.transport_executions SET operating_tenant_id = ...` fails with `42501`. The stored tenant is unchanged.
+3. As `tracking_execution_fence`, `UPDATE transport.transport_executions SET owner_epoch = owner_epoch + 1` fails with `42501`. The stored epoch is unchanged.
+4. A login that is not a member of `tracking_runtime` calls the function and receives an authorization failure. No row lock remains after the failed call.
+5. The locked owner is tenant A and the event claims tenant B. The tracking transaction rolls back. State tenant, inbox count, and the Kafka offset stay as they were before the call.
+
+## 6. Direct state writes
+
+Calling `transport.lock_execution_owner` does not forbid a later `UPDATE` of `tracking.execution_tracking_state` by a role that already has `UPDATE` on that table. The current shared login is such a path when it owns the table or holds that grant. A sentence in a design document does not close the path. `ALL_WRITERS_FENCED=NO`.
+
+Three enforcement shapes are recorded. This stage does not choose one. A controller decision is required before any of them is implemented.
+
+### A. Separate runtime roles
+
+`UPDATE` on `tracking.execution_tracking_state` is revoked from `freight` and granted only to `tracking_runtime`. Shipment keeps its own role. The table owner and any superuser can still update the table. An old consumer that connects as `tracking_runtime` can still `UPDATE` the state row without calling the lock function. Role separation removes the shared login's direct grant. It does not, by itself, reject a statement that omits the epoch check.
+
+Code and migration later: revoke the shared grant, create `tracking_runtime`, change the tracking `DATABASE_URL` login, and keep the old binary from using the new login. No such migration is created here.
+
+### B. Protected write operation
+
+A second `SECURITY DEFINER` function locks the execution row, compares tenant and epoch, and performs the state write. `UPDATE` on `tracking.execution_tracking_state` is revoked from runtime logins. The runtime login receives `EXECUTE` on that function only. A direct `UPDATE` by that login fails. The table owner, a superuser, and any role that still has `UPDATE` can bypass it. The old consumer bypasses it while its login retains `UPDATE`.
+
+This is the shape that rejects a normal runtime write which skips the epoch check. It needs a new function, a revoke, and a change to every state writer, including ETA ingest and `MarkApproachEmitted`. It is not selected here.
+
+### C. One controlled transaction
+
+Every write of `tracking.execution_tracking_state` moves into one transaction that also locks `transport.transport_executions`. Other services lose `UPDATE` on the state table. The old consumer has no remaining write path if its grant is gone. A deployment that still runs the old binary with the old owner login can write until that login loses the privilege. ETA ingest and `MarkApproachEmitted` move or stop. This crosses the service boundary described in the single-writer comparison below.
+
+### What each shape leaves open
+
+| Shape | Who can `UPDATE` state | Bypass that remains | Object owner | Old consumer |
+|---|---|---|---|---|
+| A | `tracking_runtime`, table owner, superuser | Direct `UPDATE` without an epoch check | Unchanged until a later `OWNER TO` | Bypasses if its login still has `UPDATE` |
+| B | The protected function's owner role, table owner, superuser | Owner and superuser | Function owner is `NOLOGIN` and is not the table owner | Bypasses until its `UPDATE` is revoked |
+| C | The one writer role, table owner, superuser | Owner and superuser | Writer role owns the transaction, not necessarily the table | No write after its grant is revoked |
+
+## 7. Other variants already compared
+
+`MINIMAL_GRANT_ADAPTER` would give the tracking login `SELECT` and `UPDATE` on execution columns so it can run `FOR UPDATE` itself. That login could then assign those columns. It is not recommended.
+
+`SHIPMENT_SINGLE_WRITER` would move the state write into the shipment transaction. ETA ingest (`eta_ingest_service.go:247`) and `MarkApproachEmitted` (`approach.go:94`) would have to move or stop. `shipment_runtime` has no grant on schema `tracking` through migration `000105`. It is not recommended.
+
+The recommended lock function remains `SECURITY_DEFINER_LOCK_FUNCTION`. It is a lock and a read. Section 6 is the separate, unchosen question of how a direct state write is rejected.
+
+## 8. Old consumer
+
+The current binary reaches the state writes without the function. A mixed group lets that binary commit a state row after epoch 5. `MIXED_CONSUMER_GATE` stays `CLOSED`. Starting the old binary again is a separate controller action. The function does not repair an offset that binary has already committed, and it does not remove that binary's `UPDATE` privilege.
+
+## 9. Open risks
+
+- `SHARED_LOGIN_FREIGHT`
+- `TABLE_OWNER_AND_SUPERUSER_BYPASS`
+- `DIRECT_STATE_UPDATE_WITHOUT_EPOCH_CHECK`
+- `COLUMN_UPDATE_SUFFICIENCY_NOT_EXECUTED`
+- `LIVE_TABLE_OWNER_NOT_QUERIED`
+- `RLS_ABSENT_AND_NO_POLICY_DESIGNED`
+- `SHIPMENT_RUNTIME_HAS_TABLE_UPDATE` at `000103:1225`
+- `OPERATOR_SQL_NOT_VERIFIED`
+- `TENANT_ISOLATION_NOT_IMPLEMENTED`
+- `EPOCH_MONOTONIC_TRIGGER_NOT_CREATED`
+- `OLD_CONSUMER_CAN_BE_STARTED_AGAIN`
+
+## 10. Acceptance
+
+- `TRACKING_TRANSPORT_SCHEMA_GRANT=NONE` for the tracking login.
 - `LOCK_FUNCTION_HAS_COMMIT=NO`.
+- `CALLER_CHECK=session_user MEMBER AND USAGE`.
+- `CURRENT_USER_IS_CALLER_CHECK=NO`.
+- `EXECUTE_GRANTED_TO=tracking_runtime`.
+- `EXECUTE_GRANTED_TO_FREIGHT=NO`.
+- `FUNCTION_OWNER_UPDATE_COLUMN=updated_at`.
 - `CALLER_TENANT_IS_AUTHORITY=NO`.
 - `RECOMMENDATION=SECURITY_DEFINER_LOCK_FUNCTION`.
+- `DIRECT_DML_ENFORCEMENT_CHOSEN=NO`.
 - `RECOMMENDATION_APPROVED_FOR_IMPLEMENTATION=NO`.

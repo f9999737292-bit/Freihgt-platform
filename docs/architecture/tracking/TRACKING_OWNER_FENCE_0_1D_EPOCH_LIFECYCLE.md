@@ -21,7 +21,11 @@ No owner-change command exists in this tree. Until a controller names that comma
 
 ## 3. Decrease
 
-The epoch does not decrease. A later check rejects a statement that would store a smaller value. A replay of an older event does not write the smaller epoch back onto the execution row or onto the tracking state row.
+The epoch does not decrease. A future trigger rejects `NEW.owner_epoch` when `OLD.owner_epoch` is not null and the new value is lower. A replay of an older event does not write the smaller epoch back onto the execution row or onto the tracking state row.
+
+That trigger is not in the migration chain. A design sentence does not stop an `UPDATE`. Monotonicity stays in `OPEN_RISKS` until the trigger exists and a test shows a decrease failing.
+
+A null `owner_epoch` stays null. It is not read as `1`, and it is not a reason to skip the event. An event with a null epoch, and an execution row that returns a null epoch, are `NON_TERMINAL`. The tracking transaction rolls back. No state update remains and the offset stays where it was.
 
 ## 4. Kafka
 
