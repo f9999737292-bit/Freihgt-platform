@@ -29,7 +29,10 @@ type stubSource struct {
 	ready error
 }
 
-func (s stubSource) Fetch(context.Context, string) (kpi.Snapshot, error) {
+func (s stubSource) Fetch(context.Context, string, kpi.ReadScope) (kpi.Snapshot, error) {
+	if s.snap.DispositionScope == "" {
+		s.snap.DispositionScope = kpi.DispositionScopeTenant
+	}
 	return s.snap, s.err
 }
 
@@ -121,6 +124,7 @@ func TestOmittedSourceFieldReturnsNoKPI(t *testing.T) {
 		"returnCaseCount",
 		"redirectCaseCount",
 		"carriers",
+		"dispositionScope",
 	}
 	for _, field := range fields {
 		t.Run(field, func(t *testing.T) {
@@ -134,6 +138,7 @@ func TestOmittedSourceFieldReturnsNoKPI(t *testing.T) {
 				"returnCaseCount":           0,
 				"redirectCaseCount":         0,
 				"carriers":                  []any{},
+				"dispositionScope":          "TENANT",
 			}
 			delete(payload, field)
 			raw, err := json.Marshal(payload)
@@ -170,8 +175,8 @@ func TestHandlerMapsLiveSourceFailures(t *testing.T) {
 	}{
 		{name: "source 500", status: http.StatusInternalServerError, body: `{"error":"boom"}`},
 		{name: "malformed", status: http.StatusOK, body: `{`},
-		{name: "wrong tenant", status: http.StatusOK, body: `{"tenantId":"22222222-2222-2222-2222-222222222222","shipmentTotal":1,"onTimePickupDenominator":0,"onTimePickupNumerator":0,"onTimeDeliveryDenominator":0,"onTimeDeliveryNumerator":0,"returnCaseCount":0,"redirectCaseCount":0,"carriers":[]}`},
-		{name: "inconsistent", status: http.StatusOK, body: `{"tenantId":"` + testTenant + `","shipmentTotal":1,"onTimePickupDenominator":0,"onTimePickupNumerator":0,"onTimeDeliveryDenominator":2,"onTimeDeliveryNumerator":1,"returnCaseCount":0,"redirectCaseCount":0,"carriers":[]}`},
+		{name: "wrong tenant", status: http.StatusOK, body: `{"tenantId":"22222222-2222-2222-2222-222222222222","shipmentTotal":1,"onTimePickupDenominator":0,"onTimePickupNumerator":0,"onTimeDeliveryDenominator":0,"onTimeDeliveryNumerator":0,"returnCaseCount":0,"redirectCaseCount":0,"carriers":[],"dispositionScope":"TENANT"}`},
+		{name: "inconsistent", status: http.StatusOK, body: `{"tenantId":"` + testTenant + `","shipmentTotal":1,"onTimePickupDenominator":0,"onTimePickupNumerator":0,"onTimeDeliveryDenominator":2,"onTimeDeliveryNumerator":1,"returnCaseCount":0,"redirectCaseCount":0,"carriers":[],"dispositionScope":"TENANT"}`},
 		{name: "timeout", status: http.StatusOK, body: `{"tenantId":"` + testTenant + `"}`, delay: time.Second},
 	}
 	for _, tt := range cases {
@@ -223,6 +228,100 @@ func TestReadyUsesTechnicalCheck(t *testing.T) {
 	}
 }
 
+func TestCompanyScopeDeniesUnverifiedReturnAndRedirect(t *testing.T) {
+	company := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	other := "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+	var got kpi.ReadScope
+	router := testRouter(t, recordingSource{snap: kpi.Snapshot{
+		ShipmentTotal:    2,
+		DispositionScope: kpi.DispositionScopeUnavailable,
+		Carriers: []kpi.CarrierSnapshot{{
+			CarrierCompanyID:          company,
+			OnTimePickupDenominator:   1,
+			OnTimePickupNumerator:     1,
+			OnTimeDeliveryDenominator: 1,
+			OnTimeDeliveryNumerator:   1,
+		}},
+	}, got: &got})
+
+	denied := companyRequest(t, router, "/v1/analytics/kpis/OPS_RETURN_CASES", kpi.ScopeCarrier, company, other)
+	if denied.Code != http.StatusForbidden || strings.Contains(denied.Body.String(), `"value"`) || strings.Contains(denied.Body.String(), `"shipmentTotal"`) {
+		t.Fatalf("status=%d body=%s", denied.Code, denied.Body.String())
+	}
+	redirect := companyRequest(t, router, "/v1/analytics/kpis/OPS_REDIRECT_CASES", kpi.ScopeShipper, company, other)
+	if redirect.Code != http.StatusForbidden {
+		t.Fatalf("redirect status=%d body=%s", redirect.Code, redirect.Body.String())
+	}
+	total := companyRequest(t, router, "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", kpi.ScopeCarrier, company, other)
+	if total.Code != http.StatusOK || got.Kind != kpi.ScopeCarrier || got.CompanyID != company {
+		t.Fatalf("status=%d scope=%+v body=%s", total.Code, got, total.Body.String())
+	}
+	if strings.Contains(total.Body.String(), other) {
+		t.Fatalf("response used the client company header: %s", total.Body.String())
+	}
+
+	missing := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/analytics/kpis/OPS_SHIPMENTS_TOTAL", nil)
+	req.Header.Set("X-Internal-Service-Token", testToken)
+	req.Header.Set("X-Internal-Service-Name", "api-gateway")
+	req.Header.Set("X-Tenant-ID", testTenant)
+	req.Header.Set("X-Company-ID", company)
+	router.ServeHTTP(missing, req)
+	if missing.Code != http.StatusForbidden {
+		t.Fatalf("missing scope status=%d body=%s", missing.Code, missing.Body.String())
+	}
+
+	tenantCase := companyRequest(t, router, "/v1/analytics/kpis/OPS_RETURN_CASES", kpi.ScopeTenant, "", "")
+	if tenantCase.Code != http.StatusServiceUnavailable || strings.Contains(tenantCase.Body.String(), `"value"`) || strings.Contains(tenantCase.Body.String(), `"kpiId"`) {
+		t.Fatalf("tenant request against unavailable disposition status=%d body=%s", tenantCase.Code, tenantCase.Body.String())
+	}
+}
+
+func TestCompanyScopeWithTenantDispositionFailsClosed(t *testing.T) {
+	company := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	router := testRouter(t, stubSource{snap: kpi.Snapshot{
+		ShipmentTotal:    2,
+		ReturnCaseCount:  1,
+		DispositionScope: kpi.DispositionScopeTenant,
+	}})
+	rec := companyRequest(t, router, "/v1/analytics/kpis/OPS_RETURN_CASES", kpi.ScopeCarrier, company, "")
+	if rec.Code != http.StatusServiceUnavailable || strings.Contains(rec.Body.String(), `"value"`) || strings.Contains(rec.Body.String(), `"kpiId"`) {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+type recordingSource struct {
+	snap kpi.Snapshot
+	got  *kpi.ReadScope
+}
+
+func (s recordingSource) Fetch(_ context.Context, _ string, scope kpi.ReadScope) (kpi.Snapshot, error) {
+	if s.got != nil {
+		*s.got = scope
+	}
+	return s.snap, nil
+}
+
+func (recordingSource) Ready(context.Context) error { return nil }
+
+func companyRequest(t *testing.T, handler http.Handler, path, scope, company, clientCompany string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req.Header.Set("X-Internal-Service-Token", testToken)
+	req.Header.Set("X-Internal-Service-Name", "api-gateway")
+	req.Header.Set("X-Tenant-ID", testTenant)
+	req.Header.Set("X-Analytics-Scope", scope)
+	if company != "" {
+		req.Header.Set("X-Analytics-Company-ID", company)
+	}
+	if clientCompany != "" {
+		req.Header.Set("X-Company-ID", clientCompany)
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec
+}
+
 func request(t *testing.T, handler http.Handler, method, path, token, caller, tenant, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -235,6 +334,7 @@ func request(t *testing.T, handler http.Handler, method, path, token, caller, te
 	if tenant != "" {
 		req.Header.Set("X-Tenant-ID", tenant)
 	}
+	req.Header.Set("X-Analytics-Scope", kpi.ScopeTenant)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	return rec
