@@ -94,3 +94,7 @@ Policy only. `ANALYTICS_0_3C_CARRIER_SCORE_POLICY.md` records `CARRIER_SCORE_POL
 Docs only. `ANALYTICS_0_4A_KPI_SOURCE_CONTRACTS.md` requests source facts for GAP-C-001, GAP-C-002, GAP-C-005, and GAP-B-001.
 
 `CURRENT_KPI_COUNT=11`. No new KPI is defined and no current formula changes. The four source gaps stay unimplemented. `CONTRACT_REQUESTED` is not closed. GAP-E-001 stays open and `CARRIER_SCORE_READY=NO`. `DWH_IMPLEMENTED=NO`. No UI and no staging deploy are part of 0.4A. Agent B and Agent C implementation is not authorized.
+
+## Analytics company scope 0.4B
+
+Discovery only. `ANALYTICS_COMPANY_SCOPE_0_4B.md` records the single role list on `GET /api/v1/analytics/kpis/{kpiId}` and the missing company filter. Three counts stay `VERIFIED`. Eight punctuality KPIs stay `PARTIAL`. `dataFreshness.status` stays `UNKNOWN`. The carrier-versus-own-company choice is a policy decision. No formula, SQL, runtime, or schema change is part of 0.4B.
