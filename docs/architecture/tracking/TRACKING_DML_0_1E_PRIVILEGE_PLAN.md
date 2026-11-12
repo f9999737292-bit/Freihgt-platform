@@ -74,3 +74,34 @@ A failed check exits the process. It does not fall back to direct SQL. An old im
 The down migration restores the previous grants and the previous owner. Restoring DML while a consumer is running reopens direct writes. The down migration is therefore allowed only after every tracking consumer, ETA writer, and approach writer has stopped. It does not drop historical rows and it does not rewrite epochs. If any new epoch column is non-null, the down migration stops, matching the historical-column rule already recorded for the future proof columns.
 
 Rollback is fail-open for the fence. It is not a routine recovery from a bad event. A bad event rolls back its own transaction and leaves the grants in place.
+
+## 7. Privilege matrix
+
+Designed cells are `DESIGNED_NOT_APPLIED`. Cells marked as installed are current grants and are not new rights. The installed grant that this matrix replaces is `000103:1225`: `shipment_runtime` has table-level `SELECT, INSERT, UPDATE` on `transport.transport_executions`. `freight_migrations` has installed `SELECT` on that table at `000103:1223` and schema `USAGE` at `000103:50`. No installed grant on schema `tracking` was found through `000105`.
+
+`tracking_service_login` has no direct privilege. It inherits `tracking_runtime` and therefore has only the `EXECUTE` and schema `USAGE` of that role.
+
+| Role | Schema | Object | SELECT | INSERT | UPDATE | DELETE | EXECUTE |
+|---|---|---|---|---|---|---|---|
+| `tracking_runtime` | `tracking` | `execution_tracking_state` | no | no | no | no | no |
+| `tracking_runtime` | `tracking` | `execution_event_inbox` | no | no | no | no | no |
+| `tracking_runtime` | `tracking` | `execution_stop_eta_state` | no | no | no | no | no |
+| `tracking_runtime` | `transport` | `transport_executions` | no | no | no | no | no |
+| `tracking_runtime` | `tracking`, `transport` | read and write functions in the protected-write contract | no | no | no | no | yes |
+| `tracking_state_fence` | `tracking` | `execution_tracking_state`, `execution_event_inbox` | yes | yes | yes | no | no |
+| `tracking_state_fence` | `tracking` | `execution_stop_eta_state` | yes | yes | yes | no | no |
+| `tracking_state_fence` | `transport` | `transport_executions` | `id`, `operating_tenant_id`, `owner_epoch` | no | `updated_at` only | no | no |
+| `tracking_read_fence` | `tracking` | the columns read by `GetState`, `ListActiveTargetsForActors`, and `GetExecutionStopETA` | yes | no | no | no | no |
+| `tracking_read_fence` | `tracking` | `execution_event_inbox` | no | no | no | no | no |
+| `tracking_read_fence` | `transport` | `transport_executions` | no | no | no | no | no |
+| `tracking_execution_fence` | `transport` | `transport_executions` | `id`, `operating_tenant_id`, `owner_epoch` | no | `updated_at` only | no | no |
+| `tracking_execution_fence` | `tracking` | the three tracking tables | no | no | no | no | no |
+| `shipment_runtime` | `transport` | `transport_executions` | yes | yes | column list excluding `operating_tenant_id` and `owner_epoch` | no | epoch function only |
+| `shipment_runtime` | `tracking` | the three tracking tables | no | no | no | no | no |
+| `freight` | `tracking`, `transport` | the four tables and the new functions | no designed grant | no designed grant | no designed grant | no designed grant | no |
+| `freight_migrations` | `transport` | `transport_executions` | yes, as installed at `000103:1223` | no | no | no | activation function only, as installed |
+| `freight_migrations` | `tracking` | the three tracking tables | no | no | no | no | no |
+
+Schema `USAGE` is designed for `tracking_runtime`, `tracking_state_fence`, and `tracking_read_fence` on `tracking` and, for the first two, on `transport`. `tracking_read_fence` does not need `transport`. `CREATE` is granted to none of them. `freight` receives no designed membership in `tracking_runtime`. If `freight` owns a table, the `no` cells do not bind it. `SHARED_FREIGHT_RISK=OPEN`.
+
+`tracking_execution_fence` is the lock-only role from PR #375. Option B's write functions already lock the execution row, so this role is not the Go read path and it is not given tracking DML. It remains in the matrix so the lock role does not silently gain the state table.

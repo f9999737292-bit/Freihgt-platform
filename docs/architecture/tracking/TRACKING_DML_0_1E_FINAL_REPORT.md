@@ -69,6 +69,7 @@ All of the following stay closed until a separate controller decision:
 - `HISTORICAL_DATA_POLICY_APPROVED=NO`
 - `BROKER_TEST_ENVIRONMENT_APPROVED=NO`
 - `MIXED_CONSUMER_DEPLOYMENT_GATE=CLOSED`
+- `TENANT_SCOPED_READ_APPROVED=NO`
 
 Issue #344 stays open. No consumer, migration, role, broker test, or deployment was changed.
 
@@ -82,3 +83,13 @@ Issue #344 stays open. No consumer, migration, role, broker test, or deployment 
 - `docs/architecture/tracking/TRACKING_DML_0_1E_TEST_PLAN.md`
 
 Current code, the design, and unproven claims are separated in those files. The protected functions were not executed. `PROTECTED_WRITE_SAFE_WITHOUT_TESTS=NO`.
+
+## R2
+
+`J_DML_001=ADDRESSED`. The three named reads are inventoried with their `WHERE` clauses. `GetState` and `ListActiveTargetsForActors` have no tenant predicate. `GetExecutionStopETA` uses the caller-supplied `X-Tenant-ID`. Table `SELECT` is not granted to `tracking_runtime`.
+`RECOMMENDED_READ_MODEL=HYBRID_PROTECTED_READ`. Direct `INSERT`, `UPDATE`, and `DELETE` stay revoked. The reads call fixed functions. A function argument that names the stored tenant is not tenant authorization.
+`READ_PATHS_INVENTORIED=YES`. `MINIMAL_SELECT_MODEL=NOT_SELECTED`. `PROTECTED_READ_FUNCTIONS_EVALUATED=YES`. `CROSS_TENANT_READ_RISK=OPEN`. `PRIVILEGE_MATRIX_UPDATED=YES`. `TENANT_ISOLATION_TESTS_DEFINED=YES`.
+`LIST_ACTIVE_TARGETS_TENANT_SOURCE=MISSING`. `TENANT_SCOPED_READ_APPROVED=NO`. `TENANT_ISOLATION_IMPLEMENTED=NO`.
+`DIRECT_DML_REVOCATION=DESIGNED_NOT_APPLIED`. `SHARED_FREIGHT_RISK=OPEN`. `FUNCTION_OWNER_BYPASS=OPEN`. `PUBLIC_EXECUTE_AUDIT=NOT_RUN`.
+`ALL_WRITERS_FENCED=NO`. `SHIPMENT_OWNER_RACE=OPEN_UNTIL_IMPLEMENTED`. `BROKER_SAFETY_PROVEN=NO`. `MIXED_CONSUMER_GATE=CLOSED`.
+`CI_RESULT=RECORDED_ON_THE_PULL_REQUEST_AFTER_THIS_COMMIT`.

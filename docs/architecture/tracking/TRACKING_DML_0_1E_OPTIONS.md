@@ -91,3 +91,19 @@ C is not sufficient. It is not the recommended option.
 `CONTROLLER_DECISION_REQUIRED=TABLE_OWNERSHIP_MOVE`.
 
 The lock order stays the order from PR #375: execution row, then tracking state. The write order stays `EXECUTION_LOCK → OWNER_EPOCH_CHECK → INBOX_INSERT → STATE_EFFECT_AND_PROOF → COMMIT`. Option B puts that sequence inside the function. It does not change the sequence.
+
+## 6. Read access inside option B
+
+The first draft of B gave `tracking_runtime` no `SELECT`. That draft does not run `GetState`, `ListActiveTargetsForActors`, or `GetExecutionStopETA`. Restoring table `SELECT` would run them and would also let the role drop their predicates.
+
+| Question | R1 table `SELECT` | R2 protected read functions |
+|---|---|---|
+| Cross-tenant | `GetState` and `ListActiveTargetsForActors` have no tenant predicate. A role with table `SELECT` can read every row. The ETA predicate uses `X-Tenant-ID`, which the caller supplies. | A fixed body can refuse a claim that does not match the stored tenant. It cannot prove the caller is allowed to name the stored tenant. One runtime role serves every tenant. |
+| RLS | Not present through `000105`. A grant without a policy does not isolate rows. | Not required for the function body. Not selected. A policy that trusts a value the same role can set is the same caller-supplied tenant. |
+| Grants | `SELECT` on the columns the three statements read. `INSERT`, `UPDATE`, and `DELETE` stay revoked. | `EXECUTE` only for the runtime role. `SELECT` stays on `tracking_read_fence`. |
+| Go methods | The three methods keep their SQL. | Each method calls a function. `ListActiveTargetsForActors` has no tenant argument today, so its callers cannot supply one. |
+| Migration size | Grants only. | Functions, grants, and call-site changes. No migration is created here. |
+| Authorization bypass | Any new statement the login can send. | Ad-hoc `SELECT` fails with `42501`. The function owner, the table owner, and a superuser can still read. A matching tenant argument is not an authorization check. |
+| Performance | The current plans stay. | One function call around the same plan, plus a tenant predicate on the actor lookup. No cost was measured. |
+
+`RECOMMENDED_READ_MODEL=HYBRID_PROTECTED_READ`. Direct DML stays revoked. Table `SELECT` is not added. The three reads become fixed functions. That hybrid does not implement tenant isolation. `TENANT_SCOPED_READ_APPROVED=NO`.
