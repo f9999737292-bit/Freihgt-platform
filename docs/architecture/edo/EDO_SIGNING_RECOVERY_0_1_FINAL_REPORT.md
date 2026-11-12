@@ -22,11 +22,11 @@ PROJECT=BINTRANS
 STAGE=EDO-SIGNING-RECOVERY-0.1
 MODE=DISCOVERY_ARCHITECTURE
 BASE_SHA=3f306fc407aeda4bdc652d825954292f4a54fad6
-FINAL_HEAD=
+FINAL_HEAD=d0d957ee358c2f7fed0baf72d1ee97786e85a2b2
 ORIGIN_MAIN=3f306fc407aeda4bdc652d825954292f4a54fad6
 BRANCH=docs/edo-signing-recovery-v0.1
 WORKTREE=D:/Projects/freight-platform-wt/edo-signing-recovery-docs-v0.1
-WORKTREE_CLEAN=
+WORKTREE_CLEAN=YES
 SIGNING_WORKFLOW_DISCOVERED=YES
 SIGNING_OWNER_IDENTIFIED=document-service
 CURRENT_RECOVERY_IMPLEMENTED=PARTIAL_IN_PROCESS_HTTP_403
@@ -59,4 +59,4 @@ NEXT_RECOMMENDED_STAGE=EDO-SIGNING-RECOVERY-0.2
 FINAL_VERDICT=READY_FOR_INDEPENDENT_REVIEW
 ```
 
-The empty `FINAL_HEAD`, `WORKTREE_CLEAN`, `PR_NUMBER`, and `PR_STATE` fields are filled after the documentation commit. `CI_RESULT` stays `NOT_RUN` until a run for that commit is observed.
+`FINAL_HEAD` in the block above is the documentation commit. A following commit may record the pull request number. `CI_RESULT` stays `NOT_RUN` until a run for the branch tip is observed. The file cannot contain the hash of the commit that changes this sentence.
