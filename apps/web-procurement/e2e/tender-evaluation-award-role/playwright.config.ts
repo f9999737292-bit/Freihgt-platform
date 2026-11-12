@@ -1,0 +1,22 @@
+import { defineConfig } from '@playwright/test'
+
+/** Local stub runs: build with NUXT_E2E_DISABLE_SSR=true and set NUXT_PUBLIC_API_BASE_URL to the preview origin. */
+const webURL = process.env.BROWSER_E2E_WEB_URL || 'http://127.0.0.1:3005'
+
+export default defineConfig({
+  testDir: '.',
+  testMatch: '**/*.spec.ts',
+  testIgnore: ['**/tests/**', '**/*.test.ts'],
+  timeout: 180_000,
+  expect: { timeout: 30_000 },
+  fullyParallel: false,
+  workers: 1,
+  outputDir: 'test-results',
+  use: {
+    baseURL: webURL,
+    locale: 'en-US',
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+  },
+  reporter: [['list']],
+})
