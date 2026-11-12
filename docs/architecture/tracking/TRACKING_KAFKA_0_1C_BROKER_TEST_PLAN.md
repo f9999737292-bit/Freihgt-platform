@@ -99,6 +99,12 @@ Stimulus: offsets 0 and 1 have `COMMITTED_STATE_EFFECT` or a future `VERIFIED_EQ
 Expected: `OffsetFetch` may show 2 and must not show 3. A gap before the first unproven record fails the case.
 Limit: `PARTIALLY_TESTABLE` until the persistence proof exists. The prefix rule is a database rule plus `OffsetFetch`. It does not reveal apply time.
 
+### 3.11 Cross-tenant candidate
+
+Stimulus: the state row for an execution stores tenant A. A record for the same `execution_id` carries tenant B and a newer sequence. The future consumer runs `UpsertExecutionTrackingState` inside a transaction that rolls back when `RowsAffected = 0`.
+Expected: the stored tenant remains A, the state columns remain unchanged, the inbox insert rolls back, and `OffsetFetch` stays on this offset. A nil driver error with zero updated rows is a failed case if the offset advances.
+Limit: `TESTABLE` for the current `WHERE` predicate and the unmoved offset against PostgreSQL. `NOT_TESTABLE_WITH_CURRENT_ORACLE` as a proof of the cross-service epoch fence in `TRACKING_KAFKA_0_1C_OWNER_FENCE.md`. `BROKER_SAFETY_PROVEN` stays `NO`.
+
 ## 4. Pass rule for a later run
 
 A later run may report a case as `TESTABLE` only for the rows this plan marks `TESTABLE`. A `PARTIALLY_TESTABLE` row can support its visible observations and still leaves `BROKER_SAFETY_PROVEN=NO`. A `NOT_TESTABLE_WITH_CURRENT_ORACLE` row cannot be turned into a pass by a successful response or by proxy order.

@@ -60,3 +60,12 @@ The deployment gate is closed. Old and new members are not compatible. Runtime s
 - `docs/architecture/tracking/TRACKING_KAFKA_0_1C_DEPLOYMENT_GATE.md`
 
 Implementation of the consumer, creation of migrations, broker tests, and deployment remain stopped.
+
+## R2
+
+`J_KSF_001=CLOSED`. The conflict update keeps the stored tenant when the candidate tenant differs. `RowsAffected = 0` is not a state effect.
+`J_KSF_002=CLOSED`. A new `COMMITTED_STATE_EFFECT` requires a matching `owner_epoch`. A repeated epoch read is not a cross-service fence.
+`SAME_DATABASE_VERIFIED=YES` for schema `transport` and schema `tracking` in database `freight_platform` as configured in this repository.
+`SAME_DATABASE_FENCE_FEASIBLE=NO` without a new cross-schema lock and privilege. `SHIPMENT_SINGLE_WRITER` is analyzed and not selected.
+`SHIPMENT_OWNER_RACE=OPEN`. `BROKER_SAFETY_PROVEN=NO`. `MIXED_CONSUMER_GATE=CLOSED`.
+PR #357, PR #346, and PR #372 are unchanged.

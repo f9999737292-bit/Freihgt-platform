@@ -18,7 +18,13 @@ The existing unique key `tracking.execution_event_inbox (execution_id, event_seq
 - `tracking.execution_event_inbox`: `event_id`, `operating_tenant_id`, `execution_id`, `event_sequence`, `event_type`, `processed_at`. There is no payload, hash, size, or epoch.
 - `tracking.execution_tracking_state`: `last_execution_event_sequence` and `operating_tenant_id`. There is no `last_event_id` and no `owner_epoch`. The primary key is `execution_id`.
 
-`InsertExecutionInbox` uses `ON CONFLICT (event_id) DO NOTHING` and does not store bytes (`services/tracking-service/internal/repository/execution_tracking_repository.go`). `UpsertExecutionTrackingState` can change `operating_tenant_id` on conflict when the sequence is newer. `ClearExecutionTarget` and `TouchExecutionSequence` return no error when zero rows match. `RowsAffected` is not required by the current functions.
+`InsertExecutionInbox` uses `ON CONFLICT (event_id) DO NOTHING` and does not store bytes (`services/tracking-service/internal/repository/execution_tracking_repository.go`).
+
+`UpsertExecutionTrackingState` in that file lists `operating_tenant_id = EXCLUDED.operating_tenant_id` in the `SET` clause. The `WHERE` clause admits the update only when the stored `operating_tenant_id` already equals `EXCLUDED.operating_tenant_id` and the stored sequence is older than the candidate. A candidate for tenant B therefore changes zero rows of a state row owned by tenant A. The stored tenant stays A. `ClearExecutionTarget` and `TouchExecutionSequence` use the same tenant equality predicate on `UPDATE`. This stage does not change that SQL.
+
+A conflict update that changes zero rows is not a state effect. `RowsAffected = 0` does not prove that the event was processed. The current Go functions return the driver error and ignore `RowsAffected`, so a nil error with zero rows is still `NON_TERMINAL` under this contract. The offset stays uncommitted.
+
+The `WHERE` predicate applies to an existing `execution_id`. An insert of a missing `execution_id` stores the candidate tenant because there is no stored row to compare. That insert still needs the mandatory epoch check in section 4 before it can be `COMMITTED_STATE_EFFECT`.
 
 ## 2. Future columns
 
@@ -52,18 +58,25 @@ The consumer compares a redelivery with the stored pair. Any unusable or unequal
 
 ## 4. State-effect rule for a new event
 
-A new effect is `COMMITTED_STATE_EFFECT` only when one tracking transaction does all of the following:
+`OWNER_EPOCH_MANDATORY=YES`. Every new `COMMITTED_STATE_EFFECT` includes a proven `owner_epoch`. There is no intermediate mode in which the inbox stores `event_id` while the epoch check is still absent. A transaction that fails the epoch check rolls back the inbox insert and the state change together.
 
-1. The shipment owner check from `TRACKING_KAFKA_0_1C_OWNER_FENCE.md` passes, or the attempt stops as `NON_TERMINAL` when the epoch is missing.
-2. The inbox insert stores this `event_id`, tenant, execution, sequence, event type, hash, and size.
-3. The locked state row changes in the way the operation required.
-4. `RowsAffected` for that mutation is greater than zero. Zero rows is `NON_TERMINAL` even when the driver returns nil.
-5. The same transaction reads the locked row again before commit.
-6. The re-read `last_execution_event_sequence` equals this event's sequence. A greater value is a different event.
-7. The re-read `last_event_id` equals this `event_id`.
-8. The re-read tenant equals the trusted owner, and the payload claim equals that owner.
-9. The re-read `owner_epoch` equals the event epoch once epochs are required.
-10. The transaction commits.
+A new effect is `COMMITTED_STATE_EFFECT` only when one transaction does all of the following:
+
+1. The event carries `owner_epoch`, and the value is an integer greater than zero.
+2. The authoritative epoch is read from shipment ownership under the rule in `TRACKING_KAFKA_0_1C_OWNER_FENCE.md`.
+3. The event epoch equals that authoritative epoch.
+4. A mismatch, a missing epoch, or an unavailable authoritative read updates no state row. The attempt is `NON_TERMINAL`. It is not terminal, and it does not commit a Kafka offset.
+5. The inbox insert stores this `event_id`, tenant, execution, sequence, event type, hash, size, and the same epoch. That insert remains only when this transaction commits.
+6. The locked state row changes in the way the operation required, including a non-null `owner_epoch` equal to the authoritative epoch.
+7. `RowsAffected` for that mutation is greater than zero. Zero rows is `NON_TERMINAL` even when the driver returns nil. A tenant mismatch is this case for an existing row.
+8. The same transaction reads the locked row again before commit.
+9. The re-read `last_execution_event_sequence` equals this event's sequence. A greater value is a different event.
+10. The re-read `last_event_id` equals this `event_id`.
+11. The re-read tenant equals the trusted owner, and the payload claim equals that owner.
+12. The re-read `owner_epoch` equals the event epoch and the authoritative epoch.
+13. The transaction commits.
+
+A second read of the epoch, without a lock held in the same transaction as the shipment epoch row through commit, is not a cross-service fence. Section 9 of the owner-fence document records that limit.
 
 A tenant conflict or an event-identity conflict rolls back. No new inbox row is kept, and the offset stays uncommitted.
 
@@ -75,7 +88,7 @@ A tenant conflict or an event-identity conflict rolls back. No new inbox row is 
 - a usable SHA-256 and an equal size;
 - `last_event_id` on the state row equals this `event_id`;
 - `last_execution_event_sequence` equals this event's sequence;
-- `owner_epoch` matches when the event carries one.
+- `owner_epoch` is present on the event and on the state row, and both equal the authoritative epoch. A missing epoch fails the replay.
 
 Sequence equality is necessary and not sufficient. A higher sequence with a different `event_id` is `NON_TERMINAL`. The attempt rolls back, writes no new inbox row, and does not commit the offset.
 
@@ -119,7 +132,12 @@ Nulling a proof column in order to force a down migration is a separate controll
 - `BACKFILL=FORBIDDEN`.
 - `NULL_PROOF_IS_NON_TERMINAL=YES`.
 - `ROWS_AFFECTED_REQUIRED=YES`.
+- `ROWS_AFFECTED_ZERO_IS_NOT_TERMINAL=YES`.
+- `UPSERT_TENANT_TRANSFER=NO`.
 - `SEQUENCE_EQUALITY_REQUIRED=YES`.
 - `LAST_EVENT_ID_EQUALITY_REQUIRED=YES`.
+- `OWNER_EPOCH_MANDATORY=YES`.
+- `EPOCH_MISMATCH_COMMITS_OFFSET=NO`.
+- `SECOND_READ_IS_CROSS_SERVICE_FENCE=NO`.
 - `MIGRATION_CREATED=NO`.
 - `MIGRATION_HEAD_UNCHANGED=000105`.
