@@ -10,9 +10,11 @@ Design and acceptance contract for creating a transport order and `SNAPSHOT_V1` 
 
 `COMMERCIAL_PILOT_READY=NO`
 
-`FINAL_VERDICT=CONTRACT_READY_FOR_REVIEW`
+`FINAL_VERDICT=READY_FOR_SECURITY_R2`
 
-Base `3f306fc407aeda4bdc652d825954292f4a54fad6`. Related discovery is PR #363 (`docs/engineering/FINANCE_SNAPSHOT_AUTHORITY_0_2D.md`). This document does not change transport-order-service, billing, VAT, rounding, PostgreSQL migrations, or PRs #341, #353, #356, and #363.
+Base `3f306fc407aeda4bdc652d825954292f4a54fad6`. Related discovery is PR #363 (`docs/engineering/FINANCE_SNAPSHOT_AUTHORITY_0_2D.md`). Revision 0.2E-R1 closes the security-review findings on award-scope binding, the transport-order-service actor boundary, and idempotency across shippers. Security review R2 is the next step. This revision does not record R2 as complete.
+
+This document does not change transport-order-service, billing, VAT, rounding, PostgreSQL migrations, or PRs #341, #353, #356, and #363.
 
 An existing company relationship is not proof of the right to create a transport order.
 
@@ -65,7 +67,7 @@ Evaluate every item below inside the trusted server path, before the contract-ra
 | --- | --- |
 | Tenant | JWT tenant, grant tenant, actor company tenant, and shipper company tenant are the same value. Body `tenant_id` that differs is forbidden, as it is today |
 | Actor user | Active user. Membership in the actor company is active |
-| Actor company | The company the gateway verified for this user. Client `X-Company-ID` is not authority until that membership match |
+| Actor company | The company transport-order-service has confirmed for this user by its own actor check (section 12). A gateway header, including a header forwarded while `AUTH_ENABLED` is false, is not that confirmation |
 | Shipper company | Body `shipper_company_id` equals the shipper named on the grant. The company exists in the same tenant |
 | Role | The actor's membership role is one of the create roles (`PROCUREMENT_MANAGER`, `SHIPPER_ADMIN`, `FORWARDER_MANAGER`) and is included in the grant's allowed roles. `CARRIER_ADMIN`, `CARRIER_DISPATCHER`, and `SHIPPER_LOGIST` do not receive this permission from their current read or relationship roles |
 | Grant activity | Status is `ACTIVE`. `REVOKED`, expired, cancelled, and pending are denials. Re-read status at create time. A status cached at login is not enough |
@@ -113,13 +115,20 @@ That RFx path is same-company membership. It is not a forwarder creating an orde
 
 Transport-order `CreateFromAwardScope` (`priced_transport_order_service.go`) then forces actor kind `BUYER` and continues into priced create. The handler reads `actor_company_id` and `shipper_company_id` from the body. It does not load membership and it does not load a grant. The internal service token is the route gate. The token is not a company grant.
 
-Required award-scope behavior:
+Required award-scope behavior. transport-order-service confirms the whole chain itself, before the rate call and before insert. A failed link writes no order, no snapshot, and no idempotency row.
 
-- Keep the internal token. A missing or wrong token stays unauthorized and writes nothing (NT-6).
-- Body `actor_company_id` and body `shipper_company_id` are not authority.
-- Same-company award conversion is accepted only when the trusted caller proved membership of the event owner and the body actor company, body shipper, and event owner are that same company.
-- A body that sets the actor company to a forwarder and the shipper to a different company is denied unless transport-order-service itself loads an `ACTIVE` `CREATE_TRANSPORT_ORDER_ON_BEHALF` grant for that tuple before the rate call.
-- rfx-service must not assert a delegation it did not have the server re-check. The trusted-caller contract covers the same-company owner proof only.
+| Link | What transport-order-service confirms |
+| --- | --- |
+| Trusted internal caller | The internal credential authenticates the configured award caller. A missing or wrong credential stays unauthorized and writes nothing (NT-6). That credential is only this link |
+| RFx event | The service loads the event by id in the verified tenant through a server-owned read. The body is not that read. An unknown event is a denial |
+| Event owner company | The owner is the owner field on the loaded event. The service does not take the owner from body `actor_company_id` or body `shipper_company_id` |
+| Actor company | On the same-company path the body actor company equals the loaded event owner. On the delegated path it equals the actor company on an `ACTIVE` `CREATE_TRANSPORT_ORDER_ON_BEHALF` grant that this service loaded |
+| Shipper company | The body shipper equals the loaded event owner. On the delegated path that same company is the grant shipper |
+| Allowed creation | Every link above agrees. Only then the service may create one order and one `SNAPSHOT_V1` |
+
+A valid service token together with body `actor_company_id` equal to body `shipper_company_id` is not this chain. Those two facts do not identify the event owner and do not authorize an arbitrary company in the tenant (NT-D11).
+
+rfx-service `requireOwnerCompanyAccess` remains the caller's own check. It does not replace the load inside transport-order-service. A grant whose shipper differs from the loaded event owner does not authorize award conversion. The service loads any `CREATE_TRANSPORT_ORDER_ON_BEHALF` grant itself. A statement from rfx-service that a delegation exists is not that load.
 
 ## 8. Four parties
 
@@ -150,6 +159,19 @@ Same-company create stores `buyer_company_id` = actor company = shipper, and a n
 
 Current `000051` columns include `buyer_company_id` and have no actor company and no authority grant. The idempotency table is `(tenant_id, actor_company_id, idempotency_key)` plus hashes and ids. It is not the authority record.
 
+### Idempotency across shippers
+
+`ComputeCreateRequestHash` includes `shipper_company_id`. The future implementation keeps the shipper inside that hash.
+
+When a later request repeats `tenant_id`, `actor_company_id`, and `idempotency_key` with a different `shipper_company_id`:
+
+- The service returns a conflict denial.
+- The denial does not insert a second order and does not insert a second snapshot.
+- The denial body does not contain the stored transport order id, the stored snapshot id, or the payload of the operation that belongs to the other грузовладелец.
+- The service returns the stored result only when `shipper_company_id` is the same and the stored request hash matches this request.
+
+A hash mismatch takes the conflict path. It does not call the replay that returns the stored order. NT-D13. This rule does not add a migration. The unique key may stay `(tenant_id, actor_company_id, idempotency_key)` because the shipper comparison is mandatory before any replay.
+
 ## 10. Audit
 
 Write one allow-audit row in the same transaction as the order and the snapshot:
@@ -179,6 +201,9 @@ These tests are specified here and are not implemented in this change. Each deni
 | NT-D8 | `PLATFORM_ADMIN` membership is company A. Body shipper is B. No `subject_kind=PLATFORM_ADMIN` grant names this user and shipper B | Deny |
 | NT-D9 | `AUTH_ENABLED` is false or unset. Client sends `X-Company-ID`, `X-Actor-Kind`, a shipper, and a grant id | Deny. No priced-create call with those headers as authority |
 | NT-D10 | Award-scope has a valid internal token. Body actor company is a forwarder and body shipper is a different company, with no grant loaded by transport-order-service | Deny |
+| NT-D11 | Award-scope has a valid internal token. Body `actor_company_id` equals body `shipper_company_id`, and both are an arbitrary company C in the tenant. The service's own read of the RFx event has an owner other than C, or the event does not resolve | Deny before the rate call and before insert. No order, snapshot, or idempotency row for C |
+| NT-D12 | Direct `POST /v1/transport-orders` on transport-order-service carries client `X-User-ID`, `X-Company-ID`, and `X-Actor-Kind`, and the service has not confirmed that actor. Includes the case `AUTH_ENABLED=false` and the case with no gateway on the path | Deny before the order insert and before the `SNAPSHOT_V1` insert |
+| NT-D13 | A stored create used tenant T, actor company A, idempotency key K, and shipper S. The next request uses T, A, and K with shipper C, and C differs from S | Conflict denial. No second order and no second snapshot. The response does not contain the order id, snapshot id, or payload stored for S |
 | NT-2 | From PR #363. Member of company A sends shipper B and has no grant | Deny before the rate call |
 | NT-7 | From PR #363. Auth disabled. Public create does not treat client actor headers as authority | Deny |
 
@@ -188,12 +213,25 @@ One allowed case is part of acceptance, not a negative test: member of forwarder
 
 `AUTH_ENABLED` defaults to false (`services/api-gateway/internal/config/config.go`). The transport-order guard then proxies immediately and records `pass_dev` (`guard.go`). It does not strip client `X-Company-ID` or `X-Actor-Kind` and it does not read membership.
 
-Safe behavior:
+Safe behavior at the gateway:
 
 - Public priced create fails closed while auth is disabled (RC-1, NT-7, NT-D9).
 - Delegated create is unavailable in that mode. There is no verified actor user, actor company, or role to match against a grant.
 - Client headers, a body shipper, and a body grant id are not a substitute.
-- Disabling gateway auth does not widen `POST /internal/v1/transport-orders/from-award-scope`. That route still requires the internal token and the award-scope rules in section 7.
+- Disabling gateway auth does not widen `POST /internal/v1/transport-orders/from-award-scope`. That route still requires the internal token and the award-scope chain in section 7.
+
+The gateway flag is not the actor check. transport-order-service confirms the actor on its own boundary for `POST /v1/transport-orders`, before the rate call and before `CreatePricedOrder`.
+
+The service confirms all of the following from a server-owned read, not from the arrival of headers:
+
+- the actor user is active
+- the actor company membership for that user is active
+- the tenant of that membership is the verified tenant
+- the membership role is allowed to create
+
+Client `X-User-ID`, `X-Company-ID`, and `X-Actor-Kind` do not establish those facts. When the service cannot confirm them, or the membership read is unavailable, the call is denied. The denial happens before the order row and before the `SNAPSHOT_V1` row. No idempotency row is written (NT-D12).
+
+This service check still runs when `AUTH_ENABLED` is false, when the gateway forwards the request, and when a client reaches transport-order-service directly. Award-scope uses the chain in section 7 on its own route. It does not skip that chain because the public actor check is a different boundary.
 
 ## 13. Schema and migration proposal
 
@@ -219,9 +257,9 @@ PR #363 remains unchanged. The future fix uses the acceptance below. `IMPLEMENTA
 
 | ID | Acceptance |
 | --- | --- |
-| RC-1 | NT-7 and NT-D9. With `AUTH_ENABLED` unset or false, `POST /api/v1/transport-orders` is denied and writes no order, snapshot, or idempotency row. Client `X-Company-ID` and `X-Actor-Kind` are not forwarded into priced create as a verified actor |
-| RC-2 | Replaces the PR #363 wording that every `shipper_company_id` different from the actor company is rejected. NT-2 and NT-D1, NT-D2, NT-D3, NT-D5, NT-D6, NT-D7, and NT-D8 deny before the rate call and before insert. The allowed forwarder case in section 11 creates one order and one snapshot whose buyer is the grant shipper and whose grant id is the server row. Existing tenant denials still pass |
-| RC-3 | NT-6 stays: no internal token, no row. NT-D10: a valid token plus a body actor/shipper pair is denied when transport-order-service has not loaded a matching active grant and the pair is not the same-company owner already verified by the trusted rfx caller. Award conversion that sends actor company = shipper = event owner after `requireOwnerCompanyAccess` remains the same-company path |
+| RC-1 | NT-7, NT-D9, and NT-D12. With `AUTH_ENABLED` unset or false, `POST /api/v1/transport-orders` is denied and writes no order, snapshot, or idempotency row. Client `X-Company-ID` and `X-Actor-Kind` are not forwarded into priced create as a verified actor. transport-order-service also denies `POST /v1/transport-orders` when it has not confirmed the actor, before the order insert and before the `SNAPSHOT_V1` insert, including a direct call that never passed the gateway |
+| RC-2 | Replaces the PR #363 wording that every `shipper_company_id` different from the actor company is rejected. NT-2 and NT-D1, NT-D2, NT-D3, NT-D5, NT-D6, NT-D7, and NT-D8 deny before the rate call and before insert. NT-D13: the same tenant, actor company, and idempotency key with a different shipper returns a conflict denial, creates no second order or snapshot, and does not return the stored result for the other shipper. The allowed forwarder case in section 11 creates one order and one snapshot whose buyer is the grant shipper and whose grant id is the server row. Existing tenant denials still pass |
+| RC-3 | NT-6 stays: no internal token, no row. NT-D10: a valid token plus a forwarder actor and a different shipper is denied when transport-order-service has not loaded a matching active grant. NT-D11: a valid token plus body actor company equal to body shipper company is denied when that company is not the owner of the event the service loaded. Award conversion is allowed only after transport-order-service has confirmed the trusted caller, the loaded event, the loaded event owner, the actor company, the shipper company, and the allowed-creation rule in section 7. `requireOwnerCompanyAccess` inside rfx-service does not replace that confirmation |
 | RC-4 | NT-5 from PR #363. Add the tenant-B internal snapshot read test. This contract does not add a company filter on `GET /internal/v1/transport-orders/{id}/rate-snapshot`. Company filtering of that read waits for a separate service-to-service decision |
 
 Also required on that future change, as part of RC-2 and RC-3 rather than as new product scope: the audit row from section 10, the snapshot fields from section 9, and the migration proposal from section 13. VAT, rounding, billing math, and register payer selection stay out of that change.
@@ -232,7 +270,7 @@ Also required on that future change, as part of RC-2 and RC-3 rather than as new
 - It does not edit PR #341, #353, #356, or #363.
 - It does not select a VAT policy and does not declare commercial finance ready.
 - It does not treat `1234.56 RUB` as evidence of create authority.
-- It is ready for an independent security review. This document is the review input. Agent G does not record that review as complete.
+- Revision 0.2E-R1 is the input for security review R2. Agent G does not record R2 as complete.
 
 `PAYMENT_EXECUTED=NO`
 
