@@ -1,0 +1,1 @@
+self_test_failures=0

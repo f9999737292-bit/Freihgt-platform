@@ -1,0 +1,5 @@
+   usename    | wait_event_type |  wait_event   | state  
+--------------+-----------------+---------------+--------
+ writer_probe | Lock            | transactionid | active
+(1 row)
+
