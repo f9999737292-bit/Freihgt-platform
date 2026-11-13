@@ -1,0 +1,12 @@
+psql:concurrency_deadlock_consume.sql:14: ERROR:  40P01: deadlock detected
+DETAIL:  Process 788 waits for ShareLock on transaction 873; blocked by process 784.
+Process 784 waits for ShareLock on transaction 874; blocked by process 788.
+HINT:  See server log for query details.
+CONTEXT:  while locking tuple (0,17) in relation "shipments"
+SQL statement "SELECT 1
+      FROM transport.shipments
+     WHERE id = p_shipment_id
+       AND deleted_at IS NULL
+       FOR SHARE"
+PL/pgSQL function transport.read_binding_assignment(uuid,uuid) line 17 at PERFORM
+LOCATION:  DeadLockReport, deadlock.c:1130

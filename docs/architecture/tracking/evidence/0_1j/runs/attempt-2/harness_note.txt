@@ -1,0 +1,9 @@
+Attempt 2 reached PostgreSQL and recorded 43 passes and 17 failures.
+Column SELECT and table SELECT for FOR SHARE returned 42501.
+The full RETURN QUERY row matched the fixture.
+Missing and ambiguous rows returned P0002 and 21000.
+AssignDriver and AssignVehicle waits returned the committed new identifier.
+The 17 failures are harness defects. psql -f prefixes ERROR, so the SQLSTATE parser missed 23514, 42501, and 40001.
+FOR UPDATE and FOR SHARE are stored as RowShareLock, not as mode ForUpdate or ForShare, so the wait polls expired after the holder had committed.
+A lock count without a mode also counted AccessShareLock from a join.
+Attempt 3 uses the prefixed SQLSTATE parser and RowShareLock polls.

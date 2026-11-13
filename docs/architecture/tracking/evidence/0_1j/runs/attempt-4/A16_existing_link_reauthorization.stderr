@@ -1,0 +1,3 @@
+psql:driver_only_existing_link.sql:25: ERROR:  40001: REAUTHORIZATION_REQUIRED
+CONTEXT:  PL/pgSQL function inline_code_block line 11 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
