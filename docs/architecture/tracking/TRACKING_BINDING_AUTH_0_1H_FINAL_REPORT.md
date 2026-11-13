@@ -187,7 +187,7 @@ The block above is the R3 snapshot. R4 supersedes the shipment-before-execution 
 
 A driver command locks `transport.transport_executions` before `loadShipment` locks `transport.shipments`. Consume for an execution-scoped decision uses that same order, then the decision, then the binding insert. A driver-only decision does not lock an execution after the shipment. `SQLSTATE 40P01` rolls the consume transaction back.
 
-Assignment rows are locked with `FOR SHARE`. That mode needs the column `SELECT` grants and no `UPDATE` grant. An isolated PostgreSQL check of those grants is required and was not run. The one-way trigger is created while `SET ROLE binding_authority_owner` is still possible, and the membership is revoked after that statement, in the same uncommitted migration.
+Assignment rows are locked with `FOR SHARE`. R4 specified column `SELECT` and no `UPDATE` grant for that mode. Isolated PostgreSQL 16.15 rejected that grant with `42501`. The 0.1I-R1 section withdraws it. The one-way trigger is created while `SET ROLE binding_authority_owner` is still possible, and the membership is revoked after that statement, in the same uncommitted migration.
 
 `COMMAND_WRITER_LOCK_ORDER=EXECUTION_THEN_SHIPMENT`
 
@@ -277,7 +277,64 @@ CI_RESULT=RECORDED_ON_THE_PULL_REQUEST_AFTER_THIS_COMMIT
 FINAL_VERDICT=READY_FOR_J_R4_REVIEW
 ```
 
-The block below is the R2 snapshot. The R4 block above is the current status.
+The R4 block above is the lock-order snapshot. Its tokens `ASSIGNMENT_FUNCTION_OWNER=shipment_assignment_reader`, `ASSIGNMENT_LOCK_PRIVILEGES=COLUMN_SELECT_FOR_SHARE_TEST_REQUIRED`, and `MINIMUM_UPDATE_COLUMN=NONE_ON_ASSIGNMENT_TABLES` are withdrawn. The 0.1I-R1 block is the current privilege status. The block below the 0.1I-R1 report is the R2 snapshot.
+
+## 0.1I-R1 — PostgreSQL 16.15 privilege evidence
+
+`FOR_SHARE_COLUMN_SELECT=FAIL_42501` on the R4 grant. Column `SELECT` without `UPDATE`, and table `SELECT` without `UPDATE`, both returned `42501` for `SELECT ... FOR SHARE`. `UPDATE (updated_at)` made `FOR SHARE` and `FOR UPDATE` succeed, and it let the grantee change `updated_at`. The lock mode stays `FOR SHARE`. The privilege set is column `SELECT` plus `UPDATE (updated_at)` on each locked table. Those are separate decisions.
+
+The selected owner is `assignment_lock_owner`. It is `NOLOGIN`. The fence has `EXECUTE` only. Runtime, fence, `freight`, and `PUBLIC` have no membership. `NOLOGIN` is not the control. `INHERIT TRUE` and `SET TRUE` were each enough to change `updated_at`, and both grants were revoked. Option A would put that write on `shipment_assignment_reader`. Option C would use `shipment_runtime`, which already updates the shipment tables, and an HTTP call is not the consume transaction. Option B is the contract.
+
+`ASSIGNMENT_LOCK_PRIVILEGE_PROVEN=ISOLATED_PASS_NOT_PRODUCTION`. The isolated function locked the shipment and returned `current_user=assignment_lock_owner`. The full design `RETURN QUERY` was not executed. The production schema was not used. `DIRECT_UPDATED_AT_RISK=OPEN_FOR_LOCK_OWNER`. Table-owner `DISABLE TRIGGER` was not run. `TABLE_OWNER_DECISION_BYPASS=OPEN`.
+
+The 0.1I rollback recorder compared the whole `psql -tAc` stdout with `ISSUED|null`. That stdout was `BEGIN`, `UPDATE 1`, `ROLLBACK`, and `ISSUED|null`. The row in the database was `use_status=ISSUED` and `consumed_at IS NULL`. 0.1I-R1 reproduced the stdout mismatch and passed the separate field predicate. The original `P1`/`P1c` failure and the `P4` invalid identity call stay in the test-plan evidence table. `P6c` was OK only while the function owner was the superuser.
+
+Remaining bypasses: the lock owner, the table owner, and a superuser can write `updated_at`; a future membership reopens that write; the owner can replace the function body; the decision-table owner can disable the one-way trigger; tenant isolation is not implemented; the current binding insert remains open; presenter identity is not bound; not every writer is fenced; broker safety is not proven.
+
+A later isolated run, before implementation, executes the full `transport.read_binding_assignment` body, checks `42501` for `UPDATE` of `driver_id`, `version`, and `updated_at` from the fence and the runtime, checks `42501` for `SET ROLE assignment_lock_owner` from those roles, and checks that `FOR SHARE` still waits on an assignment `UPDATE`. `ASSIGNMENT_LOCK_PRIVILEGE_PROVEN` stays `ISOLATED_PASS_NOT_PRODUCTION` until that body has been run. It is not a production pass.
+
+```text
+AGENT=C
+STAGE=TRACKING-BINDING-POSTGRES-PRIVILEGE-PROOF-0.1I-R1
+REFERENCE_PR=379
+PREVIOUS_HEAD=27ef787b909de9ddef0f9a583c430af926561c49
+NEW_HEAD=
+POSTGRES_VERSION=16.15
+ORIGINAL_TESTS_PASSED=30
+ORIGINAL_TESTS_FAILED=2
+ORIGINAL_TESTS_NOT_RUN=1
+FOR_SHARE_REQUIRES_UPDATE=YES
+COLUMN_SELECT_ONLY_VALID=NO
+MINIMUM_UPDATE_COLUMN=updated_at
+RECOMMENDED_PRIVILEGE_MODEL=B_SEPARATE_LOCK_FUNCTION_OWNER
+PRIVILEGE_MODEL_RETESTED=YES
+DIRECT_UPDATED_AT_RISK=OPEN_FOR_LOCK_OWNER
+ROLLBACK_DB_STATE=CORRECT
+ROLLBACK_HARNESS_FALSE_NEGATIVE=YES
+SECURITY_DEFINER_INITIAL_TEST_INVALID=YES
+CONTRACT_UPDATED=YES
+ASSIGNMENT_LOCK_MODE=FOR_SHARE
+ASSIGNMENT_FUNCTION_OWNER=assignment_lock_owner
+ASSIGNMENT_LOCK_PRIVILEGES=COLUMN_SELECT_PLUS_UPDATE_UPDATED_AT
+ASSIGNMENT_LOCK_PRIVILEGE_PROVEN=ISOLATED_PASS_NOT_PRODUCTION
+CI_RUN=
+CI_RESULT=RECORDED_ON_THE_PULL_REQUEST_AFTER_THIS_COMMIT
+PRESENTER_IDENTITY_BOUND=NOT_IMPLEMENTED
+DECISION_CONSUMPTION_GATE=CLOSED
+J_DML_001=NOT_CLOSED
+TENANT_ISOLATION_IMPLEMENTED=NO
+ALL_WRITERS_FENCED=NO
+BROKER_SAFETY_PROVEN=NO
+IMPLEMENTATION_GATE=CLOSED
+STAGING_CHANGED=NO
+PRODUCTION_CHANGED=NO
+PLATFORM_MIGRATIONS_CHANGED=NO
+MERGE_PERFORMED=NO
+PRODUCT_CODE_CHANGED=NO
+FINAL_VERDICT=READY_FOR_J_REVIEW
+```
+
+The block below is the R2 snapshot.
 
 ```text
 AGENT=C

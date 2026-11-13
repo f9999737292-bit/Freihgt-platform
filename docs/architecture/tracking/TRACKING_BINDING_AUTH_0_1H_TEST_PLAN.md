@@ -203,7 +203,7 @@ Errors contain no coordinates, driver id, vehicle id, or tenant id.
 ## 29. T29 — assignment SELECT privilege
 
 - Setup: `binding_authority_fence` selects `transport.shipments` directly. The same session calls `transport.read_binding_assignment` for one shipment id.
-- Roles: `binding_authority_fence`, `shipment_assignment_reader`.
+- Roles: `binding_authority_fence`, `assignment_lock_owner`.
 - Expected SQL result: direct table `SELECT` is denied. The function returns the row's own `tenant_id`, `driver_id`, `vehicle_id`, `version`, link, revision, and operating tenant. It does not return an owner epoch.
 - Binding state: unchanged. The function does not insert.
 - Oracle: PASS when the direct grant is absent and the function is the only assignment path. FAIL when the fence has table `SELECT` on shipments or executions. Not executed.
@@ -266,7 +266,7 @@ Errors contain no coordinates, driver id, vehicle id, or tenant id.
 
 ## 37. T37 — missing SELECT privilege fails closed
 
-- Setup: `shipment_assignment_reader` lacks `SELECT` on `transport.shipments.driver_id`, or `binding_authority_fence` lacks `EXECUTE` on `transport.read_binding_assignment`.
+- Setup: `assignment_lock_owner` lacks `SELECT` on `transport.shipments.driver_id`, or `binding_authority_fence` lacks `EXECUTE` on `transport.read_binding_assignment`.
 - Roles: those two roles. `tracking_runtime` has neither.
 - Expected SQL result: the consume function raises. It does not insert a binding and does not mark the decision `CONSUMED`. It does not call `FindActiveBindingByDeviceAnyTenant`.
 - Binding state: no new binding.
@@ -286,7 +286,7 @@ Errors contain no coordinates, driver id, vehicle id, or tenant id.
 ## 39. T39 — execution-first lock order
 
 - Setup: one execution-scoped decision. The consume function is traced, not granted.
-- Roles: `shipment_assignment_reader` for the share, `binding_authority_fence` for the later decision lock.
+- Roles: `assignment_lock_owner` for the share, `binding_authority_fence` for the later decision lock.
 - Statement order: execution `FOR SHARE`, shipment `FOR SHARE`, driver `FOR SHARE`, vehicle `FOR SHARE` when a vehicle id is present, decision `FOR UPDATE`, binding insert.
 - Expected locks: that order, held to commit or rollback.
 - Expected SQL result: success only when the locked rows match the decision.
@@ -297,7 +297,7 @@ Errors contain no coordinates, driver id, vehicle id, or tenant id.
 ## 40. T40 — driver-only binding without execution
 
 - Setup: the decision has a null `execution_id`. An active link to an execution exists by the time of the re-read.
-- Roles: `shipment_assignment_reader`.
+- Roles: `assignment_lock_owner`.
 - Statement order: shipment `FOR SHARE`, then driver share. No execution lock.
 - Expected locks: no `FOR SHARE` on `transport.transport_executions` in this transaction.
 - Expected SQL result: rollback with `REAUTHORIZATION_REQUIRED`.
@@ -316,32 +316,98 @@ Errors contain no coordinates, driver id, vehicle id, or tenant id.
 - Binding state: no insert.
 - Oracle: PASS when the pre-wait driver is not written into a binding. FAIL when B consumes the driver it saw before the wait. Not executed.
 
-## 42. T42 — insufficient SELECT FOR UPDATE privilege
+## 42. T42 — no UPDATE grant rejects FOR UPDATE
 
-- Setup: `shipment_assignment_reader` has the column `SELECT` list and no `UPDATE`. It runs `SELECT ... FOR UPDATE` on `transport.shipments`.
-- Roles: `shipment_assignment_reader`.
+- Setup: a role has the column `SELECT` list and no `UPDATE`. It runs `SELECT ... FOR UPDATE` on `transport.shipments`. This role is not the designed `assignment_lock_owner` grant.
+- Roles: a column-select role with no `UPDATE`.
 - Statement order: the `FOR UPDATE` statement only.
 - Expected locks: none.
 - Expected SQL result: `42501`.
 - Decision state: unchanged.
 - Binding state: unchanged.
-- Oracle: PASS on `42501`. FAIL when `FOR UPDATE` succeeds without an `UPDATE` grant. Not executed. `ASSIGNMENT_LOCK_PRIVILEGE_TEST=REQUIRED_NOT_RUN`.
+- Oracle: PASS on `42501`. FAIL when `FOR UPDATE` succeeds without an `UPDATE` grant. Isolated PostgreSQL 16.15 returned `42501` for `FOR UPDATE` with column `SELECT` and no `UPDATE` (0.1I `P9`). The designed lock owner has `UPDATE (updated_at)`, so this oracle does not apply to that role. Under that grant, `FOR UPDATE` returned OK (0.1I-R1 `B4`).
 
-## 43. T43 — minimal column SELECT for FOR SHARE
+## 43. T43 — column SELECT is not enough for FOR SHARE
 
-- Setup: the same role runs `SELECT id FROM transport.shipments WHERE id = $1 FOR SHARE` using only the granted columns.
-- Roles: `shipment_assignment_reader`.
-- Statement order: `FOR SHARE`, then a second session `UPDATE transport.shipments SET driver_id = ...` on that row.
-- Expected locks: the share is held. The `UPDATE` waits.
-- Expected SQL result: the share succeeds. The `UPDATE` proceeds only after commit or rollback of the share.
-- Decision state: unchanged by the share alone.
+- Setup: a role has column `SELECT` on `transport.shipments` and no `UPDATE`. A second role has table `SELECT` and no `UPDATE`.
+- Roles: those two roles. Not the designed lock-owner grant.
+- Statement order: `SELECT id ... FOR SHARE` in each session.
+- Expected locks: none.
+- Expected SQL result: `42501`.
+- Decision state: unchanged.
 - Binding state: unchanged.
-- Oracle: PASS when `FOR SHARE` needs no `UPDATE` grant and still blocks the assignment `UPDATE`. FAIL when the share is rejected or the `UPDATE` commits during the share. Not executed.
+- Oracle: PASS on `42501`. FAIL when `FOR SHARE` succeeds with `SELECT` and no `UPDATE`. The R4 oracle, which required the share to succeed without an `UPDATE` grant, is withdrawn. Isolated PostgreSQL 16.15 returned `42501` for column `SELECT` (0.1I `P1`, `P1c`; 0.1I-R1 `B1`) and for table `SELECT` (0.1I-R1 `B2`).
+
+## 50. T50 — lock owner FOR SHARE on the four tables
+
+- Setup: `assignment_lock_owner` has column `SELECT` and `UPDATE (updated_at)` on the shipment, driver, vehicle, and execution tables in an isolated database.
+- Roles: `assignment_lock_owner`.
+- Statement order: `FOR SHARE` on each table.
+- Expected locks: the share is acquired.
+- Expected SQL result: success on each table.
+- Decision state: unchanged.
+- Binding state: unchanged.
+- Oracle: PASS when all four shares succeed and column `SELECT` alone still returns `42501`. Isolated PostgreSQL 16.15 returned OK for shipment, driver, vehicle, and execution (`B3`, `B5`, `B6`, `B7`). The production schema was not used.
+
+## 51. T51 — updated_at write and identity column denial
+
+- Setup: the same lock owner updates `updated_at`, then updates `driver_id`.
+- Roles: `assignment_lock_owner`.
+- Statement order: `UPDATE updated_at`, then `UPDATE driver_id`.
+- Expected locks: the row lock of each update statement.
+- Expected SQL result: `updated_at` changes. `driver_id` returns `42501`.
+- Decision state: unchanged.
+- Binding state: unchanged.
+- Oracle: PASS when the timestamp changes and the identity column is denied. Isolated PostgreSQL 16.15 changed `updated_at` (`B9`) and returned `42501` for `driver_id` (`B8`). `DIRECT_UPDATED_AT_RISK=OPEN_FOR_LOCK_OWNER`.
+
+## 52. T52 — fence and runtime cannot assume the lock owner
+
+- Setup: `binding_authority_fence` has `EXECUTE` only. `tracking_runtime` has no membership and no `EXECUTE`.
+- Roles: fence and runtime logins.
+- Statement order: fence `UPDATE updated_at`; runtime `SET ROLE assignment_lock_owner`; fence `SET ROLE assignment_lock_owner`; `PUBLIC` and runtime `EXECUTE`.
+- Expected locks: none acquired.
+- Expected SQL result: `42501` on each statement. Fence `EXECUTE` of the definer function succeeds, with `current_user` equal to `assignment_lock_owner`.
+- Decision state: unchanged.
+- Binding state: unchanged.
+- Oracle: PASS on those `42501` results and on the definer identity. Isolated PostgreSQL 16.15 matched them (`B10` through `B15`). `current_user` was `assignment_lock_owner` and `driver_id` was `33333333-3333-3333-3333-333333333333`.
+
+## 53. T53 — membership is the updated_at bypass
+
+- Setup: a login receives `assignment_lock_owner` with `INHERIT TRUE`, then the grant is revoked. Another login receives it with `INHERIT FALSE, SET TRUE`, then that grant is revoked.
+- Roles: the two probe logins and `assignment_lock_owner`.
+- Statement order: inherit and update; revoke; update again; update without `SET ROLE`; update after `SET ROLE`; revoke; `SET ROLE`.
+- Expected locks: the row lock only while the membership allows the update.
+- Expected SQL result: `INHERIT TRUE` updates `updated_at`. After revoke, `42501`. `SET TRUE` without `SET ROLE` is `42501`. With `SET ROLE`, the update succeeds. After revoke, `SET ROLE` is `42501`.
+- Decision state: unchanged.
+- Binding state: unchanged.
+- Oracle: PASS when each of those results occurs and the fence and runtime membership count is then `0`. Isolated PostgreSQL 16.15 matched them (`B16` through `B21`). The design does not grant either membership.
+
+## 54. T54 — share still conflicts with UPDATE
+
+- Setup: `assignment_lock_owner` holds shipment `FOR SHARE`. Another session updates `version` with `lock_timeout` of 2 seconds.
+- Roles: the lock owner and the updater.
+- Statement order: share, then the blocked update, then the holder's commit.
+- Expected locks: the update waits on the share.
+- Expected SQL result: `55P03`. `version` stays `1`.
+- Decision state: unchanged.
+- Binding state: unchanged.
+- Oracle: PASS on `55P03` and an unchanged `version`. Isolated PostgreSQL 16.15 returned `55P03` and left `version` at `1` (`L1`, `L2`).
+
+## 55. T55 — rollback fields, not the psql script text
+
+- Setup: one transaction sets `use_status` to `CONSUMED` and sets `consumed_at`, then rolls back.
+- Roles: the session that can update the decision row.
+- Statement order: `BEGIN`, `UPDATE`, `ROLLBACK`, then two separate queries.
+- Expected locks: none after the rollback.
+- Expected SQL result: `SELECT use_status` returns `ISSUED`. `SELECT consumed_at IS NULL` returns true. No error SQLSTATE is raised.
+- Decision state: `ISSUED`, `consumed_at` null.
+- Binding state: unchanged.
+- Oracle: PASS on those two fields. FAIL when the assertion compares the whole `psql -tAc` stdout of the multi-statement script with `ISSUED|null`. That stdout also contains the command tags `BEGIN`, `UPDATE 1`, and `ROLLBACK`. Isolated PostgreSQL 16.15 reproduced that stdout, and the separate fields were `ISSUED` and `t`. The predicate `use_status = 'ISSUED' AND consumed_at IS NULL` returned PASS (`H1`, `H5`).
 
 ## 44. T44 — share against the command writer
 
 - Setup: the command session is inside `loadShipment` (`transport_execution_command_repository.go:1145-1147`), waiting or holding `FOR UPDATE` on the shipment. Consume holds `FOR SHARE` on the same shipment, after its execution share.
-- Roles: the command transaction and `shipment_assignment_reader`.
+- Roles: the command transaction and `assignment_lock_owner`.
 - Statement order: both have already locked the same execution, execution first.
 - Expected locks: the shipment lock modes conflict. One waits. Neither then locks the execution in the other direction.
 - Expected SQL result: no `40P01` from this pair.
@@ -404,14 +470,42 @@ Errors contain no coordinates, driver id, vehicle id, or tenant id.
 - Binding state: A's binding exists only if A committed. B does not insert a binding.
 - Oracle: PASS when the two commits stay independent and A does not consume a driver that changed before its share. FAIL when the documents call the two commits one atomic operation. Not executed.
 
+## Evidence classification
+
+The product tests 1-49 were not run against the production schema. The rows below classify the isolated PostgreSQL 16.15 sessions. The two original `FAIL` rows stay visible.
+
+| Class | Evidence | SQLSTATE or result |
+| --- | --- | --- |
+| Confirmed PostgreSQL failure | 0.1I `P1` and `P1c`: `FOR SHARE` with column `SELECT` and no `UPDATE`. Expectation in that run was success. | `42501` |
+| Confirmed PostgreSQL failure | 0.1I-R1 `B1` column `SELECT`, `B2` table `SELECT`, both without `UPDATE`. | `42501` |
+| Confirmed PostgreSQL failure | 0.1I `P9`: `FOR UPDATE` with column `SELECT` and no `UPDATE`. | `42501` |
+| Confirmed PostgreSQL success | 0.1I-R1 `B3`, `B5`, `B6`, `B7`: `FOR SHARE` after `UPDATE (updated_at)` on shipment, driver, vehicle, and execution. | OK |
+| Confirmed PostgreSQL success | 0.1I-R1 `B4`: `FOR UPDATE` with the same `UPDATE (updated_at)` grant. The modes do not differ in that privilege. | OK |
+| Confirmed PostgreSQL success | 0.1I-R1 `B9`: lock owner `UPDATE` of `updated_at` changed the timestamp. `B8`: `UPDATE` of `driver_id`. | OK and `42501` |
+| Confirmed PostgreSQL success | 0.1I-R1 `B10`-`B14`, `B17`, `B18`, `B20`: fence, runtime, `PUBLIC`, and revoked membership. | `42501` |
+| Confirmed PostgreSQL success | 0.1I-R1 `B15`: fence `EXECUTE`. `current_user` was `assignment_lock_owner`. | OK |
+| Confirmed PostgreSQL success | 0.1I-R1 `B16` and `B19`: `INHERIT TRUE`, and `SET TRUE` plus `SET ROLE`, can update `updated_at`. Grants were then revoked. | OK |
+| Confirmed PostgreSQL success | 0.1I lock waits and `40P01`; 0.1I-R1 `L1` share against `UPDATE`. | `55P03`, version stayed `1` |
+| Harness false negative | 0.1I `R1`. `psql -tAc` stdout was `BEGIN`, `UPDATE 1`, `ROLLBACK`, `ISSUED\|null`. The comparison required the whole stdout to equal `ISSUED\|null`. The stored row was `ISSUED` and `consumed_at` null. | recorded `FAIL`; database row correct |
+| Harness false negative | 0.1I-R1 `H1` reproduced that stdout. `H5` compared `use_status` and `consumed_at IS NULL` in separate queries. | fields `ISSUED` and `t`; predicate PASS; no error SQLSTATE |
+| Invalid initial test | 0.1I `P4`. `pg_catalog.current_user` under `search_path = pg_catalog` was parsed as a missing table. | `42P01` |
+| Invalid initial test | 0.1I `P6c` returned OK while the function owner was the superuser. It did not prove the reader role. | OK, not evidence |
+| Invalid initial test | 0.1I-R1 `H3` and `H4` cast the boolean to text, compared `true` with `t`, and recorded `FAIL`. The uncast field was `t`. | recorder `FAIL`; field true |
+| Test not run | 0.1I table-owner `DISABLE TRIGGER`. | `NOT_RUN` |
+| Test not run | Full design `RETURN QUERY` join, production schema, tests 1-49 as product tests. | `NOT_RUN` |
+
 ## Execution record
 
 | Check | Result |
 | --- | --- |
-| Tests 1-49 | `NOT_RUN` |
+| Tests 1-41 and 44-49 as product tests | `NOT_RUN` |
+| T42 negative `FOR UPDATE` without `UPDATE` | isolated `42501` |
+| T43 column or table `SELECT` without `UPDATE` | isolated `42501` |
+| T50-T55 isolated privilege and rollback checks | passed on PostgreSQL 16.15 in `binding_privilege_proof_r1` |
+| Full design function body | `NOT_RUN` |
 | Product code | unchanged |
 | Migrations | none |
 | Secrets | unchanged |
-| Decision table | not created |
-| Ownership transfer | not executed |
-| Assignment lock privilege test | `NOT_RUN` |
+| Decision table | not created in the product database |
+| Ownership transfer | not executed on the product database |
+| `ASSIGNMENT_LOCK_PRIVILEGE_PROVEN` | `ISOLATED_PASS_NOT_PRODUCTION` |

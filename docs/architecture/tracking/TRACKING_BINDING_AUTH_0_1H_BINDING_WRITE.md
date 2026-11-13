@@ -38,6 +38,22 @@ Inside that single transaction the order is fixed. The first read of the decisio
 
 `ASSIGNMENT_LOCK_MODE=FOR_SHARE`
 
+`ASSIGNMENT_FUNCTION_OWNER=assignment_lock_owner`
+
+`ASSIGNMENT_LOCK_PRIVILEGES=COLUMN_SELECT_PLUS_UPDATE_UPDATED_AT`
+
+`FOR_SHARE_REQUIRES_UPDATE=YES`
+
+`COLUMN_SELECT_ONLY_VALID=NO`
+
+`MINIMUM_UPDATE_COLUMN=updated_at`
+
+`LOCK_MODE_AND_PRIVILEGE_SET=SEPARATE_DECISIONS`
+
+`DIRECT_UPDATED_AT_RISK=OPEN_FOR_LOCK_OWNER`
+
+`ASSIGNMENT_LOCK_PRIVILEGE_PROVEN=ISOLATED_PASS_NOT_PRODUCTION`
+
 A command transaction locks `transport.transport_executions` with `FOR UPDATE` (`transport_execution_command_repository.go:70-75`) and only later locks `transport.shipments` with `FOR UPDATE` in `loadShipment` (`:1145-1147`). `confirmAction` calls that shipment lock at `:527`, after the execution lock is already held. The same execution-then-shipment order is used by the other `loadShipment` calls in that transaction (`:620`, `:671`, `:762`, `:814`). The R3 order, shipment before execution, is the inverse of that writer. It is withdrawn.
 
 Execution-scoped consume:
@@ -62,7 +78,7 @@ Every lock above is held until `COMMIT` or `ROLLBACK` of this transaction. The a
 
 `SQLSTATE 40P01` is a deadlock. The consume transaction rolls back. The decision stays `ISSUED` when this transaction had not committed, no binding remains, and the caller receives unavailable. The deadlock is not a successful consume and not a replay. A lock timeout, `SQLSTATE 55P03`, is the same rollback. Locks from this transaction end with that rollback.
 
-`FOR SHARE` is the assignment lock. PostgreSQL 16 requires `SELECT` for `FOR SHARE`. `FOR UPDATE` additionally requires `UPDATE` on at least one column. The production assignment changes are `UPDATE` statements or `SELECT ... FOR UPDATE`. `FOR SHARE` conflicts with both, so an assignment change waits until this transaction ends. `FOR UPDATE` was not selected for these rows. It would need an `UPDATE` grant, and `FOR SHARE` already waits for the writers below. `MINIMUM_UPDATE_COLUMN=NONE_ON_ASSIGNMENT_TABLES`. The decision row is the exception: the consume function locks it with `FOR UPDATE` because it updates `consumed_at`, `use_status`, and `binding_id`.
+`FOR SHARE` is the assignment lock mode. PostgreSQL 16.15 does not accept that mode from `SELECT` alone. In an isolated database, column `SELECT` without `UPDATE` returned `42501` on `SELECT ... FOR SHARE`, and table `SELECT` without `UPDATE` returned the same `42501`. `GRANT UPDATE (updated_at)` on the locked table made `FOR SHARE` succeed. The same grant made `FOR UPDATE` succeed and made a direct `UPDATE` of `updated_at` succeed. `FOR SHARE` and `FOR UPDATE` do not differ in the `UPDATE` privilege they require. The lock mode and the privilege set are separate decisions. `FOR SHARE` stays the mode because it conflicts with an assignment `UPDATE` and with `FOR UPDATE`: 0.1I recorded a lock wait for both, and 0.1I-R1 recorded `55P03` for a shipment `UPDATE` while the share was held. Choosing `FOR UPDATE` would not remove the `UPDATE` grant. `MINIMUM_UPDATE_COLUMN=updated_at`. The value `NONE_ON_ASSIGNMENT_TABLES` is withdrawn. The decision row is the exception only in purpose: the consume function locks it with `FOR UPDATE` because it updates `consumed_at`, `use_status`, and `binding_id`. That decision update is not evidence that an assignment `FOR SHARE` can run without an `UPDATE` grant.
 
 | Writer | Locks, in order | Compared with consume |
 | --- | --- | --- |
@@ -222,7 +238,7 @@ Two tenants may each have an active row for one device. That is not a duplicate.
 
 The consume function does not receive `SELECT` on `transport.shipments`, `transport.drivers`, `transport.transport_executions`, `transport.transport_execution_revisions`, `transport.transport_execution_active_shipments`, or `transport.transport_execution_carrier_relationship_pins`. A table-wide `SELECT` for `binding_authority_fence` would let a session that can become that role read every tenant. That grant is not in this design. `TENANT_ISOLATION_IMPLEMENTED=NO`.
 
-The assignment check is one proposed function, `transport.read_binding_assignment(uuid, uuid)`. The first argument is the decision's `execution_id`, and it is null for a driver-only decision. The second is the decision's `shipment_id`. Neither argument is a tenant, and neither is authorization. The function is `SECURITY DEFINER`, owned by a proposed `NOLOGIN` role `shipment_assignment_reader`. That role is not `shipment_runtime`, not `binding_authority_fence`, and not the owner of `transport.shipments`. `EXECUTE` is granted only to `binding_authority_fence`. It is not granted to `tracking_runtime`, `shipment_runtime`, `freight`, or `PUBLIC`. `REVOKE ALL ON FUNCTION transport.read_binding_assignment(uuid, uuid) FROM PUBLIC` is part of the same future migration. The function does not commit and contains no dynamic SQL. Its locks are held by the calling transaction. Calling it from another connection would be a second transaction, and this contract does not call that atomic.
+The assignment check is one proposed function, `transport.read_binding_assignment(uuid, uuid)`. The first argument is the decision's `execution_id`, and it is null for a driver-only decision. The second is the decision's `shipment_id`. Neither argument is a tenant, and neither is authorization. The function is `SECURITY DEFINER`, owned by a proposed `NOLOGIN` role `assignment_lock_owner`. That role is not `shipment_runtime`, not `binding_authority_fence`, not `tracking_runtime`, and not the owner of `transport.shipments`. `shipment_assignment_reader` is not the function owner. `EXECUTE` is granted only to `binding_authority_fence`. It is not granted to `tracking_runtime`, `shipment_runtime`, `freight`, or `PUBLIC`. `REVOKE ALL ON FUNCTION transport.read_binding_assignment(uuid, uuid) FROM PUBLIC` is part of the same future migration. The function does not commit and contains no dynamic SQL. Its locks are held by the calling transaction. Calling it from another connection would be a second transaction, and this contract does not call that atomic.
 
 `SECURITY_DEFINER_MODEL=FIXED_SEARCH_PATH_QUALIFIED_NAMES_NO_DYNAMIC_SQL`
 
@@ -296,9 +312,9 @@ END;
 $fn$;
 ```
 
-That body is a design. It is not created here. The driver and vehicle `FOR SHARE` steps are inside `transport.read_binding_assignment`, after the shipment share and before the decision lock. They are not placed before the execution share. No migration enables row-level security on these tables, so RLS is not this control. `TENANT_ISOLATION_IMPLEMENTED=NO`. The function still needs `USAGE` on schema `transport`. `000103:50` grants that usage to `freight_migrations`, `company_runtime`, and `shipment_runtime`. It does not grant it to `shipment_assignment_reader`. The future migration adds that usage. Without it the function cannot resolve the table names.
+That body is a design. It is not created in the product database. The driver and vehicle `FOR SHARE` steps are inside `transport.read_binding_assignment`, after the shipment share and before the decision lock. They are not placed before the execution share. No migration enables row-level security on these tables, so RLS is not this control. `TENANT_ISOLATION_IMPLEMENTED=NO`. The function owner needs `USAGE` on schema `transport`. `000103:50` grants that usage to `freight_migrations`, `company_runtime`, and `shipment_runtime`. It does not grant it to `assignment_lock_owner`. The future migration adds that usage. Without it the function cannot resolve the table names.
 
-The function owner is granted `SELECT` only on these existing columns, and no `UPDATE` on any of them:
+The function owner is granted `SELECT` on the columns the body reads:
 
 - `transport.shipments`: `id`, `tenant_id`, `driver_id`, `vehicle_id`, `version`, `deleted_at` (`000003_create_transport_tables.up.sql:159-184`)
 - `transport.drivers`: `id`, `tenant_id`, `status`, `deleted_at` (`000003:99-115`)
@@ -308,9 +324,34 @@ The function owner is granted `SELECT` only on these existing columns, and no `U
 - `transport.transport_execution_revisions`: `id`, `version` (`000088:22-34`)
 - `transport.transport_execution_carrier_relationship_pins`: existence for (`execution_revision_id`, `shipment_tenant_id`, `shipment_id`) (`000103_tms_relationship_pins_security_foundation_v0_1.up.sql:128-142`)
 
-`FOR SHARE` uses the `SELECT` grant. It does not use an `UPDATE` grant. `tenant_id`, `driver_id`, `vehicle_id`, `version`, and `current_revision_id` stay without `UPDATE`. There is no `owner_epoch` column to grant. `ASSIGNMENT_LOCK_PRIVILEGES=COLUMN_SELECT_FOR_SHARE_TEST_REQUIRED`. `ASSIGNMENT_LOCK_PRIVILEGE_TEST=REQUIRED_NOT_RUN`. Before any implementation, an isolated PostgreSQL session must show that this role can `FOR SHARE` those rows, that the same role receives `42501` for `FOR UPDATE`, and that `AssignDriver`, `AssignVehicle`, and the command's shipment `FOR UPDATE` wait until the share is released. This document does not run that session. `freight_migrations` is not the owner of `transport.shipments`. The `GRANT SELECT` is issued by the table owner or a superuser, not assumed from the migration role.
+Each table that the body locks with `FOR SHARE` also needs `UPDATE` on `updated_at`, and on no other column:
 
-Only `shipment_assignment_reader` or a superuser can replace the function body. `tracking_runtime`, `shipment_runtime`, and `freight` have no membership in that role. After the temporary membership used to create the function is revoked, `freight_migrations` cannot replace it either.
+- `transport.transport_executions.updated_at` (`000088:18`)
+- `transport.shipments.updated_at` (`000003:181`)
+- `transport.drivers.updated_at` (`000003:112`)
+- `transport.vehicles.updated_at` (`000003:88`)
+
+The joined revision, active-shipment, and pin rows are read. This lock order does not take `FOR SHARE` on those three tables, so they do not receive `UPDATE (updated_at)` for this function. `tenant_id`, `driver_id`, `vehicle_id`, `version`, and `current_revision_id` stay without `UPDATE`. There is no `owner_epoch` column to grant. `ASSIGNMENT_LOCK_PRIVILEGES=COLUMN_SELECT_PLUS_UPDATE_UPDATED_AT`. `freight_migrations` is not the owner of `transport.shipments`. The table owner or a superuser issues both the `SELECT` grants and the `UPDATE (updated_at)` grants.
+
+`ASSIGNMENT_LOCK_PRIVILEGE_PROVEN=ISOLATED_PASS_NOT_PRODUCTION`. PostgreSQL 16.15, database `binding_privilege_proof_r1`, network `none`, no production credentials: column `SELECT` and table `SELECT` each returned `42501` for `FOR SHARE`; `assignment_lock_owner` with column `SELECT` plus `UPDATE (updated_at)` completed `FOR SHARE` on the shipment, driver, vehicle, and execution rows; the same role completed `FOR UPDATE` on the shipment; that role's `UPDATE` of `driver_id` returned `42501`; its `UPDATE` of `updated_at` changed the stored timestamp. The full `RETURN QUERY` join in the design body was not executed. The production schema was not used. Implementation stays closed until a later isolated run executes that full body and until this gate is still true for that body.
+
+The future migration creates the function as `assignment_lock_owner`, not by a later `ALTER FUNCTION OWNER` from `freight_migrations`. `freight_migrations` receives `assignment_lock_owner` with `INHERIT FALSE, SET TRUE` only inside the uncommitted migration. `SET ROLE assignment_lock_owner` runs `CREATE FUNCTION`, so the function owner is that role. The lock owner needs `CREATE` on schema `transport` for that statement. `CREATE` is revoked before commit. `USAGE` remains. `EXECUTE` is granted to `binding_authority_fence`, and `PUBLIC` is revoked, before `RESET ROLE`. The membership is then revoked. After that revoke, `freight_migrations` cannot `SET ROLE` to `assignment_lock_owner`.
+
+Only `assignment_lock_owner` or a superuser can replace the function body. `tracking_runtime`, `shipment_runtime`, `binding_authority_fence`, and `freight` have no membership in that role. `NOLOGIN` is not the control. A membership with `INHERIT TRUE` lets the member `UPDATE updated_at` without `SET ROLE`. A membership with `SET TRUE` lets `SET ROLE` do the same. The isolated session showed both, then revoked both. The design grants neither. After the revoke, `SET ROLE` returned `42501` and the member count for the fence and the runtime was `0`.
+
+### Privilege model
+
+Three models were compared against the 16.15 result. The lock order does not change under the selected model.
+
+Option A grants `UPDATE (updated_at)` to `shipment_assignment_reader` and keeps that role as the function owner. The required privileges are column `SELECT` plus `UPDATE (updated_at)` on each locked table. The risk is the one the session measured: that role can change `updated_at` directly. `updated_at` is not `version`. A change does not by itself rewrite `driver_id`, `vehicle_id`, or `version`, and a later assignment `UPDATE` can overwrite the timestamp. It is still a direct write, so a role that exists to read would hold a write grant. Any later `INHERIT TRUE` or `SET TRUE` membership would hand that write to the member.
+
+Option B uses a separate owner, `assignment_lock_owner`. The privileges are the same column `SELECT` list and `UPDATE (updated_at)` on the four locked tables. `binding_authority_fence` receives `EXECUTE` only. `tracking_runtime`, `shipment_runtime`, `freight`, and `PUBLIC` receive no membership and no `EXECUTE`. The function body takes `FOR SHARE` and does not assign `updated_at`. The measured reduction is that the write grant is not attached to a read role and is not held by the fence or the runtime. The measured limit is that the owner itself can still change `updated_at`, and so can a table owner, a superuser, or any future member. `INHERIT TRUE` and `SET TRUE` were enough to perform that `UPDATE` in the isolated session.
+
+Option C would take the share inside shipment-service, in the same PostgreSQL transaction that consumes the decision. `shipment_runtime` already updates shipments, drivers, and vehicles, so this does not create a smaller privilege. An HTTP call to another service is a second transaction and does not hold the share. Putting the decision update in shipment-service moves the binding-authority write across the service boundary. That option is not selected.
+
+Option B is the contract. Option A leaves the required write on the read role. Option C does not reduce the privilege and does not keep one database transaction without a boundary change. `RECOMMENDED_PRIVILEGE_MODEL=B_SEPARATE_LOCK_FUNCTION_OWNER`.
+
+`DIRECT_UPDATED_AT_RISK=OPEN_FOR_LOCK_OWNER`. The open writers are `assignment_lock_owner`, the table owner, and a superuser. The fence and the runtime are outside that set only while they have no membership in `assignment_lock_owner`. A compromised function body owned by the lock role can use the same `UPDATE` grant. The body specified here does not.
 
 There is no `owner_epoch` column. The function does not select one and does not return a numeric epoch. The consume function keeps `owner_epoch=ABSENT` and does not grant an execution target. It returns the row's own tenant, driver, vehicle, version, link, revision, revision `version`, and operating tenant. The consume function compares those values with the decision. A caller-supplied tenant that matches is not the check.
 
@@ -320,6 +361,10 @@ A missing `SELECT` or a missing `EXECUTE` fails the function closed. It does not
 
 `FUNCTION_OWNER_PRIVILEGES=DECISION_COLUMN_SELECT_AND_CONSUME_UPDATE_ONLY`
 
+`ASSIGNMENT_FUNCTION_OWNER_PRIVILEGES=COLUMN_SELECT_PLUS_UPDATE_UPDATED_AT`
+
+The decision token above is the fence's grant on the decision row. It is not the assignment lock. `assignment_lock_owner` has no decision grant. Its grant is the column `SELECT` list and `UPDATE (updated_at)` in section 4.
+
 `binding_authority_fence` needs `SELECT` on the decision columns the consume function reads. Those columns are the proposed row, not columns already stored in a table: `decision_id`, `caller_user_id`, `shipment_tenant_id`, `operating_tenant_id`, `shipment_id`, `driver_id`, `vehicle_id`, `vehicle_scope`, `execution_id`, `current_revision_id`, `shipment_version`, `revision_version`, `owner_epoch`, `relationship_required`, `provider_code`, `provider_device_id`, `issued_at`, `expires_at`, `consumed_at`, `use_status`, and `binding_id`. The grant is column `SELECT`, not `SELECT` to `tracking_runtime`. The fence also needs `UPDATE` on `consumed_at`, `use_status`, and `binding_id` only. Identity columns have no `UPDATE` grant. The trigger in section 2 still rejects a reverse transition and an identifier change even if a later grant adds `UPDATE`.
 
 Binding `INSERT` is limited to the existing columns the function writes (`000026_add_shipment_telemetry_foundation_v0.7.0.up.sql:5-17`): `tenant_id`, `shipment_id`, `vehicle_id`, `driver_id`, `provider_code`, `provider_device_id`, `status`, `active_from`. `RETURNING id` needs `SELECT` on `id` for `binding_authority_fence`. The current table has no `decision_id` column, and this design does not add one there. The decision's `binding_id` points at `tracking.shipment_tracking_binding.id`.
@@ -328,7 +373,7 @@ Binding `INSERT` is limited to the existing columns the function writes (`000026
 | --- | --- | --- | --- | --- | --- |
 | `binding_authority_owner` | Owner. Reads every column because it owns the table. | Only through the issue function it owns. Direct `INSERT` remains possible for the owner. | Owner. Can change `consumed_at` and identifiers, and can disable the trigger. | Owner. The design has no delete function. The owner can still delete. | Not required. The owner is not the binding writer. |
 | `binding_authority_fence` | Column `SELECT` listed above, so the consume function can compare the row it locked. | None. It is not the issuer. | `consumed_at`, `use_status`, and `binding_id` only, so the one-way update can run. The trigger blocks the reverse. | None. | The binding columns listed above, so the same transaction can insert the row whose id is stored on the decision. |
-| `shipment_assignment_reader` | None. | None. | None. | None. | None. Its `SELECT` is on the assignment columns in section 4, so the read function can return one shipment's current row. |
+| `assignment_lock_owner` | None. | None. | None. | None. | None. It owns `transport.read_binding_assignment`. Its table rights are column `SELECT` plus `UPDATE (updated_at)` on the four locked assignment tables in section 4. It can change `updated_at` on those tables. It has no `UPDATE` on `driver_id` or `version`. |
 | `shipment_runtime` | None. A direct read would trust the runtime session. | None. Issue is a future `EXECUTE` on the issue function, not table `INSERT`. | None. | None. | None. |
 | `tracking_runtime` | None. The runtime must not learn a decision by table read. | None. | None. This is what blocks a runtime `UPDATE` of `consumed_at`. | None. | None. The current direct insert stays open until this revoke exists. |
 | `freight` | None in this design. | None in this design. | None in this design. | None in this design. | None in this design. Where `freight` owns an existing table, owner rights survive `REVOKE` (`000103:6-7`). |
