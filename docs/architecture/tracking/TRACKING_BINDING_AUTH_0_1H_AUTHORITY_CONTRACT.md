@@ -56,8 +56,9 @@ A successful check writes one decision row that tracking's login cannot insert. 
 | `expires_at` | `issued_at` plus 15 minutes. The same duration exists on the integration token (`packages/shared-go/integrationauth/claims.go:13`). This contract does not reuse that token. |
 | `provider_code` | Set by the checker. For this driver path the value is `driver_mobile`. |
 | `provider_device_id` | Set by the checker from the resolved driver id. Not from the caller. |
-| `consumed_at` | Null until the same transaction that inserts the binding sets it. |
-| `use_status` | `ISSUED` until that transaction sets `CONSUMED`. |
+| `consumed_at` | Null until the same transaction that inserts the binding sets it. The transition is one way. |
+| `use_status` | `ISSUED` until that transaction sets `CONSUMED`. `CONSUMED` does not return to `ISSUED`. |
+| `binding_id` | Null until that same transition stores the id of the binding row just inserted. Replay reads this id. It is not a column on the current binding table. |
 
 `decision_id` does not authorize a presenter, a device, a tenant, or a shipment. Consumption matches the whole row.
 
@@ -89,16 +90,44 @@ The name is proposed. The table is not in the migration head. No migration is cr
 | --- | --- |
 | Schema and name | `transport.binding_authority_decisions` |
 | Table owner | `binding_authority_owner`, a proposed `NOLOGIN` role. It is not `freight`, `shipment_runtime`, or `tracking_runtime`. |
-| Who may insert a decision | Only the issue function, `SECURITY DEFINER`, owned by `binding_authority_owner`. `shipment_runtime` may receive `EXECUTE` on that function later. It does not receive table `INSERT`. |
-| Who may update | Only the consume function, owned by `binding_authority_fence`. That role is granted `UPDATE` on `consumed_at` and `use_status` only. It is not the table owner. Identity columns have no `UPDATE` grant. |
-| Who may delete | Nobody in the runtime design. Expired and consumed rows stay. There is no purge function. |
+| Who may insert a decision | The designed insert path is the issue function, `SECURITY DEFINER`, owned by `binding_authority_owner`. `shipment_runtime` may receive `EXECUTE` on that function later. It does not receive table `INSERT`. The table owner can still insert directly. |
+| Who may update | The designed update path is the consume function, owned by `binding_authority_fence`. That role is granted `UPDATE` on `consumed_at`, `use_status`, and `binding_id` only. It is not the table owner. Identity columns have no `UPDATE` grant. A trigger rejects a reverse transition. The table owner can still update the row and can disable that trigger. |
+| Who may delete | Nobody in the runtime design. Expired and consumed rows stay. There is no purge function. The table owner can still delete. |
 | `tracking_runtime` | No `INSERT`, `UPDATE`, or `DELETE`. No `EXECUTE` on the consume function while the presenter channel in section 3.3 is unavailable. |
 | `shipment_runtime` | No table DML. Future `EXECUTE` on the issue function only. |
-| `freight_migrations` | May create the table in a later migration, then loses DML and `EXECUTE`. `000103:6-7` leaves `freight` as the shared login. That sentence is not a grant on this table. |
+| `freight_migrations` | May create the table in a later migration. Creation leaves this role as owner until the transfer below. After that transfer it is not the owner, not a member, and has no DML. `REVOKE` is not that transfer. |
 | `PUBLIC` | `REVOKE ALL`. |
-| Operator and superuser sessions | Not granted. A superuser can still update the row. That bypass stays open. |
+| Operator and superuser sessions | Not granted. A superuser can still change the owner and the row. That bypass stays open. This design does not claim a rule a superuser or the actual owner cannot break. |
 
-`NOLOGIN` is not the control. `000103:17`, `000103:24`, and `000103:31` already create `NOLOGIN NOINHERIT` roles, and a membership with `INHERIT` or `SET` would still confer the owner's rights. This design grants `tracking_runtime`, `shipment_runtime`, and `freight` no membership in `binding_authority_owner` or `binding_authority_fence`. `INHERIT` and `SET` are both false because there is no membership to inherit or assume.
+`OWNERSHIP_TRANSFER_SPECIFIED=YES`
+
+`MIGRATION_ROLE_AFTER_TRANSFER=NOT_OWNER_NOT_MEMBER`
+
+`binding_authority_owner` is a separate proposed role: `NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`. It has no password and no runtime credential. It is not a login of tracking, shipment, or the shared `freight` user. `binding_authority_fence` is not this role and is not the target of the transfer.
+
+PostgreSQL 16, the image in `infrastructure/docker-compose/docker-compose.yml`, allows `ALTER TABLE ... OWNER TO` when the session can `SET ROLE` to the new owner and that owner has `CREATE` on the schema. A superuser can transfer ownership without that membership. `freight_migrations` is not a superuser (`000103_tms_relationship_pins_security_foundation_v0_1.up.sql:17` and `:46`). If it owns the new table, the transfer needs a membership with `SET TRUE` for that statement only. `REVOKE` of table privileges does not remove owner rights, so it does not replace the transfer. The existing pattern of a separate ownership statement is `000103:174-176`.
+
+The following statements are a design for a future migration. They are not executed here.
+
+```sql
+ALTER TABLE transport.binding_authority_decisions
+    OWNER TO binding_authority_owner;
+```
+
+The same future migration, still not executed, is the only place that grants membership, and it revokes that membership before it commits:
+
+```sql
+GRANT USAGE, CREATE ON SCHEMA transport TO binding_authority_owner;
+GRANT binding_authority_owner TO freight_migrations WITH INHERIT FALSE, SET TRUE;
+ALTER TABLE transport.binding_authority_decisions
+    OWNER TO binding_authority_owner;
+REVOKE binding_authority_owner FROM freight_migrations;
+REVOKE CREATE ON SCHEMA transport FROM binding_authority_owner;
+```
+
+`CREATE` on schema `transport` is required at the moment of the transfer. It is revoked afterward so the new owner does not keep a schema-wide create right. `USAGE` remains so the owner can name the table. `INHERIT FALSE` means the migration role does not gain the owner's privileges during the statement. `SET TRUE` exists only so the non-superuser ownership check can pass. After `REVOKE`, `freight_migrations` cannot `SET ROLE` to `binding_authority_owner` and is not the table owner. No later statement grants that membership to `tracking_runtime`, `shipment_runtime`, `freight`, or a service login.
+
+`NOLOGIN` is not the control. `000103:17`, `000103:24`, and `000103:31` already create `NOLOGIN NOINHERIT` roles, and a membership with `INHERIT` or `SET` would still confer the owner's rights. This design grants `tracking_runtime`, `shipment_runtime`, and `freight` no membership in `binding_authority_owner` or `binding_authority_fence`. After the transfer, `INHERIT` and `SET` are both false because there is no membership to inherit or assume.
 
 Bound identifiers (`shipment_tenant_id`, `operating_tenant_id`, `shipment_id`, `driver_id`, `vehicle_id`, `execution_id`, `current_revision_id`, `provider_device_id`, `caller_user_id`) are written once by the issue function. The consume function does not assign them. A later `UPDATE` of those columns is a violation. The table owner can still perform that `UPDATE`. `TABLE_OWNER_DECISION_BYPASS=OPEN`.
 
@@ -110,11 +139,15 @@ Bound identifiers (`shipment_tenant_id`, `operating_tenant_id`, `shipment_id`, `
 
 `PRESENTER_BOUND_TO_DECISION=REQUIRED_AND_UNAVAILABLE`
 
+`PRESENTER_IDENTITY_BOUND=NOT_IMPLEMENTED`
+
+`DECISION_CONSUMPTION_GATE=CLOSED`
+
 The presenter is `AuthContext.UserID` after gateway JWT validation (`auth_context.go:14`), the same value the driver route copies in `driver/handler.go:366-368`. The check is `authenticated_presenter == decision.caller_user_id`.
 
 The presenter is not `X-User-ID` as read by `resolveVerifiedUser` (`services/shipment-service/internal/http/handlers/transition_context.go:15-18`), not a body field, and not a SQL argument chosen by `tracking_runtime`. Shipment-service trusts that header only because the comment at `tenant.go:13-14` says the gateway set it. Tracking's consume path does not have that proof.
 
-PostgreSQL does not see the JWT. A function parameter that carries the user id is the caller choosing the presenter. Named service identity is unresolved, so no service can present a user it has authenticated. `BINDING_WRITE=BLOCKED_UNTIL_TRUSTED_PRESENTER`. The consume function is specified and is not granted.
+PostgreSQL does not see the JWT. A function parameter that carries the user id is the caller choosing the presenter. `caller_user_id` taken from an HTTP header, a JSON body, or an ordinary SQL argument is not proof. Named service identity is unresolved, so no service can present a user it has authenticated. `BINDING_WRITE=BLOCKED_UNTIL_TRUSTED_PRESENTER`. `EXECUTE` on the consume function is not granted. `DECISION_CONSUMPTION_GATE=CLOSED`.
 
 ## 3.4 Device
 
@@ -122,11 +155,13 @@ PostgreSQL does not see the JWT. A function parameter that carries the user id i
 
 `DEVICE_BOUND_TO_DECISION=YES`
 
+`PHYSICAL_DEVICE_AUTHENTICATION=NO`
+
 Option B is the contract. At issue time the checker writes `provider_code` and `provider_device_id`. For `driver_mobile`, `provider_device_id` is the resolved driver id rendered as text. The current code derives that text from the caller-supplied driver (`tracking_repository.go:461`). This contract derives it from the driver row returned by `GetByUserIDAndTenant`. The caller does not supply the device id.
 
 Option A, a lookup of `transport.driver_device` at write time, is not used. That table stores a push token and `revoked_at` (`000034_add_driver_task_platform_v0.2.up.sql:74-88`). The location path does not read it, and one driver can have more than one device row. A lookup at write time could choose the wrong row.
 
-The consume function rejects a presented device that differs from `decision.provider_device_id`. A caller-supplied device UUID is not proof of possession.
+The consume function rejects a presented device that differs from `decision.provider_device_id`. A caller-supplied device UUID is not proof of possession. The driver-derived key is a logical identity stored on the decision. It does not prove possession of a physical device. `PHYSICAL_DEVICE_AUTHENTICATION=NO`.
 
 Rights on the result are separate. A driver-only shipment match does not set execution or coordinate rights. See the driver-only contract. An execution target additionally requires section 3.1. `owner_epoch=ABSENT` fails that section.
 
@@ -136,7 +171,7 @@ Rights on the result are separate. A driver-only shipment match does not set exe
 
 A target read does not honor `decision_id` as permission. The read re-evaluates the current rows.
 
-The first successful consume inserts the binding and sets `consumed_at` in the same transaction. A later request with the same `decision_id`, the same presenter, the same device, and the same bound identifiers returns that stored binding and does not insert another. A later request that changes any bound identifier is a conflict and does not change the binding. `ON CONFLICT DO NOTHING` is not that result.
+The first successful consume inserts the binding and sets `consumed_at`, `use_status = CONSUMED`, and `binding_id` in the same transaction. The allowed status transition is `ISSUED` to `CONSUMED`. A later request with the same `decision_id`, the same presenter, the same device, and the same bound identifiers returns the binding stored in `binding_id` and does not insert another and does not change `consumed_at`. A later request that changes any bound identifier is a conflict and does not change the binding or the decision. `ON CONFLICT DO NOTHING` is not that result. The one-way rule, the trigger, and the assignment lock order are specified in the binding-write contract. They are not installed.
 
 Unused decisions expire at `expires_at`. An expired decision is denied even when the assignment would still pass. A version or revision mismatch is `REAUTHORIZATION_REQUIRED`, not a reuse of the old id. The caller requests a new check.
 

@@ -176,12 +176,109 @@ Errors contain no coordinates, driver id, vehicle id, or tenant id.
 - Authorization result: `HARD_DENIAL` for D1. D2 has no decision yet.
 - Oracle: PASS when the issued decision does not bind D1 after the change. FAIL when consume uses the decision's copied driver and skips the current row.
 
+## 26. T26 — ownership transfer after CREATE TABLE
+
+- Setup: a future migration creates `transport.binding_authority_decisions`. The creator is the owner. The next statement is `ALTER TABLE ... OWNER TO binding_authority_owner`.
+- Roles: the creating session, then `binding_authority_owner`. `binding_authority_fence` is not the target.
+- Expected SQL result: `pg_class.relowner` names `binding_authority_owner`. `REVOKE` without that statement leaves the creator as owner.
+- Binding state: no binding. The table is still proposed.
+- Oracle: PASS when the report requires the `OWNER TO` statement and records that `REVOKE` is not the transfer. FAIL when the design says `REVOKE` removes owner rights. Not executed.
+
+## 27. T27 — migration role without table ownership after transfer
+
+- Setup: the transfer migration grants `binding_authority_owner` to `freight_migrations` with `INHERIT FALSE, SET TRUE`, transfers ownership, then revokes the membership before commit.
+- Roles: `freight_migrations` after commit. It is `NOSUPERUSER` (`000103:17`, `:46`).
+- Expected SQL result: `freight_migrations` is not `relowner` and is not a member. `SET ROLE binding_authority_owner` fails. `INSERT`, `UPDATE`, and `DELETE` fail.
+- Binding state: unchanged.
+- Oracle: PASS when membership does not survive the migration. FAIL when `SET TRUE` is left in place, or when `NOLOGIN` is treated as the ban. Not executed.
+
+## 28. T28 — decision SELECT privilege
+
+- Setup: `binding_authority_fence` selects the decision columns listed in the binding-write contract. `tracking_runtime` selects the same row.
+- Roles: `binding_authority_fence`, `tracking_runtime`.
+- Expected SQL result: the fence select is the designed grant. The runtime select is denied. Neither grant exists today.
+- Binding state: unchanged.
+- Oracle: PASS when runtime `SELECT` is absent from the design and the fence list matches the proposed columns. FAIL when `tracking_runtime` is granted table `SELECT`. Not executed.
+
+## 29. T29 — assignment SELECT privilege
+
+- Setup: `binding_authority_fence` selects `transport.shipments` directly. The same session calls `transport.read_binding_assignment` for one shipment id.
+- Roles: `binding_authority_fence`, `shipment_assignment_reader`.
+- Expected SQL result: direct table `SELECT` is denied. The function returns the row's own `tenant_id`, `driver_id`, `vehicle_id`, `version`, link, revision, and operating tenant. It does not return an owner epoch.
+- Binding state: unchanged. The function does not insert.
+- Oracle: PASS when the direct grant is absent and the function is the only assignment path. FAIL when the fence has table `SELECT` on shipments or executions. Not executed.
+
+## 30. T30 — consumed_at reset attempt
+
+- Setup: a decision is `CONSUMED` with a non-null `consumed_at`. `binding_authority_fence` updates `consumed_at` to null. The trigger is installed.
+- Roles: `binding_authority_fence`.
+- Expected SQL result: the trigger raises. The row stays `CONSUMED` with the original timestamp. The `WHERE consumed_at IS NULL` clause would also change zero rows, and zero rows is a failure.
+- Binding state: the stored binding is unchanged.
+- Oracle: PASS when the reset does not commit. FAIL when a null `consumed_at` on a `CONSUMED` row is accepted. Not executed.
+
+## 31. T31 — CONSUMED to ISSUED attempt
+
+- Setup: the same consumed row. A session with `UPDATE` on `use_status` sets `use_status` back to `ISSUED`.
+- Roles: `binding_authority_fence`.
+- Expected SQL result: the trigger raises. Status stays `CONSUMED`.
+- Binding state: unchanged.
+- Oracle: PASS when the reverse transition does not commit. FAIL when the `WHERE use_status = 'ISSUED'` clause is described as enough to stop every writer. Not executed.
+
+## 32. T32 — bound identifier modification
+
+- Setup: an issued decision. The fence updates `shipment_id`. The owner updates `shipment_id` with the trigger still enabled.
+- Roles: `binding_authority_fence`, `binding_authority_owner`.
+- Expected SQL result: the fence has no `UPDATE` on `shipment_id`. The trigger also raises if the statement runs. The owner can disable the trigger and then change `shipment_id`.
+- Binding state: no binding from the fence statement.
+- Oracle: PASS when the fence change does not commit and the owner path stays `TABLE_OWNER_DECISION_BYPASS=OPEN`. FAIL when the fence update is reported as already rejected by an installed grant. Not executed.
+
+## 33. T33 — simultaneous consumption
+
+- Setup: two sessions present the same decision and the same identity. Both use the lock order shipment, then execution, then decision.
+- Roles: the consume function owner. `EXECUTE` is not granted to a runtime role.
+- Expected SQL result: one transaction commits. The other waits, then reads `CONSUMED` and returns the same binding. `consumed_at` is the first timestamp.
+- Binding state: one binding.
+- Oracle: PASS when the second session does not insert and does not reset `consumed_at`. FAIL when the sessions are two service commits described as one atomic result. Not executed.
+
+## 34. T34 — crash after commit, response lost
+
+- Setup: the consume transaction has committed. The caller did not receive the response and retries the same presenter, device, and bound identifiers.
+- Roles: the consume function, still ungranted.
+- Expected SQL result: the retry reads `binding_id` and returns that binding. It does not run the conditional update.
+- Binding state: still one binding. `consumed_at` unchanged.
+- Oracle: PASS when the retry is a read of the stored result. FAIL when the retry inserts a second binding or treats the returned row as a new grant. Not executed.
+
+## 35. T35 — replay with a different presenter or device
+
+- Setup: the decision is `CONSUMED` for presenter U1 and device X. The retry uses U2 or device Y.
+- Roles: the consume function.
+- Expected SQL result: conflict. No `UPDATE` and no `INSERT`.
+- Binding state: the original binding remains.
+- Oracle: PASS when U2 and Y change nothing. FAIL when a different presenter receives the binding or resets `use_status`. Not executed.
+
+## 36. T36 — privileged owner bypass documented
+
+- Setup: `binding_authority_owner` disables the transition trigger and sets `use_status` to `ISSUED` and `consumed_at` to null. A superuser does the same.
+- Roles: table owner and superuser.
+- Expected SQL result: both can commit. The design records the bypass.
+- Binding state: the binding row may still exist. The decision no longer matches the one-way rule.
+- Oracle: PASS when the report keeps `TABLE_OWNER_DECISION_BYPASS=OPEN` and does not call the trigger absolute. FAIL when the owner is described as stopped by `REVOKE` or by `NOLOGIN`. Not executed.
+
+## 37. T37 — missing SELECT privilege fails closed
+
+- Setup: `shipment_assignment_reader` lacks `SELECT` on `transport.shipments.driver_id`, or `binding_authority_fence` lacks `EXECUTE` on `transport.read_binding_assignment`.
+- Roles: those two roles. `tracking_runtime` has neither.
+- Expected SQL result: the consume function raises. It does not insert a binding and does not mark the decision `CONSUMED`. It does not call `FindActiveBindingByDeviceAnyTenant`.
+- Binding state: no new binding.
+- Oracle: PASS when the failure is closed. FAIL when a missing grant falls back to the caller's headers or to `status = 'active'`. Not executed.
+
 ## Execution record
 
 | Check | Result |
 | --- | --- |
-| Tests 1-25 | `NOT_RUN` |
+| Tests 1-37 | `NOT_RUN` |
 | Product code | unchanged |
 | Migrations | none |
 | Secrets | unchanged |
 | Decision table | not created |
+| Ownership transfer | not executed |

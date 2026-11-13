@@ -26,7 +26,7 @@ A shared driver or a shared vehicle therefore remains a set. Two passing scopes 
 
 ## 3. Concurrent reassignment
 
-The re-read sees the latest committed assignment. A shipment version or revision version that differs from the row observed at the start of the statement drops that scope. The read does not take the execution command lock and does not authorize a later write. A write still follows the PR #375 order. An epoch that advances after the read invalidates any later effect. While the epoch column is absent, the read already returned no execution target.
+The re-read sees the latest committed assignment. A shipment version or revision version that differs from the row observed at the start of the statement drops that scope. The read does not take the execution command lock and does not authorize a later write. It also does not undo a location effect that already committed. A write still follows the PR #375 order. An epoch that advances after the read invalidates any later effect. While the epoch column is absent, the read already returned no execution target.
 
 If two sessions change the assignment while the read is in progress and the version cannot be confirmed, that scope is denied. The other device scopes are evaluated on their own.
 
