@@ -86,7 +86,7 @@ Attempt 1 harness defects, recorded in that attempt's stderr:
 
 `docs/architecture/tracking/evidence/.gitattributes` sets `-text` for this evidence tree only. Checkout then keeps the blob bytes on Windows and on Linux. Do not renormalize `runs/attempt-1/`, `runs/attempt-2/`, or `runs/attempt-3/`.
 
-Check the manifest against Git blobs from the repository root. Hash `git cat-file blob HEAD:docs/architecture/tracking/evidence/0_1i_r2/<path>` for every listed path. The path list must be exactly the files in that directory except `SHA256SUMS`. A worktree `sha256sum -c` matches those lines when the checkout has not rewritten line endings. `git check-attr text` on a nested evidence file reports `unspecified` after the `-text` attribute.
+Check the manifest against Git blobs from the repository root. Hash `git cat-file blob HEAD:docs/architecture/tracking/evidence/0_1i_r2/<path>` for every listed path. The path list must be exactly the files in that directory except `SHA256SUMS`. A worktree `sha256sum -c` matches those lines when the checkout has not rewritten line endings. `git check-attr text` returns `unset` for a file inside this evidence directory. It returns `unspecified` for a file outside this local `.gitattributes` scope when no other attribute overrides that file. The `-text` setting disables Git's automatic line-ending normalization for the files it covers. The canonical digest is the SHA-256 of the committed Git blob bytes.
 
 Assertions compare one normalized field with the whole `exact=` value. `CHANGED` and `UNCHANGED` are different. An empty field, more than one data line, a non-zero `psql` status, and an unexpected `SQLSTATE` are failures. `SQLSTATE` is read from stderr. Stdout is not a substitute for it.
 
