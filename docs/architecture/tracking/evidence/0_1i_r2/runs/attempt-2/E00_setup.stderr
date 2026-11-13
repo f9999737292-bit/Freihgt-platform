@@ -1,0 +1,1 @@
+psql:setup.sql:41: ERROR:  role "column_select_only" already exists

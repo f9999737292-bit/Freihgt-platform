@@ -277,7 +277,7 @@ CI_RESULT=RECORDED_ON_THE_PULL_REQUEST_AFTER_THIS_COMMIT
 FINAL_VERDICT=READY_FOR_J_R4_REVIEW
 ```
 
-The R4 block above is the lock-order snapshot. Its tokens `ASSIGNMENT_FUNCTION_OWNER=shipment_assignment_reader`, `ASSIGNMENT_LOCK_PRIVILEGES=COLUMN_SELECT_FOR_SHARE_TEST_REQUIRED`, and `MINIMUM_UPDATE_COLUMN=NONE_ON_ASSIGNMENT_TABLES` are withdrawn. The 0.1I-R1 block is the current privilege status. The block below the 0.1I-R1 report is the R2 snapshot.
+The R4 block above is the lock-order snapshot. Its tokens `ASSIGNMENT_FUNCTION_OWNER=shipment_assignment_reader`, `ASSIGNMENT_LOCK_PRIVILEGES=COLUMN_SELECT_FOR_SHARE_TEST_REQUIRED`, and `MINIMUM_UPDATE_COLUMN=NONE_ON_ASSIGNMENT_TABLES` are withdrawn. The 0.1I-R1 section is the privilege decision. The 0.1I-R2 section after it is the reproducible evidence for that decision. The snapshot after 0.1I-R2 is 0.1H-R2.
 
 ## 0.1I-R1 — PostgreSQL 16.15 privilege evidence
 
@@ -334,7 +334,68 @@ PRODUCT_CODE_CHANGED=NO
 FINAL_VERDICT=READY_FOR_J_REVIEW
 ```
 
-The block below is the R2 snapshot.
+## 0.1I-R2 — J-PGP-001
+
+`J_PGP_001=ADDRESSED`
+
+The reproducible pack is `docs/architecture/tracking/evidence/0_1i_r2/`. `ORIGINAL_TRANSCRIPT=NOT_AVAILABLE`: the 0.1I and 0.1I-R1 containers were already removed, so their stdout was not copied. The script files that remained on disk are under `prior_scripts/` and were copied unchanged. They are not reconstructed transcripts.
+
+`NEW_RUN_EVIDENCE=runs/attempt-3`. That run used a fresh local container, image `postgres:16`, network `none`, no published ports, database `binding_privilege_proof_0_1i_r2`. `SELECT version()` returned PostgreSQL 16.15. `server_version_num` was `160015`. The client was psql 16.15. `runs/attempt-1/` and `runs/attempt-2/` are the earlier executions in this stage and are kept, including their failed assertions.
+
+Attempt 3 recorded 37 passing assertions and no failures. Column `SELECT` and table `SELECT` each returned `42501` for `FOR SHARE`. After `UPDATE (updated_at)`, `FOR SHARE` returned the shipment id, the lock owner changed `updated_at`, and `UPDATE` of `driver_id` returned `42501`. Session B waited with `wait_event_type=Lock` and `wait_event=transactionid`, then completed `UPDATE 1` after session A committed. Fence execution returned `assignment_lock_owner|fence_probe|pg_catalog|33333333-3333-3333-3333-333333333333`. After rollback, `use_status` was `ISSUED`, `consumed_at IS NULL` was printed as `t`, and the state predicate returned `PASS`. The full design `RETURN QUERY` was not executed. `FULL_FUNCTION_TEST=NOT_RUN`.
+
+```text
+AGENT=C
+STAGE=TRACKING-BINDING-POSTGRES-PRIVILEGE-PROOF-0.1I-R2
+PR_NUMBER=379
+PREVIOUS_HEAD=ab877b355fa99db4faedda9b390887db8cddb4a1
+NEW_HEAD=
+REMOTE_HEAD=
+J_PGP_001=ADDRESSED
+POSTGRES_VERSION=16.15
+ORIGINAL_TRANSCRIPT=NOT_AVAILABLE
+NEW_RUN_EVIDENCE=runs/attempt-3
+ISOLATED_ENVIRONMENT=LOCAL_DOCKER_NETWORK_NONE
+EVIDENCE_DIRECTORY=docs/architecture/tracking/evidence/0_1i_r2/
+SQL_FILES_PRESENT=YES
+RAW_STDOUT_PRESENT=YES
+RAW_STDERR_PRESENT=YES
+SQLSTATE_CAPTURED=YES
+SHA256_MANIFEST=docs/architecture/tracking/evidence/0_1i_r2/SHA256SUMS
+E01_VERSION=16.15
+E02_COLUMN_SELECT=42501
+E03_TABLE_SELECT=42501
+E04_UPDATE_GRANT=PASS
+E05_LOCK_CONFLICT=PASS
+E06_SECURITY_DEFINER=PASS
+E07_ROLLBACK=PASS
+E08_ROLE_MEMBERSHIP=PASS
+E09_PRIVILEGE_BOUNDARIES=PASS
+TESTS_PASSED=37
+TESTS_FAILED=0
+TESTS_NOT_RUN=1
+HARNESS_FALSE_NEGATIVE_FIXED=YES
+FULL_FUNCTION_TEST=NOT_RUN
+DOCS_ONLY_SCOPE=YES
+PRODUCT_CODE_CHANGED=NO
+PLATFORM_MIGRATIONS_CHANGED=NO
+DB_ROLES_CHANGED_IN_REAL_ENV=NO
+STAGING_CHANGED=NO
+PRODUCTION_CHANGED=NO
+MERGE_PERFORMED=NO
+PRESENTER_IDENTITY_BOUND=NOT_IMPLEMENTED
+DECISION_CONSUMPTION_GATE=CLOSED
+J_DML_001=NOT_CLOSED
+TENANT_ISOLATION_IMPLEMENTED=NO
+ALL_WRITERS_FENCED=NO
+BROKER_SAFETY_PROVEN=NO
+IMPLEMENTATION_GATE=CLOSED
+CI_RUN=
+CI_RESULT=RECORDED_ON_THE_PULL_REQUEST_AFTER_THIS_COMMIT
+FINAL_VERDICT=READY_FOR_J_R2_REVIEW
+```
+
+The block below is the 0.1H-R2 snapshot.
 
 ```text
 AGENT=C
