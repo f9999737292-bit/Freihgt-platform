@@ -1,0 +1,2 @@
+ERROR:  42501: permission denied for function read_binding_assignment
+LOCATION:  aclcheck_error, aclchk.c:2812

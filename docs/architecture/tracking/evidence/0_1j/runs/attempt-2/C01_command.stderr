@@ -1,0 +1,2 @@
+psql:concurrency_command_execution_first.sql:2: ERROR:  42501: permission denied to set parameter "deadlock_timeout"
+LOCATION:  set_config_option_ext, guc.c:3514

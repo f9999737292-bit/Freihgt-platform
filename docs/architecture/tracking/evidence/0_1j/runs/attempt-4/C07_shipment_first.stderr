@@ -1,0 +1,6 @@
+psql:concurrency_deadlock_shipment_first.sql:12: ERROR:  40P01: deadlock detected
+DETAIL:  Process 807 waits for ShareLock on transaction 874; blocked by process 811.
+Process 811 waits for ShareLock on transaction 873; blocked by process 807.
+HINT:  See server log for query details.
+CONTEXT:  while locking tuple (0,9) in relation "transport_executions"
+LOCATION:  DeadLockReport, deadlock.c:1130
