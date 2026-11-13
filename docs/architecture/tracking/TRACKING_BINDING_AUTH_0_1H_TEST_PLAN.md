@@ -234,7 +234,7 @@ Errors contain no coordinates, driver id, vehicle id, or tenant id.
 
 ## 33. T33 — simultaneous consumption
 
-- Setup: two sessions present the same decision and the same identity. Both use the lock order shipment, then execution, then decision.
+- Setup: two sessions present the same decision and the same identity. Both use execution, then shipment, then decision when the decision has an execution. A driver-only decision skips the execution lock.
 - Roles: the consume function owner. `EXECUTE` is not granted to a runtime role.
 - Expected SQL result: one transaction commits. The other waits, then reads `CONSUMED` and returns the same binding. `consumed_at` is the first timestamp.
 - Binding state: one binding.
@@ -272,13 +272,146 @@ Errors contain no coordinates, driver id, vehicle id, or tenant id.
 - Binding state: no new binding.
 - Oracle: PASS when the failure is closed. FAIL when a missing grant falls back to the caller's headers or to `status = 'active'`. Not executed.
 
+## 38. T38 — consume versus execution command
+
+- Setup: session A runs a driver command. It has locked `transport.transport_executions` (`transport_execution_command_repository.go:70-75`) and is waiting to lock the shipment. Session B is consume for that execution and shipment.
+- Roles: the command session, and the ungranted consume function.
+- Statement order: A locks the execution, then waits for the shipment. B locks the execution first, then the shipment.
+- Expected locks: B waits on A's execution `FOR UPDATE`. A does not wait on a shipment lock held by B.
+- Expected SQL result: no `40P01`. One session proceeds when the other commits or rolls back.
+- Decision state: unchanged while B waits. Consumed only if B later commits a match.
+- Binding state: no binding from the wait itself.
+- Oracle: PASS when the two sessions do not form a cycle. FAIL when B locks the shipment before the execution. Not executed.
+
+## 39. T39 — execution-first lock order
+
+- Setup: one execution-scoped decision. The consume function is traced, not granted.
+- Roles: `shipment_assignment_reader` for the share, `binding_authority_fence` for the later decision lock.
+- Statement order: execution `FOR SHARE`, shipment `FOR SHARE`, driver `FOR SHARE`, vehicle `FOR SHARE` when a vehicle id is present, decision `FOR UPDATE`, binding insert.
+- Expected locks: that order, held to commit or rollback.
+- Expected SQL result: success only when the locked rows match the decision.
+- Decision state: `CONSUMED` only on that success.
+- Binding state: one row only on that success.
+- Oracle: PASS when the trace shows execution before shipment. FAIL when the shipment share is first. Not executed.
+
+## 40. T40 — driver-only binding without execution
+
+- Setup: the decision has a null `execution_id`. An active link to an execution exists by the time of the re-read.
+- Roles: `shipment_assignment_reader`.
+- Statement order: shipment `FOR SHARE`, then driver share. No execution lock.
+- Expected locks: no `FOR SHARE` on `transport.transport_executions` in this transaction.
+- Expected SQL result: rollback with `REAUTHORIZATION_REQUIRED`.
+- Decision state: stays `ISSUED`.
+- Binding state: no insert.
+- Oracle: PASS when the function does not lock the execution after the shipment. FAIL when it locks the execution to complete the check. Not executed.
+
+## 41. T41 — assignment change while consume waits
+
+- Setup: session A has updated `transport.shipments.driver_id` and not committed. Session B is consume for the old driver.
+- Roles: the shipment updater and the assignment reader.
+- Statement order: A holds the shipment row. B reaches `FOR SHARE` on that shipment and waits. A commits.
+- Expected locks: B's share starts after A's commit.
+- Expected SQL result: B reads the new driver and does not consume.
+- Decision state: stays `ISSUED`.
+- Binding state: no insert.
+- Oracle: PASS when the pre-wait driver is not written into a binding. FAIL when B consumes the driver it saw before the wait. Not executed.
+
+## 42. T42 — insufficient SELECT FOR UPDATE privilege
+
+- Setup: `shipment_assignment_reader` has the column `SELECT` list and no `UPDATE`. It runs `SELECT ... FOR UPDATE` on `transport.shipments`.
+- Roles: `shipment_assignment_reader`.
+- Statement order: the `FOR UPDATE` statement only.
+- Expected locks: none.
+- Expected SQL result: `42501`.
+- Decision state: unchanged.
+- Binding state: unchanged.
+- Oracle: PASS on `42501`. FAIL when `FOR UPDATE` succeeds without an `UPDATE` grant. Not executed. `ASSIGNMENT_LOCK_PRIVILEGE_TEST=REQUIRED_NOT_RUN`.
+
+## 43. T43 — minimal column SELECT for FOR SHARE
+
+- Setup: the same role runs `SELECT id FROM transport.shipments WHERE id = $1 FOR SHARE` using only the granted columns.
+- Roles: `shipment_assignment_reader`.
+- Statement order: `FOR SHARE`, then a second session `UPDATE transport.shipments SET driver_id = ...` on that row.
+- Expected locks: the share is held. The `UPDATE` waits.
+- Expected SQL result: the share succeeds. The `UPDATE` proceeds only after commit or rollback of the share.
+- Decision state: unchanged by the share alone.
+- Binding state: unchanged.
+- Oracle: PASS when `FOR SHARE` needs no `UPDATE` grant and still blocks the assignment `UPDATE`. FAIL when the share is rejected or the `UPDATE` commits during the share. Not executed.
+
+## 44. T44 — share against the command writer
+
+- Setup: the command session is inside `loadShipment` (`transport_execution_command_repository.go:1145-1147`), waiting or holding `FOR UPDATE` on the shipment. Consume holds `FOR SHARE` on the same shipment, after its execution share.
+- Roles: the command transaction and `shipment_assignment_reader`.
+- Statement order: both have already locked the same execution, execution first.
+- Expected locks: the shipment lock modes conflict. One waits. Neither then locks the execution in the other direction.
+- Expected SQL result: no `40P01` from this pair.
+- Decision state: unchanged by the wait.
+- Binding state: unchanged by the wait.
+- Oracle: PASS when the wait is on the shipment and the execution order matches. FAIL when the sessions deadlock. Not executed.
+
+## 45. T45 — trigger creation before membership revoke
+
+- Setup: the future migration has run `ALTER TABLE ... OWNER TO binding_authority_owner`.
+- Roles: `freight_migrations` and `binding_authority_owner`.
+- Statement order: `SET ROLE`, `CREATE FUNCTION`, `CREATE TRIGGER`, `RESET ROLE`, then `REVOKE`.
+- Expected locks: none. This is DDL.
+- Expected SQL result: `CREATE TRIGGER` as `freight_migrations` after the revoke fails. The same statement during `SET ROLE binding_authority_owner` is the designed success.
+- Decision state: the table is not visible to other sessions until the migration commits.
+- Binding state: none.
+- Oracle: PASS when the documented order creates the trigger before the revoke. FAIL when the contract revokes membership and then creates the trigger as the migration role. Not executed.
+
+## 46. T46 — function owner transfer
+
+- Setup: `CREATE FUNCTION transport.reject_binding_decision_reversal()` runs during `SET ROLE binding_authority_owner`.
+- Roles: `binding_authority_owner`, then `tracking_runtime`.
+- Statement order: create while set to the owner, revoke membership, then `tracking_runtime` attempts `CREATE OR REPLACE FUNCTION`.
+- Expected locks: none.
+- Expected SQL result: the function owner is `binding_authority_owner`. The runtime replace fails.
+- Decision state: unchanged.
+- Binding state: unchanged.
+- Oracle: PASS when the owner is the role that created the function and the runtime cannot replace the body. FAIL when `ALTER FUNCTION OWNER` is left until after the membership revoke on the non-superuser path. Not executed.
+
+## 47. T47 — migration role after revoke
+
+- Setup: the migration transaction has committed.
+- Roles: `freight_migrations`.
+- Statement order: `SET ROLE binding_authority_owner`, then `UPDATE` of `consumed_at`.
+- Expected locks: none acquired.
+- Expected SQL result: `SET ROLE` fails. The role is not the table owner.
+- Decision state: unchanged.
+- Binding state: unchanged.
+- Oracle: PASS when membership does not survive the commit. FAIL when `SET TRUE` remains. Not executed.
+
+## 48. T48 — SQLSTATE 40P01 rollback
+
+- Setup: a deadlock detector returns `40P01` to the consume session.
+- Roles: the consume function's session.
+- Statement order: the error aborts the transaction.
+- Expected locks: the shares, the decision lock, and any binding index lock from this transaction end with the rollback.
+- Expected SQL result: `40P01`. The caller receives unavailable.
+- Decision state: `ISSUED` if this transaction had not committed.
+- Binding state: no row from this transaction.
+- Oracle: PASS when the error is a rollback and not a consumed decision. FAIL when the handler commits the binding after `40P01`. Not executed.
+
+## 49. T49 — concurrent consumption versus assignment update
+
+- Setup: session A consumes an execution-scoped decision. Session B updates `shipment.driver_id` in another transaction.
+- Roles: consume function and the shipment updater.
+- Statement order: both use their own transactions. A locks execution, then shipment `FOR SHARE`. B's `UPDATE` needs the shipment row.
+- Expected locks: one waits for the other. They do not share a second connection's commit.
+- Expected SQL result: the session that acquires the shipment lock second sees the winner's commit. If B commits first, A does not consume. If A commits first, B's update waits until A's commit, and the old decision is already consumed.
+- Decision state: consumed only if A read the matching driver under its share.
+- Binding state: A's binding exists only if A committed. B does not insert a binding.
+- Oracle: PASS when the two commits stay independent and A does not consume a driver that changed before its share. FAIL when the documents call the two commits one atomic operation. Not executed.
+
 ## Execution record
 
 | Check | Result |
 | --- | --- |
-| Tests 1-37 | `NOT_RUN` |
+| Tests 1-49 | `NOT_RUN` |
 | Product code | unchanged |
 | Migrations | none |
 | Secrets | unchanged |
 | Decision table | not created |
 | Ownership transfer | not executed |
+| Assignment lock privilege test | `NOT_RUN` |

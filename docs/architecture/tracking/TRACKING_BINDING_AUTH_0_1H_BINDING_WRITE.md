@@ -30,19 +30,57 @@ Shipment-service and tracking-service do not share a transaction. Two commits, o
 
 Inside that single transaction the order is fixed. The first read of the decision does not lock it and is not the authority. It only learns `shipment_id` and `execution_id`.
 
-1. Lock `transport.shipments` for that `shipment_id` with `FOR UPDATE`.
-2. When `execution_id` is not null, lock `transport.transport_executions` for that id with `FOR UPDATE`.
-3. Lock the decision row with `FOR UPDATE`. If the locked row's `shipment_id` or `execution_id` is not the row already locked, the function rolls back. The unlocked read is not the authority.
-4. Reject unless the trusted presenter equals `caller_user_id`. A header, a JSON field, or a function argument is not that presenter.
-5. Reject unless the presented device equals `provider_device_id` stored on the decision. The presented value is compared. It is not the source of the device. The stored value is the resolved driver id as text. `PHYSICAL_DEVICE_AUTHENTICATION=NO`.
-6. Reject when `expires_at` has passed.
-7. If `use_status` is already `CONSUMED`, do not update the row. Compare the full identity in section 6. An identical tuple returns the stored binding. Any difference is a conflict.
-8. Re-read the assignment through the function in section 4, while the locks from steps 1 and 2 are still held.
-9. Insert the binding only when that locked re-read matches the decision. `ON CONFLICT DO NOTHING` is not used. A conflicting active device row whose shipment differs is a conflict, and the decision stays unconsumed.
-10. Update the decision only with `use_status = 'ISSUED'` and `consumed_at IS NULL`. Set `consumed_at`, `use_status = CONSUMED`, and `binding_id` to the inserted binding. If that update changes zero rows, the function raises and the transaction rolls back. Zero rows is not authorization.
-11. Commit.
+`COMMAND_WRITER_LOCK_ORDER=EXECUTION_THEN_SHIPMENT`
 
-The lock order is shipment, then execution, then decision. A second session that consumes the same decision waits on the shipment lock or the decision lock. It does not insert a second binding.
+`CONSUME_LOCK_ORDER=EXECUTION_THEN_SHIPMENT_THEN_DECISION_THEN_BINDING`
+
+`DRIVER_ONLY_LOCK_ORDER=SHIPMENT_THEN_DECISION_THEN_BINDING`
+
+`ASSIGNMENT_LOCK_MODE=FOR_SHARE`
+
+A command transaction locks `transport.transport_executions` with `FOR UPDATE` (`transport_execution_command_repository.go:70-75`) and only later locks `transport.shipments` with `FOR UPDATE` in `loadShipment` (`:1145-1147`). `confirmAction` calls that shipment lock at `:527`, after the execution lock is already held. The same execution-then-shipment order is used by the other `loadShipment` calls in that transaction (`:620`, `:671`, `:762`, `:814`). The R3 order, shipment before execution, is the inverse of that writer. It is withdrawn.
+
+Execution-scoped consume:
+
+1. `SELECT ... FROM transport.transport_executions WHERE id = execution_id FOR SHARE`.
+2. `SELECT ... FROM transport.shipments WHERE id = shipment_id AND deleted_at IS NULL FOR SHARE`.
+3. When the locked shipment has a `driver_id`, `SELECT ... FROM transport.drivers WHERE id = that driver FOR SHARE`.
+4. When the locked shipment has a `vehicle_id`, `SELECT ... FROM transport.vehicles WHERE id = that vehicle FOR SHARE`. This step stays after the driver lock. Activation locks the driver at `transport_execution_activation.go:308` and the vehicle at `:326`. A vehicle share does not turn a driver-only decision into a vehicle claim.
+5. Lock the decision row with `FOR UPDATE`. If its `shipment_id` or `execution_id` is not the row already locked, the function rolls back.
+6. Reject unless the trusted presenter equals `caller_user_id`. A header, a JSON field, or a function argument is not that presenter.
+7. Reject unless the presented device equals `provider_device_id` stored on the decision. The presented value is compared. It is not the source of the device. The stored value is the resolved driver id as text. `PHYSICAL_DEVICE_AUTHENTICATION=NO`.
+8. Reject when `expires_at` has passed.
+9. If `use_status` is already `CONSUMED`, do not update the row. Compare the full identity in section 6. An identical tuple returns the stored binding. Any difference is a conflict.
+10. Re-read the assignment through the function in section 4, while the locks above are still held. The re-read does not take a new lock in a different order.
+11. Insert into `tracking.shipment_tracking_binding` only when that locked re-read matches the decision. `ON CONFLICT DO NOTHING` is not used. A conflicting active device row whose shipment differs is a conflict, and the decision stays unconsumed.
+12. Update the decision only with `use_status = 'ISSUED'` and `consumed_at IS NULL`. Set `consumed_at`, `use_status = CONSUMED`, and `binding_id` to the inserted binding. If that update changes zero rows, the function raises and the transaction rolls back. Zero rows is not authorization.
+13. Commit.
+
+Driver-only consume, where the decision's `execution_id` is null, skips step 1. It does not look up an execution and lock it after the shipment. If the locked re-read finds an active execution link, the function rolls back with `REAUTHORIZATION_REQUIRED` and does not take the execution lock in that transaction. Taking it after the shipment lock would invert the command writer.
+
+Every lock above is held until `COMMIT` or `ROLLBACK` of this transaction. The assignment function does not commit. A second session that uses the same order waits. It does not insert a second binding.
+
+`SQLSTATE 40P01` is a deadlock. The consume transaction rolls back. The decision stays `ISSUED` when this transaction had not committed, no binding remains, and the caller receives unavailable. The deadlock is not a successful consume and not a replay. A lock timeout, `SQLSTATE 55P03`, is the same rollback. Locks from this transaction end with that rollback.
+
+`FOR SHARE` is the assignment lock. PostgreSQL 16 requires `SELECT` for `FOR SHARE`. `FOR UPDATE` additionally requires `UPDATE` on at least one column. The production assignment changes are `UPDATE` statements or `SELECT ... FOR UPDATE`. `FOR SHARE` conflicts with both, so an assignment change waits until this transaction ends. `FOR UPDATE` was not selected for these rows. It would need an `UPDATE` grant, and `FOR SHARE` already waits for the writers below. `MINIMUM_UPDATE_COLUMN=NONE_ON_ASSIGNMENT_TABLES`. The decision row is the exception: the consume function locks it with `FOR UPDATE` because it updates `consumed_at`, `use_status`, and `binding_id`.
+
+| Writer | Locks, in order | Compared with consume |
+| --- | --- | --- |
+| Driver command | Execution `FOR UPDATE` (`:70-75`), then shipment `FOR UPDATE` (`:1145-1147` from `:527`) | Same execution-then-shipment order. The second waiter blocks. No cycle. |
+| AssignVehicle | `UPDATE transport.shipments` only (`shipment_repository.go:473-475`) | No execution lock. Consume's shipment `FOR SHARE` waits on that `UPDATE`, or the `UPDATE` waits on the share. |
+| AssignDriver | `UPDATE transport.shipments` only (`shipment_repository.go:433-435`) | Same as AssignVehicle. |
+| Successor revision | Execution `FOR UPDATE` (`transport_execution_successor_repository.go:85-89`), then `UPDATE current_revision_id` (`:172-176`). No shipment lock. | Same first lock as consume. No shipment inversion. |
+| Disposition | Execution `FOR UPDATE` (`transport_execution_disposition_repository.go:487-494`). The shipment read at `:667` has no `FOR UPDATE`. | Execution first. No shipment-before-execution lock. |
+| Activation, when the relationship flag is on | Shipment `FOR UPDATE` (`transport_execution_activation.go:259-263`), then driver (`:308`) and vehicle (`:326`), then insert of a new execution | It does not `FOR UPDATE` an existing execution. Consume may wait on the shipment. Activation does not then wait on the execution consume already holds. |
+| Current binding insert | Unique index on `tracking.shipment_tracking_binding` (`tracking_repository.go:472-477`). No shipment or execution lock. | Consume inserts that table last. The current writer does not take a shipment or execution lock after the index. |
+| Owner epoch | No column and no production lock. The 0.1D design locks the execution row first. | A future epoch writer locks the execution before any shipment. None is installed. |
+| Tracking state | `tracking.execution_tracking_state` `FOR UPDATE` (`execution_tracking_repository.go:186-189`) | A different table. It does not lock `transport.shipments` or `transport.transport_executions`. |
+
+`ALL_RELEVANT_WRITERS_CHECKED=YES`
+
+`DEADLOCK_COUNTEREXAMPLE_RESOLVED=YES`
+
+The resolved counterexample is consume locking the shipment and then the execution while a command holds the execution and waits for the shipment. Driver-only consume does not lock the execution, so it does not form that cycle either. This is not a claim that every product writer is fenced. `ALL_WRITERS_FENCED=NO`.
 
 A crash before commit rolls the transaction back. The decision stays `ISSUED`, `consumed_at` stays null, and no binding remains. A crash after commit, with the response lost, leaves the decision `CONSUMED` and the binding stored. The retry is the replay in section 6. It does not consume the decision again and does not change `consumed_at`.
 
@@ -73,11 +111,88 @@ UPDATE transport.binding_authority_decisions
 
 That statement is design SQL. It is not executed. The `WHERE` clause protects this update. It does not stop another writer that has `UPDATE` from setting the row back to `ISSUED`. `CONSUMED_AT_RESET_DENIED_BY_DESIGN=TRIGGER_NOT_ABSOLUTE_AGAINST_OWNER`.
 
-The server restriction is a `BEFORE UPDATE` trigger on `transport.binding_authority_decisions`, for each row, created `ENABLE ALWAYS`. The trigger function is owned by `binding_authority_owner`. It compares `OLD` and `NEW` and raises on a forbidden transition. It allows `use_status` and `consumed_at` to change only when `OLD.use_status` is `ISSUED`, `OLD.consumed_at` is null, `NEW.use_status` is `CONSUMED`, and `NEW.consumed_at` is not null. It allows `binding_id` to change only from null to a value in that same transition. It rejects every change to `decision_id`, `caller_user_id`, `shipment_tenant_id`, `operating_tenant_id`, `shipment_id`, `driver_id`, `vehicle_id`, `vehicle_scope`, `execution_id`, `current_revision_id`, `shipment_version`, `revision_version`, `owner_epoch`, `relationship_required`, `provider_code`, `provider_device_id`, `issued_at`, and `expires_at`.
+The server restriction is a `BEFORE UPDATE` trigger on `transport.binding_authority_decisions`, for each row. The trigger function is owned by `binding_authority_owner`. It compares `OLD` and `NEW` and raises on a forbidden transition. It allows `use_status` and `consumed_at` to change only when `OLD.use_status` is `ISSUED`, `OLD.consumed_at` is null, `NEW.use_status` is `CONSUMED`, and `NEW.consumed_at` is not null. It allows `binding_id` to change only from null to a value in that same transition. It rejects every change to `decision_id`, `caller_user_id`, `shipment_tenant_id`, `operating_tenant_id`, `shipment_id`, `driver_id`, `vehicle_id`, `vehicle_scope`, `execution_id`, `current_revision_id`, `shipment_version`, `revision_version`, `owner_epoch`, `relationship_required`, `provider_code`, `provider_device_id`, `issued_at`, and `expires_at`.
 
-Install order in the future migration, after the ownership transfer and before any `EXECUTE` grant: create the trigger function, `ALTER FUNCTION ... OWNER TO binding_authority_owner`, create the trigger, then grant the column privileges in section 5. The trigger is not created in this change.
+`TRIGGER_INSTALL_ORDER=SET_ROLE_OWNER_THEN_FUNCTION_THEN_TRIGGER_THEN_REVOKE`
 
-`binding_authority_fence` is not the table owner, so it cannot `DISABLE TRIGGER`. A runtime role with no `UPDATE` cannot start the reverse update. The table owner can drop or disable the trigger, and a superuser can do both. `ENABLE ALWAYS` keeps the trigger active when `session_replication_role` is `replica`. It does not stop the owner or a superuser. `TABLE_OWNER_DECISION_BYPASS=OPEN`.
+`FUNCTION_OWNER_TRANSFER=CREATE_WHILE_SET_ROLE_BEFORE_REVOKE`
+
+`TEMPORARY_MEMBERSHIP_REVOKED=AFTER_TRIGGER_SAME_TRANSACTION`
+
+PostgreSQL 16 lets the table owner create a trigger on that table. After `OWNER TO`, `freight_migrations` is not the owner. It can `CREATE TRIGGER` only while it can still `SET ROLE` to `binding_authority_owner`. Revoking that membership first, and then creating the trigger as `freight_migrations`, is not a valid sequence. A superuser can create the trigger without the membership. This design does not rely on that shortcut for the non-superuser path.
+
+The statements below are one future migration transaction. They are not executed. Nothing is committed between the ownership transfer and the trigger.
+
+```sql
+SET ROLE binding_authority_owner;
+CREATE FUNCTION transport.reject_binding_decision_reversal()
+    RETURNS trigger
+    LANGUAGE plpgsql
+    SECURITY INVOKER
+    SET search_path = pg_catalog
+AS $fn$
+BEGIN
+    IF NEW.decision_id IS DISTINCT FROM OLD.decision_id
+       OR NEW.caller_user_id IS DISTINCT FROM OLD.caller_user_id
+       OR NEW.shipment_tenant_id IS DISTINCT FROM OLD.shipment_tenant_id
+       OR NEW.operating_tenant_id IS DISTINCT FROM OLD.operating_tenant_id
+       OR NEW.shipment_id IS DISTINCT FROM OLD.shipment_id
+       OR NEW.driver_id IS DISTINCT FROM OLD.driver_id
+       OR NEW.vehicle_id IS DISTINCT FROM OLD.vehicle_id
+       OR NEW.vehicle_scope IS DISTINCT FROM OLD.vehicle_scope
+       OR NEW.execution_id IS DISTINCT FROM OLD.execution_id
+       OR NEW.current_revision_id IS DISTINCT FROM OLD.current_revision_id
+       OR NEW.shipment_version IS DISTINCT FROM OLD.shipment_version
+       OR NEW.revision_version IS DISTINCT FROM OLD.revision_version
+       OR NEW.owner_epoch IS DISTINCT FROM OLD.owner_epoch
+       OR NEW.relationship_required IS DISTINCT FROM OLD.relationship_required
+       OR NEW.provider_code IS DISTINCT FROM OLD.provider_code
+       OR NEW.provider_device_id IS DISTINCT FROM OLD.provider_device_id
+       OR NEW.issued_at IS DISTINCT FROM OLD.issued_at
+       OR NEW.expires_at IS DISTINCT FROM OLD.expires_at
+    THEN
+        RAISE EXCEPTION 'binding decision identity is immutable' USING ERRCODE = '23514';
+    END IF;
+    IF OLD.use_status = 'CONSUMED' OR OLD.consumed_at IS NOT NULL THEN
+        IF NEW.use_status IS DISTINCT FROM 'CONSUMED'
+           OR NEW.consumed_at IS DISTINCT FROM OLD.consumed_at
+           OR NEW.binding_id IS DISTINCT FROM OLD.binding_id
+        THEN
+            RAISE EXCEPTION 'binding decision consumption is one way' USING ERRCODE = '23514';
+        END IF;
+        RETURN NEW;
+    END IF;
+    IF OLD.use_status = 'ISSUED' AND OLD.consumed_at IS NULL AND OLD.binding_id IS NULL
+       AND NEW.use_status = 'CONSUMED' AND NEW.consumed_at IS NOT NULL AND NEW.binding_id IS NOT NULL
+    THEN
+        RETURN NEW;
+    END IF;
+    IF NEW.use_status IS NOT DISTINCT FROM OLD.use_status
+       AND NEW.consumed_at IS NOT DISTINCT FROM OLD.consumed_at
+       AND NEW.binding_id IS NOT DISTINCT FROM OLD.binding_id
+    THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'binding decision consumption is one way' USING ERRCODE = '23514';
+END;
+$fn$;
+REVOKE ALL ON FUNCTION transport.reject_binding_decision_reversal() FROM PUBLIC;
+CREATE TRIGGER trg_binding_decision_one_way
+    BEFORE UPDATE ON transport.binding_authority_decisions
+    FOR EACH ROW
+    EXECUTE FUNCTION transport.reject_binding_decision_reversal();
+GRANT EXECUTE ON FUNCTION transport.reject_binding_decision_reversal() TO binding_authority_fence;
+RESET ROLE;
+REVOKE binding_authority_owner FROM freight_migrations;
+```
+
+The trigger is created enabled for a normal session. `ENABLE ALWAYS`, which also fires when `session_replication_role` is `replica`, is not part of this sequence. On PostgreSQL 16 that form is a superuser operation. The migration role is not a superuser, and this design does not pretend it can set that mode. A replica session can skip an ordinarily enabled trigger. The table owner can also disable the trigger. `TABLE_OWNER_DECISION_BYPASS=OPEN`.
+
+The function owner is `binding_authority_owner` because the function is created while that role is current. A later `ALTER FUNCTION ... OWNER TO` is not required on this path. Runtime roles receive no membership, so they cannot `SET ROLE` to the owner and cannot replace the function body. `freight_migrations` cannot either, once the `REVOKE` has run. Column grants in section 5 are issued in this same `SET ROLE` block, before `RESET ROLE`. Other sessions do not see the new table until this transaction commits, so there is no committed interval in which a runtime role can update the decision without the trigger.
+
+`MIGRATION_PRIVILEGES_VALID=SPECIFIED_FOR_EACH_DDL_NOT_EXECUTED`
+
+`binding_authority_fence` is not the table owner, so it cannot `DISABLE TRIGGER`. A runtime role with no `UPDATE` cannot start the reverse update. The table owner can drop or disable the trigger, and a superuser can do both. A replica session can skip the ordinarily enabled trigger. `TABLE_OWNER_DECISION_BYPASS=OPEN`.
 
 If the conditional update reports zero rows, the function raises. The binding insert in the same transaction rolls back with it. The caller does not receive a new binding, and the function does not treat the old row as a newly authorized write.
 
@@ -107,18 +222,97 @@ Two tenants may each have an active row for one device. That is not a duplicate.
 
 The consume function does not receive `SELECT` on `transport.shipments`, `transport.drivers`, `transport.transport_executions`, `transport.transport_execution_revisions`, `transport.transport_execution_active_shipments`, or `transport.transport_execution_carrier_relationship_pins`. A table-wide `SELECT` for `binding_authority_fence` would let a session that can become that role read every tenant. That grant is not in this design. `TENANT_ISOLATION_IMPLEMENTED=NO`.
 
-The assignment check is one proposed function, `transport.read_binding_assignment(uuid)`. The argument is the shipment id copied from the locked decision. It is not a tenant argument and it is not authorization. The function is `SECURITY DEFINER`, owned by a proposed `NOLOGIN` role `shipment_assignment_reader`. That role is not `shipment_runtime`, not `binding_authority_fence`, and not the owner of `transport.shipments`. `EXECUTE` is granted only to `binding_authority_fence`. It is not granted to `tracking_runtime`, `shipment_runtime`, `freight`, or `PUBLIC`. The function does not commit. Its locks are held by the calling transaction, which is the consume transaction. Calling it from another connection would be a second transaction, and this contract does not call that atomic.
+The assignment check is one proposed function, `transport.read_binding_assignment(uuid, uuid)`. The first argument is the decision's `execution_id`, and it is null for a driver-only decision. The second is the decision's `shipment_id`. Neither argument is a tenant, and neither is authorization. The function is `SECURITY DEFINER`, owned by a proposed `NOLOGIN` role `shipment_assignment_reader`. That role is not `shipment_runtime`, not `binding_authority_fence`, and not the owner of `transport.shipments`. `EXECUTE` is granted only to `binding_authority_fence`. It is not granted to `tracking_runtime`, `shipment_runtime`, `freight`, or `PUBLIC`. `REVOKE ALL ON FUNCTION transport.read_binding_assignment(uuid, uuid) FROM PUBLIC` is part of the same future migration. The function does not commit and contains no dynamic SQL. Its locks are held by the calling transaction. Calling it from another connection would be a second transaction, and this contract does not call that atomic.
 
-The function owner is granted `SELECT` only on these existing columns:
+`SECURITY_DEFINER_MODEL=FIXED_SEARCH_PATH_QUALIFIED_NAMES_NO_DYNAMIC_SQL`
+
+The function is created with `SET search_path = pg_catalog`. Every table reference is schema-qualified. The body locks in the section 1 order and then reads. When `execution_id` is null it does not lock `transport.transport_executions`. When `execution_id` is not null it locks that execution before the shipment, even if the active link has already gone. The driver share and the vehicle share come after the shipment share and before the function returns. The consume transaction then locks the decision. It does not take a lock that comes before a lock already taken.
+
+```sql
+CREATE FUNCTION transport.read_binding_assignment(p_execution_id uuid, p_shipment_id uuid)
+    RETURNS TABLE (
+        shipment_id uuid,
+        shipment_tenant_id uuid,
+        driver_id uuid,
+        vehicle_id uuid,
+        shipment_version integer,
+        shipment_deleted boolean,
+        driver_status text,
+        execution_id uuid,
+        operating_tenant_id uuid,
+        execution_driver_id uuid,
+        execution_vehicle_id uuid,
+        current_revision_id uuid,
+        revision_version integer
+    )
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = pg_catalog
+AS $fn$
+DECLARE
+    v_driver uuid;
+    v_vehicle uuid;
+BEGIN
+    IF p_execution_id IS NOT NULL THEN
+        PERFORM 1
+          FROM transport.transport_executions
+         WHERE id = p_execution_id
+           FOR SHARE;
+    END IF;
+    PERFORM 1
+      FROM transport.shipments
+     WHERE id = p_shipment_id
+       AND deleted_at IS NULL
+       FOR SHARE;
+    SELECT s.driver_id, s.vehicle_id
+      INTO v_driver, v_vehicle
+      FROM transport.shipments AS s
+     WHERE s.id = p_shipment_id
+       AND s.deleted_at IS NULL;
+    IF v_driver IS NOT NULL THEN
+        PERFORM 1 FROM transport.drivers WHERE id = v_driver FOR SHARE;
+    END IF;
+    IF v_vehicle IS NOT NULL THEN
+        PERFORM 1 FROM transport.vehicles WHERE id = v_vehicle FOR SHARE;
+    END IF;
+    RETURN QUERY
+    SELECT s.id, s.tenant_id, s.driver_id, s.vehicle_id, s.version, false,
+           d.status::text,
+           e.id, e.operating_tenant_id, e.driver_id, e.vehicle_id, e.current_revision_id,
+           r.version
+      FROM transport.shipments AS s
+      LEFT JOIN transport.drivers AS d
+        ON d.id = s.driver_id
+      LEFT JOIN transport.transport_execution_active_shipments AS link
+        ON link.shipment_tenant_id = s.tenant_id
+       AND link.shipment_id = s.id
+      LEFT JOIN transport.transport_executions AS e
+        ON e.id = link.execution_id
+      LEFT JOIN transport.transport_execution_revisions AS r
+        ON r.id = e.current_revision_id
+     WHERE s.id = p_shipment_id
+       AND s.deleted_at IS NULL;
+END;
+$fn$;
+```
+
+That body is a design. It is not created here. The driver and vehicle `FOR SHARE` steps are inside `transport.read_binding_assignment`, after the shipment share and before the decision lock. They are not placed before the execution share. No migration enables row-level security on these tables, so RLS is not this control. `TENANT_ISOLATION_IMPLEMENTED=NO`. The function still needs `USAGE` on schema `transport`. `000103:50` grants that usage to `freight_migrations`, `company_runtime`, and `shipment_runtime`. It does not grant it to `shipment_assignment_reader`. The future migration adds that usage. Without it the function cannot resolve the table names.
+
+The function owner is granted `SELECT` only on these existing columns, and no `UPDATE` on any of them:
 
 - `transport.shipments`: `id`, `tenant_id`, `driver_id`, `vehicle_id`, `version`, `deleted_at` (`000003_create_transport_tables.up.sql:159-184`)
 - `transport.drivers`: `id`, `tenant_id`, `status`, `deleted_at` (`000003:99-115`)
+- `transport.vehicles`: `id`, `tenant_id`, `status` (`000003:75-93`)
 - `transport.transport_execution_active_shipments`: `shipment_tenant_id`, `shipment_id`, `execution_id` (`000088_tms_transport_execution_foundation_v0_1a.up.sql:76-81`)
 - `transport.transport_executions`: `id`, `operating_tenant_id`, `driver_id`, `vehicle_id`, `current_revision_id` (`000088:10-16`)
 - `transport.transport_execution_revisions`: `id`, `version` (`000088:22-34`)
 - `transport.transport_execution_carrier_relationship_pins`: existence for (`execution_revision_id`, `shipment_tenant_id`, `shipment_id`) (`000103_tms_relationship_pins_security_foundation_v0_1.up.sql:128-142`)
 
-There is no `owner_epoch` column. The function does not select one and does not return a numeric epoch. The consume function keeps `owner_epoch=ABSENT` and does not grant an execution target. The function locks the shipment row, then the execution row when the active link has one, in the order in section 1. It returns the row's own tenant, driver, vehicle, version, link, revision, revision `version`, and operating tenant. The consume function compares those values with the decision. A caller-supplied tenant that matches is not the check.
+`FOR SHARE` uses the `SELECT` grant. It does not use an `UPDATE` grant. `tenant_id`, `driver_id`, `vehicle_id`, `version`, and `current_revision_id` stay without `UPDATE`. There is no `owner_epoch` column to grant. `ASSIGNMENT_LOCK_PRIVILEGES=COLUMN_SELECT_FOR_SHARE_TEST_REQUIRED`. `ASSIGNMENT_LOCK_PRIVILEGE_TEST=REQUIRED_NOT_RUN`. Before any implementation, an isolated PostgreSQL session must show that this role can `FOR SHARE` those rows, that the same role receives `42501` for `FOR UPDATE`, and that `AssignDriver`, `AssignVehicle`, and the command's shipment `FOR UPDATE` wait until the share is released. This document does not run that session. `freight_migrations` is not the owner of `transport.shipments`. The `GRANT SELECT` is issued by the table owner or a superuser, not assumed from the migration role.
+
+Only `shipment_assignment_reader` or a superuser can replace the function body. `tracking_runtime`, `shipment_runtime`, and `freight` have no membership in that role. After the temporary membership used to create the function is revoked, `freight_migrations` cannot replace it either.
+
+There is no `owner_epoch` column. The function does not select one and does not return a numeric epoch. The consume function keeps `owner_epoch=ABSENT` and does not grant an execution target. It returns the row's own tenant, driver, vehicle, version, link, revision, revision `version`, and operating tenant. The consume function compares those values with the decision. A caller-supplied tenant that matches is not the check.
 
 A missing `SELECT` or a missing `EXECUTE` fails the function closed. It does not fall back to the unscoped binding query.
 
@@ -160,7 +354,7 @@ Two concurrent consume calls take the locks in section 1. One commits. The other
 
 A lock on the decision row does not lock `transport.shipments` or `transport.transport_executions`. Under `READ COMMITTED`, a re-read without `FOR UPDATE` on those rows sees the latest commit at that statement and does not keep the assignment unchanged until the binding commit. Another transaction can change `driver_id`, `vehicle_id`, or `version` after that read and before the insert. The use-time recheck is a later read. It does not undo a location effect that already committed.
 
-The future condition is the lock order in section 1, held from the re-read through the binding insert and the consume update, in one transaction. That order matches shipment writers that lock the shipment before the execution: shipment, then execution, then decision. It is not installed. Two service transactions are still not one transaction. `DECISION_CONSUMPTION_GATE=CLOSED`.
+The future condition is the lock order in section 1, held from the share through the binding insert and the consume update, in one transaction. That order follows the command writer: execution, then shipment, then decision, then the binding insert. The R3 sentence that put the shipment lock before the execution lock is withdrawn. It is not installed. A shipment assignment that commits in another session is visible to this transaction only at the statement that acquires the share. After that share is held, the other session's `UPDATE` waits. Two service commits are still not one transaction. `DECISION_CONSUMPTION_GATE=CLOSED`.
 
 ## 8. What the revoke does not stop
 

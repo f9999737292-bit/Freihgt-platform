@@ -114,14 +114,15 @@ ALTER TABLE transport.binding_authority_decisions
     OWNER TO binding_authority_owner;
 ```
 
-The same future migration, still not executed, is the only place that grants membership, and it revokes that membership before it commits:
+The same future migration, still not executed, grants membership only long enough to transfer ownership and install the trigger. The trigger statements and the final `REVOKE` are in the binding-write contract. Revoking the membership before `CREATE TRIGGER` is not valid for `freight_migrations`, because it no longer owns the table and can no longer `SET ROLE` to the owner.
 
 ```sql
 GRANT USAGE, CREATE ON SCHEMA transport TO binding_authority_owner;
 GRANT binding_authority_owner TO freight_migrations WITH INHERIT FALSE, SET TRUE;
 ALTER TABLE transport.binding_authority_decisions
     OWNER TO binding_authority_owner;
-REVOKE binding_authority_owner FROM freight_migrations;
+-- SET ROLE, CREATE FUNCTION, CREATE TRIGGER, and column GRANTs happen here.
+-- REVOKE binding_authority_owner FROM freight_migrations comes after those statements.
 REVOKE CREATE ON SCHEMA transport FROM binding_authority_owner;
 ```
 
