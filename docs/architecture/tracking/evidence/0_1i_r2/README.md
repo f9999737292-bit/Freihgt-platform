@@ -79,3 +79,21 @@ Attempt 1 harness defects, recorded in that attempt's stderr:
 - Decision: `66666666-6666-6666-6666-666666666666`
 
 `SHA256SUMS` lists every other file in this directory.
+
+## 0.1I-R3 manifest and assertions
+
+`SHA256SUMS` is the SHA-256 of each file's Git blob bytes. It is not a hash of a checkout that converted line endings. The manifest does not list itself.
+
+`docs/architecture/tracking/evidence/.gitattributes` sets `-text` for this evidence tree only. Checkout then keeps the blob bytes on Windows and on Linux. Do not renormalize `runs/attempt-1/`, `runs/attempt-2/`, or `runs/attempt-3/`.
+
+Check the manifest against Git blobs from the repository root. Hash `git cat-file blob HEAD:docs/architecture/tracking/evidence/0_1i_r2/<path>` for every listed path. The path list must be exactly the files in that directory except `SHA256SUMS`. A worktree `sha256sum -c` matches those lines when the checkout has not rewritten line endings. `git check-attr text` on a nested evidence file reports `unspecified` after the `-text` attribute.
+
+Assertions compare one normalized field with the whole `exact=` value. `CHANGED` and `UNCHANGED` are different. An empty field, more than one data line, a non-zero `psql` status, and an unexpected `SQLSTATE` are failures. `SQLSTATE` is read from stderr. Stdout is not a substitute for it.
+
+`harness_self_tests/` holds that proof. It is not part of attempt 1, 2, or 3. Run it with:
+
+```text
+bash run_all.sh --self-test
+```
+
+A later PostgreSQL run writes to `runs/next` unless `OUT` is set. It does not replace attempt 3. The marker `exact=UPDATE 1` is the whole command tag. A prefix such as `UPDATE` is not the expected value.

@@ -21,7 +21,7 @@ SELECT id
 GRANT UPDATE (updated_at) ON transport.shipments TO assignment_lock_owner;
 -- @end
 
--- @test id=E04_for_share_after_update_grant role=lock_probe expect=OK contains=22222222-2222-2222-2222-222222222222
+-- @test id=E04_for_share_after_update_grant role=lock_probe expect=OK exact=22222222-2222-2222-2222-222222222222
 SET ROLE assignment_lock_owner;
 SELECT id
   FROM transport.shipments
@@ -35,14 +35,14 @@ UPDATE transport.shipments
  WHERE id = '22222222-2222-2222-2222-222222222222';
 -- @end
 
--- @test id=E04_update_updated_at role=lock_probe expect=OK contains=UPDATE 1
+-- @test id=E04_update_updated_at role=lock_probe expect=OK exact=UPDATE 1
 SET ROLE assignment_lock_owner;
 UPDATE transport.shipments
    SET updated_at = clock_timestamp()
  WHERE id = '22222222-2222-2222-2222-222222222222';
 -- @end
 
--- @admin id=E04_updated_at_changed expect=OK contains=CHANGED
+-- @admin id=E04_updated_at_changed expect=OK exact=CHANGED
 SELECT CASE
            WHEN updated_at > TIMESTAMPTZ '2000-01-02 00:00:00+00' THEN 'CHANGED'
            ELSE 'UNCHANGED'
@@ -62,7 +62,7 @@ UPDATE transport.shipments
 GRANT assignment_lock_owner TO inherit_probe WITH INHERIT TRUE, SET FALSE;
 -- @end
 
--- @test id=E08_inherit_true_updates_updated_at role=inherit_probe expect=OK contains=UPDATE
+-- @test id=E08_inherit_true_updates_updated_at role=inherit_probe expect=OK exact=UPDATE 1
 UPDATE transport.shipments
    SET updated_at = clock_timestamp()
  WHERE id = '22222222-2222-2222-2222-222222222222';
@@ -88,7 +88,7 @@ UPDATE transport.shipments
  WHERE id = '22222222-2222-2222-2222-222222222222';
 -- @end
 
--- @test id=E08_set_role_then_update role=set_probe expect=OK contains=UPDATE
+-- @test id=E08_set_role_then_update role=set_probe expect=OK exact=UPDATE 1
 SET ROLE assignment_lock_owner;
 UPDATE transport.shipments
    SET updated_at = clock_timestamp()
@@ -103,7 +103,7 @@ REVOKE assignment_lock_owner FROM set_probe;
 SET ROLE assignment_lock_owner;
 -- @end
 
--- @admin id=E08_membership_after_revoke expect=OK contains=NO_MEMBERSHIP
+-- @admin id=E08_membership_after_revoke expect=OK exact=NO_MEMBERSHIP
 SELECT CASE
            WHEN count(*) = 0 THEN 'NO_MEMBERSHIP'
            ELSE 'HAS_MEMBERSHIP'

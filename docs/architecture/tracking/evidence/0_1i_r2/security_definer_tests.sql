@@ -32,7 +32,7 @@ REVOKE ALL ON FUNCTION transport.read_binding_assignment(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION transport.read_binding_assignment(uuid) TO binding_authority_fence;
 -- @end
 
--- @test id=E06_definer_identity role=fence_probe expect=OK contains=assignment_lock_owner|fence_probe|pg_catalog|33333333-3333-3333-3333-333333333333
+-- @test id=E06_definer_identity role=fence_probe expect=OK exact=assignment_lock_owner|fence_probe|pg_catalog|33333333-3333-3333-3333-333333333333
 SET ROLE binding_authority_fence;
 SELECT fn_user || '|' || fn_session || '|' || fn_path || '|' || driver_id::text AS identity_row
   FROM transport.read_binding_assignment('22222222-2222-2222-2222-222222222222');

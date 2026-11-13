@@ -277,7 +277,7 @@ CI_RESULT=RECORDED_ON_THE_PULL_REQUEST_AFTER_THIS_COMMIT
 FINAL_VERDICT=READY_FOR_J_R4_REVIEW
 ```
 
-The R4 block above is the lock-order snapshot. Its tokens `ASSIGNMENT_FUNCTION_OWNER=shipment_assignment_reader`, `ASSIGNMENT_LOCK_PRIVILEGES=COLUMN_SELECT_FOR_SHARE_TEST_REQUIRED`, and `MINIMUM_UPDATE_COLUMN=NONE_ON_ASSIGNMENT_TABLES` are withdrawn. The 0.1I-R1 section is the privilege decision. The 0.1I-R2 section after it is the reproducible evidence for that decision. The snapshot after 0.1I-R2 is 0.1H-R2.
+The R4 block above is the lock-order snapshot. Its tokens `ASSIGNMENT_FUNCTION_OWNER=shipment_assignment_reader`, `ASSIGNMENT_LOCK_PRIVILEGES=COLUMN_SELECT_FOR_SHARE_TEST_REQUIRED`, and `MINIMUM_UPDATE_COLUMN=NONE_ON_ASSIGNMENT_TABLES` are withdrawn. The 0.1I-R1 section is the privilege decision. The 0.1I-R2 section after it is the reproducible evidence for that decision. The 0.1I-R3 section records the manifest and assertion remediation. The snapshot after 0.1I-R3 is 0.1H-R2.
 
 ## 0.1I-R1 — PostgreSQL 16.15 privilege evidence
 
@@ -393,6 +393,50 @@ IMPLEMENTATION_GATE=CLOSED
 CI_RUN=
 CI_RESULT=RECORDED_ON_THE_PULL_REQUEST_AFTER_THIS_COMMIT
 FINAL_VERDICT=READY_FOR_J_R2_REVIEW
+```
+
+## 0.1I-R3 — J-PGP-R2-001 and J-PGP-R2-002
+
+`J_PGP_R2_001=ADDRESSED`
+
+`J_PGP_R2_002=ADDRESSED`
+
+`SHA256SUMS` lists 344 paths. The previous 335 evidence paths are all still listed, and the manifest is not one of them. The nine added paths are under `harness_self_tests/`. Each digest is the SHA-256 of the Git blob (`git cat-file blob`), not the bytes of a checkout that changed line endings. All 344 digests matched those blobs. Five blobs changed: `README.md`, `run_all.sh`, `privilege_tests.sql`, `security_definer_tests.sql`, and `rollback_tests.sql`. The blobs for `runs/attempt-1/`, `runs/attempt-2/`, `runs/attempt-3/`, and `prior_scripts/` are the same objects as `c69365b6d3e8f21b009a8eeddb7046a4f351bfd8`.
+
+Eleven files in this Windows worktree still have CRLF from the earlier `core.autocrlf` checkout. Their worktree hashes differ from the Git blobs. The manifest uses the blob bytes. `docs/architecture/tracking/evidence/.gitattributes` sets `-text` for that evidence tree only. `git check-attr text` reports `unset` for `runs/attempt-3/E04_updated_at_changed.stdout` and for the new fixtures, and `unspecified` for this report. A second operating-system checkout was not run.
+
+`run_all.sh` compares one normalized field with the whole `exact=` value. `exact=UPDATE 1` is the whole command tag. The self-test in `harness_self_tests/` returned `self_test_failures=0`: `CHANGED` passed; `UNCHANGED`, empty stdout, two data lines, SQLSTATE `42P01` where `42501` was expected, and a non-zero psql status where OK was expected all failed. `grep -F CHANGED` matched `UNCHANGED` and was recorded as `WOULD_MATCH`. It is not a passing assertion. PostgreSQL was not started. Attempt 3 remains 37 pass and 0 fail.
+
+```text
+AGENT=C
+STAGE=TRACKING-BINDING-POSTGRES-PRIVILEGE-PROOF-0.1I-R3
+PR_NUMBER=379
+PREVIOUS_HEAD=c69365b6d3e8f21b009a8eeddb7046a4f351bfd8
+NEW_HEAD=
+REMOTE_HEAD=
+J_PGP_R2_001=ADDRESSED
+J_PGP_R2_002=ADDRESSED
+MANIFEST_ENTRIES=344
+GIT_BLOB_HASHES_VERIFIED=344_OF_344
+CROSS_PLATFORM_VERIFICATION=BLOB_BYTES_MATCH;TEXT_UNSET;LIVE_LINUX_CHECKOUT=NOT_RUN
+HISTORICAL_TRANSCRIPTS_UNCHANGED=YES
+EXACT_ASSERTION_IMPLEMENTED=YES
+SUBSTRING_FALSE_PASS_REJECTED=YES
+HARNESS_SELF_TESTS=PASS
+SQLSTATE_HANDLING=SEPARATE_FROM_STDOUT
+ORIGINAL_ATTEMPT_3=37_PASS_0_FAIL
+FULL_FUNCTION_TEST=NOT_RUN
+PRODUCT_CODE_CHANGED=NO
+PLATFORM_MIGRATIONS_CHANGED=NO
+STAGING_CHANGED=NO
+PRODUCTION_CHANGED=NO
+MERGE_PERFORMED=NO
+IMPLEMENTATION_GATE=CLOSED
+DECISION_CONSUMPTION_GATE=CLOSED
+BROKER_SAFETY_PROVEN=NO
+CI_RUN=
+CI_RESULT=RECORDED_ON_THE_PULL_REQUEST_AFTER_THIS_COMMIT
+FINAL_VERDICT=READY_FOR_J_R3_REVIEW
 ```
 
 The block below is the 0.1H-R2 snapshot.
