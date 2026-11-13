@@ -33,18 +33,105 @@ MERGE_PERFORMED=NO
 FINAL_VERDICT=READY_FOR_J_REVIEW
 ```
 
-`FINAL_HEAD`, `PR_NUMBER`, and `CI_RUN` are recorded on the pull request after this commit. They are not invented here.
+The block above is the R1 snapshot. R2 supersedes `EXECUTION_SCOPE_AUTHORIZATION`. The current execution-target rule is `BLOCKED_WHILE_OWNER_EPOCH_ABSENT`.
 
 ## Contract
 
-The checker is shipment-owned. It starts from the gateway user, resolves the driver (`driver_repository.go:82-86`), and applies `CanDriverAccessShipment` (`driver_operations.go:271-278`). A claimed vehicle must match the current shipment and execution vehicle columns. A missing vehicle is driver-only and does not authorize a vehicle lookup. Execution scope requires the active shipment link (`000088:76-81`) and the current revision. `owner_epoch` stays `ABSENT` until the column exists, and execution-target rights stay denied while it is absent. `authorizeCommand` remains the existing command check of operating tenant and driver (`transport_execution_command_repository.go:159-187`). It is not a vehicle check and it is not this contract's write path.
+The checker is shipment-owned. It starts from the gateway user, resolves the driver (`driver_repository.go:82-86`), and applies `CanDriverAccessShipment` (`driver_operations.go:271-278`). A claimed vehicle must match the current shipment and execution vehicle columns. A missing vehicle is driver-only and does not authorize a vehicle lookup. An execution target requires the active shipment link (`000088:76-81`), the current revision, the driver match, a claimed vehicle when one was claimed, the operating tenant from the execution row, a confirmed owner epoch, and a use-time recheck. `EXECUTION_TARGET_AUTHORIZATION=BLOCKED_WHILE_OWNER_EPOCH_ABSENT`. `authorizeCommand` remains the existing command check of operating tenant and driver (`transport_execution_command_repository.go:159-187`). It is not a vehicle check and it is not this contract's write path.
 
-The binding write accepts a `decision_id`, re-reads current rows, and is the only writer after `INSERT` is revoked from the runtime role. `ON CONFLICT DO NOTHING` is rejected. The table owner can still write. Historical rows are not promoted.
+The binding write is specified as one database transaction and is not granted. The presenter would have to be the gateway user, and that value cannot be a function argument. `BINDING_WRITE=BLOCKED_UNTIL_TRUSTED_PRESENTER`. `ON CONFLICT DO NOTHING` is rejected. The table owner can still write. Historical rows are not promoted.
 
 The shared token is not a named service. A dedicated pair credential can become a name only through the receiver's map, and tracking's allowlist is empty. Integration JWT stays an external principal. No secret is changed.
 
-Target reads re-check every device binding as its own scope. `LIMIT 1` is not a tenant choice. An unreadable authority source yields an empty set.
+Target reads re-check every device binding as its own scope. `LIMIT 1` is not a tenant choice. An unreadable authority source yields an empty set. A revision change or a shipment-version change requires a new decision. The old decision is not a version-independent location proof.
 
 ## Limits
 
-Tests 1-15 were not run. PR #378, #377, #376, #375, #374, and #357 were not edited. Issue #344 was not closed.
+Tests 1-25 were not run. PR #378, #377, #376, #375, #374, and #357 were not edited. Issue #344 was not closed.
+
+## R2 — J-TBH-001, J-TBH-002, J-TBH-003
+
+`J_TBH_001=ADDRESSED`
+
+`J_TBH_002=ADDRESSED`
+
+`J_TBH_003=ADDRESSED`
+
+The R1 token `EXECUTION_SCOPE_AUTHORIZATION=LINK_PLUS_CURRENT_REVISION_AND_DRIVER` is superseded. An execution target is denied while the owner epoch is unconfirmed. The location right is not kept from an old decision across a revision change or a shipment-version change.
+
+`DECISION_TABLE_SPECIFIED=transport.binding_authority_decisions`
+
+`DECISION_TABLE_OWNER=binding_authority_owner`
+
+`DECISION_GRANTS=OWNER_INSERT_VIA_ISSUE_FUNCTION_FENCE_UPDATE_CONSUMED_AT_ONLY`
+
+`PRESENTER_IDENTITY_SOURCE=GATEWAY_AUTH_CONTEXT_USER_ID`
+
+`PRESENTER_BOUND_TO_DECISION=REQUIRED_AND_UNAVAILABLE`
+
+`DEVICE_IDENTITY_SOURCE=FIXED_IN_DECISION_FROM_RESOLVED_DRIVER`
+
+`DEVICE_BOUND_TO_DECISION=YES`
+
+`ATOMIC_CONSUMPTION_MODEL=SINGLE_FUNCTION_TRANSACTION_SPECIFIED_WRITE_BLOCKED`
+
+`DECISION_REPLAY_POLICY=IDENTICAL_REPLAY_RETURNS_PRIOR_RESULT`
+
+`EXECUTION_TARGET_AUTHORIZATION=BLOCKED_WHILE_OWNER_EPOCH_ABSENT`
+
+`DRIVER_ONLY_REVISION_POLICY=REAUTHORIZATION_REQUIRED`
+
+`SHIPMENT_VERSION_POLICY=REAUTHORIZATION_REQUIRED`
+
+`TEST_MATRIX_EXTENDED=T16_T25_NOT_RUN`
+
+`BINDING_WRITE=BLOCKED_UNTIL_TRUSTED_PRESENTER`
+
+`TABLE_OWNER_DECISION_BYPASS=OPEN`
+
+`DIRECT_BINDING_INSERT_BYPASS=OPEN`
+
+`J_DML_001=NOT_CLOSED`
+
+The decision table, the roles, and the consume function are specified and not created. Tests 16-25 were not executed. Shipment-owned binding authority is not implemented and is not approved for implementation.
+
+```text
+AGENT=C
+STAGE=TRACKING-BINDING-AUTHORITY-DECISION-0.1H-R2
+PR_NUMBER=379
+PREVIOUS_HEAD=7596efbdf104594bb79c8b62b4e8d63e979cd3b6
+NEW_HEAD=
+REMOTE_HEAD=
+J_TBH_001=ADDRESSED
+J_TBH_002=ADDRESSED
+J_TBH_003=ADDRESSED
+DECISION_TABLE_SPECIFIED=transport.binding_authority_decisions
+DECISION_TABLE_OWNER=binding_authority_owner
+DECISION_GRANTS=OWNER_INSERT_VIA_ISSUE_FUNCTION_FENCE_UPDATE_CONSUMED_AT_ONLY
+PRESENTER_IDENTITY_SOURCE=GATEWAY_AUTH_CONTEXT_USER_ID
+PRESENTER_BOUND_TO_DECISION=REQUIRED_AND_UNAVAILABLE
+DEVICE_IDENTITY_SOURCE=FIXED_IN_DECISION_FROM_RESOLVED_DRIVER
+DEVICE_BOUND_TO_DECISION=YES
+ATOMIC_CONSUMPTION_MODEL=SINGLE_FUNCTION_TRANSACTION_SPECIFIED_WRITE_BLOCKED
+DECISION_REPLAY_POLICY=IDENTICAL_REPLAY_RETURNS_PRIOR_RESULT
+EXECUTION_TARGET_AUTHORIZATION=BLOCKED_WHILE_OWNER_EPOCH_ABSENT
+DRIVER_ONLY_REVISION_POLICY=REAUTHORIZATION_REQUIRED
+SHIPMENT_VERSION_POLICY=REAUTHORIZATION_REQUIRED
+TEST_MATRIX_EXTENDED=T16_T25_NOT_RUN
+DIRECT_BINDING_INSERT_BYPASS=OPEN
+J_DML_001=NOT_CLOSED
+TENANT_ISOLATION_IMPLEMENTED=NO
+ALL_WRITERS_FENCED=NO
+BROKER_SAFETY_PROVEN=NO
+IMPLEMENTATION_GATE=CLOSED
+DOCS_ONLY=YES
+PRODUCT_CODE_CHANGED=NO
+MIGRATIONS_CREATED=NO
+DB_ROLES_CHANGED=NO
+STAGING_CHANGED=NO
+PRODUCTION_CHANGED=NO
+MERGE_PERFORMED=NO
+CI_RUN=
+CI_RESULT=RECORDED_ON_THE_PULL_REQUEST_AFTER_THIS_COMMIT
+FINAL_VERDICT=READY_FOR_J_R2_REVIEW
+```

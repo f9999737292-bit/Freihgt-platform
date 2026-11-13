@@ -2,7 +2,9 @@
 
 `USE_TIME_RECHECK=CURRENT_ROWS_OR_EMPTY`
 
-A stored binding and a previously issued `decision_id` are not the authorization for `ListActiveTargetsForActors`. The read evaluates current rows. `BINDING_IS_AUTHORIZATION_PROOF=NO`.
+`EXECUTION_TARGET_AUTHORIZATION=BLOCKED_WHILE_OWNER_EPOCH_ABSENT`
+
+A stored binding and a previously issued `decision_id` are not the authorization for `ListActiveTargetsForActors`. The read evaluates current rows. `BINDING_IS_AUTHORIZATION_PROOF=NO`. An execution target from this read is denied while the owner epoch is unconfirmed, even when the driver, link, and revision match.
 
 ## 1. Input
 
@@ -17,7 +19,7 @@ For every active binding row of that device:
 1. Skip the row when it has no `decision_id`. Historical inserts are in this set.
 2. Re-run the authority checks against current shipment, driver, vehicle, active execution link, revision, and required pin. Do not trust the columns copied onto the binding.
 3. Keep the row only when the driver still matches and the vehicle rule matches. Driver-only does not match through `vehicle_id`.
-4. Keep an execution target only when the active link, `current_revision_id`, and execution driver match. A claimed vehicle must match the execution vehicle. `owner_epoch=ABSENT` yields no execution target.
+4. Keep an execution target only when all of these hold together: the active link, the current revision, the execution driver, a claimed vehicle when one was claimed, the operating tenant from the execution row, a confirmed `owner_epoch`, an unexpired decision, and this use-time recheck. `owner_epoch=ABSENT` denies the target. `EXECUTION_TARGET_AUTHORIZATION=BLOCKED_WHILE_OWNER_EPOCH_ABSENT`. A shipment-version or revision mismatch is `REAUTHORIZATION_REQUIRED` for the location right and `EXECUTION_SCOPE_DENIED` for the target. The old decision is not a version-independent location proof.
 5. Emit one scope per passing row. Scopes are not merged and not reduced to one tenant.
 
 A shared driver or a shared vehicle therefore remains a set. Two passing scopes are two results. Approach and ETA perform a side effect only when that set contains exactly one execution. Zero or several produce no mark and no ETA write. The count is a refusal to guess. It is not a substitute for the checks above.

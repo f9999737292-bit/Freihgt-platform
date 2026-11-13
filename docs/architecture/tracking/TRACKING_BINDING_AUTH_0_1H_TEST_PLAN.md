@@ -96,11 +96,92 @@ Errors contain no coordinates, driver id, vehicle id, or tenant id.
 - Input: a check, a binding write, and a target read.
 - Oracle: PASS when no decision is stored, no binding is inserted, and the target set is empty, with no call to the unscoped actor query. FAIL when headers or `status = 'active'` are the fallback. `USE_TIME_RECHECK=CURRENT_ROWS_OR_EMPTY`.
 
+## 16. T16 — forged presenter
+
+- Setup: a decision records `caller_user_id` U1 from the gateway auth context. User U2, or a SQL argument equal to U1, is presented.
+- Authority: `AuthContext.UserID` (`auth_context.go:14`). Not a header and not a function parameter.
+- Expected database state: no binding. `consumed_at` stays null.
+- Authorization result: `HARD_DENIAL`. `BINDING_WRITE=BLOCKED_UNTIL_TRUSTED_PRESENTER` because that presenter channel is not available to the consume function.
+- Oracle: PASS when U2 is refused and a function argument of U1 is not treated as U1. FAIL when `decision_id` alone consumes the row.
+
+## 17. T17 — forged device
+
+- Setup: the decision stores `provider_device_id` taken from the resolved driver. The caller presents a different device id.
+- Authority: `DEVICE_IDENTITY_SOURCE=FIXED_IN_DECISION_FROM_RESOLVED_DRIVER`.
+- Expected database state: no binding. The decision device is unchanged.
+- Authorization result: mismatch. No consume.
+- Oracle: PASS when the other device is refused. FAIL when the caller's device UUID replaces the decision value or is accepted as ownership.
+
+## 18. T18 — decision replay
+
+- Setup: one consume committed a binding for decision D, presenter U, device X, and shipment S.
+- Authority: the stored binding and the consumed decision row.
+- Expected database state: still one binding. `consumed_at` stays the first timestamp.
+- Authorization result: the identical tuple returns that binding. A second call that changes S, the vehicle, or the device is a conflict.
+- Oracle: PASS on the prior result for the identical tuple and on no change for a different tuple. FAIL when replay inserts a second binding, or when `ON CONFLICT DO NOTHING` is reported as authorization.
+
+## 19. T19 — concurrent decision consumption
+
+- Setup: two sessions present the same decision. One has the matching device. The other presents a different shipment id.
+- Authority: the row lock `FOR UPDATE` inside the one consume transaction.
+- Expected database state: one binding, for the shipment on the decision, or no binding if the first session also fails the re-read. The second session does not overwrite it.
+- Authorization result: the loser waits, then conflicts if its identifiers differ.
+- Oracle: PASS when only one commit exists and the different-identifier session changes nothing. FAIL when both insert, or when two service transactions are described as one atomic commit.
+
+## 20. T20 — unauthorized update of consumed_at
+
+- Setup: `tracking_runtime` and `shipment_runtime` attempt `UPDATE` of `consumed_at` and of `shipment_id` on `transport.binding_authority_decisions`.
+- Authority: column grants. Only `binding_authority_fence` may update `consumed_at` and `use_status`. Identity columns have no such grant. The table owner remains able to update them.
+- Expected database state: runtime updates do not commit. An owner update can commit.
+- Authorization result: runtime denied. Owner bypass open.
+- Oracle: PASS when the report marks runtime denied and `TABLE_OWNER_DECISION_BYPASS=OPEN`. FAIL when `NOLOGIN` is called a sufficient ban, or when the runtime update is described as already rejected by installed grants. The table does not exist yet.
+
+## 21. T21 — decision identifiers modified
+
+- Setup: a session that can act as `binding_authority_owner` changes `shipment_id` on an issued decision. A runtime role attempts the same change.
+- Authority: identity columns are written only by the issue function.
+- Expected database state: the runtime change does not commit. The owner change can commit and is a bypass, not a valid decision.
+- Authorization result: the altered decision no longer matches the shipment row, so consume refuses it. The owner path stays open.
+- Oracle: PASS when consume refuses the altered identifiers and the owner risk stays open. FAIL when a changed `shipment_id` still consumes, or when the runtime is said to be unable to change it because the role is `NOLOGIN`.
+
+## 22. T22 — revision change while driver unchanged
+
+- Setup: a decision records revision R1 and driver D. A successor sets `current_revision_id` to R2 (`transport_execution_successor_repository.go:172-176`). `driver_id` on the execution is still D.
+- Authority: the new revision. The unchanged driver column is not a version-independent proof.
+- Expected database state: no new location effect and no execution target from the R1 decision.
+- Authorization result: `REAUTHORIZATION_REQUIRED` for the location right. `EXECUTION_SCOPE_DENIED` for the target.
+- Oracle: PASS when R1 grants neither effect. FAIL when the location right survives because `driver_id` was not rewritten. `DRIVER_ONLY_REVISION_POLICY=REAUTHORIZATION_REQUIRED`.
+
+## 23. T23 — shipment version changed
+
+- Setup: the decision records `shipment.version` 3. A later shipment update commits version 4. The driver is unchanged.
+- Authority: `shipment.version` on the decision.
+- Expected database state: the old decision does not insert a binding and does not return a target.
+- Authorization result: `REAUTHORIZATION_REQUIRED` for location. `EXECUTION_SCOPE_DENIED` for the target.
+- Oracle: PASS when version 3 grants no new effect. FAIL when the driver match skips the version. `SHIPMENT_VERSION_POLICY=REAUTHORIZATION_REQUIRED`.
+
+## 24. T24 — owner epoch absent
+
+- Setup: a fresh decision has a current driver, an active shipment link, the current revision, and `owner_epoch=ABSENT`.
+- Authority: PR #375 epoch rule. The column is not in the migration head.
+- Expected database state: a driver-only location binding may be specified. No execution-target grant is stored or returned.
+- Authorization result: `DRIVER_ONLY_ALLOWED` for location after the fresh check. `EXECUTION_SCOPE_DENIED` for the target.
+- Oracle: PASS when the target is denied despite the link, revision, and driver. FAIL when those three alone return a target. `EXECUTION_TARGET_AUTHORIZATION=BLOCKED_WHILE_OWNER_EPOCH_ABSENT`.
+
+## 25. T25 — reassignment between issue and consume
+
+- Setup: a decision is issued for driver D1. Before consume, the shipment `driver_id` becomes D2.
+- Authority: the re-read inside the consume transaction.
+- Expected database state: no binding. The decision stays unconsumed.
+- Authorization result: `HARD_DENIAL` for D1. D2 has no decision yet.
+- Oracle: PASS when the issued decision does not bind D1 after the change. FAIL when consume uses the decision's copied driver and skips the current row.
+
 ## Execution record
 
 | Check | Result |
 | --- | --- |
-| Tests 1-15 | `NOT_RUN` |
+| Tests 1-25 | `NOT_RUN` |
 | Product code | unchanged |
 | Migrations | none |
 | Secrets | unchanged |
+| Decision table | not created |
