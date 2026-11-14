@@ -12,6 +12,8 @@ GRANT USAGE ON SCHEMA transport TO set_probe;
 GRANT USAGE ON SCHEMA tracking TO binding_authority_fence;
 
 GRANT SELECT (id) ON transport.shipments TO column_select_only;
+GRANT SELECT (shipment_id, execution_id)
+    ON transport.transport_execution_active_shipments TO column_select_only;
 
 GRANT SELECT (id, tenant_id, driver_id, vehicle_id, version, deleted_at)
     ON transport.shipments TO assignment_lock_owner;
@@ -27,7 +29,9 @@ GRANT SELECT (id, operating_tenant_id, driver_id, vehicle_id, current_revision_i
     ON transport.transport_executions TO assignment_lock_owner;
 GRANT UPDATE (updated_at) ON transport.transport_executions TO assignment_lock_owner;
 
-GRANT SELECT (shipment_tenant_id, shipment_id, execution_id)
+GRANT SELECT (shipment_tenant_id, shipment_id, execution_id, updated_at)
+    ON transport.transport_execution_active_shipments TO assignment_lock_owner;
+GRANT UPDATE (updated_at)
     ON transport.transport_execution_active_shipments TO assignment_lock_owner;
 GRANT SELECT (id, execution_id, operating_tenant_id, status, version)
     ON transport.transport_execution_revisions TO assignment_lock_owner;

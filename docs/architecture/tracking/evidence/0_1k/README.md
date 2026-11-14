@@ -2,7 +2,7 @@
 
 This directory proves four gaps in the 0.1J read function against a disposable PostgreSQL 16 database. It does not install the function in BINTRANS. Draft PR #380 at `0fb0c61348be121eb3e2d1941f83f865acd0faf9` is unchanged. The 0.1I and 0.1J evidence trees are not in this branch.
 
-Primary run: `runs/attempt-2`. `suite_counts.txt` records `passes=66 fails=0`. Attempt 1 is kept. Its four failures were command tags (`SET`, `UPDATE 1`, `DO`) left in the single-line reader. The PostgreSQL rows and SQLSTATEs in that attempt already matched.
+Primary run for 0.1K-R2: `runs/attempt-4`. `suite_counts.txt` records `passes=82 fails=0`. Attempt 1 stays `passes=62 fails=4`. Attempt 2 stays `passes=66 fails=0`. Attempt 3 also records `passes=82 fails=0`, and its `C03b_locks` query failed with `ORDER BY position 4 is not in select list`, so that snapshot is not the lock-row evidence. The activity line in attempt 3 already showed the writer on `Lock` / `transactionid`. Attempt 4 repeats the suite with that query fixed.
 
 ## Observed database
 
@@ -15,7 +15,8 @@ Primary run: `runs/attempt-2`. `suite_counts.txt` records `passes=66 fails=0`. A
 - Database: `binding_assignment_integrity_0_1k`
 - Login: `proof_admin`, trust authentication, no password stored
 - Database list: `binding_assignment_integrity_0_1k,postgres,template0,template1`
-- The container was removed after `runs/attempt-2` was copied out
+- Attempt 2 container id `b87e4f9c4b1e208750d7f3b85ef5e24a530f29dca825a2ff2e05967a8fcd7ec6` was removed after that run was copied out
+- Attempt 4 container id `434fe6b3b0a1844405455a7fecb05e0ceff42ef22546d1bb0c15ca3831c153fb`, same image, network, and database list. It was removed after `runs/attempt-4` was copied out
 
 `proof_admin` creates the schema and restores fixtures. The execution-identity and cross-tenant calls run as `fence_probe`. A superuser query is not the tenant-isolation result. `TENANT_ISOLATION_IMPLEMENTED` stays `NO`.
 
@@ -68,6 +69,37 @@ Concurrency, each in its own session:
 - A driver-only call sees the active execution and takes no execution `RowShareLock`. A concurrent `FOR UPDATE` of that execution succeeds.
 
 `FUTURE_MIGRATION.md` lists the column, trigger, function checks, and grant a later BINTRANS migration would need. This run does not apply it.
+
+## What attempt 4 showed
+
+The proof function takes `FOR SHARE` of the one `transport.transport_execution_active_shipments` row for the shipment tenant and shipment id. The saved lock snapshot while the reader was still in `pg_sleep` is:
+
+```text
+command_probe|transport_execution_active_shipments|ExclusiveLock|true
+command_probe|transport_execution_active_shipments|RowExclusiveLock|true
+fence_probe|transport_execution_active_shipments|AccessShareLock|true
+fence_probe|transport_execution_active_shipments|RowShareLock|true
+```
+
+At the same moment the activity snapshot is:
+
+```text
+command_probe|Lock|transactionid|active
+fence_probe|Timeout|PgSleep|active
+```
+
+The plain `UPDATE` in `concurrency_link_plain.sql` does not lock the execution or the shipment. With `lock_timeout` of 2 seconds it returns `55P03` (`while updating tuple`) and the link execution id stays `11111111-1111-1111-1111-111111111111`. The same statement without `lock_timeout` is observed in `wait_event_type=Lock` before the reader finishes. After the reader commits, that statement commits and the link execution id becomes `abababab-abab-abab-abab-abababababab`. The next read of the old execution id is `23514` with an empty data line. The next read of the new execution id returns `abababab-abab-abab-abab-abababababab|2|0a0a0a0a-0a0a-0a0a-0a0a-0a0a0a0a0a0a|1|cccccccc-cccc-cccc-cccc-cccccccccccc`.
+
+Column `SELECT` on the active-slot table without `UPDATE` cannot `FOR SHARE` (`42501`). Revoking `UPDATE (updated_at)` from `assignment_lock_owner` makes the function return `42501`. Restoring that grant returns the original row. The owner cannot `UPDATE execution_id` (`42501`) and can `UPDATE updated_at` (`CHANGED`). That direct `updated_at` update stays an open risk.
+
+A shipment `AssignDriver` and `AssignVehicle` each wait on `Lock` / `transactionid` and then return the new driver `77777777-7777-7777-7777-777777777777` or vehicle `88888888-8888-8888-8888-888888888888`. Revision successor, owner epoch, execution-before-shipment, shipment lock timeout, and rollback match the attempt 2 results. Historical, foreign, and missing executions still fail closed. A missing active link for an execution target is `P0002`.
+
+Two opposite orders deadlock. The reader is the `40P01` victim in both, and the link execution id stays the original value:
+
+- shipment `FOR UPDATE`, then execution `FOR UPDATE`, against the function's execution-then-shipment order
+- active-link `FOR UPDATE`, then execution `FOR UPDATE`, against the function's execution-then-link order
+
+The test lock order is execution, shipment, active link, driver, vehicle. It is not a change to the published 0.1H contract. A writer that takes the active link before the execution is not fenced; it deadlocks. Production writers are not part of this database.
 
 ## Test schema differences
 

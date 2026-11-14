@@ -1,0 +1,3 @@
+psql:stale_epoch_consume.sql:24: ERROR:  40001: stale owner epoch
+CONTEXT:  PL/pgSQL function inline_code_block line 12 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897

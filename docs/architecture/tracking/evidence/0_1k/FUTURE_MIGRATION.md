@@ -32,6 +32,14 @@ The isolated trigger rejects a smaller or null replacement of a non-null epoch. 
 - `transport_execution_revisions_one_active_idx` allows one `ACTIVE` revision per execution. A second `ACTIVE` row is `23505`.
 - `transport.reject_transport_execution_revision_mismatch` requires a non-null `current_revision_id` to name a revision of the same execution and operating tenant. It allows a null pointer. It does not require status `ACTIVE`.
 
+## Active-link row lock
+
+The 0.1K-R2 test body takes `FOR SHARE` on the one `transport.transport_execution_active_shipments` row for the shipment tenant and shipment id, after the execution and shipment locks and before the driver and vehicle locks. A plain `UPDATE` of `execution_id` waits on that row lock. The lock owner needs `UPDATE (updated_at)` on that table for `FOR SHARE`, and does not receive `UPDATE` on `execution_id`. That grant is part of the same open `updated_at` risk already recorded for the other locked tables. It is not a production privilege proof.
+
 ## Lock compatibility
 
-An active-slot update that does not lock `transport.transport_executions` is not ordered with the function's `FOR SHARE`. The isolated plain update committed while the read transaction was still in `pg_sleep`. A writer that changes the active slot and is meant to be ordered with consume has to lock the execution first. This note does not make that change in product code.
+Attempt 2 used the body that locks the execution and not the active-slot row. In that run the plain `UPDATE` of `execution_id` committed while the read was still in `pg_sleep`.
+
+The 0.1K-R2 body locks the active-slot row. The same `UPDATE`, with no prior execution or shipment lock, then either waits or returns `55P03` while that transaction is open. After the reader commits, the same `UPDATE` can commit, and the next read of the old execution id is `23514`.
+
+The test order is execution, shipment, active link, driver, vehicle. It is a test-contract hypothesis, not a change to the published 0.1H lock order. A writer that locks the shipment before the execution, or the active link before the execution, forms a cycle with this body. Attempt 4 records `40P01` for both of those orders, with the reader as the victim. Same-order writers waited and did not deadlock. This does not fence every production writer.

@@ -30,6 +30,25 @@ ROW="${EXEC}|4|55555555-5555-5555-5555-555555555555|7|cccccccc-cccc-cccc-cccc-cc
 SUCCESSOR="${EXEC}|4|12121212-1212-1212-1212-121212121212|8|cccccccc-cccc-cccc-cccc-cccccccccccc"
 EPOCH5="${EXEC}|5|55555555-5555-5555-5555-555555555555|7|cccccccc-cccc-cccc-cccc-cccccccccccc"
 TENANT_ROW="${EXEC}|5|55555555-5555-5555-5555-555555555555|7|dddddddd-dddd-dddd-dddd-dddddddddddd"
+OTHER_ROW="${OTHER}|2|0a0a0a0a-0a0a-0a0a-0a0a-0a0a0a0a0a0a|1|cccccccc-cccc-cccc-cccc-cccccccccccc"
+DRIVER_ROW='77777777-7777-7777-7777-777777777777|44444444-4444-4444-4444-444444444444|'"${EXEC}"
+VEHICLE_ROW='33333333-3333-3333-3333-333333333333|88888888-8888-8888-8888-888888888888|'"${EXEC}"
+
+classify_wait() {
+  case "$1" in
+    Lock) printf 'WAITING' ;;
+    *) printf 'NOT_WAITING' ;;
+  esac
+}
+if [ "$(classify_wait Lock)" != "WAITING" ] || [ "$(classify_wait Timeout)" != "NOT_WAITING" ] || [ "$(classify_wait PgSleep)" != "NOT_WAITING" ] || [ "$(classify_wait '')" != "NOT_WAITING" ]; then
+  printf 'harness wait classifier failed\n' >&2
+  exit 2
+fi
+unchanged_token=UNCHANGED
+if [ "$unchanged_token" = "CHANGED" ]; then
+  printf 'harness changed-token check failed\n' >&2
+  exit 2
+fi
 
 record() {
   local id="$1" expect="$2" actual="$3" verdict="$4"
@@ -273,6 +292,18 @@ expect_ok_line P12_inherit_updates inherit_probe OK \
 admin_c "REVOKE assignment_lock_owner FROM inherit_probe;" >/dev/null
 expect_state P12_inherit_after_revoke inherit_probe 42501 \
   "UPDATE transport.shipments SET updated_at = clock_timestamp() WHERE id = '${SHIP}';"
+expect_state P14_link_column_select_for_share column_probe 42501 \
+  "SELECT execution_id::text FROM transport.transport_execution_active_shipments WHERE shipment_id = '${SHIP}' FOR SHARE;"
+admin_c "REVOKE UPDATE (updated_at) ON transport.transport_execution_active_shipments FROM assignment_lock_owner;" >/dev/null
+expect_file_empty_state P15_link_share_without_update fence_probe 42501 identity_read.sql -v execution="$EXEC" -v shipment="$SHIP"
+admin_c "GRANT UPDATE (updated_at) ON transport.transport_execution_active_shipments TO assignment_lock_owner;" >/dev/null
+expect_file_line P15_link_share_restored fence_probe "$ROW" identity_read.sql -v execution="$EXEC" -v shipment="$SHIP"
+expect_state P16_owner_update_link_execution proof_admin 42501 \
+  "SET ROLE assignment_lock_owner; UPDATE transport.transport_execution_active_shipments SET execution_id = '${OTHER}' WHERE shipment_id = '${SHIP}';"
+expect_ok_line P16_owner_update_link_updated_at proof_admin OK \
+  "SET ROLE assignment_lock_owner; UPDATE transport.transport_execution_active_shipments SET updated_at = '2024-01-01+00' WHERE shipment_id = '${SHIP}'; SELECT 'OK';"
+expect_ok_line P16_link_updated_at_changed proof_admin CHANGED \
+  "SELECT CASE WHEN updated_at = '2024-01-01+00' THEN 'CHANGED' ELSE 'UNCHANGED' END FROM transport.transport_execution_active_shipments WHERE shipment_id = '${SHIP}';"
 expect_ok_line P13_no_membership proof_admin 0 \
   "SELECT count(*)::text FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.roleid JOIN pg_roles u ON u.oid = m.member WHERE r.rolname = 'assignment_lock_owner' AND u.rolname IN ('binding_authority_fence', 'tracking_runtime', 'fence_probe', 'runtime_probe');"
 reset_main privileges
@@ -289,6 +320,8 @@ expect_file_empty_state I04_historical_execution fence_probe 23514 identity_read
 no_leak I04_historical_execution "$HIST"
 no_leak I04_historical_execution "$EXEC"
 expect_file_empty_state I05_missing_execution fence_probe P0002 identity_read.sql -v execution="$MISSING" -v shipment="$SHIP"
+expect_file_empty_state I07_missing_active_link fence_probe P0002 identity_read.sql -v execution="$EXEC" -v shipment="$ONLY_SHIP"
+no_leak I07_missing_active_link "$EXEC"
 expect_file_line I06_baseline_returns_linked_execution fence_probe "$EXEC" baseline_read.sql -v execution="$HIST" -v shipment="$SHIP"
 no_leak I06_baseline_returns_linked_execution "$HIST"
 
@@ -364,19 +397,50 @@ fi
 no_leak C02_reader "$OTHER"
 reset_main c02
 
+link_id() {
+  admin_c "SELECT execution_id::text FROM transport.transport_execution_active_shipments WHERE shipment_tenant_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' AND shipment_id = '${SHIP}';" | tr -d '[:space:]'
+}
 psql_f C03_hold fence_probe concurrency_hold.sql >/dev/null &
 c03h=$!
-c03_held=$(wait_true "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename = 'fence_probe' AND state = 'active' AND query LIKE '%pg_sleep%') THEN 1 ELSE 0 END;")
+c03_held=$(wait_true "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_stat_activity a JOIN pg_locks l ON l.pid = a.pid JOIN pg_class c ON c.oid = l.relation WHERE a.usename = 'fence_probe' AND a.state = 'active' AND a.query LIKE '%pg_sleep%' AND c.relname = 'transport_execution_active_shipments' AND l.mode = 'RowShareLock' AND l.granted) THEN 1 ELSE 0 END;")
 c03_rc=$(psql_f C03_plain_link command_probe concurrency_link_plain.sql)
+c03_state=$(sqlstate_of "$OUT/C03_plain_link.stderr")
 c03_still=$(admin_c "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename = 'fence_probe' AND state = 'active' AND query LIKE '%pg_sleep%') THEN 1 ELSE 0 END;" | tr -d '[:space:]')
+c03_link=$(link_id)
 wait "$c03h" || true
-c03_hold_row=$(one_line "$OUT/C03_hold.stdout")
-if [ "$c03_held" = "1" ] && [ "$c03_rc" = "0" ] && [ "$c03_still" = "1" ] && [ "$c03_hold_row" = "$ROW" ]; then
-  record C03_incompatible_link_writer_not_fenced 'no-wait' "$c03_hold_row" PASS
+if [ "$c03_held" = "1" ] && [ "$c03_rc" != "0" ] && [ "$c03_state" = "55P03" ] && [ "$c03_still" = "1" ] && [ "$c03_link" = "$EXEC" ]; then
+  record C03_plain_update_lock_timeout 55P03 "$c03_state" PASS
 else
-  record C03_incompatible_link_writer_not_fenced 'no-wait' "held:${c03_held};rc:${c03_rc};still:${c03_still};row:${c03_hold_row}" FAIL
+  record C03_plain_update_lock_timeout 55P03 "held:${c03_held};rc:${c03_rc};state:${c03_state};still:${c03_still};link:${c03_link}" FAIL
 fi
-expect_file_empty_state C03_reread_after_plain_link fence_probe 23514 identity_read.sql -v execution="$EXEC" -v shipment="$SHIP"
+expect_ok_line C03_link_unchanged_while_reader_open proof_admin "$EXEC" \
+  "SELECT execution_id::text FROM transport.transport_execution_active_shipments WHERE shipment_id = '${SHIP}';"
+
+psql_f C03b_hold fence_probe concurrency_hold.sql >/dev/null &
+c03bh=$!
+c03b_held=$(wait_true "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_stat_activity a JOIN pg_locks l ON l.pid = a.pid JOIN pg_class c ON c.oid = l.relation WHERE a.usename = 'fence_probe' AND a.state = 'active' AND a.query LIKE '%pg_sleep%' AND c.relname = 'transport_execution_active_shipments' AND l.mode = 'RowShareLock' AND l.granted) THEN 1 ELSE 0 END;")
+psql_f C03b_writer command_probe concurrency_link_plain_wait.sql >/dev/null &
+c03bw=$!
+c03b_wait=$(wait_true "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename = 'command_probe' AND state = 'active' AND wait_event_type = 'Lock' AND query LIKE '%UPDATE transport.transport_execution_active_shipments%') THEN 1 ELSE 0 END;")
+admin_c "SELECT usename || '|' || coalesce(wait_event_type, 'none') || '|' || coalesce(wait_event, 'none') || '|' || state FROM pg_stat_activity WHERE usename IN ('fence_probe', 'command_probe') AND pid <> pg_backend_pid() ORDER BY usename;" \
+  >"$OUT/C03b_activity.stdout" 2>"$OUT/C03b_activity.stderr" || true
+admin_c "SELECT a.usename || '|' || c.relname || '|' || l.mode || '|' || l.granted::text FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid JOIN pg_class c ON c.oid = l.relation WHERE a.usename IN ('fence_probe', 'command_probe') AND c.relname = 'transport_execution_active_shipments' ORDER BY 1;" \
+  >"$OUT/C03b_locks.stdout" 2>"$OUT/C03b_locks.stderr" || true
+c03b_event=$(admin_c "SELECT coalesce(wait_event_type, 'none') FROM pg_stat_activity WHERE usename = 'command_probe' AND pid <> pg_backend_pid() AND query LIKE '%transport_execution_active_shipments%' ORDER BY pid LIMIT 1;" | tr -d '[:space:]')
+c03b_class=$(classify_wait "$c03b_event")
+c03b_link_during=$(link_id)
+wait "$c03bh" || true
+wait "$c03bw" || true
+c03b_writer_rc=$(tr -d '[:space:]' < "$OUT/C03b_writer.rc")
+c03b_link_after=$(link_id)
+if [ "$c03b_held" = "1" ] && [ "$c03b_wait" = "1" ] && [ "$c03b_class" = "WAITING" ] && [ "$c03b_link_during" = "$EXEC" ] && [ "$c03b_writer_rc" = "0" ] && [ "$c03b_link_after" = "$OTHER" ]; then
+  record C03_plain_update_waits_then_commits WAITING "$c03b_event" PASS
+else
+  record C03_plain_update_waits_then_commits WAITING "held:${c03b_held};wait:${c03b_wait};class:${c03b_class};event:${c03b_event};during:${c03b_link_during};rc:${c03b_writer_rc};after:${c03b_link_after}" FAIL
+fi
+expect_file_empty_state C03_reread_old_execution fence_probe 23514 identity_read.sql -v execution="$EXEC" -v shipment="$SHIP"
+no_leak C03_reread_old_execution "$OTHER"
+expect_file_line C03_reread_new_execution fence_probe "$OTHER_ROW" identity_read.sql -v execution="$OTHER" -v shipment="$SHIP"
 reset_main c03
 
 psql_f C04_epoch_writer command_probe concurrency_epoch_writer.sql >/dev/null &
@@ -434,6 +498,81 @@ if [ "$c06_held" = "1" ] && [ "$c06_rc" != "0" ] && [ "$c06_state" = "55P03" ] &
 else
   record C06_lock_timeout_rollback 55P03 "held:${c06_held};rc:${c06_rc};state:${c06_state};version:${c06_version}" FAIL
 fi
+
+psql_f C07_assign_driver writer_probe concurrency_assign_driver.sql >/dev/null &
+c07w=$!
+c07_held=$(wait_true "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename = 'writer_probe' AND state = 'active' AND query LIKE '%pg_sleep%') THEN 1 ELSE 0 END;")
+psql_f C07_reader fence_probe assignment_fields.sql -v execution="$EXEC" -v shipment="$SHIP" >/dev/null &
+c07r=$!
+c07_wait=$(wait_true "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename = 'fence_probe' AND pid <> pg_backend_pid() AND wait_event_type = 'Lock') THEN 1 ELSE 0 END;")
+admin_c "SELECT usename || '|' || coalesce(wait_event_type, 'none') || '|' || coalesce(wait_event, 'none') || '|' || state FROM pg_stat_activity WHERE usename IN ('writer_probe', 'fence_probe') AND pid <> pg_backend_pid();" \
+  >"$OUT/C07_activity.stdout" 2>"$OUT/C07_activity.stderr" || true
+wait "$c07w" || true
+wait "$c07r" || true
+c07_row=$(one_line "$OUT/C07_reader.stdout")
+c07_rc=$(tr -d '[:space:]' < "$OUT/C07_reader.rc")
+if [ "$c07_held" = "1" ] && [ "$c07_wait" = "1" ] && [ "$c07_rc" = "0" ] && [ "$c07_row" = "$DRIVER_ROW" ]; then
+  record C07_assign_driver_waits 'new-driver' "$c07_row" PASS
+else
+  record C07_assign_driver_waits 'new-driver' "held:${c07_held};wait:${c07_wait};rc:${c07_rc};row:${c07_row}" FAIL
+fi
+reset_main c07
+
+psql_f C08_assign_vehicle writer_probe concurrency_assign_vehicle.sql >/dev/null &
+c08w=$!
+c08_held=$(wait_true "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename = 'writer_probe' AND state = 'active' AND query LIKE '%pg_sleep%') THEN 1 ELSE 0 END;")
+psql_f C08_reader fence_probe assignment_fields.sql -v execution="$EXEC" -v shipment="$SHIP" >/dev/null &
+c08r=$!
+c08_wait=$(wait_true "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename = 'fence_probe' AND pid <> pg_backend_pid() AND wait_event_type = 'Lock') THEN 1 ELSE 0 END;")
+admin_c "SELECT usename || '|' || coalesce(wait_event_type, 'none') || '|' || coalesce(wait_event, 'none') || '|' || state FROM pg_stat_activity WHERE usename IN ('writer_probe', 'fence_probe') AND pid <> pg_backend_pid();" \
+  >"$OUT/C08_activity.stdout" 2>"$OUT/C08_activity.stderr" || true
+wait "$c08w" || true
+wait "$c08r" || true
+c08_row=$(one_line "$OUT/C08_reader.stdout")
+c08_rc=$(tr -d '[:space:]' < "$OUT/C08_reader.rc")
+if [ "$c08_held" = "1" ] && [ "$c08_wait" = "1" ] && [ "$c08_rc" = "0" ] && [ "$c08_row" = "$VEHICLE_ROW" ]; then
+  record C08_assign_vehicle_waits 'new-vehicle' "$c08_row" PASS
+else
+  record C08_assign_vehicle_waits 'new-vehicle' "held:${c08_held};wait:${c08_wait};rc:${c08_rc};row:${c08_row}" FAIL
+fi
+reset_main c08
+
+admin_c "ALTER ROLE command_probe SET deadlock_timeout = '8s';" >"$OUT/C09_alter_command.stdout" 2>"$OUT/C09_alter_command.stderr"
+admin_c "ALTER ROLE fence_probe SET deadlock_timeout = '6s';" >"$OUT/C09_alter_fence.stdout" 2>"$OUT/C09_alter_fence.stderr"
+psql_f C09_shipment_first command_probe concurrency_shipment_first.sql >/dev/null &
+c09w=$!
+c09_held=$(wait_true "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename = 'command_probe' AND state = 'active' AND query LIKE '%pg_sleep%') THEN 1 ELSE 0 END;")
+psql_f C09_reader fence_probe identity_read.sql -v execution="$EXEC" -v shipment="$SHIP" >/dev/null &
+c09r=$!
+wait "$c09w" || true
+wait "$c09r" || true
+c09_writer_state=$(sqlstate_of "$OUT/C09_shipment_first.stderr")
+c09_reader_state=$(sqlstate_of "$OUT/C09_reader.stderr")
+c09_link=$(link_id)
+if [ "$c09_held" = "1" ] && { [ "$c09_writer_state" = "40P01" ] || [ "$c09_reader_state" = "40P01" ]; } && [ "$c09_link" = "$EXEC" ]; then
+  record C09_shipment_first_deadlock 40P01 "writer:${c09_writer_state};reader:${c09_reader_state}" PASS
+else
+  record C09_shipment_first_deadlock 40P01 "held:${c09_held};writer:${c09_writer_state};reader:${c09_reader_state};link:${c09_link}" FAIL
+fi
+
+psql_f C10_link_first command_probe concurrency_link_first.sql >/dev/null &
+c10w=$!
+c10_held=$(wait_true "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename = 'command_probe' AND state = 'active' AND query LIKE '%pg_sleep%') THEN 1 ELSE 0 END;")
+psql_f C10_reader fence_probe identity_read.sql -v execution="$EXEC" -v shipment="$SHIP" >/dev/null &
+c10r=$!
+wait "$c10w" || true
+wait "$c10r" || true
+c10_writer_state=$(sqlstate_of "$OUT/C10_link_first.stderr")
+c10_reader_state=$(sqlstate_of "$OUT/C10_reader.stderr")
+c10_link=$(link_id)
+if [ "$c10_held" = "1" ] && { [ "$c10_writer_state" = "40P01" ] || [ "$c10_reader_state" = "40P01" ]; } && [ "$c10_link" = "$EXEC" ]; then
+  record C10_link_first_deadlock 40P01 "writer:${c10_writer_state};reader:${c10_reader_state}" PASS
+else
+  record C10_link_first_deadlock 40P01 "held:${c10_held};writer:${c10_writer_state};reader:${c10_reader_state};link:${c10_link}" FAIL
+fi
+admin_c "ALTER ROLE command_probe RESET deadlock_timeout;" >"$OUT/C10_reset_command.stdout" 2>"$OUT/C10_reset_command.stderr"
+admin_c "ALTER ROLE fence_probe RESET deadlock_timeout;" >"$OUT/C10_reset_fence.stdout" 2>"$OUT/C10_reset_fence.stderr"
+reset_main c10
 
 e06_rc=$(psql_f E06_tenant_change_with_epoch command_probe tenant_with_bump.sql)
 e06_state=$(sqlstate_of "$OUT/E06_tenant_change_with_epoch.stderr")

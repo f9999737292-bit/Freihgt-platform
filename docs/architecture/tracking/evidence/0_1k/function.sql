@@ -1,10 +1,13 @@
 -- Test bodies. Neither function is installed in a BINTRANS database.
 -- read_binding_assignment_0_1j is the 0.1J body: it locks the input execution
 -- and then returns whichever execution the active link names.
--- read_binding_assignment adds the 0.1K checks. It joins only the active-slot
--- table, requires the input execution to be that slot, requires a non-null
+-- read_binding_assignment adds the 0.1K checks. It locks only the active-slot
+-- row, requires the input execution to be that slot, requires a non-null
 -- bigint owner_epoch, and requires the current revision to be the ACTIVE row
 -- for that execution and operating tenant.
+-- Lock order inside this test body: execution, shipment, active link, driver,
+-- vehicle. The active-link FOR SHARE conflicts with an ordinary UPDATE of
+-- execution_id. It does not depend on the writer locking the execution first.
 
 SET ROLE assignment_lock_owner;
 
@@ -114,6 +117,7 @@ DECLARE
     v_epoch bigint;
     v_revision uuid;
     v_tenant uuid;
+    v_shipment_tenant uuid;
     v_links integer;
     v_active_revisions integer;
 BEGIN
@@ -136,11 +140,36 @@ BEGIN
         RAISE EXCEPTION 'missing shipment' USING ERRCODE = 'P0002';
     END IF;
 
-    SELECT s.driver_id, s.vehicle_id
-      INTO v_driver, v_vehicle
+    SELECT s.tenant_id, s.driver_id, s.vehicle_id
+      INTO v_shipment_tenant, v_driver, v_vehicle
       FROM transport.shipments AS s
      WHERE s.id = p_shipment_id
        AND s.deleted_at IS NULL;
+
+    SELECT count(*)::integer
+      INTO v_links
+      FROM transport.transport_execution_active_shipments AS link
+     WHERE link.shipment_id = p_shipment_id
+       AND link.shipment_tenant_id = v_shipment_tenant;
+    IF v_links > 1 THEN
+        RAISE EXCEPTION 'ambiguous active link' USING ERRCODE = '21000';
+    END IF;
+
+    SELECT link.execution_id
+      INTO v_link
+      FROM transport.transport_execution_active_shipments AS link
+     WHERE link.shipment_id = p_shipment_id
+       AND link.shipment_tenant_id = v_shipment_tenant
+       FOR SHARE;
+
+    IF p_execution_id IS NOT NULL THEN
+        IF NOT FOUND OR v_link IS NULL THEN
+            RAISE EXCEPTION 'no active link for execution target' USING ERRCODE = 'P0002';
+        END IF;
+        IF v_link IS DISTINCT FROM p_execution_id THEN
+            RAISE EXCEPTION 'input execution is not the active link' USING ERRCODE = '23514';
+        END IF;
+    END IF;
 
     IF v_driver IS NOT NULL THEN
         PERFORM 1
@@ -161,34 +190,7 @@ BEGIN
         END IF;
     END IF;
 
-    SELECT count(*)::integer
-      INTO v_links
-      FROM transport.transport_execution_active_shipments AS link
-      JOIN transport.shipments AS s
-        ON s.id = link.shipment_id
-       AND s.tenant_id = link.shipment_tenant_id
-     WHERE s.id = p_shipment_id
-       AND s.deleted_at IS NULL;
-    IF v_links > 1 THEN
-        RAISE EXCEPTION 'ambiguous active link' USING ERRCODE = '21000';
-    END IF;
-
-    SELECT link.execution_id
-      INTO v_link
-      FROM transport.transport_execution_active_shipments AS link
-      JOIN transport.shipments AS s
-        ON s.id = link.shipment_id
-       AND s.tenant_id = link.shipment_tenant_id
-     WHERE s.id = p_shipment_id
-       AND s.deleted_at IS NULL;
-
     IF p_execution_id IS NOT NULL THEN
-        IF v_link IS NULL THEN
-            RAISE EXCEPTION 'no active link for execution target' USING ERRCODE = 'P0002';
-        END IF;
-        IF v_link IS DISTINCT FROM p_execution_id THEN
-            RAISE EXCEPTION 'input execution is not the active link' USING ERRCODE = '23514';
-        END IF;
 
         SELECT e.owner_epoch, e.current_revision_id, e.operating_tenant_id
           INTO v_epoch, v_revision, v_tenant

@@ -58,6 +58,7 @@ CREATE TABLE transport.transport_execution_active_shipments (
     shipment_tenant_id uuid NOT NULL,
     shipment_id uuid NOT NULL,
     execution_id uuid NOT NULL,
+    updated_at timestamp with time zone NOT NULL DEFAULT '2000-01-01+00',
     PRIMARY KEY (shipment_tenant_id, shipment_id)
 );
 
@@ -89,10 +90,12 @@ CREATE TABLE transport.binding_authority_decisions (
 \ir epoch_guard.sql
 
 INSERT INTO transport.drivers (id, tenant_id, status, deleted_at, updated_at) VALUES
-    ('33333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ACTIVE', NULL, '2000-01-01+00');
+    ('33333333-3333-3333-3333-333333333333', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ACTIVE', NULL, '2000-01-01+00'),
+    ('77777777-7777-7777-7777-777777777777', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ACTIVE', NULL, '2000-01-01+00');
 
 INSERT INTO transport.vehicles (id, tenant_id, status, updated_at) VALUES
-    ('44444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ACTIVE', '2000-01-01+00');
+    ('44444444-4444-4444-4444-444444444444', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ACTIVE', '2000-01-01+00'),
+    ('88888888-8888-8888-8888-888888888888', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ACTIVE', '2000-01-01+00');
 
 INSERT INTO transport.shipments (id, tenant_id, driver_id, vehicle_id, version, deleted_at, updated_at) VALUES
     ('22222222-2222-2222-2222-222222222222', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', '44444444-4444-4444-4444-444444444444', 3, NULL, '2000-01-01+00'),

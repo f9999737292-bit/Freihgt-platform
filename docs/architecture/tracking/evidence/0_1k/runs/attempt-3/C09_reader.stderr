@@ -1,0 +1,12 @@
+psql:identity_read.sql:6: ERROR:  40P01: deadlock detected
+DETAIL:  Process 1127 waits for ShareLock on transaction 919; blocked by process 1123.
+Process 1123 waits for ShareLock on transaction 920; blocked by process 1127.
+HINT:  See server log for query details.
+CONTEXT:  while locking tuple (0,19) in relation "shipments"
+SQL statement "SELECT 1
+      FROM transport.shipments
+     WHERE id = p_shipment_id
+       AND deleted_at IS NULL
+       FOR SHARE"
+PL/pgSQL function transport.read_binding_assignment(uuid,uuid) line 23 at PERFORM
+LOCATION:  DeadLockReport, deadlock.c:1130

@@ -1,0 +1,2 @@
+ERROR:  42501: permission denied for table transport_execution_active_shipments
+LOCATION:  aclcheck_error, aclchk.c:2812
