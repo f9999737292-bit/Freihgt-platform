@@ -1,0 +1,5 @@
+Attempt 1 reached PostgreSQL 16.15 and recorded 62 passes and 4 failures.
+The matching execution row, the substituted-id denials, the typed epoch checks, and the concurrency waits matched the expected SQLSTATE or row.
+The 4 failures are harness defects. psql printed SET, UPDATE 1, and DO around the data line, and the single-line reader kept those tags.
+P10 still observed CHANGED for updated_at. The identity and concurrency results in this attempt are the PostgreSQL output.
+Attempt 2 ignores those command tags when it reads a single data line.
