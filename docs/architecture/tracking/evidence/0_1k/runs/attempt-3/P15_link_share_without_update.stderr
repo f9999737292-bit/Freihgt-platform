@@ -1,0 +1,8 @@
+psql:identity_read.sql:6: ERROR:  42501: permission denied for table transport_execution_active_shipments
+CONTEXT:  SQL statement "SELECT link.execution_id
+                        FROM transport.transport_execution_active_shipments AS link
+     WHERE link.shipment_id = p_shipment_id
+       AND link.shipment_tenant_id = v_shipment_tenant
+       FOR SHARE"
+PL/pgSQL function transport.read_binding_assignment(uuid,uuid) line 47 at SQL statement
+LOCATION:  aclcheck_error, aclchk.c:2812

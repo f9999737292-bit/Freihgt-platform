@@ -1,0 +1,3 @@
+command_probe|transport_executions|RowShareLock|true
+fence_probe|transport_executions|RowShareLock|true
+fence_probe|transport_executions|RowShareLock|true

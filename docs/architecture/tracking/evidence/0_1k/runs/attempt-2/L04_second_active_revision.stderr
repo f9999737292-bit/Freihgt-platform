@@ -1,0 +1,6 @@
+psql:second_active_revision.sql:10: ERROR:  23505: duplicate key value violates unique constraint "transport_execution_revisions_one_active_idx"
+DETAIL:  Key (execution_id)=(11111111-1111-1111-1111-111111111111) already exists.
+SCHEMA NAME:  transport
+TABLE NAME:  transport_execution_revisions
+CONSTRAINT NAME:  transport_execution_revisions_one_active_idx
+LOCATION:  _bt_check_unique, nbtinsert.c:666

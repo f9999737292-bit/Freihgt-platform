@@ -1,0 +1,3 @@
+psql:tenant_without_bump.sql:8: ERROR:  23514: operating tenant change requires a newer owner epoch
+CONTEXT:  PL/pgSQL function transport.reject_owner_epoch_regression() line 11 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897

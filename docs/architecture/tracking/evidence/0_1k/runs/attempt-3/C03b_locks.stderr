@@ -1,0 +1,3 @@
+ERROR:  ORDER BY position 4 is not in select list
+LINE 1: ...name = 'transport_execution_active_shipments' ORDER BY 1, 4;
+                                                                     ^
