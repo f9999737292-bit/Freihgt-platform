@@ -1,0 +1,13 @@
+psql:setup.sql:6: NOTICE:  00000: drop cascades to 9 other objects
+DETAIL:  drop cascades to table transport.transport_executions
+drop cascades to table transport.transport_execution_revisions
+drop cascades to table transport.shipments
+drop cascades to table transport.cargoes
+drop cascades to table transport.drivers
+drop cascades to table transport.vehicles
+drop cascades to table transport.transport_execution_stops
+drop cascades to table transport.transport_execution_active_shipments
+drop cascades to function transport.read_binding_line(uuid,uuid)
+LOCATION:  reportDependentObjects, dependency.c:1221
+psql:setup.sql:7: NOTICE:  00000: drop cascades to table company.carrier_relationship_heads
+LOCATION:  reportDependentObjects, dependency.c:1232
