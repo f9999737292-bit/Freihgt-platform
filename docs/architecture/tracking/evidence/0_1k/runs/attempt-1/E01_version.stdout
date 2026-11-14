@@ -1,0 +1,26 @@
+-- SELECT version();
+                                                       version                                                        
+----------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+-- SHOW server_version_num;
+ server_version_num 
+--------------------
+ 160015
+(1 row)
+
+psql (PostgreSQL) 16.15 (Debian 16.15-1.pgdg13+2)
+         current_database          
+-----------------------------------
+ binding_assignment_integrity_0_1k
+(1 row)
+
+              datname              
+-----------------------------------
+ binding_assignment_integrity_0_1k
+ postgres
+ template0
+ template1
+(4 rows)
+
