@@ -1,0 +1,8 @@
+-- Shared prefix for flag-on Project. Not executed alone.
+-- Advisory key matches company.authorize_carrier_relationship_activation
+-- at 000103_tms_relationship_pins_security_foundation_v0_1.up.sql:709.
+-- Head lock matches that function at line 770.
+-- Shipment and cargo FOR UPDATE match recheckActivationSubjects
+-- transport_execution_activation.go:259 and :279.
+-- Driver and vehicle FOR UPDATE match lockOperatingAssignment :301 and :319.
+-- The full authorizer body, authorization INSERT, and pin functions are omitted.

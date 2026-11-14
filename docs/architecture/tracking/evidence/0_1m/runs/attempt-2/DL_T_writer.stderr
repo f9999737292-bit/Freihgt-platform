@@ -1,0 +1,3 @@
+psql:writers/direct_link_timeout.sql:8: ERROR:  55P03: canceling statement due to lock timeout
+CONTEXT:  while updating tuple (0,1) in relation "transport_execution_active_shipments"
+LOCATION:  ProcessInterrupts, postgres.c:3387

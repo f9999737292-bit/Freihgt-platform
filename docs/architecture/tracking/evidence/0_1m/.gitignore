@@ -1,0 +1,2 @@
+# The repository ignores *.log. These session logs are evidence.
+!commands.log
