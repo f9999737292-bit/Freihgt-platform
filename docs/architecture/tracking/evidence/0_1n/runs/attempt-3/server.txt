@@ -1,0 +1,2 @@
+database=bintrans_01n_fk_keyshare
+server_version_num=160015

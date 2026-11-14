@@ -1,0 +1,6 @@
+psql:writers/df_commit.sql:15: ERROR:  23503: insert or update on table "transport_executions" violates foreign key constraint "transport_executions_current_revision_fk"
+DETAIL:  Key (current_revision_id)=(55555555-5555-5555-5555-555555555559) is not present in table "transport_execution_revisions".
+SCHEMA NAME:  transport
+TABLE NAME:  transport_executions
+CONSTRAINT NAME:  transport_executions_current_revision_fk
+LOCATION:  ri_ReportViolation, ri_triggers.c:2608

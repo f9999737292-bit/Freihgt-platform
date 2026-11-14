@@ -1,0 +1,4 @@
+writer_probe|relation|transport_executions_id_tenant_uq|RowShareLock|true
+writer_probe|relation|transport_executions_pkey|RowShareLock|true
+writer_probe|relation|transport_executions|RowShareLock|true
+writer_probe|transactionid||ExclusiveLock|true

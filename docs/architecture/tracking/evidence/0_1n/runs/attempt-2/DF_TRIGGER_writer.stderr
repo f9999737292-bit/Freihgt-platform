@@ -1,0 +1,3 @@
+psql:writers/df_trigger.sql:5: ERROR:  23514: CURRENT_REVISION_MISMATCH
+CONTEXT:  PL/pgSQL function transport.reject_transport_execution_revision_mismatch() line 13 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
