@@ -1,0 +1,66 @@
+setup role=proof_admin file=setup.sql 
+baseline_reset role=proof_admin file=fixture.sql 
+RI_R_reset role=proof_admin file=fixture.sql 
+RI_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=20
+RI_R_writer role=writer_probe file=writers/ri_insert.sql 
+RI_W_reset role=proof_admin file=fixture.sql 
+RI_W_writer role=writer_probe file=writers/ri_insert_hold.sql 
+RI_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+FKU_R_reset role=proof_admin file=fixture.sql 
+FKU_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=20
+FKU_R_writer role=writer_probe file=writers/fk_update.sql 
+FKU_W_reset role=proof_admin file=fixture.sql 
+FKU_W_writer role=writer_probe file=writers/fk_update_hold.sql 
+FKU_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+PKU_R_reset role=proof_admin file=fixture.sql 
+PKU_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=20
+PKU_R_writer role=writer_probe file=writers/pk_update.sql 
+PKU_W_reset role=proof_admin file=fixture.sql 
+PKU_W_writer role=writer_probe file=writers/pk_update_hold.sql 
+PKU_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+DEL_R_reset role=proof_admin file=fixture.sql 
+DEL_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=20
+DEL_R_writer role=writer_probe file=writers/delete_exec.sql 
+DEL_W_reset role=proof_admin file=fixture.sql 
+DEL_W_writer role=writer_probe file=writers/delete_exec_hold.sql 
+DEL_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+EX_R_reset role=proof_admin file=fixture.sql 
+EX_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=20
+EX_R_writer role=writer_probe file=writers/new_execution.sql 
+EX_W_reset role=proof_admin file=fixture.sql 
+EX_W_writer role=writer_probe file=writers/new_execution_hold.sql 
+EX_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+AL_R_reset role=proof_admin file=fixture.sql 
+AL_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=20
+AL_R_writer role=writer_probe file=writers/link_insert.sql 
+AL_W_reset role=proof_admin file=fixture.sql 
+AL_W_writer role=writer_probe file=writers/link_insert_hold.sql 
+AL_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+SU_R_reset role=proof_admin file=fixture.sql 
+SU_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=20
+SU_R_writer role=writer_probe file=writers/successor.sql 
+SU_W_reset role=proof_admin file=fixture.sql 
+SU_W_writer role=writer_probe file=writers/successor_hold.sql 
+SU_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+DF_TRIGGER_reset role=proof_admin file=fixture.sql 
+DF_TRIGGER_writer role=writer_probe file=writers/df_trigger.sql 
+DF_COMMIT_reset role=proof_admin file=fixture.sql 
+DF_COMMIT_writer role=writer_probe file=writers/df_commit.sql 
+DF_R_reset role=proof_admin file=fixture.sql 
+DF_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=20
+DF_R_writer role=writer_probe file=writers/df_ok.sql 
+DF_W_reset role=proof_admin file=fixture.sql 
+DF_W_writer role=writer_probe file=writers/df_ok_hold.sql 
+DF_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+RT_R_reset role=proof_admin file=fixture.sql 
+RT_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=20
+RT_R_writer role=writer_probe file=writers/return.sql 
+RT_W_reset role=proof_admin file=fixture.sql 
+RT_W_writer role=writer_probe file=writers/return_hold.sql 
+RT_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+RD_R_reset role=proof_admin file=fixture.sql 
+RD_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=20
+RD_R_writer role=writer_probe file=writers/redirect.sql 
+RD_W_reset role=proof_admin file=fixture.sql 
+RD_W_writer role=writer_probe file=writers/redirect_hold.sql 
+RD_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222

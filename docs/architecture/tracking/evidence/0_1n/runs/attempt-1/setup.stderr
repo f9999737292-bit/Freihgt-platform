@@ -1,0 +1,2 @@
+psql:setup.sql:6: NOTICE:  00000: schema "transport" does not exist, skipping
+LOCATION:  does_not_exist_skipping, dropcmds.c:526
