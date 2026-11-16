@@ -56,8 +56,25 @@ The signature is the presenter check. The ticket row remains the one-use, expiry
 
 Until that key and that function exist, presenter binding stays `NOT_PROVEN`. A header the writer sets, including `X-User-ID`, is not step 3.
 
-## Bearer risk after P2
+## Bearer risk after gateway authentication
 
-P2 removes the writer's ability to insert a ticket. It leaves this path: a connection that has `EXECUTE` on consume and a copy of someone else's `ticket_id` can consume it, because the caller role is shared. Closing that path is the assertion above, or an equivalent server-side check with the same property: the writer cannot manufacture a passing presenter proof.
+P2-B proves the issuance caller is the gateway. P2-A copies principal and tenant from the validated access token onto the ticket. Neither fact is checked again from a writer connection at consume time. A writer session that learns `ticket_id` still presents a bearer.
+
+These consume-time facts are different things:
+
+| Fact | What it binds |
+| --- | --- |
+| Writer database role | One shared login for every shipment-service connection. It is not a person. |
+| Gateway service identity | The issuance request only. It is gone before consume. |
+| Ticket scope | Operation, tenant, shipment, and execution. A different scope fails. |
+| Where `ticket_id` is stored | `PROPOSED` that the writer receives it only inside the user request that was authorized. A copy in another session is not prevented by that storage rule. |
+| Expiry and one use | A second committed consume fails. Rollback leaves the ticket `ISSUED`, so a stolen id can still be used once before expiry. |
+| Another writer session | The shared caller role cannot tell the sessions apart. |
+
+A one-time bearer ticket is not a cryptographic binding to a presenter. The signed presenter assertion above would be that binding. It is not built. Gateway authentication does not supply it.
+
+`PRESENTER_IDENTITY_BOUND=NOT_PROVEN`.
 
 `PRESENTER_BINDING_FEASIBLE=NOT_ON_SHARED_LOGIN`.
+
+If a future test claims presenter binding, a stolen ticket presented by another writer session must be denied. Until that check exists, the test is not claimed as passing.

@@ -2,7 +2,7 @@
 
 Status: not scheduled. Nothing in this file is applied. No migration number is reserved. `000103`, `000104`, and `000105` stay as they are. PostgreSQL tests for this list are `NOT_RUN`.
 
-P2 from `TRACKING_BINDING_0_1P_TRUSTED_ISSUER_CONTRACT.md` is the proposal. P1 is recorded there and is not the selected boundary.
+P2 from `TRACKING_BINDING_0_1P_TRUSTED_ISSUER_CONTRACT.md` is `PROPOSED_NOT_APPROVED`. The caller proof is a gateway-only signature. The principal and tenant come from the access token the issuer validates. `X-Internal-Service-Token` is not that proof. P1 is recorded there and is not the selected boundary. The shared `freight` login is still the compose pool, so the role split is not in force.
 
 ## Future privilege shape
 
@@ -45,16 +45,23 @@ Ownership of `transport.transport_execution_active_shipments` is `NOT_PROVEN` (`
 
 | Test | Required result |
 | --- | --- |
+| `X-Internal-Service-Token` and no gateway signature | Denied. No ticket |
+| Body principal or tenant different from the validated token | Denied |
+| Signature by a key that is not the gateway key | Denied |
+| Gateway signature, valid token, and a completed role check | One ticket |
+| Expired gateway key or expired access token | Denied |
+| Same signed request after a lost response | The committed ticket is returned. No second ticket |
+| Same `request_id` with a different operation | Denied |
 | Writer calls the issuer function | `42501` |
-| Writer `SET ROLE binding_authority_issuer` | denied |
-| Ticket for another tenant | consume denied, no write |
-| Ticket for another presenter | consume denied. A shared caller that only knows `ticket_id` does not pass |
-| Two consumes, one committed ticket | the second denied |
-| Expired ticket and revoked ticket | both denied |
-| Create ticket names E1, writer inserts E2 | denied |
-| Writer sets a session variable or SQL argument to another tenant | no ticket and no write |
+| Writer `SET ROLE binding_authority_issuer` | Denied |
+| Ticket for another tenant | Consume denied, no write |
+| Stolen `ticket_id` from another writer session | Denied only when presenter binding is claimed. It is not claimed. `PRESENTER_IDENTITY_BOUND=NOT_PROVEN` |
+| Two consumes, one committed ticket | The second denied |
+| Expired ticket and revoked ticket | Both denied |
+| Create ticket names E1, writer inserts E2 | Denied |
+| Writer sets a session variable or SQL argument to another tenant | No ticket and no write |
 | Writer `INSERT` or `UPDATE` on the active link, the ticket, or `owner_epoch` | `42501` for that non-owner, non-superuser login |
-| Consume error after the audit insert | no execution change, no link change, no audit row, ticket still `ISSUED` |
+| Consume error after the audit insert | No execution change, no link change, no audit row, ticket still `ISSUED` |
 
 A passing test on a superuser connection does not count. The session under test is the writer login.
 

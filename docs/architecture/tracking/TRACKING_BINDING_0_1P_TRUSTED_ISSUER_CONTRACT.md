@@ -1,6 +1,6 @@
 # Trusted issuer contract — 0.1P
 
-Status: `DESIGN_ONLY`. This does not approve B3, does not close `J-DML-001`, and does not install a role.
+Status: `PROPOSED_NOT_APPROVED`. This does not approve B3, does not close `J-DML-001`, and does not install a role. Properties marked `PROPOSED` are not implemented.
 
 The 0.1O ticket lifecycle stays as specified on draft PR #385: the issuer commits the ticket, and a later transaction consumes it. This document answers only how those two sessions become different database principals.
 
@@ -23,9 +23,9 @@ The check that works is a login the writer process cannot authenticate as. Only 
 
 `binding_authority_issuer` is a future `LOGIN` role: `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`, `NOREPLICATION`, `NOBYPASSRLS`.
 
-- Its password lives only with the issuer process.
-- The issuer process receives tenant, principal, and operation from the gateway after the gateway has verified the access token (`auth.go:43-66`). It does not accept those fields from shipment-service as proof.
-- It checks operation, shipment, execution, and scope against that verified identity.
+- Its password lives only with the issuer process. Shipment-service does not have it. `PROPOSED`.
+- Principal and tenant come from the access token the issuer validates itself. A tenant or principal in the request JSON is not that source. The shared `X-Internal-Service-Token` is not the caller proof. See the authentication section.
+- Operation, shipment, and execution are taken from the signed gateway request and checked against the principal. The operation check is `NOT_PROVEN` until the issuer can read the same role decision the gateway uses. A JSON operation field alone is not that decision.
 - For `CREATE_ACTIVE_LINK` and `CREATE_EXECUTION` it allocates the execution UUID before commit. A null execution id is not issued. This repeats the 0.1O-R4 rule and does not change it.
 - It inserts one `ISSUED` ticket and commits. The ticket table has no foreign key to executions, shipments, or links.
 - It does not `GRANT` its role to the writer and does not put its password in the writer configuration.
@@ -73,26 +73,114 @@ P1 is not the selected boundary. A process that can open the issuer login can is
 
 ### P2 — issuer process, writer login
 
-A separate issuer process is the only holder of the issuer login. The gateway calls it after JWT verification, over the existing internal-auth pattern (`integration_verify_handler.go:42-44` is the shape: the callee authorizes the caller before it trusts the body). Shipment-service keeps one writer pool and only consumes.
+`PROPOSED_NOT_APPROVED`. A separate issuer process is the only holder of the issuer database login. Shipment-service keeps one writer pool and only consumes. The call from the gateway is not the existing internal-token check.
+
+`packages/shared-go/internalauth/auth.go:16-25` accepts any caller that presents `X-Internal-Service-Token`. Gateway, shipment-service, and the other services that read `INTERNAL_SERVICE_TOKEN` can present it. `integration_verify_handler.go:42-44` is that same check before an API-key verification. It does not identify the gateway, and it does not validate a human access token. Ticket issuance rejects a request whose only caller proof is this shared token.
+
+#### P2-A — issuer validates the access token
+
+The issuer repeats the checks the gateway already performs, on the token bytes, not on a JSON copy of the claims.
+
+| Check | Today | Issuance rule |
+| --- | --- | --- |
+| Signature and `HS256` only | Implemented. `auth.go:90-91`, identity `jwt.go:48` and `:59-60` | Required. Another algorithm fails. |
+| Expiry | `exp` is set (`jwt.go:43`) and `token.Valid` rejects an expired token (`auth.go:100`) | Required. The issuer clock decides. |
+| Principal | `sub` (`jwt.go:42`) | Required. This is the only principal written onto the ticket. |
+| Tenant | `tenant_id` (`jwt.go:38`) | Required. A different tenant in the body fails. |
+| `iss` and `aud` | Not set in `jwt.go:41-45` | `PROPOSED`. `NOT_PROVEN` until tokens carry them and the issuer rejects a mismatch. |
+| Revocation | No `jti` and no denylist on this path | `NOT_PROVEN`. A token that still verifies is accepted until `exp`. |
+| Operation scope | Not a claim. Gateway asks identity for roles (`routeauth/guard.go:44-56`) | `NOT_PROVEN` at the issuer. The issuer must perform that role check with the verified token or refuse. |
+
+P2-A does not prove the HTTP client is the gateway. The user holds the access token, and the gateway forwards `Authorization` (`routeauth/client.go:71-72`). Shipment-service can present that token.
+
+#### P2-B — the caller is the gateway
+
+`PROPOSED`. The issuer accepts an issuance request only when a gateway-only key signs it. Shipment-service and the other internal services do not hold that key. mTLS with a client certificate issued only to the gateway is an acceptable transport binding of the same fact. The signed body is still required, because a captured body can be sent again on a later connection.
+
+The signature covers the access token, the operation, the shipment, the execution scope, `request_id`, and the gateway key id. The issuer verifies the signature against the pinned gateway key, checks the key id is still allowed, and rejects every other key. A request signed by another service fails. A request that presents `X-Internal-Service-Token` and no gateway signature fails.
+
+The issuer has no route on the public gateway. It is reachable only from the gateway on the internal network. That absence of a route is `PROPOSED`; no issuer process exists to publish one today.
+
+Rotation is `PROPOSED`. A new gateway key id overlaps the previous id for one window. After that window the issuer rejects the old id. A revoked key fails closed.
+
+#### Selected combination
+
+P2 uses both. P2-B proves the caller is the gateway. P2-A proves the principal and the tenant. Neither one is deployed. The shared internal token is not a substitute for P2-B.
 
 | Question | Assessment |
 | --- | --- |
-| Forged tenant | The writer has no issuer login, no issuer `EXECUTE`, and no membership. A tenant in its SQL is not consulted. The issuer takes tenant from the gateway call, and that call is authenticated as the gateway. |
-| Bearer ticket | Still open until presenter binding in the companion document. Role split alone does not name the presenter. |
-| Atomic consume | Yes. The writer transaction locks the committed ticket, writes, audits, and sets `CONSUMED` in one commit. |
-| Gateway | Fits the current gateway. Auth stays at the gateway (`auth.go:29-66`). The gateway gains one issuer call. Shipment-service does not become the identity source. |
-| Pools | Issuer pool and writer pool are in different processes. They do not share connections. Writer pool size stays the current default of 25 until measured (`pool_config.go:20`). |
-| Go | New issuer process, a gateway client, and writer calls that use consume functions instead of direct binding DML. The role and function change is smaller than moving every writer. |
-| Migrations | Later, and only after the issuer login exists. Do not edit `000103`, `000104`, or `000105`. Do not allocate the next number in this document. |
-| Rollback | Stop routing new issues to the issuer and leave issued tickets to expire. Restoring the `freight` DSN returns the open login. It is not a safe default. |
-| Privileged bypass | Superuser, table owner, and any session that still connects as `freight` while `freight` owns the tables or is superuser. `session_replication_role = replica` can skip a normal trigger. The trigger is not this boundary. |
+| Forged tenant | The ticket tenant is the `tenant_id` claim from the token the issuer validated. A body tenant, a header, or a SQL argument that differs is denied. The writer login cannot insert the ticket. |
+| Bearer ticket | Open. Gateway authentication does not identify the later consume session. See the presenter document. |
+| Atomic consume | The writer transaction locks the committed ticket, writes, audits, and sets `CONSUMED` in one commit. |
+| Gateway | The gateway still validates the user token (`auth.go:29-66`). It then signs the issuance request with its own key. It does not send `X-Internal-Service-Token` as that proof. |
+| Pools | Issuer pool and writer pool are in different processes. Writer pool size stays the current default of 25 until measured (`pool_config.go:20`). |
+| Go | New issuer process, gateway signer, and writer consume calls. No number is reserved for the migration. |
+| Migrations | Later, after the issuer login exists. Do not edit `000103`, `000104`, or `000105`. |
+| Rollback | Stop signing new requests. Issued tickets expire or are revoked. Restoring the `freight` DSN returns the open login. |
+| Privileged bypass | Superuser, table owner, and a session that still connects as `freight` while that login owns the tables or is superuser. The shared login is still the compose pool. Isolation is not in force. |
 
-P2 is the proposal. It is not installed. `DB_ROLE_SEPARATION_FEASIBLE=DESIGN_ONLY`.
+`DB_ROLE_SEPARATION_FEASIBLE=DESIGN_ONLY`. `P2_DB_ROLE_SEPARATION=DESIGNED_NOT_IMPLEMENTED`. `SHARED_FREIGHT_LOGIN=OPEN`.
+
+## Issuance request and replay
+
+`PROPOSED`. The issuer does not trust a timestamp supplied only by the caller.
+
+The signed payload contains:
+
+- `request_id`, unique for one authorization
+- the gateway key id
+- the access token
+- operation, tenant claim, shipment, and execution scope
+- `signed_at` and a short signature expiry
+
+The issuer checks the signature expiry against its own clock. A stale signature fails even when `request_id` is new. The access-token `exp` is a second, independent check.
+
+In the same transaction as the ticket insert, the issuer inserts `request_id` with the payload hash. The unique constraint makes the check atomic.
+
+| Arrival | Result |
+| --- | --- |
+| New `request_id`, valid signature, valid token, role check passes | One ticket, commit, return `ticket_id` |
+| Same `request_id` and the same payload hash, ticket already committed | Return that ticket. No second insert. This is the retry after a lost response |
+| Same `request_id` and a different operation, tenant, shipment, or execution | Denied. The old ticket is not a grant for the new scope |
+| Signature expired, token expired, unknown key, or shared internal token only | Denied. No ticket |
+| Role check cannot be completed | Denied. `NOT_PROVEN` until that check exists |
+
+A retry is idempotent only for the identical signed request. A new operation is a new `request_id` and a new authorization. Replaying the same request does not mint a second authority.
+
+## Who decides
+
+| Step | Who | Evidence |
+| --- | --- | --- |
+| User token | Gateway, then the issuer again | `auth.go:43-66`. Issuer revalidation is `PROPOSED` |
+| Tenant membership | The `tenant_id` claim in that token | `jwt.go:38`. The issuer ignores a substituted body tenant |
+| Operation | Gateway role policy today | `routeauth/guard.go:44-56`. Issuer operation check is `NOT_PROVEN` |
+| Stored result | The committed ticket row | `PROPOSED`. It stores the validated principal, tenant, operation, and scope |
+| Trusted claims versus JSON | Claims are read from the validated token. JSON that disagrees fails | `PROPOSED` |
+| Later consume | The ticket fields, not a new tenant argument | Presenter binding stays `NOT_PROVEN` |
+
+## Failure
+
+Each row fails closed when the authority is missing.
+
+| Event | Result |
+| --- | --- |
+| Issuer unavailable | The gateway returns failure. No ticket and no binding write |
+| Gateway unavailable | Nothing is signed. The issuer inserts nothing |
+| Expired or revoked gateway key | Denied |
+| Replay of a different scope | Denied |
+| Forged tenant in the body | Denied. The token claim is the tenant |
+| Writer process compromised | It can use its own login. It cannot sign an issuance, cannot `SET ROLE` to the issuer, and cannot `EXECUTE` the issuer. A stolen `ticket_id` is still the presenter gap |
+| Issuer process compromised | It can insert tickets for identities it can validate. Recovery is to revoke its login and the gateway key. Tickets already committed stay until expiry or revocation |
+| Issue commits, response is lost | The same signed request returns the committed ticket and does not insert another |
+| Consume rolls back | The ticket stays `ISSUED`. The write and the audit row are gone |
+| Two consumes | The ticket lock admits one commit. The other sees `CONSUMED` or waits and then fails |
 
 ## What P2 does not claim
 
-- The designed issuer is not a boundary that already runs.
-- Sharing the `freight` password with a second process and naming that process "issuer" does not split the principal.
-- `ticket_id` does not prove the presenter. See the presenter document.
+- The gateway signature, the issuer revalidation, and the request-id store are `PROPOSED`. They are not running.
+- `X-Internal-Service-Token` is not gateway authentication.
+- Sharing the `freight` password with a second process and naming that process "issuer" does not split the principal. Compose still uses that login.
+- `iss`, `aud`, token revocation, and the issuer's operation check are `NOT_PROVEN`.
+- `ticket_id` does not prove the presenter. A one-time bearer ticket is not a cryptographic binding to a consume session.
 - Pin propagation stays `NOT_PROVEN`.
 - Direct DML by the current login stays open. `J-DML-001` stays open.

@@ -77,6 +77,18 @@ When auth is enabled, route policy reads that context, not the raw header (`rout
 
 Shipment-service detail reads take `X-Tenant-ID` as the tenant (`handlers/tenant.go:13-16`). `RequireJWT` verifies a bearer and does not read those headers (`userauth/jwt.go:17-19`). Neither result is sent to PostgreSQL. A SQL function cannot see `AuthContext`.
 
+## Gateway JWT and the shared internal token
+
+The gateway validates a human access token before it builds `AuthContext`. `auth.go:88-102` accepts only `HS256`, checks the signature with the gateway secret, and requires `token.Valid`. Identity-service creates that token with `sub` as the user id, `tenant_id`, `iat`, and `exp`. It does not set `iss`, `aud`, or `jti` (`services/identity-service/internal/platform/security/jwt.go:37-45`). There is no revocation list on that path. Operation scope is not a claim. Role checks for shipment mutations are a separate identity call (`routeauth/guard.go:44-56`).
+
+A valid access token does not prove that the HTTP client is the gateway. The user holds the token. The gateway also forwards `Authorization` when it calls identity (`routeauth/client.go:71-72`). Any process that receives that token can present it.
+
+`X-Internal-Service-Token` is one shared secret. `packages/shared-go/internalauth/auth.go:9-25` compares the header to `Config.Token` and fails closed when the expected token is empty. The same `INTERNAL_SERVICE_TOKEN` setting is read by the gateway (`services/api-gateway/internal/config/config.go:217`), shipment-service (`services/shipment-service/internal/config/config.go:95`), and the other service configs that call `os.Getenv("INTERNAL_SERVICE_TOKEN")`. Tracking-service falls back to a development default (`services/tracking-service/internal/config/config.go:89`). That header is not a gateway identity. A request that presents only this token is not an issuance.
+
+One existing path already refuses the shared token. Analytics source reads require `ANALYTICS_SOURCE_CALLER_TOKEN` to be non-empty and different from `INTERNAL_SERVICE_TOKEN` (`services/shipment-service/internal/config/config.go:111-112`). The handler compares the presented header with that dedicated secret and still requires a caller-name header (`operations_analytics_source_handler.go:32-49`). The gateway has the matching rule for its own analytics caller (`services/api-gateway/internal/config/config.go:229-233`). That pair is a shared secret between two processes. It has no request expiry, no nonce, and no proof that the caller-name header was unforgeable. It is not the issuer credential. The caller-name header is client-supplied (`execution_projection_handler.go:16-17`).
+
+No issuer service and no public route to one exist in this tree. Putting an issuer behind the current internal-token middleware would accept every holder of `INTERNAL_SERVICE_TOKEN`.
+
 ## Designed roles that do not exist
 
 `binding_authority_issuer`, `binding_authority_caller`, and `binding_authority_owner` are not in `000103`, `000104`, or `000105`. Describing them here does not make them a boundary.
