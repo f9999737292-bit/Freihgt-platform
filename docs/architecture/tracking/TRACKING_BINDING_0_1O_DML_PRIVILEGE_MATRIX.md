@@ -73,7 +73,7 @@ This target is not applied. It is the privilege shape of the redesigned B3 contr
 | Execution `UPDATE` of `owner_epoch`, `operating_tenant_id`, `id`, `driver_id`, `vehicle_id` | absent | `owner_epoch` only, inside the fencing function | absent |
 | Fencing function `EXECUTE` | absent | owner, not a caller | granted |
 | Issuer function `EXECUTE` | absent | absent | absent |
-| Audit `INSERT` | absent | held, inside the same transaction as the change | absent |
+| Audit `INSERT` | absent | held, inside the same transaction as the change. The required field is `audit.ticket_id` | absent |
 
 A reader `FOR SHARE` on PostgreSQL 16 still needs `UPDATE` on at least one column of each locked table. That column is not `execution_id` and not `owner_epoch`. A grant on `updated_at` leaves a direct update of that column possible. The fencing function does not close that hole.
 
@@ -96,7 +96,7 @@ These product paths fail if `shipment_runtime` loses the listed privilege withou
 
 - `Project` needs a replacement before it loses `INSERT` on executions. The create function is that replacement and is also the only writer of `owner_epoch` on insert. Removing the table `INSERT` before the function exists stops `Project`. The function replaces `INSERT` on the active-link table for the same reason. Removing that `INSERT` before the function exists stops `Project`.
 
-The future denial tests, not run here, are the proof table in `TRACKING_BINDING_0_1O_WRITER_FENCING_CONTRACT.md`. They include a committed ticket consumed by a later transaction, a double consume, an expired or revoked ticket, another tenant or principal, a runtime `INSERT` of `owner_epoch = 5`, direct link `INSERT` and `UPDATE`, retarget against a command, and pin propagation.
+The future denial tests, not run here, are the proof table in `TRACKING_BINDING_0_1O_WRITER_FENCING_CONTRACT.md`. They include a committed ticket consumed by a later transaction, a double consume, an expired or revoked ticket, another tenant or principal, a runtime `INSERT` of `owner_epoch = 5`, direct link `INSERT` and `UPDATE`, retarget against a command, and pin propagation. They also include a `CREATE_ACTIVE_LINK` ticket fixed to execution E1, a null execution id, a writer-selected E2, an execution that already exists, the wrong shipment or tenant, a second consume after commit, rollback with the ticket left `ISSUED`, and a different execution id from the same top-level transaction. `audit.ticket_id` is the audit field. Presenting the ticket does not prove presenter identity.
 - Successor and command event emission need `UPDATE` of `current_revision_id`, `event_seq`, and `updated_at` on executions.
 - Successor needs `UPDATE` of revision `status`.
 - AssignDriver, AssignVehicle, status, accept, cancel, and command shipment transitions need `UPDATE` on shipments. Assignment also needs the execution-first function before a linked assignment can bump an epoch. The current statements do not bump one.

@@ -63,7 +63,7 @@ The ticket is one authorization, not a bearer token for an arbitrary write. Its 
 | `principal_id`, `tenant_id` | Taken from the checked identity, not from the writer argument. |
 | `operation` | One of `CREATE_EXECUTION`, `CREATE_ACTIVE_LINK`, `RETARGET`, `ASSIGN_DRIVER`, `ASSIGN_VEHICLE`, `ESTABLISH_EPOCH`. |
 | `shipment_id` | The shipment this ticket may name. |
-| `source_execution_id`, `destination_execution_id` | Set when the operation has those rows. Unused columns stay null. |
+| `source_execution_id`, `destination_execution_id` | Set when the operation has those rows. For `CREATE_EXECUTION` and `CREATE_ACTIVE_LINK`, the issuer allocates one execution UUID before the insert and stores it in `destination_execution_id`. That value is not null, and a create ticket with a null execution id is not issued. `source_execution_id` stays null. Unused columns on other operations stay null. The writer cannot replace the stored UUID. |
 | `expected_owner_epoch`, `expected_revision_id` | The values the writer must find under its locks. |
 | `issued_at`, `expires_at` | Lifetime. `clock_timestamp()` at or after `expires_at` fails. |
 | `status` | `ISSUED`, `CONSUMED`, `EXPIRED`, or `REVOKED`. |
@@ -71,9 +71,9 @@ The ticket is one authorization, not a bearer token for an arbitrary write. Its 
 
 Transaction A, issue, is a different session from the writer:
 
-1. The issuer checks the identity, the operation, and the shipment and execution scope.
-2. It inserts one row with status `ISSUED`.
-3. It commits. The ticket is durable before the writer starts. The ticket table has no foreign key to executions, shipments, or active links, so this insert does not take `FOR KEY SHARE` on those rows.
+1. The issuer checks the identity, the operation, and the shipment and execution scope. For `CREATE_EXECUTION` and `CREATE_ACTIVE_LINK` it allocates the execution UUID first and checks that UUID with the shipment, tenant, operation, and scope.
+2. It inserts one `ISSUED` row. A create row stores that UUID and is rejected when the execution id is null.
+3. It commits. The ticket is durable before the writer starts. The ticket table has no foreign key to executions, shipments, or active links, so this insert does not take `FOR KEY SHARE` on those rows. The committed UUID is the only execution the writer may create.
 
 Transaction B, consume and write, is the writer:
 
@@ -105,18 +105,18 @@ No later configuration step is declared to have closed the boundary. `TRUSTED_TE
 
 The grant cannot be narrowed to "the execution inserted by this statement." A column grant does not carry that predicate. Keeping `INSERT` on `shipment_runtime` is not part of this redesign.
 
-The required create path is two transactions. Transaction A commits a `CREATE_EXECUTION` ticket, or one ticket that names both the new execution and the shipment for `CREATE_ACTIVE_LINK`. Transaction B is the `Project` transaction. It locks that ticket before it locks the shipment. Flag-on activation today locks the shipment first (`transport_execution_activation.go:67-71`). That order is not the consume order. The future transaction locks the ticket, then the shipment, cargo, driver, and vehicle, then inserts the new execution.
+The required create path is two transactions. Transaction A commits a `CREATE_EXECUTION` or `CREATE_ACTIVE_LINK` ticket that already stores one non-null execution UUID, the shipment, the tenant, the operation, and the scope. Transaction B is the `Project` transaction. It locks that ticket before it locks the shipment. Flag-on activation today locks the shipment first (`transport_execution_activation.go:67-71`). That order is not the consume order. The future transaction locks the ticket, then the shipment, cargo, driver, and vehicle, then inserts the execution whose id is the UUID on the ticket.
 
 Inside transaction B the create function:
 
-1. Requires the locked ticket to be the committed `CREATE_EXECUTION` or `CREATE_ACTIVE_LINK` ticket for this shipment. The ticket is the authority check. The function does not establish the issuer. `INITIAL_INSERT_AUTHORITY=NOT_PROVEN` while the issuer remains `DESIGN_BLOCKED_BY_SHARED_LOGIN`.
-2. Inserts the execution with `owner_epoch` set to `1`, or accepts an execution inserted earlier in this same top-level transaction. An execution committed by an older transaction is rejected.
-3. May compare the execution row's `xmin` with the top-level transaction id, the same comparison as `transport.revision_inserted_in_current_xact` (`000103:332-339`). A subtransaction xid does not equal that top-level id, and the comparison then fails. `xmin` is only extra evidence that the row was written here. It does not replace the ticket.
-4. Locks the shipment if this transaction has not already locked it after the ticket, and reads its tenant and version under that lock.
+1. Requires the locked ticket to be the committed `CREATE_EXECUTION` or `CREATE_ACTIVE_LINK` ticket for this shipment, with a non-null execution UUID. The ticket is the authority check. The function does not establish the issuer. `INITIAL_INSERT_AUTHORITY=NOT_PROVEN` while the issuer remains `DESIGN_BLOCKED_BY_SHARED_LOGIN`. Presenting the ticket does not prove the presenter's identity. `TICKET_PRESENTER_IDENTITY=NOT_BOUND`.
+2. Inserts the execution with that UUID and with `owner_epoch` set to `1`. Any other UUID is denied. An execution that already exists before this consume is denied. A row inserted earlier in this same top-level transaction is accepted only when its id equals the ticket UUID. A different id from that same transaction is denied.
+3. May compare the execution row's `xmin` with the top-level transaction id, the same comparison as `transport.revision_inserted_in_current_xact` (`000103:332-339`). A subtransaction xid does not equal that top-level id, and the comparison then fails. `xmin` is only extra evidence that the row was written here. It does not authorize the row, and it does not replace the ticket or the UUID equality check.
+4. Locks the shipment if this transaction has not already locked it after the ticket, and reads its tenant and version under that lock. A shipment or tenant that differs from the ticket is denied.
 5. Inserts one active-link row for that shipment and that execution.
-6. Inserts the audit row and sets the ticket to `CONSUMED` before the one commit.
+6. Inserts the audit row, with `audit.ticket_id` equal to the consumed ticket, and sets the ticket to `CONSUMED` before the one commit. The execution, the link, the epoch, the audit row, and the status change commit together. Any failure is one rollback: no execution, no link, no audit row, and the ticket stays `ISSUED`. A later transaction that presents the same ticket after a successful commit is denied.
 
-The primary key `(shipment_tenant_id, shipment_id)` rejects a second link. `Project` already maps that conflict to a rollback (`:100-102`). A replay of the same activation returns the stored execution (`:44-53`) and does not insert another link. The new execution is not an existing execution, so the shipment lock that follows the ticket does not take an existing execution after the shipment.
+The primary key `(shipment_tenant_id, shipment_id)` rejects a second link. `Project` already maps that conflict to a rollback (`:100-102`). Today's replay returns the stored execution (`:44-53`) and does not insert another link. That return does not consume the ticket again. A second consume of the committed ticket is denied. The new execution is not an existing execution, so the shipment lock that follows the ticket does not take an existing execution after the shipment.
 
 ## Retarget lock order
 
@@ -197,7 +197,7 @@ The revoke is a proposal. `000103:1225` is unchanged, so the bypass exists until
 
 ## Audit
 
-Each accepted create, retarget, assignment bump, and epoch establishment inserts one row in the same transaction. The row records the operation, the execution ids, the shipment id, the previous and new epochs, the ticket nonce, and the principal stored on the ticket. The audit table is owned by `binding_authority_owner`. `shipment_runtime` is not granted `INSERT` or `DELETE` on it. A failed check does not leave the row behind, because the insert is in the transaction that rolls back.
+Each accepted create, retarget, assignment bump, and epoch establishment inserts one row in the same transaction. The required ticket field is `audit.ticket_id`, and it stores the `ticket_id` of the ticket consumed in that transaction. The row also records the operation, the execution ids, the shipment id, the previous and new epochs, and the principal stored on the ticket. No separate nonce stands in for `ticket_id`. The audit table is owned by `binding_authority_owner`. `shipment_runtime` is not granted `INSERT` or `DELETE` on it. A failed check does not leave the row behind, because the insert is in the transaction that rolls back.
 
 ## Trigger
 
@@ -217,7 +217,7 @@ Every consume transaction locks its ticket `FOR UPDATE` before any execution, sh
 
 | Path | Order | Edge after the shipment lock |
 | --- | --- | --- |
-| Create | Committed ticket, then shipment, cargo, driver, and vehicle, then the new execution and its link. | `FOR KEY SHARE` on the new execution only. |
+| Create | Committed ticket whose execution UUID is already fixed, then shipment, cargo, driver, and vehicle, then that execution and its link. | `FOR KEY SHARE` on the new execution only. |
 | Retarget | Ticket, then source and destination `FOR UPDATE` in uuid order, then shipment, then link. | Foreign-key `FOR KEY SHARE` on the destination already held. |
 | Assign with a link | Ticket, then that execution `FOR UPDATE`, then shipment, then link, then the shipment column update. | None to an execution. |
 | Assign without a link | Ticket, then shipment only. A link that appears under that lock aborts the transaction. | None. The execution is not locked in this transaction. |
@@ -258,6 +258,17 @@ The `BEFORE INSERT` trigger `transport.enforce_activation_pin_binding` (`:267-32
 | Direct active-link `INSERT` and `UPDATE` | `42501` for the non-owner, non-superuser runtime | not run |
 | Retarget A→B against an execution-first command on B | Both start orders, with waits, SQLSTATE, rollback, and final rows | not run |
 | Pin propagation | Against a revision, a relationship version, an activation subject, a command, and a retarget | not run |
+| `CREATE_ACTIVE_LINK` ticket names execution E1 before commit | Consume creates only E1 | not run |
+| Create ticket with a null execution id | Denied. The issuer does not commit it | not run |
+| Writer creates E2 when the ticket names E1 | Denied | not run |
+| E1 already exists before consume | Denied for create | not run |
+| Ticket shipment differs from the locked shipment | Denied | not run |
+| Ticket tenant differs from the locked tenant | Denied | not run |
+| Same ticket consumed again after commit | Denied | not run |
+| Consume transaction rolls back | No execution, link, or audit row. The ticket stays `ISSUED` | not run |
+| Another execution id inserted in the same top-level transaction | Denied. UUID equality is required. `xmin` is not authority | not run |
+
+Presenting a ticket does not prove the presenter's identity. That binding stays `NOT_BOUND`.
 
 ## What this contract does not prove
 

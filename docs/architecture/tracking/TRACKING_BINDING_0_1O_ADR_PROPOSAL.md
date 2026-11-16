@@ -20,11 +20,11 @@ The write role is a designed `NOLOGIN` non-superuser, `binding_authority_owner`.
 
 Tenant authority is a ticket that the issuer commits in one session and the writer consumes in a later session. The writer does not require `ticket.xact_id = pg_current_xact_id()`. The issuer locks only the ticket when it revokes an `ISSUED` row. The writer locks the ticket before the business rows. The current shared login cannot be that issuer and the writer at the same time. `TRUSTED_TENANT_AUTHORITY=DESIGN_BLOCKED_BY_SHARED_LOGIN`. This proposal does not treat the designed issuer as a boundary that is already in force.
 
-`Project` loses direct execution `INSERT` and direct active-link `INSERT`. The create function, in the transaction after the committed ticket, inserts the execution with `owner_epoch = 1` and inserts the link. `xmin` may confirm that the execution row belongs to that consume transaction, including a failure when a subtransaction xid differs. It is not the authority check. `INITIAL_INSERT_AUTHORITY=NOT_PROVEN` while the issuer is blocked by the shared login.
+`Project` loses direct execution `INSERT` and direct active-link `INSERT`. The issuer allocates the execution UUID and commits it on the `CREATE_ACTIVE_LINK` or `CREATE_EXECUTION` ticket. A null execution id is not issued. The create function, in the later transaction, inserts that UUID with `owner_epoch = 1` and inserts the link. Any other UUID is denied, including an execution that already exists and a different id inserted earlier in the same top-level transaction. A row from that same transaction is accepted only when its id equals the ticket. `xmin` may confirm that the row belongs to that consume transaction, including a failure when a subtransaction xid differs. It is not the authority check. The audit row's required field is `audit.ticket_id`. `INITIAL_INSERT_AUTHORITY=NOT_PROVEN` while the issuer is blocked by the shared login. Presenting the ticket does not prove presenter identity.
 
 Retarget locks the ticket, then the source execution and the destination execution in ascending uuid order, then the shipment, then the active-link row. It rechecks tenant, revision, and epoch under those locks. A stale source rolls back. The destination is not first locked by the foreign-key check after the shipment. AssignDriver and AssignVehicle lock the ticket before either the execution or the shipment. They do not lock the shipment and then lock an execution.
 
-`owner_epoch` is `bigint NULL`. `NULL` means unconfirmed and rejects every execution-targeted change. The create function is the initial writer. Later increments happen only in the fencing transaction, together with the link or shipment change and one audit row. Rollback restores the previous row and drops the audit insert.
+`owner_epoch` is `bigint NULL`. `NULL` means unconfirmed and rejects every execution-targeted change. The create function is the initial writer. Later increments happen only in the fencing transaction, together with the link or shipment change and one audit row. That row stores `audit.ticket_id`. Rollback restores the previous row and drops the audit insert.
 
 The epoch trigger, when enabled, runs for a table owner and for a superuser. An owner can drop or disable it. `session_replication_role = replica` can skip it where that setting is permitted. The trigger is not the authority boundary.
 
@@ -64,6 +64,8 @@ Head observed here is `000105`. Do not allocate the next number in this proposal
 - Is the function owner a different role from the unproven table owner, with `PUBLIC` execute revoked?
 - Does the epoch model treat null as absent, with no backfill, and is a table-level `INSERT` excluded from setting a non-zero epoch?
 - Is the ticket committed by the issuer before the writer consumes it, without requiring one transaction id across two sessions?
+- Does a `CREATE_ACTIVE_LINK` ticket store one non-null execution UUID chosen before commit, and is every other UUID denied?
+- Is the audit field `audit.ticket_id`, with `xmin` left as non-authority evidence?
 - Does a second committed consume fail, and does rollback of the consume transaction leave the ticket `ISSUED`?
 - Does the trigger text say that an enabled trigger runs for the table owner and for a superuser?
 - Is trusted tenant authority marked `DESIGN_BLOCKED_BY_SHARED_LOGIN` rather than accepted from a function argument?
