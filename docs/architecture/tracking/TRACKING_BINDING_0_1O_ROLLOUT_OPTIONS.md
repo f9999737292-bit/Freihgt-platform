@@ -54,12 +54,12 @@ A new service owns the writes. Its database role holds the grants. Shipment-serv
 
 Current command and successor statements stay. Sensitive link and epoch writes move to the functions in the fencing contract. This is a proposal, not an approval.
 
-- `Project` keeps one transaction. Direct `INSERT` of the active link by `shipment_runtime` is removed. The create function accepts only an execution inserted in that transaction, locks the shipment, checks the ticket, and writes the link, the initial epoch, and the audit row.
+- The issuer commits the ticket in one transaction. `Project` consumes it in a later transaction. Those two sessions do not share a transaction id. Direct `INSERT` of the execution and of the active link by `shipment_runtime` is removed. The create function sets `owner_epoch` to `1` only from that ticket. A table-level `INSERT` left in place could set another value. `xmin` may show that the execution row was written in the consume transaction; it is not the authority check. `INITIAL_INSERT_AUTHORITY=NOT_PROVEN` until the issuer is a different principal from `freight`.
 - Successor, return, and redirect keep execution-first revision writes.
 - Commands keep execution-first shipment updates and `event_seq` updates.
 - Retarget locks the source and the destination in uuid order before the shipment, then locks the link, rechecks under those locks, and writes the link, both epochs, and the audit row.
 - AssignDriver and AssignVehicle do not lock a shipment and then lock an execution. A linked assignment locks the execution first. An assignment with no link locks only the shipment and aborts if a link is present under that lock.
-- `shipment_runtime` loses `INSERT`, `UPDATE`, and `DELETE` on the active-link table and loses table-level `UPDATE` on executions. It keeps column `UPDATE` of `current_revision_id`, `event_seq`, and `updated_at`.
+- `shipment_runtime` loses `INSERT`, `UPDATE`, and `DELETE` on the active-link table, loses table-level `INSERT` and `UPDATE` on executions, and receives no `INSERT` on `owner_epoch`. It keeps column `UPDATE` of `current_revision_id`, `event_seq`, and `updated_at`. A `BEFORE INSERT` trigger may also reject a non-null epoch. The table owner and a superuser can bypass that trigger, so the revoke is the control.
 - The function owner, the caller, and the issuer are three `NOLOGIN` roles. The runtime is a member of none of them. The active-link table owner stays `NOT_PROVEN` and is not the function owner.
 
 | Question | Assessment |
@@ -68,7 +68,7 @@ Current command and successor statements stay. Sensitive link and epoch writes m
 | Tenant | `DESIGN_BLOCKED_BY_SHARED_LOGIN`. The ticket design is specified. The issuer login is not. |
 | Owner epoch | Incremented only inside the fencing transaction. A wide `UPDATE` that remains is not fencing. `NULL` stays a refusal. |
 | Lock order | Existing executions are locked before the shipment. The active-link foreign key is in the graph. `DEADLOCK_FREE` is not claimed. |
-| Go compatibility | Successor and command SQL stay. `Project` replaces the link `INSERT` with the create function. Assignment replaces its shipment-first write when a link exists. |
+| Go compatibility | Successor and command SQL stay. `Project` replaces the execution `INSERT` and the link `INSERT` with the create function, after a committed ticket. Assignment locks that ticket before the shipment when a link exists. |
 | Migrations | Not numbered here. Column, trigger, functions, ticket table, audit table, and grant changes are later work. |
 | Rollback | Re-granting `INSERT` or `UPDATE` restores the unsafe privilege. It is not the default recovery path. |
 | Outage | A bad function blocks create, retarget, and linked assignment. Commands still use their current statements only while their column grants remain. |
@@ -81,7 +81,7 @@ Current command and successor statements stay. Sensitive link and epoch writes m
 2. Record whether the shared `freight` login is superuser, bypasses row security, owns either table, or is a member of `shipment_runtime`. Membership outside the numbered migrations stays `UNKNOWN` until that inventory.
 3. Design the issuer login as a different principal from `freight` and from `shipment_runtime`. Until that login exists, do not install the fencing functions as if the ticket check were enforceable.
 4. Run isolated grant and revoke tests on disposable roles: `PUBLIC` has no `EXECUTE`, the caller has `EXECUTE`, the runtime has no link `INSERT` or `UPDATE`, and the runtime cannot `SET ROLE` to the function owner.
-5. Prove the create function in one transaction: a new execution and its link commit together, a second link conflicts, and an execution id from an earlier transaction is rejected.
+5. Prove the create function after a committed ticket: the execution and its link commit together in the later transaction, a second link conflicts, a runtime `INSERT` of `owner_epoch = 5` is denied, and an execution id from an earlier transaction is rejected. A subtransaction `xmin` mismatch fails closed and is not treated as authority.
 6. Run the retarget test: `retarget A→B` against an execution-first command on B, both start orders, with lock waits, SQLSTATE, rollback, and final state. Include same-source, missing destination, competing retarget, and a source that changes before the locks. Do not record `DEADLOCK_FREE=YES` from a review of this document.
 7. Run the epoch and audit tests: `NULL` rejects, a stale epoch rejects, rollback restores the epoch and leaves no audit row, and a committed change has one audit row.
 8. Run `Project`, AssignDriver, and AssignVehicle against the new functions, including flag-on activation and an assignment that finds no link.

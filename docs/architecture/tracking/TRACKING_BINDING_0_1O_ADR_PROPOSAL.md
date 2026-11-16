@@ -8,7 +8,7 @@ Base: `origin/main` `3f306fc407aeda4bdc652d825954292f4a54fad6`. Reference draft 
 
 `shipment_runtime` may `UPDATE` and `INSERT` `transport.transport_execution_active_shipments` (`000104:18`). Product Go inserts that table and does not update it. Both privileges remain access paths. The foreign key `transport_execution_active_shipments_execution_id_fkey` (`000088:79`) only requires the named execution to exist, and an update of `execution_id` takes `FOR KEY SHARE` on the destination.
 
-The same role has table-level `UPDATE` on `transport.transport_executions` (`000103:1225`). There is no `owner_epoch` column. A reader lock ends when its transaction ends, so a later direct update is not fenced. A retained wide `UPDATE` would not fence an epoch column either.
+The same role has table-level `INSERT` and `UPDATE` on `transport.transport_executions` (`000103:1225`). There is no `owner_epoch` column. After that column exists, the table-level `INSERT` can store a non-zero epoch. A column grant does not stop that while the table grant remains, and a default of `NULL` does not stop an explicit value. A reader lock ends when its transaction ends, so a later direct update is not fenced. A retained wide `UPDATE` would not fence the column either.
 
 The shared `freight` login is still the deployment login (`000103:6-8`, `000105:5`). Table ownership of the active-link table was never transferred. `ACTIVE_LINK_TABLE_OWNER=NOT_PROVEN`. Either fact bypasses a revoke aimed only at `shipment_runtime`. A SQL function cannot see the Go `AuthContext`, so a tenant argument or a session variable is not the gateway decision.
 
@@ -18,11 +18,11 @@ Adopt the redesigned option B3 from `TRACKING_BINDING_0_1O_ROLLOUT_OPTIONS.md` a
 
 The write role is a designed `NOLOGIN` non-superuser, `binding_authority_owner`. It owns the fencing functions and does not own the active-link table. The runtime is not a member of that role and cannot `SET ROLE` to it. Each function is `SECURITY DEFINER`, sets `search_path` to `pg_catalog`, uses schema-qualified names, loses `PUBLIC` execute in the creating transaction, and is executable only by `binding_authority_caller`.
 
-Tenant authority is a ticket inserted by a separate issuer role and consumed in the same transaction as the write. The current shared login cannot be that issuer and the writer at the same time. `TRUSTED_TENANT_AUTHORITY=DESIGN_BLOCKED_BY_SHARED_LOGIN`. This proposal does not treat a future login change as already done.
+Tenant authority is a ticket that the issuer commits in one session and the writer consumes in a later session. The writer does not require `ticket.xact_id = pg_current_xact_id()`. The issuer locks only the ticket when it revokes an `ISSUED` row. The writer locks the ticket before the business rows. The current shared login cannot be that issuer and the writer at the same time. `TRUSTED_TENANT_AUTHORITY=DESIGN_BLOCKED_BY_SHARED_LOGIN`. This proposal does not treat the designed issuer as a boundary that is already in force.
 
-`Project` loses direct active-link `INSERT`. The create function runs in the existing `Project` transaction, accepts only an execution inserted in that transaction, and writes the initial epoch `1` with the audit row.
+`Project` loses direct execution `INSERT` and direct active-link `INSERT`. The create function, in the transaction after the committed ticket, inserts the execution with `owner_epoch = 1` and inserts the link. `xmin` may confirm that the execution row belongs to that consume transaction, including a failure when a subtransaction xid differs. It is not the authority check. `INITIAL_INSERT_AUTHORITY=NOT_PROVEN` while the issuer is blocked by the shared login.
 
-Retarget locks the source execution and the destination execution in ascending uuid order, then the shipment, then the active-link row. It rechecks tenant, revision, and epoch under those locks. A stale source rolls back. The destination is not first locked by the foreign-key check after the shipment. AssignDriver and AssignVehicle do not lock the shipment and then lock an execution.
+Retarget locks the ticket, then the source execution and the destination execution in ascending uuid order, then the shipment, then the active-link row. It rechecks tenant, revision, and epoch under those locks. A stale source rolls back. The destination is not first locked by the foreign-key check after the shipment. AssignDriver and AssignVehicle lock the ticket before either the execution or the shipment. They do not lock the shipment and then lock an execution.
 
 `owner_epoch` is `bigint NULL`. `NULL` means unconfirmed and rejects every execution-targeted change. The create function is the initial writer. Later increments happen only in the fencing transaction, together with the link or shipment change and one audit row. Rollback restores the previous row and drops the audit insert.
 
@@ -62,7 +62,9 @@ Head observed here is `000105`. Do not allocate the next number in this proposal
 - Does any path lock an existing execution after the shipment is held?
 - Is direct active-link `INSERT` removed from `shipment_runtime` in the proposal?
 - Is the function owner a different role from the unproven table owner, with `PUBLIC` execute revoked?
-- Does the epoch model treat null as absent, and is a wide `UPDATE` excluded from fencing?
+- Does the epoch model treat null as absent, with no backfill, and is a table-level `INSERT` excluded from setting a non-zero epoch?
+- Is the ticket committed by the issuer before the writer consumes it, without requiring one transaction id across two sessions?
+- Does a second committed consume fail, and does rollback of the consume transaction leave the ticket `ISSUED`?
 - Does the trigger text say that an enabled trigger runs for the table owner and for a superuser?
 - Is trusted tenant authority marked `DESIGN_BLOCKED_BY_SHARED_LOGIN` rather than accepted from a function argument?
 - Is pin propagation marked `NOT_PROVEN` rather than safe?

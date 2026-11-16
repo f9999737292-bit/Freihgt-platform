@@ -49,7 +49,7 @@ Classification:
 | `transport.transport_execution_active_shipments` | `shipment_runtime` | `SELECT, INSERT, UPDATE` | `000104:18` | `INSERT` in `transport_execution_repository.go:335-340` | `INSERT` is `REQUIRED_BY_PRODUCT` today and is also `PRIVILEGED_BYPASS`: the foreign key only requires the execution to exist. `UPDATE` is `UNUSED_IN_OBSERVED_CODE` and `PRIVILEGED_BYPASS`. |
 | same table | `shipment_runtime` | `DELETE` | not granted by `000104:18` | none found | not a runtime grant. Owner and superuser remain `PRIVILEGED_BYPASS`. |
 | same table | table owner, superuser, shared `freight` login if it is either | all | ownership not reassigned | none named | `PRIVILEGED_BYPASS`. Owner is `NOT_PROVEN`. |
-| `transport.transport_executions` | `shipment_runtime` | `SELECT, INSERT, UPDATE` | `000103:1225` | `INSERT` at repository `:295`. `UPDATE current_revision_id` at `:92-96` and successor `:172-176`. `UPDATE event_seq` at successor `:459` and command `:1226`, `:1344` | `REQUIRED_BY_PRODUCT` for those columns. The grant is table-level, so a future `owner_epoch` would be writable, and `operating_tenant_id`, `driver_id`, `vehicle_id`, and `id` are writable. That width is `PRIVILEGED_BYPASS`. It is not epoch fencing. |
+| `transport.transport_executions` | `shipment_runtime` | `SELECT, INSERT, UPDATE` | `000103:1225` | `INSERT` at repository `:295`. `UPDATE current_revision_id` at `:92-96` and successor `:172-176`. `UPDATE event_seq` at successor `:459` and command `:1226`, `:1344` | `REQUIRED_BY_PRODUCT` for the columns `Project` writes today. The `INSERT` is table-level, so a future `owner_epoch` can be set to a non-zero value in that `INSERT`. A column-level `INSERT` grant does not override this table grant. That width is `PRIVILEGED_BYPASS`. It is not epoch fencing. |
 | same table | `freight_migrations` | `SELECT` | `000103:1223` | pin function reads the execution | `REQUIRED_BY_PRODUCT` for the definer read |
 | `transport.transport_execution_revisions` | `shipment_runtime` | `SELECT, INSERT` plus column `UPDATE` including `id`, `execution_id`, `operating_tenant_id`, `status` | `000103:1226-1244` | successor updates `status` at `:151-156` | `REQUIRED_BY_PRODUCT` for `status` and `updated_at`. Identity-column `UPDATE` is `PRIVILEGED_BYPASS`. `DELETE` is revoked at `:1244`. |
 | `transport.shipments` | `shipment_runtime` | `SELECT, UPDATE` | `000104:10` | AssignDriver `:433`, AssignVehicle `:473`, status `:521`, command `:1177` | `REQUIRED_BY_PRODUCT`. Table-level `UPDATE` can also change tenant and company columns. That width is `PRIVILEGED_BYPASS`. |
@@ -67,7 +67,8 @@ This target is not applied. It is the privilege shape of the redesigned B3 contr
 | --- | --- | --- | --- |
 | Active-link `INSERT` | removed | held, and used only by the create function | absent |
 | Active-link `UPDATE` and `DELETE` | removed | held, and used only by the retarget function | absent |
-| Execution `INSERT` | kept for `Project` | not required for the link write | absent |
+| Execution table-level `INSERT` | removed. A remaining table grant would let runtime set `owner_epoch` | held, and used only by the create function, which sets the epoch from the committed ticket | absent |
+| Execution column `INSERT` of `owner_epoch` | absent. Not a control while the table-level grant remains | held with the table insert inside the function | absent |
 | Execution `UPDATE` of `current_revision_id`, `event_seq`, `updated_at` | kept for successor and commands | not the command path | absent |
 | Execution `UPDATE` of `owner_epoch`, `operating_tenant_id`, `id`, `driver_id`, `vehicle_id` | absent | `owner_epoch` only, inside the fencing function | absent |
 | Fencing function `EXECUTE` | absent | owner, not a caller | granted |
@@ -93,7 +94,9 @@ A reader `FOR SHARE` on PostgreSQL 16 still needs `UPDATE` on at least one colum
 
 These product paths fail if `shipment_runtime` loses the listed privilege without a replacement:
 
-- `Project` needs `INSERT` on executions and revisions. The redesigned create function replaces `INSERT` on the active-link table. Removing that `INSERT` before the function exists stops `Project`.
+- `Project` needs a replacement before it loses `INSERT` on executions. The create function is that replacement and is also the only writer of `owner_epoch` on insert. Removing the table `INSERT` before the function exists stops `Project`. The function replaces `INSERT` on the active-link table for the same reason. Removing that `INSERT` before the function exists stops `Project`.
+
+The future denial tests, not run here, are the proof table in `TRACKING_BINDING_0_1O_WRITER_FENCING_CONTRACT.md`. They include a committed ticket consumed by a later transaction, a double consume, an expired or revoked ticket, another tenant or principal, a runtime `INSERT` of `owner_epoch = 5`, direct link `INSERT` and `UPDATE`, retarget against a command, and pin propagation.
 - Successor and command event emission need `UPDATE` of `current_revision_id`, `event_seq`, and `updated_at` on executions.
 - Successor needs `UPDATE` of revision `status`.
 - AssignDriver, AssignVehicle, status, accept, cancel, and command shipment transitions need `UPDATE` on shipments. Assignment also needs the execution-first function before a linked assignment can bump an epoch. The current statements do not bump one.
