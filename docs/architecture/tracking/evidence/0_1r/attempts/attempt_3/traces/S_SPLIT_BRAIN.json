@@ -1,0 +1,765 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-sb"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:40:43.440901+00:00",
+    "witness": "sb"
+  },
+  {
+    "app": "a3-w058-sb-a-k1",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "b9e32f5b-5e6c-47be-8703-90704d23bf43"
+    },
+    "t": "2026-11-17T17:40:44.027093+00:00",
+    "t_end": "2026-11-17T17:40:44.027093+00:00",
+    "t_start": "2026-11-17T17:40:43.447107+00:00",
+    "tag": "w058-sb-a-k1"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "a-old",
+      "ns": "ns-sb",
+      "payload_hash": "f52dbe6bd3c4daf7b164f79d45251d2d3b8c98c3ba8f14beac59c8c549af0232",
+      "request_id": "k0",
+      "ticket_id": "de66acb1-f414-42f2-b320-ffac1f33f5af"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 4,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:40:44.031590+00:00",
+    "witness": "sb"
+  },
+  {
+    "body": {
+      "epoch": 2,
+      "holder": "issuer_b",
+      "ns": "ns-sb"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 5,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:40:44.034458+00:00",
+    "witness": "sb"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sb",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k0",
+      "ticket_id": "de66acb1-f414-42f2-b320-ffac1f33f5af"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 6,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:40:44.275900+00:00",
+    "witness": "sb"
+  },
+  {
+    "app": "a3-w059-sb-a-stale",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "reasons": [
+        "NOT_CURRENT_EPOCH_HOLDER"
+      ],
+      "result": "ISSUE_DENIED_GATE_CLOSED"
+    },
+    "t": "2026-11-17T17:40:44.650951+00:00",
+    "t_end": "2026-11-17T17:40:44.650951+00:00",
+    "t_start": "2026-11-17T17:40:44.285727+00:00",
+    "tag": "w059-sb-a-stale"
+  },
+  {
+    "body": {
+      "epoch": 2,
+      "incarnation": "a-claims-2",
+      "ns": "ns-sb",
+      "payload_hash": "8ce73904c52b0f6e1e00729ef86f0359ec01a463ef9209088262f80c03780461",
+      "request_id": "k2",
+      "ticket_id": "956b0b60-8d5c-4538-9ed5-892aebc8e240"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 2,
+      "holder": "issuer_b",
+      "status": "NOT_EPOCH_HOLDER"
+    },
+    "t": "2026-11-17T17:40:44.651947+00:00",
+    "witness": "sb"
+  },
+  {
+    "app": "a3-w060-sb-b-k5",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb",
+    "principal": "issuer_b",
+    "request_id": "k5",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "3cfffdf3-5161-4522-a7b3-ace372fdd200"
+    },
+    "t": "2026-11-17T17:40:45.182553+00:00",
+    "t_end": "2026-11-17T17:40:45.182553+00:00",
+    "t_start": "2026-11-17T17:40:44.661101+00:00",
+    "tag": "w060-sb-b-k5"
+  },
+  {
+    "app": "a3-w061-sb-b-k4",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb",
+    "principal": "issuer_b",
+    "request_id": "k4",
+    "result": {
+      "reasons": [
+        "TICKET_IN_PG_WITHOUT_RESERVATION:k9"
+      ],
+      "result": "ISSUE_DENIED_GATE_CLOSED"
+    },
+    "t": "2026-11-17T17:40:45.700782+00:00",
+    "t_end": "2026-11-17T17:40:45.700782+00:00",
+    "t_start": "2026-11-17T17:40:45.382049+00:00",
+    "tag": "w061-sb-b-k4"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-sb-race"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 9,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:40:45.707132+00:00",
+    "witness": "sb"
+  },
+  {
+    "body": {
+      "epoch": 2,
+      "holder": "issuer_b",
+      "ns": "ns-sb-race"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 10,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:40:45.711429+00:00",
+    "witness": "sb"
+  },
+  {
+    "app": "a3-w062-sbrace1-a0",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-1",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "b29409a1-aa60-4c25-a0b7-63dd1d551d04"
+    },
+    "t": "2026-11-17T17:40:49.760496+00:00",
+    "t_end": "2026-11-17T17:40:49.760496+00:00",
+    "t_start": "2026-11-17T17:40:45.718029+00:00",
+    "tag": "w062-sbrace1-a0"
+  },
+  {
+    "app": "a3-w063-sbrace1-a1",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-1",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "b83fe520-a043-4d5a-a305-c1633cd908e8"
+    },
+    "t": "2026-11-17T17:40:49.765007+00:00",
+    "t_end": "2026-11-17T17:40:49.765007+00:00",
+    "t_start": "2026-11-17T17:40:45.727288+00:00",
+    "tag": "w063-sbrace1-a1"
+  },
+  {
+    "app": "a3-w064-sbrace1-a2",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-1",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "59b83575-eaf4-4e65-86a4-bd8b7d634881"
+    },
+    "t": "2026-11-17T17:40:49.767722+00:00",
+    "t_end": "2026-11-17T17:40:49.767722+00:00",
+    "t_start": "2026-11-17T17:40:45.736214+00:00",
+    "tag": "w064-sbrace1-a2"
+  },
+  {
+    "app": "a3-w065-sbrace1-a3",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-1",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "dd27ad50-8923-4b70-b11e-d3e9ee71c62b"
+    },
+    "t": "2026-11-17T17:40:49.770983+00:00",
+    "t_end": "2026-11-17T17:40:49.770983+00:00",
+    "t_start": "2026-11-17T17:40:45.748489+00:00",
+    "tag": "w065-sbrace1-a3"
+  },
+  {
+    "app": "a3-w066-sbrace1-b0",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-1",
+    "result": {
+      "result": "RESERVED",
+      "seq": 11,
+      "ticket_id": "686484bf-1e4b-4be7-996d-58b44b54dda3"
+    },
+    "t": "2026-11-17T17:40:49.775199+00:00",
+    "t_end": "2026-11-17T17:40:49.775199+00:00",
+    "t_start": "2026-11-17T17:40:45.760792+00:00",
+    "tag": "w066-sbrace1-b0"
+  },
+  {
+    "app": "a3-w067-sbrace1-b1",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-1",
+    "result": {
+      "result": "DUPLICATE",
+      "seq": null,
+      "ticket_id": "3d3f4dfb-d2cb-488f-8ac5-bbb129fe3508"
+    },
+    "t": "2026-11-17T17:40:49.778585+00:00",
+    "t_end": "2026-11-17T17:40:49.778585+00:00",
+    "t_start": "2026-11-17T17:40:45.770815+00:00",
+    "tag": "w067-sbrace1-b1"
+  },
+  {
+    "app": "a3-w068-sbrace1-b2",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-1",
+    "result": {
+      "result": "DUPLICATE",
+      "seq": null,
+      "ticket_id": "e0366d23-acef-45a2-bde5-34d8b5b59e84"
+    },
+    "t": "2026-11-17T17:40:49.780729+00:00",
+    "t_end": "2026-11-17T17:40:49.780729+00:00",
+    "t_start": "2026-11-17T17:40:45.781869+00:00",
+    "tag": "w068-sbrace1-b2"
+  },
+  {
+    "app": "a3-w069-sbrace1-b3",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-1",
+    "result": {
+      "result": "DUPLICATE",
+      "seq": null,
+      "ticket_id": "9563f9a3-d339-4e6a-a29c-f4c86310535b"
+    },
+    "t": "2026-11-17T17:40:49.785251+00:00",
+    "t_end": "2026-11-17T17:40:49.785251+00:00",
+    "t_start": "2026-11-17T17:40:45.795522+00:00",
+    "tag": "w069-sbrace1-b3"
+  },
+  {
+    "app": "a3-w070-sbrace2-a0",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-2",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "d679aaef-72c5-4260-a91a-4395625e7360"
+    },
+    "t": "2026-11-17T17:40:53.825768+00:00",
+    "t_end": "2026-11-17T17:40:53.825768+00:00",
+    "t_start": "2026-11-17T17:40:49.793990+00:00",
+    "tag": "w070-sbrace2-a0"
+  },
+  {
+    "app": "a3-w071-sbrace2-a1",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-2",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "7d069eec-c811-4e49-bf57-e2498e0bd7b1"
+    },
+    "t": "2026-11-17T17:40:53.829299+00:00",
+    "t_end": "2026-11-17T17:40:53.829299+00:00",
+    "t_start": "2026-11-17T17:40:49.802940+00:00",
+    "tag": "w071-sbrace2-a1"
+  },
+  {
+    "app": "a3-w072-sbrace2-a2",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-2",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "fd9cab52-087f-4b2d-968c-2f867702743d"
+    },
+    "t": "2026-11-17T17:40:53.833431+00:00",
+    "t_end": "2026-11-17T17:40:53.833431+00:00",
+    "t_start": "2026-11-17T17:40:49.811293+00:00",
+    "tag": "w072-sbrace2-a2"
+  },
+  {
+    "app": "a3-w073-sbrace2-a3",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-2",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "c5a384ca-885c-4a29-8827-004da8a689c8"
+    },
+    "t": "2026-11-17T17:40:53.838356+00:00",
+    "t_end": "2026-11-17T17:40:53.838356+00:00",
+    "t_start": "2026-11-17T17:40:49.821209+00:00",
+    "tag": "w073-sbrace2-a3"
+  },
+  {
+    "app": "a3-w074-sbrace2-b0",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-2",
+    "result": {
+      "result": "DUPLICATE",
+      "seq": null,
+      "ticket_id": "979c0bc8-e647-42b6-b329-f059313136b9"
+    },
+    "t": "2026-11-17T17:40:53.841843+00:00",
+    "t_end": "2026-11-17T17:40:53.841843+00:00",
+    "t_start": "2026-11-17T17:40:49.838544+00:00",
+    "tag": "w074-sbrace2-b0"
+  },
+  {
+    "app": "a3-w075-sbrace2-b1",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-2",
+    "result": {
+      "result": "DUPLICATE",
+      "seq": null,
+      "ticket_id": "5760e373-68be-4cf5-a004-b92bb39109a6"
+    },
+    "t": "2026-11-17T17:40:53.846050+00:00",
+    "t_end": "2026-11-17T17:40:53.846050+00:00",
+    "t_start": "2026-11-17T17:40:49.849887+00:00",
+    "tag": "w075-sbrace2-b1"
+  },
+  {
+    "app": "a3-w076-sbrace2-b2",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-2",
+    "result": {
+      "result": "RESERVED",
+      "seq": 12,
+      "ticket_id": "f94cad3d-ed71-4f6f-95ad-0c6e2ba6677f"
+    },
+    "t": "2026-11-17T17:40:53.849978+00:00",
+    "t_end": "2026-11-17T17:40:53.849978+00:00",
+    "t_start": "2026-11-17T17:40:49.863738+00:00",
+    "tag": "w076-sbrace2-b2"
+  },
+  {
+    "app": "a3-w077-sbrace2-b3",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-2",
+    "result": {
+      "result": "DUPLICATE",
+      "seq": null,
+      "ticket_id": "7ac67c2c-820e-43ba-970c-85ff203c1061"
+    },
+    "t": "2026-11-17T17:40:53.854712+00:00",
+    "t_end": "2026-11-17T17:40:53.854712+00:00",
+    "t_start": "2026-11-17T17:40:49.876882+00:00",
+    "tag": "w077-sbrace2-b3"
+  },
+  {
+    "app": "a3-w078-sbrace3-a0",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-3",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "9ea40e58-68e2-4f07-aaa9-6226a469e6a6"
+    },
+    "t": "2026-11-17T17:40:57.896232+00:00",
+    "t_end": "2026-11-17T17:40:57.896232+00:00",
+    "t_start": "2026-11-17T17:40:53.863748+00:00",
+    "tag": "w078-sbrace3-a0"
+  },
+  {
+    "app": "a3-w079-sbrace3-a1",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-3",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "a0779da4-1a3a-45ac-9886-a2c7cf633033"
+    },
+    "t": "2026-11-17T17:40:57.900017+00:00",
+    "t_end": "2026-11-17T17:40:57.900017+00:00",
+    "t_start": "2026-11-17T17:40:53.872391+00:00",
+    "tag": "w079-sbrace3-a1"
+  },
+  {
+    "app": "a3-w080-sbrace3-a2",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-3",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "75604f55-e1bd-42f8-ad8b-076aa74a17c8"
+    },
+    "t": "2026-11-17T17:40:57.903220+00:00",
+    "t_end": "2026-11-17T17:40:57.903220+00:00",
+    "t_start": "2026-11-17T17:40:53.881694+00:00",
+    "tag": "w080-sbrace3-a2"
+  },
+  {
+    "app": "a3-w081-sbrace3-a3",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_a",
+    "request_id": "race-3",
+    "result": {
+      "result": "NOT_EPOCH_HOLDER",
+      "seq": null,
+      "ticket_id": "635aaf86-57cf-442c-aca9-c9bcd8f12405"
+    },
+    "t": "2026-11-17T17:40:57.905923+00:00",
+    "t_end": "2026-11-17T17:40:57.905923+00:00",
+    "t_start": "2026-11-17T17:40:53.891246+00:00",
+    "tag": "w081-sbrace3-a3"
+  },
+  {
+    "app": "a3-w082-sbrace3-b0",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-3",
+    "result": {
+      "result": "RESERVED",
+      "seq": 13,
+      "ticket_id": "6e9ca4f0-d70f-4a35-ad4b-ead59f5c966c"
+    },
+    "t": "2026-11-17T17:40:57.910147+00:00",
+    "t_end": "2026-11-17T17:40:57.910147+00:00",
+    "t_start": "2026-11-17T17:40:53.900329+00:00",
+    "tag": "w082-sbrace3-b0"
+  },
+  {
+    "app": "a3-w083-sbrace3-b1",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-3",
+    "result": {
+      "result": "DUPLICATE",
+      "seq": null,
+      "ticket_id": "e9cec8ff-1691-448c-ac9d-fd8d2523aca4"
+    },
+    "t": "2026-11-17T17:40:57.912186+00:00",
+    "t_end": "2026-11-17T17:40:57.912186+00:00",
+    "t_start": "2026-11-17T17:40:53.910451+00:00",
+    "tag": "w083-sbrace3-b1"
+  },
+  {
+    "app": "a3-w084-sbrace3-b2",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-3",
+    "result": {
+      "result": "DUPLICATE",
+      "seq": null,
+      "ticket_id": "4b3f67e4-7ddf-4b41-88b6-6342fa3aa34c"
+    },
+    "t": "2026-11-17T17:40:57.914850+00:00",
+    "t_end": "2026-11-17T17:40:57.914850+00:00",
+    "t_start": "2026-11-17T17:40:53.920930+00:00",
+    "tag": "w084-sbrace3-b2"
+  },
+  {
+    "app": "a3-w085-sbrace3-b3",
+    "events": [
+      "start",
+      "witness_reserve"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sb-race",
+    "principal": "issuer_b",
+    "request_id": "race-3",
+    "result": {
+      "result": "DUPLICATE",
+      "seq": null,
+      "ticket_id": "4e018322-1f8f-44b7-9fcc-78cc690d1752"
+    },
+    "t": "2026-11-17T17:40:57.917578+00:00",
+    "t_end": "2026-11-17T17:40:57.917578+00:00",
+    "t_start": "2026-11-17T17:40:53.935109+00:00",
+    "tag": "w085-sbrace3-b3"
+  }
+]

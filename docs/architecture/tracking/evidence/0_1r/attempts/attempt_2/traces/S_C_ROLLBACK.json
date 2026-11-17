@@ -1,0 +1,120 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-c"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 18,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:39:06.488381+00:00",
+    "witness": "e2e"
+  },
+  {
+    "app": "a2-w038-c-rollback",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_rollback",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "rollback",
+    "kind": "worker",
+    "ns": "ns-c",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_ABORTED",
+      "witness": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:07.004128+00:00",
+    "t_end": "2026-11-17T17:39:07.004128+00:00",
+    "t_start": "2026-11-17T17:39:06.495536+00:00",
+    "tag": "w038-c-rollback"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-c",
+      "payload_hash": "77149372281e7df32589452fb21ea70bfa8621fb2bba123a87b2b810fc4d4964",
+      "request_id": "k1",
+      "ticket_id": "82bbe52c-f850-47db-8240-a4890310ce96"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "reservation_seq": 19,
+      "state": "ABORT_CONFIRMED",
+      "status": "DUPLICATE"
+    },
+    "t": "2026-11-17T17:39:07.213384+00:00",
+    "witness": "e2e"
+  },
+  {
+    "app": "a2-w039-c-mismatch",
+    "events": [
+      "start",
+      "witness_export",
+      "existing_reservation"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-c",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_DENIED_PAYLOAD_MISMATCH",
+      "state": "ABORT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:39:07.327001+00:00",
+    "t_end": "2026-11-17T17:39:07.327001+00:00",
+    "t_start": "2026-11-17T17:39:07.219923+00:00",
+    "tag": "w039-c-mismatch"
+  },
+  {
+    "app": "a2-w040-c-resume",
+    "events": [
+      "start",
+      "witness_export",
+      "existing_reservation",
+      "pg_read_rows",
+      "gate",
+      "resume_reservation",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-c",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": true,
+      "ticket_id": "da1207e5-605d-4d31-8eb6-4987b9f28cf5"
+    },
+    "t": "2026-11-17T17:39:07.841294+00:00",
+    "t_end": "2026-11-17T17:39:07.841294+00:00",
+    "t_start": "2026-11-17T17:39:07.340832+00:00",
+    "tag": "w040-c-resume"
+  }
+]

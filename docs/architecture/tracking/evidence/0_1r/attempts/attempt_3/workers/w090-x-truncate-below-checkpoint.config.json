@@ -1,0 +1,26 @@
+{
+  "app": "a3-w090-x-truncate-below-checkpoint",
+  "container": "bintrans-proof-0-1r-7b90a659",
+  "db": "wproof_7b90a659",
+  "epoch": 1,
+  "fault": "",
+  "incarnation": "d3ab8d02-0580-4c25-8140-abee5d07d1bb",
+  "mode": "issue",
+  "ns": "ns-x",
+  "payload": {
+    "execution_ids": [
+      "exe-2",
+      "exe-1"
+    ],
+    "expected_epoch": 1,
+    "expected_revision": 1,
+    "operation": "ISSUE_TRACKING_BINDING",
+    "shipment": "shp-k9",
+    "sub": "user-0.1r-test",
+    "tenant_id": "tenant-0.1r-test"
+  },
+  "pg_role": "wproof_issuer",
+  "pipe": "bintrans-0-1r-7b90a659-corrupt-truncate-below-checkpoint",
+  "principal": "issuer_a",
+  "request_id": "k9"
+}

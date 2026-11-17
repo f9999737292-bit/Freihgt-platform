@@ -1,0 +1,10 @@
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "pid": 32664, "records": 0, "t": 1794937106.9881766}
+{"body_ns": "ns-x", "body_request_id": null, "event": "request", "op": "epoch_set", "principal": "operator", "seq": 1, "status": "EPOCH_SET", "t": 1794937107.0965714}
+{"body_ns": "ns-x", "body_request_id": "k1", "event": "request", "op": "reserve", "principal": "issuer_a", "seq": 2, "status": "RESERVED", "t": 1794937107.1011298}
+{"body_ns": "ns-x", "body_request_id": "k1", "event": "request", "op": "outcome", "principal": "issuer_a", "seq": 3, "status": "APPENDED", "t": 1794937107.108338}
+{"body_ns": "ns-x", "body_request_id": "k2", "event": "request", "op": "reserve", "principal": "issuer_a", "seq": 4, "status": "RESERVED", "t": 1794937107.1111639}
+{"body_ns": "ns-x", "body_request_id": "k2", "event": "request", "op": "outcome", "principal": "issuer_a", "seq": 5, "status": "APPENDED", "t": 1794937107.1175797}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937107.1185937}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "checkpoint_accept", "principal": "operator", "seq": null, "status": "CHECKPOINT_ACCEPTED", "t": 1794937107.1219077}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "shutdown", "principal": "harness", "seq": null, "status": "SHUTDOWN", "t": 1794937107.1294188}
+{"event": "stopped", "t": 1794937107.129934}

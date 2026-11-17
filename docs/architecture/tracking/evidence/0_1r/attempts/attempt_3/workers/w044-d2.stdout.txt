@@ -1,0 +1,12 @@
+EVENT {"epoch": 1, "event": "start", "fault": "backend_terminated_before_commit", "incarnation": "63e9eafd-22d3-4c05-b214-deabd20718cb", "mode": "issue", "mono": 0.0, "ns": "ns-d2", "payload_hash": "597e3bca5961bf84fae50941ea7adf95b6127360f9eb071ce15c9800441b615a", "principal": "issuer_a", "request_id": "k1", "t": 1794937227.253524}
+EVENT {"event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794937227.256136}
+EVENT {"event": "pg_read_rows", "exit": 0, "mono": 0.187, "sqlstates": [], "t": 1794937227.4406185}
+EVENT {"event": "gate", "mono": 0.187, "open": true, "reasons": [], "t": 1794937227.4406185}
+EVENT {"event": "witness_reserve", "mono": 0.187, "reason": null, "seq": 27, "status": "RESERVED", "t": 1794937227.4459183}
+EVENT {"event": "pg_begin_sent", "mono": 0.203, "t": 1794937227.457618}
+EVENT {"backend_pid": "396", "event": "pg_begin", "mono": 0.359, "ok": true, "t": 1794937227.6151414}
+EVENT {"event": "pg_insert", "mono": 0.359, "ok": true, "sqlstates": [], "stderr": "", "t": 1794937227.6180322}
+EVENT {"backend_pid": "396", "event": "waiting_for_go", "mono": 0.359, "t": 1794937227.6180322}
+EVENT {"done": false, "event": "pg_commit", "lost": true, "mono": 0.781, "ok": false, "sqlstates": ["57P01"], "stderr": "FATAL:  57P01: terminating connection due to administrator command\nLOCATION:  ProcessInterrupts, postgres.c:3286\nserver closed the connection unexpectedly\n\tThis probably means the server terminated abnormally\n\tbefore or while processing the request.\nconnection to server was lost", "t": 1794937228.0427246}
+EVENT {"event": "witness_outcome", "mono": 0.797, "reason": null, "seq": 28, "status": "APPENDED", "t": 1794937228.0523307}
+RESULT {"result": "ISSUE_IN_DOUBT", "witness": "APPENDED"}

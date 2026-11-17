@@ -1,0 +1,11 @@
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "pid": 32052, "records": 2, "t": 1794937231.637512}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937231.738968}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "OK", "t": 1794937231.9714072}
+{"body_ns": "ns-l", "body_request_id": "k1", "event": "request", "op": "outcome", "principal": "issuer_a", "seq": 3, "status": "APPENDED", "t": 1794937231.980235}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "OK", "t": 1794937232.0019221}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937232.0580342}
+{"body_ns": "ns-l", "body_request_id": "k1", "event": "request", "op": "outcome", "principal": "operator", "seq": null, "status": "INVALID_TRANSITION", "t": 1794937232.3895795}
+{"body_ns": "ns-l", "body_request_id": "k1", "event": "request", "op": "outcome", "principal": "operator", "seq": 4, "status": "APPENDED", "t": 1794937232.3943}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937232.396326}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "shutdown", "principal": "harness", "seq": null, "status": "SHUTDOWN", "t": 1794937232.3983893}
+{"event": "stopped", "t": 1794937232.3983893}

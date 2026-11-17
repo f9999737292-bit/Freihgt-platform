@@ -1,0 +1,22 @@
+{
+  "attempt": 1,
+  "container": "bintrans-proof-0-1r-952bb461",
+  "container_removed": true,
+  "db": "wproof_952bb461",
+  "db_restore": "wproof_r_952bb461",
+  "findings": [],
+  "harness_error": "TypeError: wcall() got multiple values for argument 'name'",
+  "host_os": "win32",
+  "image": "postgres:16",
+  "image_id": "sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+  "network": "none",
+  "network_mode": "none",
+  "port_bindings": "{}",
+  "published_ports": "none",
+  "python": "3.12.10",
+  "server_version": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "t_end": "2026-11-17T17:34:30.203959+00:00",
+  "t_start": "2026-11-17T17:34:20.318756+00:00",
+  "witness_tmp_removed": true,
+  "witness_tmp_root": "<per-attempt temp dir outside repository>"
+}

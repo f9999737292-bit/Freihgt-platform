@@ -1,0 +1,42 @@
+[
+  {
+    "kind": "scenario_start",
+    "name": "sc_state_machine",
+    "t": "2026-11-17T17:37:23.223750+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_concurrency",
+    "t": "2026-11-17T17:37:27.718111+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_e2e",
+    "t": "2026-11-17T17:37:40.474946+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_lost_reserve_ack",
+    "t": "2026-11-17T17:37:57.189169+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_unavailable",
+    "t": "2026-11-17T17:37:58.677616+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_restore",
+    "t": "2026-11-17T17:37:59.931071+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_split_brain",
+    "t": "2026-11-17T17:38:05.693123+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_corruption",
+    "t": "2026-11-17T17:38:20.342383+00:00"
+  }
+]

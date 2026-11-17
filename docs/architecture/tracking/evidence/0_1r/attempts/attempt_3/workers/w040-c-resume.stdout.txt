@@ -1,0 +1,12 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "9345b155-7ace-4a94-9cd8-118b35d1e7d2", "mode": "issue", "mono": 0.0, "ns": "ns-c", "payload_hash": "77149372281e7df32589452fb21ea70bfa8621fb2bba123a87b2b810fc4d4964", "principal": "issuer_a", "request_id": "k1", "t": 1794937223.4914775}
+EVENT {"event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794937223.4928277}
+EVENT {"event": "existing_reservation", "mono": 0.0, "reservation_ticket_id": "605e5f9c-60f1-4376-9724-f7783d77f344", "state": "ABORT_CONFIRMED", "t": 1794937223.4928277}
+EVENT {"event": "pg_read_rows", "exit": 0, "mono": 0.188, "sqlstates": [], "t": 1794937223.684608}
+EVENT {"event": "gate", "mono": 0.188, "open": true, "reasons": [], "t": 1794937223.684608}
+EVENT {"event": "resume_reservation", "mono": 0.188, "reservation_seq": 19, "t": 1794937223.684608, "ticket_id": "605e5f9c-60f1-4376-9724-f7783d77f344"}
+EVENT {"event": "pg_begin_sent", "mono": 0.203, "t": 1794937223.6955864}
+EVENT {"backend_pid": "332", "event": "pg_begin", "mono": 0.36, "ok": true, "t": 1794937223.8422325}
+EVENT {"event": "pg_insert", "mono": 0.36, "ok": true, "sqlstates": [], "stderr": "", "t": 1794937223.8450077}
+EVENT {"ack": true, "event": "pg_commit", "mono": 0.36, "ok": true, "sqlstates": [], "t": 1794937223.85292}
+EVENT {"event": "witness_outcome", "mono": 0.391, "reason": null, "seq": 21, "status": "APPENDED", "t": 1794937223.8821993}
+RESULT {"result": "ISSUE_OK", "resumed": true, "ticket_id": "605e5f9c-60f1-4376-9724-f7783d77f344"}

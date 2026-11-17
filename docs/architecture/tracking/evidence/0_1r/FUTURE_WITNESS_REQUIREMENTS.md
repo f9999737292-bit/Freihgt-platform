@@ -1,0 +1,23 @@
+# 0.1R — Requirements for a future external witness store
+
+This is a requirements matrix, not a selection. **No provider or product is
+chosen here.** Any specific candidate needs its own verification stage against
+every row, with evidence comparable to this pack.
+
+| # | Requirement | Why (evidence in this pack) | Acceptance test a candidate must pass |
+| --- | --- | --- | --- |
+| R1 | **Independence from PostgreSQL restore:** witness history must not be stored, backed up, snapshotted or restored together with the PostgreSQL ticket database | `SR-*`: protection against a stale PostgreSQL restore came entirely from the witness history | Restore PostgreSQL to an older point (and separately the whole host/VM/volume group that holds PostgreSQL) and show witness history is unchanged |
+| R2 | **Independent failure domain:** different storage, host and administrative control from PostgreSQL; documented shared dependencies | `FAILURE_DOMAIN.md`: everything was shared locally | Written failure-domain analysis plus fault tests that take down PostgreSQL storage/host without affecting the witness, and vice versa |
+| R3 | **Durability:** an acknowledged reservation survives process crash, host crash and power loss | `SL-DURABLE-RESERVATION` (process crash only) | Crash and power-cut tests at every acknowledgment point; no acknowledged record lost |
+| R4 | **Rollback / tail-loss detection:** loss of acknowledged records must be detectable, including loss after the last checkpoint | F-TAIL-LOSS (`SX-TAIL-LOSS-UNDETECTED`) | Roll the witness storage back by one acknowledged record and show the witness or its verifier fails closed |
+| R5 | **Append-only history:** no update, delete, truncate or overwrite path for any principal, including administrators, or every such action is independently detectable | `W1-NO-*`, `SX-*` (test-only implementation) | Attempt each mutation with each principal and with storage-level access; record denial or detection |
+| R6 | **Uniqueness under concurrency:** at most one successful reservation for `(issuer_namespace_id, request_id)` across all clients, retries, failovers and regions | `W2-RACE-*`, `SS-RACE-*` | Concurrent and failover races (including witness leader change) with duplicate count = 0 |
+| R7 | **Conditional append / state machine enforcement** at the store: outcomes bound to the reservation's ticket id; `IN_DOUBT → ABORT_CONFIRMED` impossible; terminal states immutable | `W1-TRANSITION-MATRIX`, `W1-IN-DOUBT-NEVER-ABORT`, `W1-TERMINAL-STATES` | Full transition matrix against the live store, not only in client code |
+| R8 | **Fencing epoch:** strictly increasing per namespace, set only by an operator principal, checked atomically with reserve | `W1-EPOCH-*`, `SS-OLD-ISSUER-CANNOT-RESERVE` | Stale-epoch reserve rejected during and after concurrent epoch changes |
+| R9 | **Old-primary fencing is out of the witness's power:** the design must not rely on the witness to stop an already started PostgreSQL COMMIT; a separate mechanism is required | `SS-OLD-COMMIT-NOT-FENCED` | Documented mechanism with its own proof; until then `OLD_PRIMARY_FENCING=NOT_PROVEN` |
+| R10 | **Recovery:** after witness outage or corruption, it either returns with full verified history or stays failed; no automatic reset or re-initialization | `SX-*`, `SU-*` | Corruption and partial-loss drills; witness never comes back "empty and OK" |
+| R11 | **Auditing:** every record attributable to an authenticated principal, with the signed request retained; exportable for reconciliation | `W1-*`, `export` | Independent auditor verifies a full export end-to-end |
+| R12 | **Credential isolation:** separate credentials per issuer, operator, auditor; issuers cannot set epochs or write operator outcomes; witness admin credentials are not available to PostgreSQL or issuer hosts | `W1-*-ROLE`, `W1-NOT-OWNER`; local model held all keys in one process | Credential inventory and negative tests per principal from each host |
+| R13 | **Behavior when unavailable:** issuers fail closed (no PostgreSQL transaction) on timeout, error or unknown witness outcome; no local cache of "free" keys | `SU-*`, `SL-NO-PG-WITHOUT-ACK` | Partition, timeout and slow-response tests; 0 PostgreSQL transactions without an acknowledged reservation |
+| R14 | **Unknown-outcome handling:** a reservation with an unknown result is treated as existing; retries never create a second reservation | `SL-*`, `SA-*` | Inject reply loss after commit at the store; retry yields the existing reservation |
+| R15 | **Operational evidence:** monitoring of witness health, open `IN_DOUBT` counts, gate state | — (not covered locally) | Runbook and alerting reviewed in a separate stage |

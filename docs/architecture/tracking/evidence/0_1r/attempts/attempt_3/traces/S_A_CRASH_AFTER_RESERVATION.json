@@ -1,0 +1,197 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-a"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 4,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:40:15.757913+00:00",
+    "witness": "e2e"
+  },
+  {
+    "app": "a3-w026-a-crash",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "fault_crash"
+    ],
+    "exit": 137,
+    "fault": "crash_after_reserve",
+    "kind": "worker",
+    "ns": "ns-a",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": null,
+    "t": "2026-11-17T17:40:16.047411+00:00",
+    "t_end": "2026-11-17T17:40:16.047411+00:00",
+    "t_start": "2026-11-17T17:40:15.764737+00:00",
+    "tag": "w026-a-crash"
+  },
+  {
+    "app": "a3-w027-a-restart",
+    "events": [
+      "start",
+      "witness_export",
+      "witness_outcome",
+      "restart_recovery",
+      "witness_export",
+      "existing_reservation"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-a",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_DENIED_IN_DOUBT",
+      "state": "IN_DOUBT"
+    },
+    "t": "2026-11-17T17:40:16.444179+00:00",
+    "t_end": "2026-11-17T17:40:16.444179+00:00",
+    "t_start": "2026-11-17T17:40:16.336270+00:00",
+    "tag": "w027-a-restart"
+  },
+  {
+    "app": "a3-w028-a-other-key",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-a",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "reasons": [
+        "OPEN_RESERVATIONS:k1"
+      ],
+      "result": "ISSUE_DENIED_GATE_CLOSED"
+    },
+    "t": "2026-11-17T17:40:16.928511+00:00",
+    "t_end": "2026-11-17T17:40:16.928511+00:00",
+    "t_start": "2026-11-17T17:40:16.639754+00:00",
+    "tag": "w028-a-other-key"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true,
+        "reason": "tombstone absent"
+      },
+      "ns": "ns-a",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "9d7ddfb7-fdc5-4e8f-a6b4-a1b6499daf76"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "IN_DOUBT",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:40:17.107214+00:00",
+    "witness": "e2e"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_row": null,
+        "reason": "tombstone absent or different; abort cannot be proven"
+      },
+      "ns": "ns-a",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "k1",
+      "ticket_id": "9d7ddfb7-fdc5-4e8f-a6b4-a1b6499daf76"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 7,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:40:17.112015+00:00",
+    "witness": "e2e"
+  },
+  {
+    "append": "APPENDED",
+    "auto_abort": "INVALID_TRANSITION",
+    "decision": "PERMANENTLY_DENIED",
+    "key": "ns-a|k1",
+    "kind": "reconcile",
+    "pg_row": null,
+    "t": "2026-11-17T17:40:17.112015+00:00",
+    "witness_state_before": "IN_DOUBT"
+  },
+  {
+    "app": "a3-w029-a-retry",
+    "events": [
+      "start",
+      "witness_export",
+      "existing_reservation"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-a",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_DENIED_PERMANENTLY",
+      "state": "PERMANENTLY_DENIED"
+    },
+    "t": "2026-11-17T17:40:17.222771+00:00",
+    "t_end": "2026-11-17T17:40:17.222771+00:00",
+    "t_start": "2026-11-17T17:40:17.120374+00:00",
+    "tag": "w029-a-retry"
+  },
+  {
+    "app": "a3-w030-a-new-key",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-a",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "3563e9a6-9d6e-4f6a-84ef-ee45ad941e44"
+    },
+    "t": "2026-11-17T17:40:17.725795+00:00",
+    "t_end": "2026-11-17T17:40:17.725795+00:00",
+    "t_start": "2026-11-17T17:40:17.230039+00:00",
+    "tag": "w030-a-new-key"
+  }
+]

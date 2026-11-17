@@ -1,0 +1,80 @@
+2026-11-17T17:34:21.449475259Z The files belonging to this database system will be owned by user "postgres".
+2026-11-17T17:34:21.449980239Z This user must also own the server process.
+2026-11-17T17:34:21.449994036Z 
+2026-11-17T17:34:21.450803856Z The database cluster will be initialized with locale "en_US.utf8".
+2026-11-17T17:34:21.450819787Z The default database encoding has accordingly been set to "UTF8".
+2026-11-17T17:34:21.450822793Z The default text search configuration will be set to "english".
+2026-11-17T17:34:21.450824877Z 
+2026-11-17T17:34:21.450827402Z Data page checksums are disabled.
+2026-11-17T17:34:21.450852141Z 
+2026-11-17T17:34:21.450867191Z fixing permissions on existing directory /var/lib/postgresql/data ... ok
+2026-11-17T17:34:21.467946433Z creating subdirectories ... ok
+2026-11-17T17:34:21.468438467Z selecting dynamic shared memory implementation ... posix
+2026-11-17T17:34:21.495024835Z selecting default max_connections ... 100
+2026-11-17T17:34:21.526577123Z selecting default shared_buffers ... 128MB
+2026-11-17T17:34:21.559100390Z selecting default time zone ... Etc/UTC
+2026-11-17T17:34:21.562039095Z creating configuration files ... ok
+2026-11-17T17:34:21.761435101Z running bootstrap script ... ok
+2026-11-17T17:34:22.272129493Z performing post-bootstrap initialization ... ok
+2026-11-17T17:34:25.281915865Z syncing data to disk ... ok
+2026-11-17T17:34:25.281967697Z 
+2026-11-17T17:34:25.281970683Z 
+2026-11-17T17:34:25.281972567Z Success. You can now start the database server using:
+2026-11-17T17:34:25.281974541Z 
+2026-11-17T17:34:25.281976355Z     pg_ctl -D /var/lib/postgresql/data -l logfile start
+2026-11-17T17:34:25.281983048Z 
+2026-11-17T17:34:25.356046500Z waiting for server to start....2026-11-17 17:34:25.355 UTC [72] sqlstate=00000 user= db= app= LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-11-17T17:34:25.365466198Z 2026-11-17 17:34:25.365 UTC [72] sqlstate=00000 user= db= app= LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-11-17T17:34:25.394407960Z 2026-11-17 17:34:25.394 UTC [75] sqlstate=00000 user= db= app= LOG:  database system was shut down at 2026-11-17 17:34:22 UTC
+2026-11-17T17:34:25.408076098Z 2026-11-17 17:34:25.407 UTC [72] sqlstate=00000 user= db= app= LOG:  database system is ready to accept connections
+2026-11-17T17:34:25.418358136Z  done
+2026-11-17T17:34:25.418387895Z server started
+2026-11-17T17:34:25.456310709Z 2026-11-17 17:34:25.456 UTC [81] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T17:34:25.457011491Z 2026-11-17 17:34:25.456 UTC [81] sqlstate=00000 user=wproof_admin db=postgres app=[unknown] LOG:  connection authorized: user=wproof_admin database=postgres application_name=psql
+2026-11-17T17:34:25.463699064Z 2026-11-17 17:34:25.463 UTC [81] sqlstate=00000 user=wproof_admin db=postgres app=psql LOG:  disconnection: session time: 0:00:00.007 user=wproof_admin database=postgres host=[local]
+2026-11-17T17:34:25.493640990Z 2026-11-17 17:34:25.493 UTC [83] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T17:34:25.494600116Z 2026-11-17 17:34:25.494 UTC [83] sqlstate=00000 user=wproof_admin db=postgres app=[unknown] LOG:  connection authorized: user=wproof_admin database=postgres application_name=psql
+2026-11-17T17:34:25.600682808Z CREATE DATABASE
+2026-11-17T17:34:25.600738188Z 2026-11-17 17:34:25.600 UTC [83] sqlstate=00000 user=wproof_admin db=postgres app=psql LOG:  disconnection: session time: 0:00:00.107 user=wproof_admin database=postgres host=[local]
+2026-11-17T17:34:25.601584427Z 
+2026-11-17T17:34:25.601601621Z 
+2026-11-17T17:34:25.601606661Z /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+2026-11-17T17:34:25.601611120Z 
+2026-11-17T17:34:25.603252928Z waiting for server to shut down....2026-11-17 17:34:25.602 UTC [72] sqlstate=00000 user= db= app= LOG:  received fast shutdown request
+2026-11-17T17:34:25.611085770Z 2026-11-17 17:34:25.610 UTC [72] sqlstate=00000 user= db= app= LOG:  aborting any active transactions
+2026-11-17T17:34:25.613655630Z 2026-11-17 17:34:25.613 UTC [72] sqlstate=00000 user= db= app= LOG:  background worker "logical replication launcher" (PID 78) exited with exit code 1
+2026-11-17T17:34:25.613820128Z 2026-11-17 17:34:25.613 UTC [73] sqlstate=00000 user= db= app= LOG:  shutting down
+2026-11-17T17:34:25.621580332Z 2026-11-17 17:34:25.620 UTC [73] sqlstate=00000 user= db= app= LOG:  checkpoint starting: shutdown immediate
+2026-11-17T17:34:26.589928843Z 2026-11-17 17:34:26.589 UTC [73] sqlstate=00000 user= db= app= LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.045 s, sync=0.895 s, total=0.976 s; sync files=301, longest=0.008 s, average=0.003 s; distance=4273 kB, estimate=4273 kB; lsn=0/191F0F0, redo lsn=0/191F0F0
+2026-11-17T17:34:26.599703044Z 2026-11-17 17:34:26.599 UTC [72] sqlstate=00000 user= db= app= LOG:  database system is shut down
+2026-11-17T17:34:26.603363746Z  done
+2026-11-17T17:34:26.603401791Z server stopped
+2026-11-17T17:34:26.607657867Z 
+2026-11-17T17:34:26.607681253Z PostgreSQL init process complete; ready for start up.
+2026-11-17T17:34:26.607683768Z 
+2026-11-17T17:34:25.282183468Z initdb: warning: enabling "trust" authentication for local connections
+2026-11-17T17:34:25.282198798Z initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+2026-11-17T17:34:26.647852613Z 2026-11-17 17:34:26.647 UTC [1] sqlstate=00000 user= db= app= LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-11-17T17:34:26.649868204Z 2026-11-17 17:34:26.649 UTC [1] sqlstate=00000 user= db= app= LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-11-17T17:34:26.649896179Z 2026-11-17 17:34:26.649 UTC [1] sqlstate=00000 user= db= app= LOG:  listening on IPv6 address "::", port 5432
+2026-11-17T17:34:26.665563896Z 2026-11-17 17:34:26.665 UTC [1] sqlstate=00000 user= db= app= LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-11-17T17:34:26.684942474Z 2026-11-17 17:34:26.684 UTC [94] sqlstate=00000 user= db= app= LOG:  database system was shut down at 2026-11-17 17:34:26 UTC
+2026-11-17T17:34:26.699946597Z 2026-11-17 17:34:26.699 UTC [1] sqlstate=00000 user= db= app= LOG:  database system is ready to accept connections
+2026-11-17T17:34:27.839991778Z 2026-11-17 17:34:27.839 UTC [104] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=127.0.0.1 port=52720
+2026-11-17T17:34:27.841307369Z 2026-11-17 17:34:27.840 UTC [104] sqlstate=00000 user=wproof_admin db=wproof_admin app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_admin application_name=pg_isready
+2026-11-17T17:34:27.841333029Z 2026-11-17 17:34:27.841 UTC [104] sqlstate=3D000 user=wproof_admin db=wproof_admin app=[unknown] FATAL:  database "wproof_admin" does not exist
+2026-11-17T17:34:28.110671350Z 2026-11-17 17:34:28.110 UTC [111] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T17:34:28.111098859Z 2026-11-17 17:34:28.110 UTC [111] sqlstate=00000 user=wproof_admin db=wproof_952bb461 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_952bb461 application_name=harness-admin
+2026-11-17T17:34:28.119309891Z 2026-11-17 17:34:28.118 UTC [111] sqlstate=00000 user=wproof_admin db=wproof_952bb461 app=harness-admin LOG:  disconnection: session time: 0:00:00.009 user=wproof_admin database=wproof_952bb461 host=[local]
+2026-11-17T17:34:28.321899940Z 2026-11-17 17:34:28.321 UTC [118] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T17:34:28.323225710Z 2026-11-17 17:34:28.322 UTC [118] sqlstate=00000 user=wproof_admin db=wproof_952bb461 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_952bb461 application_name=harness-admin
+2026-11-17T17:34:28.419238378Z 2026-11-17 17:34:28.418 UTC [118] sqlstate=00000 user=wproof_admin db=wproof_952bb461 app=harness-admin LOG:  disconnection: session time: 0:00:00.097 user=wproof_admin database=wproof_952bb461 host=[local]
+2026-11-17T17:34:28.615477432Z 2026-11-17 17:34:28.615 UTC [125] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T17:34:28.616522314Z 2026-11-17 17:34:28.616 UTC [125] sqlstate=00000 user=wproof_admin db=wproof_952bb461 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_952bb461 application_name=psql
+2026-11-17T17:34:28.666845409Z 2026-11-17 17:34:28.666 UTC [125] sqlstate=00000 user=wproof_admin db=wproof_952bb461 app=psql LOG:  disconnection: session time: 0:00:00.051 user=wproof_admin database=wproof_952bb461 host=[local]
+2026-11-17T17:34:28.931001979Z 2026-11-17 17:34:28.930 UTC [132] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T17:34:28.931827759Z 2026-11-17 17:34:28.931 UTC [132] sqlstate=00000 user=wproof_admin db=wproof_r_952bb461 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_r_952bb461 application_name=psql
+2026-11-17T17:34:28.998575264Z 2026-11-17 17:34:28.998 UTC [132] sqlstate=00000 user=wproof_admin db=wproof_r_952bb461 app=psql LOG:  disconnection: session time: 0:00:00.067 user=wproof_admin database=wproof_r_952bb461 host=[local]
+2026-11-17T17:34:29.221976146Z 2026-11-17 17:34:29.221 UTC [139] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T17:34:29.222664729Z 2026-11-17 17:34:29.222 UTC [139] sqlstate=00000 user=wproof_admin db=wproof_952bb461 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_952bb461 application_name=harness-admin
+2026-11-17T17:34:29.224183956Z 2026-11-17 17:34:29.223 UTC [139] sqlstate=00000 user=wproof_admin db=wproof_952bb461 app=harness-admin LOG:  disconnection: session time: 0:00:00.002 user=wproof_admin database=wproof_952bb461 host=[local]

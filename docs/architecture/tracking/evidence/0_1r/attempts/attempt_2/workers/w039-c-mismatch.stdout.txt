@@ -1,0 +1,4 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "f2012caf-7a5c-4520-839b-8739a44bc36e", "mode": "issue", "mono": 0.0, "ns": "ns-c", "payload_hash": "96cbfb33d4c299363f8d9f37d06a0ff2d2667caf5c7f687bd2611ddb2a43a3d8", "principal": "issuer_a", "request_id": "k1", "t": 1794937147.31391}
+EVENT {"event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794937147.3160765}
+EVENT {"event": "existing_reservation", "mono": 0.0, "reservation_ticket_id": "da1207e5-605d-4d31-8eb6-4987b9f28cf5", "state": "ABORT_CONFIRMED", "t": 1794937147.3160765}
+RESULT {"result": "ISSUE_DENIED_PAYLOAD_MISMATCH", "state": "ABORT_CONFIRMED"}

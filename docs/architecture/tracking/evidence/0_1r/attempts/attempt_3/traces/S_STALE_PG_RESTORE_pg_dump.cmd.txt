@@ -1,0 +1,1 @@
+docker exec bintrans-proof-0-1r-7b90a659 pg_dump -U wproof_admin -Fc -d wproof_r_7b90a659 -f /tmp/r0.dump

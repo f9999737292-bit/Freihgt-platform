@@ -1,0 +1,6 @@
+{"event": "witness_failed", "reason": "UNPARSEABLE_RECORD line=3", "t": 1794937185.0645125}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": "UNPARSEABLE_RECORD line=3", "pid": 35316, "records": 2, "t": 1794937185.065523}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "WITNESS_FAILED", "t": 1794937185.1675491}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "WITNESS_FAILED", "t": 1794937185.266097}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "shutdown", "principal": "harness", "seq": null, "status": "SHUTDOWN", "t": 1794937185.368703}
+{"event": "stopped", "t": 1794937185.3692336}

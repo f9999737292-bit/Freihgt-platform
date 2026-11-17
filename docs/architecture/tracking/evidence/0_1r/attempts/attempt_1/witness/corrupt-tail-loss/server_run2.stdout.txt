@@ -1,0 +1,6 @@
+{"checkpoint": {"head_hash": "67b7aa6643f6a8e8a430cfe223bc327efc951a93d919a9024f8c598c1668c089", "seq": 3}, "event": "ready", "failed": null, "pid": 3992, "records": 3, "t": 1794937108.48381}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937108.5842106}
+{"body_ns": "ns-x", "body_request_id": "k1", "event": "request", "op": "reserve", "principal": "issuer_a", "seq": null, "status": "DUPLICATE", "t": 1794937108.5842106}
+{"body_ns": "ns-x", "body_request_id": "k2", "event": "request", "op": "reserve", "principal": "issuer_a", "seq": 4, "status": "RESERVED", "t": 1794937108.5927486}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "shutdown", "principal": "harness", "seq": null, "status": "SHUTDOWN", "t": 1794937108.5927486}
+{"event": "stopped", "t": 1794937108.5927486}
