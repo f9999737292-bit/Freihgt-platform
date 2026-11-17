@@ -43,7 +43,7 @@ Ownership of `transport.transport_execution_active_shipments` is `NOT_PROVEN` (`
 
 ## Isolated tests, not run
 
-The issuance journal, the recovery point, the gap check, and the unique index on `(issuer_namespace_id, request_id)` are `PROPOSED_NOT_IMPLEMENTED`. The rows below are not executed.
+The external witness, its checkpoint, the namespace transition, and the unique index on `(issuer_namespace_id, request_id)` are `PROPOSED_NOT_IMPLEMENTED`. No storage product is selected for the witness. The document object store is not that witness. The rows below are not executed.
 
 | Test | Required result |
 | --- | --- |
@@ -81,11 +81,24 @@ The issuance journal, the recovery point, the gap check, and the unique index on
 | Retired key K1 and existing R | The tombstone and the retired-key record remain |
 | A new `request_id` | Full authorization. One ticket if it commits |
 | Two concurrent first inserts under two active signing keys and one `request_id` | One ticket |
-| Issuer process restart with the committed history present | The history is still there. No rebuilt ticket |
-| Failover that still has the confirmed history | Issuance continues only after the history check. A row count is not that check |
+| Issuer process restart with the committed history present | The history is still there. No rebuilt ticket. The witness is read before the gate can open |
+| Failover that still has the confirmed history | The gate stays closed until the external witness matches and a person opens it. A row count, and a database that agrees with itself, are not that check |
 | Restore from a backup that can omit a tombstone | `ISSUER_ISSUANCE_GATE=CLOSED`. No new ticket |
-| History gap | Detected against the issuance journal. Issuance stays closed |
+| History gap | A skipped witness sequence or a committed ticket with no witness record. Issuance stays closed. A row count is not the detector |
 | Reconciliation | Does not mint a ticket |
+| PostgreSQL `COMMIT` before the witness append | Gate `CLOSED`. That same ticket is appended. No second ticket |
+| Witness record before a PostgreSQL commit on this timeline | Gate `CLOSED`. That `request_id` is forbidden. No live ticket |
+| Crash between the two writes | Gate `CLOSED` until the stores are compared. No second ticket |
+| Lagging replica promoted | Gate `CLOSED` until the witness matches. No second ticket |
+| Split-brain | Both gates `CLOSED`. The witness checkpoint is not lowered |
+| Witness unavailable | Gate `CLOSED`. History is not declared complete |
+| Witness behind committed tickets | Gate `CLOSED` until those tickets are appended. No new ticket |
+| Namespace in configuration differs from the witness | Gate `CLOSED` |
+| Gateway key rotation | The namespace is unchanged. No second ticket |
+| Namespace changed without the approved workflow | Gate `CLOSED`. Old `request_id` values are not a new authority |
+| Same `request_id` after recovery | No second ticket |
+| Witness retains a `request_id` whose tombstone is missing | The key stays forbidden. No new ticket |
+| Replay after the access token was dropped | The digest and the witness record remain. The same ticket only while it is still `ISSUED` and unexpired. Otherwise denied |
 | Cleanup runs during a retry | No second ticket. Cleanup does not delete the unique key and locks the idempotency row before the ticket |
 | Cleanup runs during a first insert of that same key | The unique key, once committed, still conflicts. Cleanup does not remove it |
 | Tombstone still stored | A later insert of that `request_id` does not commit a new ticket |
