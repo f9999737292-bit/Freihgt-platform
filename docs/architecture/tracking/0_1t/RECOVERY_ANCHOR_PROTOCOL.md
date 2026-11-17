@@ -10,19 +10,30 @@ The anchor keeps a separate, append-only position log for each `namespace_id`.
 | --- | --- | --- |
 | `namespace_id` | The `issuer_namespace_id` whose witness history is anchored (0.1P) | Fixed per log. A journal serving several namespaces is anchored under each of them, or the namespaces are given separate journals |
 | `generation` / `incarnation` | The journal incarnation pinned at the first entry | Never changes for the log. A different incarnation is a mismatch, not a new start |
-| `monotonic_sequence` | The highest journal sequence number the anchor covers | Accepted only as the exact successor (`seq = current + 1`) or as an idempotent repeat of an existing pair |
-| `head_digest` | The hash of the journal record at `monotonic_sequence` | Must chain to `prev_digest`, the digest pinned at `seq - 1` |
+| `monotonic_sequence` | The highest journal sequence number the anchor covers | Accepted only as the exact successor (`seq = current_sequence + 1`) or as an idempotent repeat of an already pinned `(seq, digest)` pair. Any other value is rejected (`GAP`, `NOT_MONOTONIC`, `CONFLICT`) |
+| `head_digest` | The hash of the journal record at `monotonic_sequence` | Must chain to `prev_digest`, the digest pinned at `seq - 1`, and must be recomputable from that record |
 | `checkpoint_certificate` | Signed by the anchor over `(namespace_id, incarnation, seq, head_digest, anchor_log_position, challenge)` | Issued on every append and on every read |
 | Authentication | The witness signs each append with its own asymmetric key; the anchor signs certificates with its own key | The two keys are held in different administrative domains (`RECOVERY_ANCHOR_THREAT_MODEL.md`, CI2) |
 | No rollback of an accepted position | No lower, set, reset, delete, truncate, or rewrite operation | A request below the current position gives `NOT_MONOTONIC`; the same sequence with another digest gives `CONFLICT` |
 | Provable continuity | The anchor keeps **every** accepted `(seq, digest)` pair, not only the latest | A verifier can check a whole journal against the pins, so a valid-looking forged tail is detected (as in 0.1S P1/P4) |
 | Denial on mismatch | Any disagreement between journal and anchor closes the gate | There is no "best effort" mode |
 
-Group commit is allowed: one anchor append may cover several journal records (`seq` advances by more than one) if:
-- the request carries every intermediate digest;
-- the anchor pins each of them.
+### Sequence rule (contract version 1)
 
-No record in the group is acknowledged before the group is anchored.
+```text
+GROUP_COMMIT=DISABLED
+MAX_SEQUENCE_INCREMENT=1
+NEXT_SEQUENCE=current_sequence+1
+REQUIRED_PINS=EVERY_ACKNOWLEDGED_RECORD
+```
+
+- One anchor append covers exactly one journal record.
+- Every anchor append names its immediate predecessor `(seq - 1, prev_digest)`. That predecessor must equal the anchor's current pinned head.
+- Every append carries the record's own digest, which a verifier can recompute from the journal record.
+- Every acknowledged record therefore has its own pin. There is no acknowledged record whose digest is known to the anchor only through a later head.
+- A request that would advance the sequence by more than one is rejected (`GAP`).
+
+Group commit, meaning one anchor append covering several records, is **not** part of this contract. It is neither implemented nor tested. It is listed as a future research item in `FUTURE_ISOLATED_TEST_PLAN.md`, and it would need its own contract version and review.
 
 ### The anchor must confirm the history in use, not just a checkpoint
 
@@ -53,12 +64,34 @@ These are four separate writes to three stores (T1 journal, T2 high-water, T3 an
 
 Safety comes from three rules:
 - **Ordering:** each write happens only after the previous one is durable.
-- **Bounded lag:** at most one group of records sits between consecutive stores.
+- **Bounded lag:** at most one record sits between the journal and the anchor. The witness accepts no new write while a record is not yet anchored.
 - **Acknowledgement only at the end:** no acknowledgement is sent before the last store has confirmed.
 
-Steady-state invariant: `anchor.seq <= hw.seq <= journal.len <= anchor.seq + G`, where `G` is the group size (1 without group commit). On recovery the witness rolls the lagging stores forward from the journal, in order, after verifying the chain.
+Steady-state invariant: `anchor.seq <= hw.seq <= journal.len <= anchor.seq + 1`. On recovery the witness rolls the lagging stores forward from the journal, in order, one record at a time, after verifying the chain.
 
 Is the order achievable without false atomicity claims? **Yes, in design.** The 0.1S local model already ran the same pattern for journal and high-water (`append_first`, CW3, CW7B). This design adds one more forward-only step. Whether a concrete anchor provides the durability and rollback properties assumed here is not proven (`ANCHOR_ROLLBACK_PROTECTION=REQUIRED_NOT_PROVEN`).
+
+### Classifying a reservation without an observed acknowledgement
+
+When the issuer sends `reserve` and does not observe `RESERVED`, it does **not** know whether the journal append happened. Each of these leaves the question open:
+- no response;
+- a timeout;
+- a dropped connection;
+- an issuer crash.
+
+An unobserved acknowledgement is never treated as proof of absence. The request is classified only by a later **authoritative read**, which needs all of the following:
+- The witness is `CONSISTENT` against a fresh, challenge-bound anchor certificate obtained **after** the failure (§3 rule 9).
+- `journal.len == anchor.seq`: no PREPARED or uncovered record exists.
+- The issuer's own history check (§1 steps 1–5) passes on that export.
+- The witness that might have been processing the original request has restarted, or has completed every request it accepted before the read. Writes are serialized, so after this no earlier request can still append.
+
+| Case | Condition | Result |
+| --- | --- | --- |
+| **A. Before the first write** | The authoritative read shows no `RESERVE` record for `(issuer_namespace_id, request_id)`, and no PREPARED tail exists | `RESERVATION_STATE=ABSENT`, `REQUEST_ID=AVAILABLE_SUBJECT_TO_AUTHORITY_CHECK`. The issuer may send a **new** `reserve`. Only a fresh `RESERVED` from the witness lets PostgreSQL work begin, and the witness re-applies uniqueness, epoch, and gate checks to it. There is no `IN_DOUBT` and no reconciliation in this case |
+| **B. Record exists, acknowledgement not observed** | The read shows a `RESERVE` record for the key, whether PREPARED, HW-covered, or anchored | `RESERVATION_STATE=PENDING_OR_IN_DOUBT`, `SECOND_RESERVATION=DENIED`. While unanchored the state is `PENDING`: the witness blocks writes and rolls forward. Once anchored, the key is `RESERVED`; the issuer did not see the acknowledgement, so it moves the key to `IN_DOUBT` and it is reconciled. A new `reserve` gets `DUPLICATE` |
+| **C. Outcome unknown, absence not proven** | No authoritative read is possible. Causes include: witness or anchor unreachable, witness `FAILED` or `PENDING`, history check failing, `HANDOVER_PENDING`, or a known restore not yet reconciled | `ISSUANCE_GATE=CLOSED`, `REQUEST_ID=NOT_RELEASED`. No new `reserve` is sent as if the key were free, and no PostgreSQL work starts. The request stays in C until a later authoritative read puts it in A or B |
+
+Case A also covers a record that was appended but lost before it was anchored, because the authoritative read cannot distinguish it from no append. This is safe only because of the boundary above: such a record was never acknowledged, so no PostgreSQL transaction can have started for it. If an acknowledgement for that record is later found, the key falls under §4: the journal must be recovered from a copy that chains to the anchor, and is never regenerated.
 
 ### Transition analysis
 
@@ -66,17 +99,22 @@ Notation: "stale snapshot" means the local stores (journal, high-water, PostgreS
 
 | Transition | Crash before | Crash after | Lost response | Retry | Unknown result | Issuer restart | Stale snapshot restored |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T1 journal append | Nothing written; no reply; issuer outcome unknown | Record PREPARED in journal only; never acknowledged | (internal) | Restarted witness rolls it forward through T2 and T3, or fails closed if the chain does not verify | Issuer treats as unknown: no PostgreSQL work. On retry the key is found `RESERVED` (after roll-forward) or free (if the record was lost) | Issuer gets `DUPLICATE`, then goes through `IN_DOUBT` and reconciliation, never a second reservation | Record not anchored, so never acknowledged, so no ticket exists. Losing it is safe |
-| T2 high-water advance | Same as "T1 after" | HW covers it; anchor does not | Witness re-sends the same `(seq, digest)` and gets `IDEMPOTENT` | Idempotent by design (0.1S T9 `idempotent_current`) | Witness state `PENDING`; no further writes; no acknowledgement | As above | Record not anchored: safe loss. If the HW store is restored **below** the journal by more than one group, the witness gets `UNCOVERED_SUFFIX` and fails closed (0.1S P2A) |
-| T3 anchor confirmation | Same as "T2 after" | Anchor covers it; witness has not replied | Witness re-sends and gets `IDEMPOTENT` plus a fresh certificate | Idempotent. The same seq with another digest gives `CONFLICT`, and the witness is FAILED | Witness state `PENDING`; gate CLOSED until a certificate covering the record is obtained | As above | **The anchored record is now protected.** Restoring journal, HW, and PostgreSQL below it gives anchor.seq > journal length, so `ROLLBACK_DETECTED` and the gate is CLOSED (Scenario A) |
-| T4 issuance ACK (`RESERVED`) | Record anchored, no reply | Issuer has the reply and certificate | Issuer outcome unknown; no PostgreSQL work | Re-reserve gives `DUPLICATE`, then reconciliation; never a second reservation | Treated as existing (0.1R R14) | Issuer re-reads anchor and journal before acting | As T3 |
+| T1 journal append | Nothing written; no reply. The issuer is in **case C** until an authoritative read; that read then gives **case A** | Record PREPARED in journal only; never acknowledged. The issuer is in case C until a read; the read then gives **case B** (`PENDING`, then `RESERVED` after roll-forward) | (internal) | Restarted witness rolls it forward through T2 and T3, or fails closed if the chain does not verify | Case C: gate CLOSED for this request, `REQUEST_ID=NOT_RELEASED`, no PostgreSQL work. Only an authoritative read moves it to A or B | Issuer treats every request it had in flight as case C and classifies each by authoritative read: A means send a new `reserve`; B means `DUPLICATE`, then `IN_DOUBT` and reconciliation; an unreadable store keeps it in C | Record not anchored, so never acknowledged, so no ticket exists. If the restore is known, the 0.1P restore procedure closes the gate (case C). If it is undetected, the read gives case A, which is safe for the reason stated above |
+| T2 high-water advance | Same as "T1 after" | HW covers it; anchor does not | Witness re-sends the same `(seq, digest)` and gets `IDEMPOTENT` | Idempotent by design (0.1S T9 `idempotent_current`) | Witness state `PENDING`; no further writes; no acknowledgement. Issuer: case C, then case B after a read | As T1 | Record not anchored: same as T1. If the HW store is restored below the journal by more than one record, the witness gets `UNCOVERED_SUFFIX` and fails closed (0.1S P2A) |
+| T3 anchor confirmation | Same as "T2 after" | Anchor covers it; witness has not replied. Issuer: case C, then case B | Witness re-sends and gets `IDEMPOTENT` plus a fresh certificate | Idempotent. The same seq with another digest gives `CONFLICT`, and the witness is FAILED | Witness state `PENDING` until it holds a certificate covering the record; gate CLOSED. Issuer: case C, then case B | As T1 | **The anchored record is now protected.** Restoring journal, HW, and PostgreSQL below it gives anchor.seq > journal length, so `ROLLBACK_DETECTED` and the gate is CLOSED (Scenario A) |
+| T4 issuance ACK (`RESERVED`) | Record anchored, no reply. Issuer: case C, then case B | Issuer has the reply and certificate | Issuer: case C, then case B; no PostgreSQL work | Re-reserve gives `DUPLICATE`, then `IN_DOUBT` and reconciliation; never a second reservation | Treated as existing (0.1R R14); never released | As T1 (case B after the read) | As T3 |
 | PostgreSQL COMMIT | No ticket | Ticket committed; outcome not yet journaled | Issuer does not know whether COMMIT succeeded | Reconcile against the PostgreSQL row; `IN_DOUBT → ABORT_CONFIRMED` is forbidden | `IN_DOUBT`; gate CLOSED until reconciled | Issuer finds `RESERVED` or `IN_DOUBT` and reconciles | Reservation anchored: detected. If PostgreSQL alone is stale, the anchored reservation still blocks reissue (0.1R `SR-*`) |
 | Outcome T1–T3 | As for the reservation | As for the reservation | As for the reservation | As for the reservation | `ISSUE_OUTCOME_UNKNOWN`; never `ISSUE_OK` | Reconcile | If the outcome is lost but the reservation is anchored, the key returns to `RESERVED`, then `IN_DOUBT`, then reconciliation against PostgreSQL (`COMMIT_CONFIRMED`, or `PERMANENTLY_DENIED` when no row exists). No second ticket |
 | T4' `ISSUE_OK` | Outcome anchored, no reply | Done | Issuer retry replays the same ticket ID | Replay | Replay only | Replay only | As T3 |
 
-**Result:** no reply that lets the issuer start PostgreSQL work (`RESERVED`), and no `ISSUE_OK`, is ever sent before T3 has confirmed the record. Every crash, lost response, or retry either:
-- leaves a record that was never acknowledged, whose loss is safe; or
-- leaves an anchored record, which then blocks reissue.
+**Result:** no reply that lets the issuer start PostgreSQL work (`RESERVED`), and no `ISSUE_OK`, is ever sent before T3 has confirmed the record. The order `JOURNAL APPEND → HIGH-WATER ADVANCE → ANCHOR CONFIRMATION → ACK → POSTGRESQL BEGIN` is unchanged.
+
+Every crash, lost response, or retry ends in one of three cases:
+- **Case A** (proven absent): a new reservation is subject to the full authority check.
+- **Case B** (record exists): a second reservation is denied.
+- **Case C** (not yet classified): the gate stays closed and the request ID is not released.
+
+An unknown outcome never releases a request ID by itself.
 
 `BLOCKED_PROTOCOL_DESIGN` does **not** apply to the acknowledgement boundary. It applies to the recovery limits described next.
 
@@ -90,8 +128,8 @@ Start-up and every gate decision compare the stores in this order. The first fai
 4. The incarnation differs: `INCARNATION_MISMATCH source=anchor`, FAILED.
 5. Any anchored pin differs from the journal: `FORK_DETECTED source=anchor`, FAILED.
 6. The high-water comparison from 0.1S (rollback, fork, `UNCOVERED_SUFFIX`) applies unchanged.
-7. `journal.len` is above `anchor.seq` by more than one group: `UNCOVERED_SUFFIX source=anchor`, FAILED.
-8. Within one group: roll forward T2 and then T3; until both succeed, `PENDING` and gate CLOSED.
+7. `journal.len > anchor.seq + 1`: `UNCOVERED_SUFFIX source=anchor`, FAILED.
+8. `journal.len == anchor.seq + 1`: roll forward T2 and then T3 for that single record. Until both succeed, the state is `PENDING` and the gate is CLOSED.
 9. Everything equal: the anchor half of the gate is satisfied. The other 0.1P conditions still apply: no `RESERVED` or `IN_DOUBT` keys, the PostgreSQL tombstones match, handover is not pending, and the epoch is current.
 
 `FAILED` and `HANDOVER_PENDING` are left only by the recovery procedure below. They are never left by a restart, a timeout, or a person's approval alone.

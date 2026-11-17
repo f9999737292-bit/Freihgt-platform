@@ -29,7 +29,7 @@ PostgreSQL, the witness journal, and the high-water store return to point T0. Th
 
 `P3B_WITH_ANCHOR=DETECTED_GATE_CLOSED_BY_DESIGN_NOT_TESTED`.
 
-Precondition: k2's reservation must have been anchored **before** the issuer started its PostgreSQL transaction (T3 before T4). If the anchor lagged, for example by asynchronous or periodic anchoring, k2's records could fall in the unanchored gap and P3B would reappear. Periodic anchoring therefore does not satisfy this design.
+Precondition: k2's reservation must have been anchored **before** the issuer started its PostgreSQL transaction (T3 before T4). If the anchor lagged, for example by asynchronous or periodic anchoring, k2's records could fall in the unanchored gap and P3B would reappear. Periodic anchoring therefore does not satisfy this design. Contract v1 anchors each record individually (`GROUP_COMMIT=DISABLED`, `MAX_SEQUENCE_INCREMENT=1`).
 
 ## Scenario B: the anchor rolls back too
 
@@ -90,3 +90,5 @@ No product or provider is selected. Cost and operational complexity are **not st
 | `hw_first` order not live | 0.1S CW4 | Not used; the anchor follows the append-first order |
 | Symmetric keys; all keys in one process | 0.1R/0.1S | Requirement CI2; NOT_PROVEN |
 | Power-loss durability | 0.1R/0.1S | NOT_PROVEN |
+| Issuer architecture P2 (issuer process, writer login) and option B3 | 0.1P (PR #386) | `PROPOSED_NOT_APPROVED`; 0.1T does not approve either |
+| Real failure domains of any anchor, witness, or PostgreSQL deployment | 0.1R `FAILURE_DOMAIN.md`; this stage | NOT_PROVEN |
