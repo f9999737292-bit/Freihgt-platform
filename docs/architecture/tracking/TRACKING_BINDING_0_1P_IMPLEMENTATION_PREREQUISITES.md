@@ -56,10 +56,15 @@ Ownership of `transport.transport_execution_active_shipments` is `NOT_PROVEN` (`
 | Status still `ISSUED`, `expires_at` not later than `clock_timestamp()` | `ISSUE_DENIED_EXPIRED` |
 | Same signed request, ticket `CONSUMED` | `ISSUE_DENIED_CONSUMED`. The id is not returned as a new grant |
 | Same `request_id`, different payload | `ISSUE_DENIED_PAYLOAD_MISMATCH` |
-| Two concurrent copies of one new issuance | One ticket |
-| Retry waits with a revocation | The retry does not return the ticket after the revocation commit |
+| Two concurrent first inserts, same payload | One committed ticket. The other insert gets `unique_violation`, rolls back, and its new transaction returns that ticket when it is still `ISSUED` and unexpired |
+| Two concurrent first inserts, different payload | One committed ticket. The other, in a new transaction, gets `ISSUE_DENIED_PAYLOAD_MISMATCH` |
+| The first transaction rolls back | The other may insert the single ticket after repeating the signature, token, and operation checks |
+| `unique_violation` | That transaction is aborted and rolled back. The status read runs in a new transaction |
+| Missing `gateway_key_id` or `request_id` | `ISSUE_DENIED_AUTH`. No row. `NULL` is not inserted |
 | Lost response, then the same signed request | No second ticket. Return only when the locked status is still `ISSUED` and unexpired |
-| Insert error | Rollback. No ticket and no idempotency row |
+| Retry waits with a revocation | The retry does not return the ticket after the revocation commit |
+| Unknown ticket status | `ISSUE_DENIED_UNKNOWN_STATUS` |
+| Insert error other than the unique conflict | Rollback. No ticket and no idempotency row |
 | Same `request_id` with a different operation | `ISSUE_DENIED_PAYLOAD_MISMATCH` |
 | Writer calls the issuer function | `42501` |
 | Writer `SET ROLE binding_authority_issuer` | Denied |

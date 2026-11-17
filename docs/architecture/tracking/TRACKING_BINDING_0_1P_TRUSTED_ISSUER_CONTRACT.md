@@ -135,19 +135,39 @@ The signed payload contains:
 
 The issuer checks the signature expiry against its own clock. A stale signature fails even when `request_id` is new. The access-token `exp` is a second, independent check.
 
-The idempotency key is the trusted gateway key id plus `request_id`. A lookup by `request_id` alone is not used, so another principal's ticket status is not read and is not returned.
+The idempotency key is `(gateway_key_id, request_id)`. PostgreSQL enforces it with a unique constraint. Go checking the key before the insert does not. Both columns are `NOT NULL`. A `NULL` is not a key, and it must not be stored. A missing `gateway_key_id` or `request_id` is `ISSUE_DENIED_AUTH` and writes nothing.
 
-The issuer still checks the gateway signature, the access token, and the operation scope before it uses a stored row. A new `request_id` is a new request and passes those checks. It is not a shortcut around them. An expired signature fails closed and does not return an older ticket. The lost-response retry is a repeat that is still inside the signature window.
+The idempotency row stores `ticket_id`, which is `NOT NULL` and references that ticket. The ticket insert and the idempotency insert are one transaction. A deferred check at commit rejects a ticket that has no idempotency row. A failure rolls both back. No migration number is reserved for this table.
 
-Inside one database transaction:
+The row stays after `REVOKED`, `EXPIRED`, and `CONSUMED`. Those status changes do not delete it. It remains at least until the ticket `expires_at`. A purge before that time is not part of this contract. While the row exists, the unique key still blocks a second ticket for that pair.
 
-1. After those checks, lock the idempotency row for this gateway key and `request_id` with `FOR UPDATE`, or insert it when it is absent.
-2. If the row exists, compare the stored payload hash. A different hash stops the transaction. The ticket is not updated.
-3. Lock that row's ticket with `FOR UPDATE`. Read `status` and `expires_at` under the lock.
-4. Return the previous `ticket_id` only when `status` is `ISSUED` and `expires_at` is later than `clock_timestamp()`.
-5. A new issue inserts the ticket and the idempotency row in this same transaction and commits once.
+`SELECT ... FOR UPDATE` does not lock a row that is not there. Two first issuances of the same pair can both see no row. The unique constraint is what stops the second commit.
 
-No SQLSTATE is assigned. The function is not written. A future run records the SQLSTATE it actually raises. This document defines the result code only.
+The issuer still checks the gateway signature, the access token, and the operation scope before it writes. A new `request_id` passes those checks again. It is not a shortcut. An expired signature fails closed and does not return an older ticket. The lost-response retry does not insert another ticket.
+
+Transaction A, the first commit:
+
+1. Check the gateway signature, the access token, and the operation scope.
+2. Begin.
+3. Insert the ticket and the idempotency row for that `ticket_id`.
+4. Commit both.
+5. Send the HTTP response after that commit. The response is not part of the commit.
+
+Transaction B, the same `gateway_key_id` and `request_id`, runs its own checks and then inserts the same unique key.
+
+1. If A commits, B's insert conflicts. PostgreSQL raises `unique_violation` and aborts B. B does not run another statement in that transaction.
+2. B rolls back.
+3. B begins a new transaction, locks the committed idempotency row `FOR UPDATE`, then locks that ticket `FOR UPDATE`.
+4. B compares the payload hash and reads `status` and `expires_at` under those locks. It uses the result codes below. It does not insert a second ticket.
+5. If A rolled back, the new transaction finds no row. B may insert the one ticket and its idempotency row only after repeating the signature, token, and operation checks. The aborted transaction is not reused.
+
+`INSERT ... ON CONFLICT` is not this path. A conflict action that succeeded before reading the ticket status could return a ticket that is `REVOKED`, `EXPIRED`, or `CONSUMED`.
+
+A committed idempotency row is read only in a transaction that did not just receive `unique_violation`. Under that lock the issuer compares the payload hash, then the ticket:
+
+The result codes stay the ones already fixed. They apply in the new transaction after the unique conflict, and on a later retry. A lost response uses the same path. It does not mint a replacement ticket.
+
+The application result codes do not add a second SQLSTATE. The conflicting insert is PostgreSQL `unique_violation`, and that error aborts the transaction. The function is not written. A future run records the SQLSTATE it actually raises.
 
 | Condition under the lock | Result code | Ticket id in the response |
 | --- | --- | --- |
@@ -162,11 +182,11 @@ No SQLSTATE is assigned. The function is not written. A future run records the S
 
 A denial does not include another principal's ticket id, status, tenant, or shipment. `ISSUE_DENIED_AUTH` is the code for a failed check and for a request the issuer will not describe further.
 
-Revocation locks only the ticket `FOR UPDATE`. Consume locks the ticket `FOR UPDATE` before the execution, shipment, and link locks. The retry locks the idempotency row first and the ticket second. Revocation and consume do not lock the idempotency row, so they do not take the opposite order. Two retries take the idempotency row, then the ticket.
+Revocation locks only the ticket `FOR UPDATE`. Consume locks the ticket `FOR UPDATE` before the execution, shipment, and link locks. After a committed idempotency row exists, a retry locks that row `FOR UPDATE` and then the ticket. Revocation and consume do not lock the idempotency row, so they do not take the opposite order. Two retries of a committed row take the idempotency row, then the ticket.
 
 If revocation commits first, the retry's ticket lock sees `REVOKED` and returns `ISSUE_DENIED_REVOKED`. If the retry commits `ISSUE_REPLAY_ISSUED` first, revocation waits, then sets `REVOKED`. The HTTP response is written after the database commit. Those two steps are not one atomic operation. A ticket returned by that commit can be revoked before the caller uses it. Consume of a `REVOKED` ticket still fails.
 
-Two concurrent copies of a new request serialize on the idempotency key. One insert commits. The other locks that row and, when the ticket is still `ISSUED` and unexpired, returns the same id. A failed insert rolls the transaction back. Neither the ticket nor the idempotency row remains.
+Two first inserts do not lock a missing row. The unique index admits one commit. The other transaction is aborted by `unique_violation` and is rolled back. Its follow-up transaction then uses the status rules above. A failed first insert leaves neither the ticket nor the idempotency row.
 
 ## Who decides
 
@@ -200,6 +220,7 @@ Each row fails closed when the authority is missing.
 
 - The gateway signature, the issuer revalidation, and the request-id store are `PROPOSED`. They are not running.
 - A stored ticket is returned only for `ISSUE_REPLAY_ISSUED`. `REVOKED`, `EXPIRED`, `CONSUMED`, an elapsed `expires_at`, and an unknown status are denials.
+- A lock of an absent idempotency row is not the first-issuance barrier. The unique constraint on `(gateway_key_id, request_id)` is.
 - `X-Internal-Service-Token` is not gateway authentication.
 - Sharing the `freight` password with a second process and naming that process "issuer" does not split the principal. Compose still uses that login.
 - `iss`, `aud`, token revocation, and the issuer's operation check are `NOT_PROVEN`.
