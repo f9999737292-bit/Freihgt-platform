@@ -45,7 +45,7 @@ def tracked() -> list[str]:
 
 
 def generate() -> None:
-    files = sorted(set(tracked()) | {"MANIFEST"} - {"SHA256SUMS"})
+    files = sorted((set(tracked()) | {"MANIFEST"}) - {"SHA256SUMS"})
     lines = ["# BINTRANS 0.1Q evidence manifest", "# path<TAB>category", "# SHA256SUMS covers every path below.", ""]
     for p in files:
         cat = "attempt" if p.startswith("attempts/attempt_") else "aggregate" if p.startswith("attempts/") else \

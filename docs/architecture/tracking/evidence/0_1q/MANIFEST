@@ -6,7 +6,6 @@
 MANIFEST	doc
 PRODUCT_DIFFERENCES.md	doc
 README.md	doc
-SHA256SUMS	doc
 attempts/attempt_1/RESULTS.md	attempt
 attempts/attempt_1/assertions.json	attempt
 attempts/attempt_1/catalog/02_catalog.cmd.txt	attempt
