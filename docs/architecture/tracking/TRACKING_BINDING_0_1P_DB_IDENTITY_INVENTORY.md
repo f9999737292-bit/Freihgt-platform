@@ -89,7 +89,7 @@ One existing path already refuses the shared token. Analytics source reads requi
 
 No issuer service and no public route to one exist in this tree. Putting an issuer behind the current internal-token middleware would accept every holder of `INTERNAL_SERVICE_TOKEN`.
 
-The proposed retry in the issuer contract returns a stored ticket only when the locked row is `ISSUED` and `expires_at` is still later than `clock_timestamp()`. A committed `REVOKED`, `EXPIRED`, or `CONSUMED` ticket is not returned as a live grant. The unique key stays after those statuses. `ticket.expires_at` does not authorize deleting it, and a new signature of the same `request_id` does not create a second ticket. Two first inserts of the same pair are stopped by that unique constraint, not by `FOR UPDATE` on a row that is not there. That function and that constraint are not in the database.
+The proposed retry in the issuer contract returns a stored ticket only when the locked row is `ISSUED` and `expires_at` is still later than `clock_timestamp()`. A committed `REVOKED`, `EXPIRED`, or `CONSUMED` ticket is not returned as a live grant. The unique key is `(issuer_namespace_id, request_id)`. `gateway_key_id` is the signing key, not a second namespace. `payload_hash` stays after cleanup. A new signing key for the same `request_id` does not create a second ticket. A restore that can omit a committed tombstone closes issuance. Two first inserts of the same key are stopped by that unique constraint, not by `FOR UPDATE` on a row that is not there. That function, that constraint, and the recovery check are `PROPOSED_NOT_IMPLEMENTED`.
 
 ## Designed roles that do not exist
 

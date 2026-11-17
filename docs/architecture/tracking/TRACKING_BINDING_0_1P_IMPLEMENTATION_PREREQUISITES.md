@@ -43,6 +43,8 @@ Ownership of `transport.transport_execution_active_shipments` is `NOT_PROVEN` (`
 
 ## Isolated tests, not run
 
+The issuance journal, the recovery point, the gap check, and the unique index on `(issuer_namespace_id, request_id)` are `PROPOSED_NOT_IMPLEMENTED`. The rows below are not executed.
+
 | Test | Required result |
 | --- | --- |
 | `X-Internal-Service-Token` and no gateway signature | Denied. No ticket |
@@ -69,10 +71,25 @@ Ownership of `transport.transport_execution_active_shipments` is `NOT_PROVEN` (`
 | Retry after `REVOKED`, `EXPIRED`, or `CONSUMED` | Denied. The tombstone remains. No second ticket |
 | Retry after `ticket.expires_at` while the signature window is still open | `ISSUE_DENIED_EXPIRED`. The row is still there |
 | Retry after the signature window | Denied. The tombstone remains |
-| Same `request_id` signed again | Denied. `request_id` is not reused for a new ticket |
+| Same `request_id` signed again, including with a new gateway key | No second ticket. The same ticket only when the canonical hash matches and the ticket is still `ISSUED` and unexpired. Otherwise denied |
+| Missing or unreadable `payload_hash` | `ISSUE_DENIED_AUTH`. No ticket id |
+| Cleanup after the signature window | The access token may be dropped. `payload_hash`, the unique key, and the terminal status remain |
+| First issue with key K1 and request R | One ticket |
+| Repeat K1 and R, same canonical payload, ticket still valid | `ISSUE_REPLAY_ISSUED` |
+| Repeat K1 and R, different canonical payload | `ISSUE_DENIED_PAYLOAD_MISMATCH` |
+| Key K2 signs request R after rotation | No second ticket |
+| Retired key K1 and existing R | The tombstone and the retired-key record remain |
+| A new `request_id` | Full authorization. One ticket if it commits |
+| Two concurrent first inserts under two active signing keys and one `request_id` | One ticket |
+| Issuer process restart with the committed history present | The history is still there. No rebuilt ticket |
+| Failover that still has the confirmed history | Issuance continues only after the history check. A row count is not that check |
+| Restore from a backup that can omit a tombstone | `ISSUER_ISSUANCE_GATE=CLOSED`. No new ticket |
+| History gap | Detected against the issuance journal. Issuance stays closed |
+| Reconciliation | Does not mint a ticket |
 | Cleanup runs during a retry | No second ticket. Cleanup does not delete the unique key and locks the idempotency row before the ticket |
 | Cleanup runs during a first insert of that same key | The unique key, once committed, still conflicts. Cleanup does not remove it |
-| Tombstone still stored | A later insert of that pair does not commit a new ticket |
+| Tombstone still stored | A later insert of that `request_id` does not commit a new ticket |
+| Retry, revocation, and cleanup together | Cleanup locks the idempotency row before the ticket and keeps the key and the digest. Revocation locks only the ticket. No second ticket |
 | Writer calls the issuer function | `42501` |
 | Writer `SET ROLE binding_authority_issuer` | Denied |
 | Ticket for another tenant | Consume denied, no write |
