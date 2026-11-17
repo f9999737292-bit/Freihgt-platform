@@ -43,7 +43,7 @@ Ownership of `transport.transport_execution_active_shipments` is `NOT_PROVEN` (`
 
 ## Isolated tests, not run
 
-The external witness, its checkpoint, the namespace transition, and the unique index on `(issuer_namespace_id, request_id)` are `PROPOSED_NOT_IMPLEMENTED`. No storage product is selected for the witness. The document object store is not that witness. The rows below are not executed.
+The witness reservation, the fencing epoch, the namespace transition, and the unique index on `(issuer_namespace_id, request_id)` are `PROPOSED_NOT_IMPLEMENTED`. `OLD_PRIMARY_FENCING=NOT_PROVEN`. No storage product is selected for the witness. The document object store is not that witness. The rows below are not executed.
 
 | Test | Required result |
 | --- | --- |
@@ -58,12 +58,12 @@ The external witness, its checkpoint, the namespace transition, and the unique i
 | Status still `ISSUED`, `expires_at` not later than `clock_timestamp()` | `ISSUE_DENIED_EXPIRED` |
 | Same signed request, ticket `CONSUMED` | `ISSUE_DENIED_CONSUMED`. The id is not returned as a new grant |
 | Same `request_id`, different payload | `ISSUE_DENIED_PAYLOAD_MISMATCH` |
-| Two concurrent first inserts, same payload | One committed ticket. The other insert gets `unique_violation`, rolls back, and its new transaction returns that ticket when it is still `ISSUED` and unexpired |
+| Two concurrent first inserts, same payload | The witness accepts one reservation. The other caller does not start PostgreSQL. One ticket when that reservation reaches `COMMIT_CONFIRMED` |
 | Two concurrent first inserts, different payload | One committed ticket. The other, in a new transaction, gets `ISSUE_DENIED_PAYLOAD_MISMATCH` |
 | The first transaction rolls back | The other may insert the single ticket after repeating the signature, token, and operation checks |
 | `unique_violation` | That transaction is aborted and rolled back. The status read runs in a new transaction |
 | Missing `gateway_key_id` or `request_id` | `ISSUE_DENIED_AUTH`. No row. `NULL` is not inserted |
-| Lost response, then the same signed request | No second ticket. Return only when the locked status is still `ISSUED` and unexpired |
+| Lost response, then the same signed request | No new reservation. Return the id only when the witness is `COMMIT_CONFIRMED` and the locked ticket is still `ISSUED` and unexpired |
 | Retry waits with a revocation | The retry does not return the ticket after the revocation commit |
 | Unknown ticket status | `ISSUE_DENIED_UNKNOWN_STATUS` |
 | Insert error other than the unique conflict | Rollback. No ticket and no idempotency row |
@@ -82,17 +82,22 @@ The external witness, its checkpoint, the namespace transition, and the unique i
 | A new `request_id` | Full authorization. One ticket if it commits |
 | Two concurrent first inserts under two active signing keys and one `request_id` | One ticket |
 | Issuer process restart with the committed history present | The history is still there. No rebuilt ticket. The witness is read before the gate can open |
-| Failover that still has the confirmed history | The gate stays closed until the external witness matches and a person opens it. A row count, and a database that agrees with itself, are not that check |
-| Restore from a backup that can omit a tombstone | `ISSUER_ISSUANCE_GATE=CLOSED`. No new ticket |
-| History gap | A skipped witness sequence or a committed ticket with no witness record. Issuance stays closed. A row count is not the detector |
-| Reconciliation | Does not mint a ticket |
-| PostgreSQL `COMMIT` before the witness append | Gate `CLOSED`. That same ticket is appended. No second ticket |
-| Witness record before a PostgreSQL commit on this timeline | Gate `CLOSED`. That `request_id` is forbidden. No live ticket |
-| Crash between the two writes | Gate `CLOSED` until the stores are compared. No second ticket |
-| Lagging replica promoted | Gate `CLOSED` until the witness matches. No second ticket |
-| Split-brain | Both gates `CLOSED`. The witness checkpoint is not lowered |
-| Witness unavailable | Gate `CLOSED`. History is not declared complete |
-| Witness behind committed tickets | Gate `CLOSED` until those tickets are appended. No new ticket |
+| Failover that still has the confirmed history | The gate stays closed. A person's approval is not the reservation proof and is not a fence |
+| Restore from a backup that can omit a tombstone | `ISSUER_ISSUANCE_GATE=CLOSED`. The witness reservations remain. No new ticket |
+| History gap | A skipped reservation sequence, or a ticket with no reservation. Issuance stays closed. A row count is not the detector |
+| Reconciliation | Does not mint a ticket. `RESERVED` and `IN_DOUBT` are not released on a timeout |
+| Witness reserve before PostgreSQL begins | One `RESERVED` record. No second reservation. No ticket yet |
+| Reservation durable, PostgreSQL insert not started | No second ticket. A timeout does not free the key |
+| Crash before PostgreSQL `COMMIT` | The reservation remains. No automatic new ticket |
+| PostgreSQL `COMMIT` before the witness outcome | The reservation blocks a second ticket. No HTTP grant until `COMMIT_CONFIRMED` |
+| Crash after PostgreSQL `COMMIT` | Outcome becomes `IN_DOUBT` or `COMMIT_CONFIRMED`. No second ticket |
+| Old primary still running | Its new reservation is rejected after the epoch increment. Its in-flight `COMMIT` is `NOT_PROVEN` to fail |
+| Lagging replica promoted | Gate `CLOSED`. Old reservations are not new authority |
+| Two timelines issue at once | One reservation per `request_id`. Both cannot reach `COMMIT_CONFIRMED` for that request |
+| Stale fencing epoch at the witness | No new reservation |
+| Stale writer commits in PostgreSQL | Not proven blocked while `freight` can write. Gate stays `CLOSED` |
+| Witness unavailable | Gate `CLOSED`. No `ISSUE_OK` |
+| Witness and PostgreSQL disagree | Gate `CLOSED`. No second ticket |
 | Namespace in configuration differs from the witness | Gate `CLOSED` |
 | Gateway key rotation | The namespace is unchanged. No second ticket |
 | Namespace changed without the approved workflow | Gate `CLOSED`. Old `request_id` values are not a new authority |

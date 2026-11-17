@@ -166,53 +166,67 @@ Cleanup locks the idempotency row `FOR UPDATE` and then the ticket, the same ord
 
 The PostgreSQL tombstones are not proof that this database is the latest history. A restored copy can agree with itself and still omit committed tickets. `SELECT COUNT(*)` and the existence of the table are not that proof. The proposed check is an append-only witness outside the PostgreSQL data directory. Restoring the database does not restore the witness and does not rewind it. No storage product is selected. The document-service object store, whether local or S3, stores documents. It is not this witness, and it is not an authority boundary for issuance. The witness is `PROPOSED_NOT_IMPLEMENTED`. It is not installed in BINTRANS.
 
-Each witness record carries a sequence assigned by the witness, the previous sequence, `issuer_namespace_id`, `request_id`, `ticket_id` when a ticket was committed, `payload_hash`, and the original `gateway_key_id`. The sequence has no gaps. The issuer cannot submit a lower checkpoint. The witness rejects a delete or a rewrite. Dropping an access token does not remove the witness record.
+Each witness record carries a sequence assigned by the witness, the previous sequence, `issuer_namespace_id`, `request_id`, the reservation state, the fencing epoch that created the reservation, `payload_hash`, and, once a ticket exists, `ticket_id` and the original `gateway_key_id`. The sequence has no gaps. One `(issuer_namespace_id, request_id)` has one reservation, whichever signing key is presented. The issuer cannot submit a lower checkpoint or a lower epoch. The witness rejects a delete or a rewrite. Dropping an access token does not remove the witness record. No storage product is selected for these properties. The document-service object store does not provide them.
 
-Only the future issuer process appends, with a credential that is not the `freight` login, the gateway signing key, or the writer login. That credential does not exist. The issuer and a separate recovery operator may read. The operator cannot append issuance records. The writer and the gateway cannot append. The operator records the highest witness sequence already accepted. That record sits outside the database and outside the witness. The issuer cannot write it, and the procedure has no step that lowers it. A witness sequence below that record is a rewind. The gate stays `CLOSED`, and history is not complete. If that record is missing while either store has issuance records, history is not complete. The record is `PROPOSED_NOT_IMPLEMENTED` and is not a selected storage product.
+The future issuer appends a reservation or an outcome, with a credential that is not the `freight` login, the gateway signing key, or the writer login. That credential does not exist. The issuer and a separate recovery operator may read. The operator cannot append a reservation or an outcome. The operator can request the epoch increment. The writer and the gateway cannot append. The operator records the highest witness sequence already accepted. That record sits outside the database and outside the witness. The issuer cannot write it, and the procedure has no step that lowers it. A witness sequence below that record is a rewind. The gate stays `CLOSED`, and history is not complete. If that record is missing while either store has issuance records, history is not complete. The record is `PROPOSED_NOT_IMPLEMENTED` and is not a selected storage product.
 
-The PostgreSQL commit and the witness append are two commits. They are not one atomic operation. This design has no distributed transaction. The issuer appends the witness only after the PostgreSQL `COMMIT` has succeeded, and it sends the HTTP response only after that append has succeeded. If the append fails, the gate closes. The closed gate refuses a new ticket. It does not hide the tombstone that already committed.
+The witness reservation and the PostgreSQL commit are two commits. They are not one atomic operation. This design has no distributed transaction. The reservation is appended first. PostgreSQL is started only after that append is durable. The outcome is appended after PostgreSQL ends. A local flag in the issuer is not any of these steps.
 
-| Window | What exists | What stays uncertain | How it is seen | Gate and reconciliation |
-| --- | --- | --- | --- | --- |
-| PostgreSQL committed, witness not appended | Ticket and tombstone | The witness high-water mark omits this ticket | A committed `ticket_id` has no witness record | `CLOSED`. Append that same ticket to the witness. Do not insert another ticket |
-| Witness appended, this database has no commit | The witness record | Whether a client holds a ticket, and whether this timeline committed it | The witness `request_id` has no tombstone | `CLOSED`. History is not complete. Do not insert a live ticket. Forbid that `request_id`. A denial tombstone may store the witness `ticket_id` and `payload_hash` with a status other than `ISSUED`, and the response has no ticket id |
-| Crash between the two writes | Whichever commit completed | Which of the two commits completed | Restart compares the two stores. Process memory is not the record | `CLOSED` until the comparison finishes. The same rules as the two rows above. If neither commit completed, no ticket was issued |
-| HTTP response lost after `COMMIT` | The tombstone, and the witness record when the append succeeded | The caller may not have the response | The retry reads the tombstone | No new ticket. The same id only for `ISSUE_REPLAY_ISSUED`, otherwise a denial |
-| Restart after the crash | Committed rows and appended witness records | Anything the witness cannot show | The issuer reads the witness before it issues | `CLOSED` when the witness is missing, behind, or in disagreement. No rebuilt ticket |
+The witness keeps one monotonic fencing epoch for each `issuer_namespace_id`. A new reservation is accepted only from the current epoch, and only from the one holder of that epoch. The recovery operator, not the old issuer, asks the witness to increment the epoch. The witness then refuses new reservations from the old epoch. That increment does not abort a PostgreSQL transaction the old issuer has already started. A lease timeout is not evidence that the old transaction will fail to `COMMIT`. The old epoch may still append the outcome of a reservation it already holds, so a commit is not forgotten. It cannot open a second reservation.
 
-History is not complete when the witness cannot be read, when its sequence skips, when a committed ticket has no witness record, or when a witness record has no tombstone and no permanent denial. A database that matches itself is not that answer. There is no path that reopens issuance by creating the missing ticket again. When a witness record is too incomplete to forbid its `request_id`, the gate stays `CLOSED`. That is a refusal, not a finished recovery.
+The PostgreSQL check that would make the old `COMMIT` fail is not installed. The required shape is one epoch row per namespace, locked `FOR UPDATE` for the whole issuance transaction, with the transaction's epoch equal to that locked row. A boolean in the issuer process is not that lock. `freight` can still insert without it. Whether that login is superuser is `NOT_PROVEN`. The table owner and a superuser can disable a trigger, and `session_replication_role = replica` can skip one. `OLD_PRIMARY_FENCING=NOT_PROVEN`. Until a check inside PostgreSQL rejects that `COMMIT`, promotion does not open `ISSUER_ISSUANCE_GATE`.
+
+A reservation is one of `RESERVED`, `COMMIT_CONFIRMED`, `ABORT_CONFIRMED`, `IN_DOUBT`, or `PERMANENTLY_DENIED`. `RESERVED` follows a durable unique append. `COMMIT_CONFIRMED` follows an outcome that cites that same reservation and a committed ticket. `ABORT_CONFIRMED` follows proof that the PostgreSQL transaction rolled back and that no commit of that reservation exists. A timeout is not that proof, and a missing HTTP response is not that proof. `IN_DOUBT` follows a crash or an unknown outcome. `PERMANENTLY_DENIED` follows an unknown fate that cannot be proven. `RESERVED` and `IN_DOUBT` are never deleted and never returned to an empty key. `COMMIT_CONFIRMED` and `PERMANENTLY_DENIED` do not change. `IN_DOUBT` becomes `COMMIT_CONFIRMED` only when the matching tombstone is found. The same reservation, after a proven abort, may be resumed into the one PostgreSQL insert. That resume is not a new reservation.
+
+| Window | What can be checked | What enforces the result |
+| --- | --- | --- |
+| Reservation durable, PostgreSQL not begun | One `RESERVED` record for that namespace and `request_id` | The witness unique append. A second reserve is rejected |
+| Reservation durable, PostgreSQL insert not started | The same `RESERVED` record, and no tombstone | Resume that reservation, or leave it. A timeout does not free it and does not create a ticket |
+| PostgreSQL `COMMIT` done, outcome not appended | The tombstone and the still-open reservation | The reservation blocks another reserve. The HTTP response grants nothing until the outcome is `COMMIT_CONFIRMED` |
+| PostgreSQL `ROLLBACK` done, witness still `RESERVED` | The reservation, and no commit record for it | No automatic new ticket. `ABORT_CONFIRMED` only with proof of the rollback. Otherwise the state becomes `IN_DOUBT` |
+| HTTP response lost | The reservation state | No new reservation. A ticket id is returned only for `COMMIT_CONFIRMED`, and only under the replay rules below |
+| PostgreSQL restored from a stale backup | Witness reservations that the backup does not contain | Those reservations stay. A missing tombstone is not a free `request_id`. The gate stays `CLOSED` |
+| Witness unavailable | No readable reservation log | The gate stays `CLOSED`. No `ISSUE_OK` |
+| Witness and PostgreSQL disagree | Reservation state against the tombstone | The gate stays `CLOSED`. An unknown commit stays `IN_DOUBT` or becomes `PERMANENTLY_DENIED`. No second ticket |
+| Reservation belongs to an older epoch | The epoch stored on that reservation | The old epoch cannot reserve again. It may append the outcome of the reservation it holds. Its later PostgreSQL `COMMIT` is not proven to fail |
+
+History is not complete while any reservation is `RESERVED` or `IN_DOUBT`, while the witness cannot be read, or while its sequence is below the accepted mark. A database that matches itself is not that answer. Reconciliation copies a witness reservation onto the existing tombstone, or stores a denial tombstone that is not `ISSUED`. It does not insert a second ticket. The recovery operator records the comparison and cannot lower the accepted sequence and cannot append a reservation. A person's approval does not replace that comparison. If the proof is missing, the gate stays `CLOSED`.
 
 Restore and failover stay `PROPOSED_NOT_IMPLEMENTED`.
 
-1. Close issuance before recovery starts.
+1. Close issuance before recovery starts. Closing it on the new process does not, by itself, stop the old process.
 2. Compare the restored rows with the witness that this backup did not replace.
-3. Check one namespace, a contiguous witness sequence, and a witness record for every committed ticket.
-4. A ticket the witness knows and this database lacks is restored from a source the witness covers, or its `request_id` stays forbidden. It is not issued again.
-5. The previous primary is fenced. It does not issue after the new primary is chosen.
-6. Two database timelines do not both have the gate open. Divergence closes both. The witness checkpoint is not lowered to the older timeline.
-7. A person opens the gate only after that check. The issuer does not open it because the table is present.
+3. Check one namespace, one current epoch, a contiguous reservation sequence, and a terminal witness state for every `request_id` the witness holds.
+4. A reservation the database lacks is not issued again. Its key stays reserved, denied, or matched to a restored tombstone.
+5. Do not treat the old primary as fenced. `OLD_PRIMARY_FENCING=NOT_PROVEN`. The new epoch does not open the gate.
+6. Two timelines do not both receive `COMMIT_CONFIRMED` for one `request_id`. The witness has one reservation. They can still both write through `freight`. That bypass is open.
+7. The gate stays `CLOSED` until the reservation history and a PostgreSQL epoch check are both proven. Neither is proven. The issuer does not open the gate because a person approved it or because the table is present.
 
-Promoting a lagging replica closes the gate. That replica can omit commits the witness already has. Split-brain closes both sides. A lost witness, a witness behind committed tickets, or a witness that cannot be reached leaves the gate `CLOSED`. A configuration change after the restore does not open it.
+Promoting a lagging replica closes the gate. Split-brain closes both sides for new reservations. A lost, rewound, or unreachable witness leaves the gate `CLOSED`. A configuration change after the restore does not open it.
 
-`SELECT ... FOR UPDATE` does not lock a row that is not there. Two first issuances of the same `request_id` can both see no row. The unique constraint is what stops the second commit.
+`SELECT ... FOR UPDATE` does not lock a row that is not there. The witness reservation is what stops a second first issuance, including after the database rows are gone. The PostgreSQL unique constraint still stops a second insert when the row is present. It does not survive a restore that omits the row.
 
-The issuer still checks the gateway signature, the access token, and the operation scope before it writes. A new `request_id` passes those checks again. It is not a shortcut. An expired signature fails closed and does not return an older ticket. The lost-response retry does not insert another ticket.
+The issuer still checks the gateway signature, the access token, the operation scope, the namespace, the open gate, and the current epoch before it reserves. A new `request_id` passes those checks again. It is not a shortcut. An expired signature fails closed and does not return an older ticket. The lost-response retry does not create a reservation.
 
-Transaction A, the first commit:
+Transaction A, the first issuance:
 
-1. Check the gateway signature, the access token, and the operation scope.
-2. Begin.
-3. Insert the ticket and the idempotency row for that `ticket_id`.
-4. Commit both.
-5. Send the HTTP response after that commit. The response is not part of the commit.
+1. Check the gateway signature, the access token, the issuer operation scope, and `issuer_namespace_id`.
+2. Check that the issuance gate is open and that this process holds the current fencing epoch. A closed gate stops the transaction here.
+3. Append one reservation for `(issuer_namespace_id, request_id)` to the witness.
+4. Continue only after that append is durable and the state is `RESERVED`.
+5. Begin the PostgreSQL transaction.
+6. Insert the ticket and the idempotency tombstone together.
+7. In that same transaction, lock the epoch row and require it to equal the reservation epoch. A local flag is not this step. This lock is `PROPOSED_NOT_IMPLEMENTED` and is not a proven fence.
+8. `COMMIT` the ticket and the tombstone.
+9. Append the outcome. `COMMIT_CONFIRMED` cites that reservation and that `ticket_id`.
+10. Send the HTTP response only after the outcome is `COMMIT_CONFIRMED`. If the outcome is not confirmed, the response has no ticket id and is not a new grant.
 
-Transaction B, the same `issuer_namespace_id` and `request_id`, including a different `gateway_key_id`, runs its own checks and then inserts the same unique key.
+Transaction B uses the same `issuer_namespace_id` and `request_id`, including a different `gateway_key_id`. It tries to reserve the same key.
 
-1. If A commits, B's insert conflicts. PostgreSQL raises `unique_violation` and aborts B. B does not run another statement in that transaction.
-2. B rolls back.
-3. B begins a new transaction, locks the committed idempotency row `FOR UPDATE`, then locks that ticket `FOR UPDATE`.
-4. B compares the payload hash under those locks. A missing or unreadable digest is `ISSUE_DENIED_AUTH` and returns no ticket id. Otherwise B reads `status` and `expires_at` and uses the result codes below. It does not insert a second ticket.
-5. If A rolled back, the new transaction finds no row. B may insert the one ticket and its idempotency row only after repeating the signature, token, and operation checks. The aborted transaction is not reused.
+1. The witness accepts one reservation. The other caller does not begin PostgreSQL.
+2. If A reaches `COMMIT_CONFIRMED`, B locks the tombstone `FOR UPDATE`, then the ticket, and uses the result codes below. It does not insert a second ticket.
+3. If A's PostgreSQL transaction is aborted by `unique_violation`, that transaction is rolled back. The follow-up reads the committed row in a new transaction.
+4. If A rolls back and the reservation remains `RESERVED` or becomes `IN_DOUBT`, B does not create a ticket. A proven `ABORT_CONFIRMED` may resume the same reservation. It does not allocate another one.
 
 `INSERT ... ON CONFLICT` is not this path. A conflict action that succeeded before reading the ticket status could return a ticket that is `REVOKED`, `EXPIRED`, or `CONSUMED`.
 
@@ -224,8 +238,11 @@ The application result codes do not add a second SQLSTATE. The conflicting inser
 
 | Condition under the lock | Result code | Ticket id in the response |
 | --- | --- | --- |
-| No stored row, checks passed | `ISSUE_OK` | The new id |
-| Same hash, `ISSUED`, `expires_at` still later than `clock_timestamp()` | `ISSUE_REPLAY_ISSUED` | The same id |
+| Durable `RESERVED`, current epoch, gate open, no tombstone, checks passed, outcome then `COMMIT_CONFIRMED` | `ISSUE_OK` | The new id, only after that outcome |
+| No tombstone and no durable reservation | No issue | Absent |
+| `RESERVED` or `IN_DOUBT`, outcome unknown | No new ticket | Absent |
+| Stale fencing epoch or closed gate | `ISSUE_DENIED_AUTH` | Absent |
+| Same hash, witness `COMMIT_CONFIRMED`, `ISSUED`, `expires_at` still later than `clock_timestamp()` | `ISSUE_REPLAY_ISSUED` | The same id |
 | Same hash, `REVOKED` | `ISSUE_DENIED_REVOKED` | Absent |
 | Same hash, status `EXPIRED`, or `ISSUED` with `expires_at` not later than `clock_timestamp()` | `ISSUE_DENIED_EXPIRED` | Absent |
 | Same hash, `CONSUMED` | `ISSUE_DENIED_CONSUMED` | Absent. This is not a new grant |
@@ -238,7 +255,7 @@ A denial does not include another principal's ticket id, status, tenant, or ship
 
 Revocation locks only the ticket `FOR UPDATE`. Consume locks the ticket `FOR UPDATE` before the execution, shipment, and link locks. After a committed idempotency row exists, a retry locks that row `FOR UPDATE` and then the ticket. Revocation and consume do not lock the idempotency row, so they do not take the opposite order. Two retries of a committed row take the idempotency row, then the ticket.
 
-If revocation commits first, the retry's ticket lock sees `REVOKED` and returns `ISSUE_DENIED_REVOKED`. If the retry commits `ISSUE_REPLAY_ISSUED` first, revocation waits, then sets `REVOKED`. The HTTP response is written after the database commit. Those two steps are not one atomic operation. A ticket returned by that commit can be revoked before the caller uses it. Consume of a `REVOKED` ticket still fails.
+If revocation commits first, the retry's ticket lock sees `REVOKED` and returns `ISSUE_DENIED_REVOKED`. If the retry commits `ISSUE_REPLAY_ISSUED` first, revocation waits, then sets `REVOKED`. The HTTP grant is written only after the witness outcome is `COMMIT_CONFIRMED`. That grant is still not atomic with a later revocation. A ticket returned by that commit can be revoked before the caller uses it. Consume of a `REVOKED` ticket still fails.
 
 Two first inserts do not lock a missing row. The unique index admits one commit. The other transaction is aborted by `unique_violation` and is rolled back. Its follow-up transaction then uses the status rules above. A failed first insert leaves neither the ticket nor the idempotency row.
 
@@ -266,7 +283,7 @@ Each row fails closed when the authority is missing.
 | Forged tenant in the body | Denied. The token claim is the tenant |
 | Writer process compromised | It can use its own login. It cannot sign an issuance, cannot `SET ROLE` to the issuer, and cannot `EXECUTE` the issuer. A stolen `ticket_id` is still the presenter gap |
 | Issuer process compromised | It can insert tickets for identities it can validate, and it can append witness records until its witness credential is revoked. It cannot lower the accepted sequence. A witness record with no ticket forbids that `request_id` and closes the gate. It does not authorize a second ticket. Recovery revokes the issuer login, the witness credential, and the gateway key. Tickets already committed stay until expiry or revocation |
-| Issue commits, response is lost | The same signed request runs the transaction again. It returns the same id only for `ISSUE_REPLAY_ISSUED`. It does not insert a second ticket |
+| Issue commits, response is lost | The same request is retried. It returns the same id only when the witness is `COMMIT_CONFIRMED` and the locked ticket is still `ISSUED` and unexpired. It does not create a reservation |
 | Consume rolls back | The ticket stays `ISSUED`. The write and the audit row are gone |
 | Two consumes | The ticket lock admits one commit. The other sees `CONSUMED` or waits and then fails |
 
@@ -274,9 +291,10 @@ Each row fails closed when the authority is missing.
 
 - The gateway signature, the issuer revalidation, and the request-id store are `PROPOSED`. They are not running.
 - A stored ticket is returned only for `ISSUE_REPLAY_ISSUED`. `REVOKED`, `EXPIRED`, `CONSUMED`, an elapsed `expires_at`, and an unknown status are denials.
-- A lock of an absent idempotency row is not the first-issuance barrier. The unique constraint on `(issuer_namespace_id, request_id)` is. `gateway_key_id` is not that namespace.
+- A missing idempotency row is not first issuance. The witness reservation is. The unique constraint on `(issuer_namespace_id, request_id)` remains for a database that still has the row. `gateway_key_id` is not that namespace.
 - That unique key, the original signing key, and `payload_hash` are a tombstone. They are not deleted at `ticket.expires_at`, at the end of the signature window, or when the signing key rotates. One `request_id` is not a second ticket.
-- Issuer restart, failover, and restore handling are `PROPOSED_NOT_IMPLEMENTED`. A stale restore closes issuance. The external witness is not installed. The document object store is not that witness. Two commits are not one atomic operation. History is not complete when the witness cannot cover the committed tickets.
+- Issuer restart, failover, and restore handling are `PROPOSED_NOT_IMPLEMENTED`. A stale restore closes issuance. The external witness is not installed. The document object store is not that witness. Two commits are not one atomic operation. A reservation is not released on a timeout.
+- `OLD_PRIMARY_FENCING=NOT_PROVEN`. A lease timeout is not proof that an old transaction will fail its `COMMIT`. A person's approval does not open the gate. Direct SQL as `freight` bypasses an uninstalled epoch lock.
 - `issuer_namespace_id` is not a switch. A new identifier does not make a used `request_id` a new authority.
 - `X-Internal-Service-Token` is not gateway authentication.
 - Sharing the `freight` password with a second process and naming that process "issuer" does not split the principal. Compose still uses that login.
