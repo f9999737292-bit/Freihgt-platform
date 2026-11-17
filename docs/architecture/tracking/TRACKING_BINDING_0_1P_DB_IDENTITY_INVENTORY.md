@@ -89,6 +89,8 @@ One existing path already refuses the shared token. Analytics source reads requi
 
 No issuer service and no public route to one exist in this tree. Putting an issuer behind the current internal-token middleware would accept every holder of `INTERNAL_SERVICE_TOKEN`.
 
+The proposed retry in the issuer contract returns a stored ticket only when the locked row is `ISSUED` and `expires_at` is still later than `clock_timestamp()`. A committed `REVOKED`, `EXPIRED`, or `CONSUMED` ticket is not returned as a live grant. That function is not in the database.
+
 ## Designed roles that do not exist
 
 `binding_authority_issuer`, `binding_authority_caller`, and `binding_authority_owner` are not in `000103`, `000104`, or `000105`. Describing them here does not make them a boundary.

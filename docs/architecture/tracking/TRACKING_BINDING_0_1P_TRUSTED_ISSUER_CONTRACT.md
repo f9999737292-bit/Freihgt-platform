@@ -135,17 +135,38 @@ The signed payload contains:
 
 The issuer checks the signature expiry against its own clock. A stale signature fails even when `request_id` is new. The access-token `exp` is a second, independent check.
 
-In the same transaction as the ticket insert, the issuer inserts `request_id` with the payload hash. The unique constraint makes the check atomic.
+The idempotency key is the trusted gateway key id plus `request_id`. A lookup by `request_id` alone is not used, so another principal's ticket status is not read and is not returned.
 
-| Arrival | Result |
-| --- | --- |
-| New `request_id`, valid signature, valid token, role check passes | One ticket, commit, return `ticket_id` |
-| Same `request_id` and the same payload hash, ticket already committed | Return that ticket. No second insert. This is the retry after a lost response |
-| Same `request_id` and a different operation, tenant, shipment, or execution | Denied. The old ticket is not a grant for the new scope |
-| Signature expired, token expired, unknown key, or shared internal token only | Denied. No ticket |
-| Role check cannot be completed | Denied. `NOT_PROVEN` until that check exists |
+The issuer still checks the gateway signature, the access token, and the operation scope before it uses a stored row. A new `request_id` is a new request and passes those checks. It is not a shortcut around them. An expired signature fails closed and does not return an older ticket. The lost-response retry is a repeat that is still inside the signature window.
 
-A retry is idempotent only for the identical signed request. A new operation is a new `request_id` and a new authorization. Replaying the same request does not mint a second authority.
+Inside one database transaction:
+
+1. After those checks, lock the idempotency row for this gateway key and `request_id` with `FOR UPDATE`, or insert it when it is absent.
+2. If the row exists, compare the stored payload hash. A different hash stops the transaction. The ticket is not updated.
+3. Lock that row's ticket with `FOR UPDATE`. Read `status` and `expires_at` under the lock.
+4. Return the previous `ticket_id` only when `status` is `ISSUED` and `expires_at` is later than `clock_timestamp()`.
+5. A new issue inserts the ticket and the idempotency row in this same transaction and commits once.
+
+No SQLSTATE is assigned. The function is not written. A future run records the SQLSTATE it actually raises. This document defines the result code only.
+
+| Condition under the lock | Result code | Ticket id in the response |
+| --- | --- | --- |
+| No stored row, checks passed | `ISSUE_OK` | The new id |
+| Same hash, `ISSUED`, `expires_at` still later than `clock_timestamp()` | `ISSUE_REPLAY_ISSUED` | The same id |
+| Same hash, `REVOKED` | `ISSUE_DENIED_REVOKED` | Absent |
+| Same hash, status `EXPIRED`, or `ISSUED` with `expires_at` not later than `clock_timestamp()` | `ISSUE_DENIED_EXPIRED` | Absent |
+| Same hash, `CONSUMED` | `ISSUE_DENIED_CONSUMED` | Absent. This is not a new grant |
+| Same hash, any other status | `ISSUE_DENIED_UNKNOWN_STATUS` | Absent |
+| Same `request_id`, different payload hash | `ISSUE_DENIED_PAYLOAD_MISMATCH` | Absent |
+| Signature, token, key, or role check failed | `ISSUE_DENIED_AUTH` | Absent |
+
+A denial does not include another principal's ticket id, status, tenant, or shipment. `ISSUE_DENIED_AUTH` is the code for a failed check and for a request the issuer will not describe further.
+
+Revocation locks only the ticket `FOR UPDATE`. Consume locks the ticket `FOR UPDATE` before the execution, shipment, and link locks. The retry locks the idempotency row first and the ticket second. Revocation and consume do not lock the idempotency row, so they do not take the opposite order. Two retries take the idempotency row, then the ticket.
+
+If revocation commits first, the retry's ticket lock sees `REVOKED` and returns `ISSUE_DENIED_REVOKED`. If the retry commits `ISSUE_REPLAY_ISSUED` first, revocation waits, then sets `REVOKED`. The HTTP response is written after the database commit. Those two steps are not one atomic operation. A ticket returned by that commit can be revoked before the caller uses it. Consume of a `REVOKED` ticket still fails.
+
+Two concurrent copies of a new request serialize on the idempotency key. One insert commits. The other locks that row and, when the ticket is still `ISSUED` and unexpired, returns the same id. A failed insert rolls the transaction back. Neither the ticket nor the idempotency row remains.
 
 ## Who decides
 
@@ -171,13 +192,14 @@ Each row fails closed when the authority is missing.
 | Forged tenant in the body | Denied. The token claim is the tenant |
 | Writer process compromised | It can use its own login. It cannot sign an issuance, cannot `SET ROLE` to the issuer, and cannot `EXECUTE` the issuer. A stolen `ticket_id` is still the presenter gap |
 | Issuer process compromised | It can insert tickets for identities it can validate. Recovery is to revoke its login and the gateway key. Tickets already committed stay until expiry or revocation |
-| Issue commits, response is lost | The same signed request returns the committed ticket and does not insert another |
+| Issue commits, response is lost | The same signed request runs the transaction again. It returns the same id only for `ISSUE_REPLAY_ISSUED`. It does not insert a second ticket |
 | Consume rolls back | The ticket stays `ISSUED`. The write and the audit row are gone |
 | Two consumes | The ticket lock admits one commit. The other sees `CONSUMED` or waits and then fails |
 
 ## What P2 does not claim
 
 - The gateway signature, the issuer revalidation, and the request-id store are `PROPOSED`. They are not running.
+- A stored ticket is returned only for `ISSUE_REPLAY_ISSUED`. `REVOKED`, `EXPIRED`, `CONSUMED`, an elapsed `expires_at`, and an unknown status are denials.
 - `X-Internal-Service-Token` is not gateway authentication.
 - Sharing the `freight` password with a second process and naming that process "issuer" does not split the principal. Compose still uses that login.
 - `iss`, `aud`, token revocation, and the issuer's operation check are `NOT_PROVEN`.

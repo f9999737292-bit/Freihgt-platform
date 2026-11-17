@@ -50,8 +50,17 @@ Ownership of `transport.transport_execution_active_shipments` is `NOT_PROVEN` (`
 | Signature by a key that is not the gateway key | Denied |
 | Gateway signature, valid token, and a completed role check | One ticket |
 | Expired gateway key or expired access token | Denied |
-| Same signed request after a lost response | The committed ticket is returned. No second ticket |
-| Same `request_id` with a different operation | Denied |
+| Same signed request, ticket still `ISSUED` and unexpired | `ISSUE_REPLAY_ISSUED`. The same id. No second ticket |
+| Same signed request, ticket `REVOKED` | `ISSUE_DENIED_REVOKED` |
+| Same signed request, ticket `EXPIRED` | `ISSUE_DENIED_EXPIRED` |
+| Status still `ISSUED`, `expires_at` not later than `clock_timestamp()` | `ISSUE_DENIED_EXPIRED` |
+| Same signed request, ticket `CONSUMED` | `ISSUE_DENIED_CONSUMED`. The id is not returned as a new grant |
+| Same `request_id`, different payload | `ISSUE_DENIED_PAYLOAD_MISMATCH` |
+| Two concurrent copies of one new issuance | One ticket |
+| Retry waits with a revocation | The retry does not return the ticket after the revocation commit |
+| Lost response, then the same signed request | No second ticket. Return only when the locked status is still `ISSUED` and unexpired |
+| Insert error | Rollback. No ticket and no idempotency row |
+| Same `request_id` with a different operation | `ISSUE_DENIED_PAYLOAD_MISMATCH` |
 | Writer calls the issuer function | `42501` |
 | Writer `SET ROLE binding_authority_issuer` | Denied |
 | Ticket for another tenant | Consume denied, no write |
@@ -63,7 +72,7 @@ Ownership of `transport.transport_execution_active_shipments` is `NOT_PROVEN` (`
 | Writer `INSERT` or `UPDATE` on the active link, the ticket, or `owner_epoch` | `42501` for that non-owner, non-superuser login |
 | Consume error after the audit insert | No execution change, no link change, no audit row, ticket still `ISSUED` |
 
-A passing test on a superuser connection does not count. The session under test is the writer login.
+A passing test on a superuser connection does not count. The session under test is the writer login. Issuance-retry tests use the issuer login. No SQLSTATE is required by this list. The proof records the SQLSTATE the function raises and the result code above. The HTTP response is not part of the database commit.
 
 ## Still closed
 
