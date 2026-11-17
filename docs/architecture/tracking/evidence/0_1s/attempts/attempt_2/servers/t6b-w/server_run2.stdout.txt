@@ -1,0 +1,7 @@
+{"event": "witness_failed", "reason": "INCARNATION_MISMATCH source=high_water", "t": 1794941424.3677218}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": "INCARNATION_MISMATCH source=high_water", "high_water": {"digest": "aea0091ff81d2ba041436650a261f7ecd94df05ba8b5a1e18c7aaeff7ae74706", "journal_incarnation": "f9b62eb1-1ee7-4244-8aad-63fee5a92d11", "seq": 6}, "hw_reason": null, "hw_state": "UNCHECKED", "order": "append_first", "pid": 40668, "records": 6, "t": 1794941424.3677218}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": "INCARNATION_MISMATCH source=high_water", "seq": null, "status": "WITNESS_FAILED", "t": 1794941424.4706793}
+{"body_ns": "ns-t", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": "INCARNATION_MISMATCH source=high_water", "seq": null, "status": "WITNESS_FAILED", "t": 1794941424.4717083}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": "INCARNATION_MISMATCH source=high_water", "seq": null, "status": "WITNESS_FAILED", "t": 1794941424.5623124}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941424.768274}
+{"event": "stopped", "t": 1794941424.768274}

@@ -1,0 +1,6 @@
+{
+  "checkpoint_seq": 4,
+  "description": "journal truncated to the operator checkpoint",
+  "lines_after": 4,
+  "lines_before": 6
+}

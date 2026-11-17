@@ -1,0 +1,9 @@
+{"event": "hw_failed", "reason": "HW_HASH_MISMATCH seq=7", "t": 1794941525.539261}
+{"event": "ready", "failed": "HW_HASH_MISMATCH seq=7", "marks": {"journal-t8a-w": {"digest": "4e934d76caddd2995d78266118e408201b4e458410f56737e3bd0e3aac46cffd", "seq": 5}}, "pid": 24612, "records": 6, "t": 1794941525.539261}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": "HW_HASH_MISMATCH seq=7", "seq": null, "status": "FAILED", "t": 1794941525.6429906}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": "HW_HASH_MISMATCH seq=7", "seq": null, "status": "HW_FAILED", "t": 1794941525.741224}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": "HW_HASH_MISMATCH seq=7", "seq": null, "status": "HW_FAILED", "t": 1794941525.8450816}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": "HW_HASH_MISMATCH seq=7", "seq": null, "status": "HW_FAILED", "t": 1794941525.847214}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": "HW_HASH_MISMATCH seq=7", "seq": null, "status": "HW_FAILED", "t": 1794941525.9393482}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941526.2447312}
+{"event": "stopped", "t": 1794941526.2447312}

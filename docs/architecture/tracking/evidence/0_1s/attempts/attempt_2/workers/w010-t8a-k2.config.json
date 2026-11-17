@@ -1,0 +1,28 @@
+{
+  "app": "a2-w010-t8a-k2",
+  "container": "bintrans-proof-0-1s-d76b2f46",
+  "db": "wproof_d76b2f46",
+  "epoch": 1,
+  "fault": "",
+  "hw_pipe": "bintrans-0-1s-d76b2f46-t8a-hw",
+  "incarnation": "33fd7238-8a0e-4e49-a2c3-6a12d57e5167",
+  "journal_id": "journal-t8a-w",
+  "mode": "issue",
+  "ns": "ns-t",
+  "payload": {
+    "execution_ids": [
+      "exe-2",
+      "exe-1"
+    ],
+    "expected_epoch": 1,
+    "expected_revision": 1,
+    "operation": "ISSUE_TRACKING_BINDING",
+    "shipment": "shp-k2",
+    "sub": "user-0.1s-test",
+    "tenant_id": "tenant-0.1s-test"
+  },
+  "pg_role": "wproof_issuer",
+  "pipe": "bintrans-0-1s-d76b2f46-t8a-w",
+  "principal": "issuer_a",
+  "request_id": "k2"
+}

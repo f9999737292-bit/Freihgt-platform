@@ -1,0 +1,164 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-cw5"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "cw5-w",
+    "t": "2026-11-17T18:49:25.835658+00:00"
+  },
+  {
+    "body": {
+      "fault": "crash_after_hw_before_reply",
+      "on_type": "RESERVE"
+    },
+    "kind": "server_call",
+    "op": "fault",
+    "principal": "harness",
+    "response": {
+      "name": "crash_after_hw_before_reply",
+      "on_type": "RESERVE",
+      "status": "FAULT_ARMED"
+    },
+    "server": "cw5-w",
+    "t": "2026-11-17T18:49:25.838179+00:00"
+  },
+  {
+    "app": "a1-w050-cw5-k1",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_unavailable"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw5",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "error": "io:EOFError",
+      "result": "ISSUE_WITNESS_OUTCOME_UNKNOWN",
+      "stage": "reserve"
+    },
+    "t": "2026-11-17T18:49:26.152590+00:00",
+    "t_end": "2026-11-17T18:49:26.152590+00:00",
+    "t_start": "2026-11-17T18:49:25.845669+00:00",
+    "tag": "w050-cw5-k1"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "seq": 0
+      },
+      "high_water": {
+        "digest": "452e431d6eae6cba436470f48775c59fb83e98bd595d7a2cf45ad666e4105da1",
+        "journal_incarnation": "fa54295a-1284-477c-8a39-d73b7e552907",
+        "seq": 3
+      },
+      "hw_state": "CONSISTENT",
+      "reason": null,
+      "status": "OK"
+    },
+    "server": "cw5-w",
+    "t": "2026-11-17T18:49:26.558174+00:00"
+  },
+  {
+    "app": "a1-w051-cw5-retry",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "witness_outcome",
+      "restart_recovery",
+      "witness_export",
+      "history_check",
+      "existing_reservation"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw5",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_DENIED_IN_DOUBT",
+      "state": "IN_DOUBT"
+    },
+    "t": "2026-11-17T18:49:26.886759+00:00",
+    "t_end": "2026-11-17T18:49:26.886759+00:00",
+    "t_start": "2026-11-17T18:49:26.769229+00:00",
+    "tag": "w051-cw5-retry"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true,
+        "reason": "tombstone absent"
+      },
+      "ns": "ns-cw5",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "44ef1420-a0b7-436b-9c3a-6ec0cb1bc4f8"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "IN_DOUBT",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "server": "cw5-w",
+    "t": "2026-11-17T18:49:27.076229+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_row": null,
+        "reason": "tombstone absent or different; abort cannot be proven"
+      },
+      "ns": "ns-cw5",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "k1",
+      "ticket_id": "44ef1420-a0b7-436b-9c3a-6ec0cb1bc4f8"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 5,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "server": "cw5-w",
+    "t": "2026-11-17T18:49:27.084880+00:00"
+  },
+  {
+    "append": "APPENDED",
+    "auto_abort": "INVALID_TRANSITION",
+    "decision": "PERMANENTLY_DENIED",
+    "key": "ns-cw5|k1",
+    "kind": "reconcile",
+    "pg_row": null,
+    "t": "2026-11-17T18:49:27.084880+00:00",
+    "witness_state_before": "IN_DOUBT"
+  }
+]

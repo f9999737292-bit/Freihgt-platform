@@ -1,0 +1,20 @@
+{"event": "hw_unavailable", "reason": "HW_UNREACHABLE connect:FileNotFoundError", "t": 1794941332.435286}
+{"checkpoint": {"head_hash": "c273341b900b618ef4e61557c00506ab244a9822d22c7881f9ac685247baf594", "seq": 4}, "event": "ready", "failed": null, "high_water": null, "hw_reason": "HW_UNREACHABLE connect:FileNotFoundError", "hw_state": "HW_UNAVAILABLE", "order": "append_first", "pid": 33240, "records": 6, "t": 1794941332.435286}
+{"event": "hw_unavailable", "reason": "HW_UNREACHABLE connect:FileNotFoundError", "t": 1794941332.5402038}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": "HW_UNREACHABLE connect:FileNotFoundError", "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941332.5402038}
+{"event": "hw_unavailable", "reason": "HW_UNREACHABLE connect:FileNotFoundError", "t": 1794941332.5422192}
+{"body_ns": "ns-t", "body_request_id": "k3", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": "HW_UNREACHABLE connect:FileNotFoundError", "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941332.5422192}
+{"event": "hw_unavailable", "reason": "HW_UNREACHABLE connect:FileNotFoundError", "t": 1794941332.6310449}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": "HW_UNREACHABLE connect:FileNotFoundError", "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941332.6310449}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941333.0143492}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941333.316835}
+{"event": "prepared_not_covered", "seq": 7, "t": 1794941333.4156766, "type": "RESERVE"}
+{"body_ns": "ns-t", "body_request_id": "k4", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941333.4156766}
+{"event": "hw_unavailable", "reason": "HW_UNREACHABLE connect:FileNotFoundError", "t": 1794941333.4176567}
+{"body_ns": "ns-t", "body_request_id": "k5", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": "HW_UNREACHABLE connect:FileNotFoundError", "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941333.4176567}
+{"event": "roll_forward", "seq": 7, "t": 1794941333.6184475, "type": "RESERVE"}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941333.6184475}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941333.8214152}
+{"body_ns": "ns-t", "body_request_id": "k4", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941333.822619}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941333.8237412}
+{"event": "stopped", "t": 1794941333.8243096}

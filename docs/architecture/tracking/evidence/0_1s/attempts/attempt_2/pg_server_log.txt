@@ -1,0 +1,285 @@
+2026-11-17T18:50:06.805234552Z The files belonging to this database system will be owned by user "postgres".
+2026-11-17T18:50:06.805305785Z This user must also own the server process.
+2026-11-17T18:50:06.805310796Z 
+2026-11-17T18:50:06.805521965Z The database cluster will be initialized with locale "en_US.utf8".
+2026-11-17T18:50:06.805536566Z The default database encoding has accordingly been set to "UTF8".
+2026-11-17T18:50:06.805539031Z The default text search configuration will be set to "english".
+2026-11-17T18:50:06.805541106Z 
+2026-11-17T18:50:06.805543030Z Data page checksums are disabled.
+2026-11-17T18:50:06.805544984Z 
+2026-11-17T18:50:06.805546808Z fixing permissions on existing directory /var/lib/postgresql/data ... ok
+2026-11-17T18:50:06.820741494Z creating subdirectories ... ok
+2026-11-17T18:50:06.821053780Z selecting dynamic shared memory implementation ... posix
+2026-11-17T18:50:06.844890161Z selecting default max_connections ... 100
+2026-11-17T18:50:06.874321744Z selecting default shared_buffers ... 128MB
+2026-11-17T18:50:06.905816070Z selecting default time zone ... Etc/UTC
+2026-11-17T18:50:06.906437455Z creating configuration files ... ok
+2026-11-17T18:50:07.088105204Z running bootstrap script ... ok
+2026-11-17T18:50:07.523910501Z performing post-bootstrap initialization ... ok
+2026-11-17T18:50:10.475696844Z syncing data to disk ... ok
+2026-11-17T18:50:10.475711175Z 
+2026-11-17T18:50:10.475716336Z 
+2026-11-17T18:50:10.475720505Z Success. You can now start the database server using:
+2026-11-17T18:50:10.475724845Z 
+2026-11-17T18:50:10.475728873Z     pg_ctl -D /var/lib/postgresql/data -l logfile start
+2026-11-17T18:50:10.475733122Z 
+2026-11-17T18:50:10.543434215Z waiting for server to start....2026-11-17 18:50:10.542 UTC [66] sqlstate=00000 user= db= app= LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-11-17T18:50:10.551397201Z 2026-11-17 18:50:10.551 UTC [66] sqlstate=00000 user= db= app= LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-11-17T18:50:10.576648715Z 2026-11-17 18:50:10.576 UTC [69] sqlstate=00000 user= db= app= LOG:  database system was shut down at 2026-11-17 18:50:07 UTC
+2026-11-17T18:50:10.588799649Z 2026-11-17 18:50:10.588 UTC [66] sqlstate=00000 user= db= app= LOG:  database system is ready to accept connections
+2026-11-17T18:50:10.604712609Z  done
+2026-11-17T18:50:10.604755031Z server started
+2026-11-17T18:50:10.640823948Z 2026-11-17 18:50:10.640 UTC [75] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:10.641320936Z 2026-11-17 18:50:10.641 UTC [75] sqlstate=00000 user=wproof_admin db=postgres app=[unknown] LOG:  connection authorized: user=wproof_admin database=postgres application_name=psql
+2026-11-17T18:50:10.647113371Z 2026-11-17 18:50:10.646 UTC [75] sqlstate=00000 user=wproof_admin db=postgres app=psql LOG:  disconnection: session time: 0:00:00.006 user=wproof_admin database=postgres host=[local]
+2026-11-17T18:50:10.684634345Z 2026-11-17 18:50:10.684 UTC [77] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:10.685478815Z 2026-11-17 18:50:10.685 UTC [77] sqlstate=00000 user=wproof_admin db=postgres app=[unknown] LOG:  connection authorized: user=wproof_admin database=postgres application_name=psql
+2026-11-17T18:50:10.790330929Z CREATE DATABASE
+2026-11-17T18:50:10.790577058Z 2026-11-17 18:50:10.790 UTC [77] sqlstate=00000 user=wproof_admin db=postgres app=psql LOG:  disconnection: session time: 0:00:00.106 user=wproof_admin database=postgres host=[local]
+2026-11-17T18:50:10.791585225Z 
+2026-11-17T18:50:10.791599626Z 
+2026-11-17T18:50:10.791602252Z /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+2026-11-17T18:50:10.791605188Z 
+2026-11-17T18:50:10.793398688Z waiting for server to shut down....2026-11-17 18:50:10.793 UTC [66] sqlstate=00000 user= db= app= LOG:  received fast shutdown request
+2026-11-17T18:50:10.801258699Z 2026-11-17 18:50:10.801 UTC [66] sqlstate=00000 user= db= app= LOG:  aborting any active transactions
+2026-11-17T18:50:10.804234079Z 2026-11-17 18:50:10.803 UTC [66] sqlstate=00000 user= db= app= LOG:  background worker "logical replication launcher" (PID 72) exited with exit code 1
+2026-11-17T18:50:10.804768719Z 2026-11-17 18:50:10.804 UTC [67] sqlstate=00000 user= db= app= LOG:  shutting down
+2026-11-17T18:50:10.812204001Z 2026-11-17 18:50:10.811 UTC [67] sqlstate=00000 user= db= app= LOG:  checkpoint starting: shutdown immediate
+2026-11-17T18:50:11.805090027Z .2026-11-17 18:50:11.804 UTC [67] sqlstate=00000 user= db= app= LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.064 s, sync=0.899 s, total=1.001 s; sync files=301, longest=0.009 s, average=0.003 s; distance=4273 kB, estimate=4273 kB; lsn=0/191F0F0, redo lsn=0/191F0F0
+2026-11-17T18:50:11.815142405Z 2026-11-17 18:50:11.814 UTC [66] sqlstate=00000 user= db= app= LOG:  database system is shut down
+2026-11-17T18:50:11.896783867Z  done
+2026-11-17T18:50:11.896828002Z server stopped
+2026-11-17T18:50:11.898912873Z 
+2026-11-17T18:50:11.898938869Z PostgreSQL init process complete; ready for start up.
+2026-11-17T18:50:11.898941605Z 
+2026-11-17T18:50:10.475594715Z initdb: warning: enabling "trust" authentication for local connections
+2026-11-17T18:50:10.475631925Z initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+2026-11-17T18:50:11.940494539Z 2026-11-17 18:50:11.940 UTC [1] sqlstate=00000 user= db= app= LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-11-17T18:50:11.941736238Z 2026-11-17 18:50:11.941 UTC [1] sqlstate=00000 user= db= app= LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-11-17T18:50:11.941792830Z 2026-11-17 18:50:11.941 UTC [1] sqlstate=00000 user= db= app= LOG:  listening on IPv6 address "::", port 5432
+2026-11-17T18:50:11.957867579Z 2026-11-17 18:50:11.957 UTC [1] sqlstate=00000 user= db= app= LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-11-17T18:50:11.975786350Z 2026-11-17 18:50:11.975 UTC [88] sqlstate=00000 user= db= app= LOG:  database system was shut down at 2026-11-17 18:50:11 UTC
+2026-11-17T18:50:11.989589491Z 2026-11-17 18:50:11.989 UTC [1] sqlstate=00000 user= db= app= LOG:  database system is ready to accept connections
+2026-11-17T18:50:12.106670331Z 2026-11-17 18:50:12.106 UTC [98] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=127.0.0.1 port=38514
+2026-11-17T18:50:12.107422097Z 2026-11-17 18:50:12.107 UTC [98] sqlstate=00000 user=wproof_admin db=wproof_admin app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_admin application_name=pg_isready
+2026-11-17T18:50:12.107444666Z 2026-11-17 18:50:12.107 UTC [98] sqlstate=3D000 user=wproof_admin db=wproof_admin app=[unknown] FATAL:  database "wproof_admin" does not exist
+2026-11-17T18:50:12.370829127Z 2026-11-17 18:50:12.370 UTC [105] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:12.372353795Z 2026-11-17 18:50:12.372 UTC [105] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:50:12.382583358Z 2026-11-17 18:50:12.382 UTC [105] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.012 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:12.569227538Z 2026-11-17 18:50:12.568 UTC [112] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:12.569726375Z 2026-11-17 18:50:12.569 UTC [112] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:50:12.654896642Z 2026-11-17 18:50:12.654 UTC [112] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.085 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:12.825979978Z 2026-11-17 18:50:12.825 UTC [119] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:12.826726739Z 2026-11-17 18:50:12.826 UTC [119] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:50:12.939095144Z 2026-11-17 18:50:12.938 UTC [119] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.113 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:13.135054377Z 2026-11-17 18:50:13.134 UTC [126] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:13.135632910Z 2026-11-17 18:50:13.135 UTC [126] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=psql
+2026-11-17T18:50:13.183852079Z 2026-11-17 18:50:13.183 UTC [126] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=psql LOG:  disconnection: session time: 0:00:00.049 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:13.361466714Z 2026-11-17 18:50:13.360 UTC [133] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:13.362503814Z 2026-11-17 18:50:13.362 UTC [133] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_r_d76b2f46 application_name=psql
+2026-11-17T18:50:13.411749975Z 2026-11-17 18:50:13.411 UTC [133] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=psql LOG:  disconnection: session time: 0:00:00.051 user=wproof_admin database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:50:13.587447163Z 2026-11-17 18:50:13.587 UTC [140] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:13.588050079Z 2026-11-17 18:50:13.587 UTC [140] sqlstate=00000 user=wproof_admin db=wproof_p_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_p_d76b2f46 application_name=psql
+2026-11-17T18:50:13.636658461Z 2026-11-17 18:50:13.636 UTC [140] sqlstate=00000 user=wproof_admin db=wproof_p_d76b2f46 app=psql LOG:  disconnection: session time: 0:00:00.049 user=wproof_admin database=wproof_p_d76b2f46 host=[local]
+2026-11-17T18:50:13.810042001Z 2026-11-17 18:50:13.809 UTC [147] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:13.810805287Z 2026-11-17 18:50:13.810 UTC [147] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:50:13.813195710Z 2026-11-17 18:50:13.812 UTC [147] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.003 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:14.996969076Z 2026-11-17 18:50:14.996 UTC [154] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:14.997608300Z 2026-11-17 18:50:14.997 UTC [154] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w001-t1-k3-read
+2026-11-17T18:50:15.000436349Z 2026-11-17 18:50:15.000 UTC [154] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w001-t1-k3-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:15.190462017Z 2026-11-17 18:50:15.190 UTC [161] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:15.190975030Z 2026-11-17 18:50:15.190 UTC [161] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w001-t1-k3-txn
+2026-11-17T18:50:15.205313786Z 2026-11-17 18:50:15.205 UTC [161] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w001-t1-k3-txn LOG:  disconnection: session time: 0:00:00.015 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:53.352505938Z 2026-11-17 18:50:53.351 UTC [169] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:53.353826635Z 2026-11-17 18:50:53.353 UTC [169] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w039-cw1-crash-read
+2026-11-17T18:50:53.357384102Z 2026-11-17 18:50:53.357 UTC [169] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w039-cw1-crash-read LOG:  disconnection: session time: 0:00:00.005 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:53.644859697Z 2026-11-17 18:50:53.644 UTC [176] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:53.645667852Z 2026-11-17 18:50:53.645 UTC [176] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w040-cw1-retry-read
+2026-11-17T18:50:53.648306040Z 2026-11-17 18:50:53.648 UTC [176] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w040-cw1-retry-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:53.841807027Z 2026-11-17 18:50:53.841 UTC [183] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:53.842475087Z 2026-11-17 18:50:53.842 UTC [183] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w040-cw1-retry-txn
+2026-11-17T18:50:53.856352362Z 2026-11-17 18:50:53.856 UTC [183] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w040-cw1-retry-txn LOG:  disconnection: session time: 0:00:00.015 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:55.082464727Z 2026-11-17 18:50:55.082 UTC [191] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:55.083962705Z 2026-11-17 18:50:55.083 UTC [191] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w041-cw2-k1-read
+2026-11-17T18:50:55.086445298Z 2026-11-17 18:50:55.086 UTC [191] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w041-cw2-k1-read LOG:  disconnection: session time: 0:00:00.004 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:55.819065405Z 2026-11-17 18:50:55.818 UTC [198] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:55.819979794Z 2026-11-17 18:50:55.819 UTC [198] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w042-cw2-retry-read
+2026-11-17T18:50:55.822724887Z 2026-11-17 18:50:55.822 UTC [198] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w042-cw2-retry-read LOG:  disconnection: session time: 0:00:00.004 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:56.022533357Z 2026-11-17 18:50:56.022 UTC [206] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:56.023234242Z 2026-11-17 18:50:56.023 UTC [206] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w042-cw2-retry-txn
+2026-11-17T18:50:56.039265510Z 2026-11-17 18:50:56.038 UTC [206] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w042-cw2-retry-txn LOG:  disconnection: session time: 0:00:00.016 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:57.405258133Z 2026-11-17 18:50:57.404 UTC [213] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:57.405958305Z 2026-11-17 18:50:57.405 UTC [213] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w043-cw3-k1-read
+2026-11-17T18:50:57.408439953Z 2026-11-17 18:50:57.408 UTC [213] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w043-cw3-k1-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:58.505059966Z 2026-11-17 18:50:58.504 UTC [221] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:58.505908206Z 2026-11-17 18:50:58.505 UTC [221] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w045-cw3-other-read
+2026-11-17T18:50:58.508546626Z 2026-11-17 18:50:58.508 UTC [221] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w045-cw3-other-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:58.699445437Z 2026-11-17 18:50:58.699 UTC [228] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:58.700085069Z 2026-11-17 18:50:58.699 UTC [228] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:50:58.703326637Z 2026-11-17 18:50:58.703 UTC [228] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.004 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:50:59.863829118Z 2026-11-17 18:50:59.863 UTC [235] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:50:59.864636049Z 2026-11-17 18:50:59.864 UTC [235] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w046-cw4-k0-read
+2026-11-17T18:50:59.867133886Z 2026-11-17 18:50:59.866 UTC [235] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w046-cw4-k0-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:00.081586085Z 2026-11-17 18:51:00.081 UTC [243] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:00.082446501Z 2026-11-17 18:51:00.082 UTC [243] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w046-cw4-k0-txn
+2026-11-17T18:51:00.096988028Z 2026-11-17 18:51:00.096 UTC [243] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w046-cw4-k0-txn LOG:  disconnection: session time: 0:00:00.015 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:00.419329639Z 2026-11-17 18:51:00.418 UTC [250] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:00.420081712Z 2026-11-17 18:51:00.419 UTC [250] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w047-cw4-k1-read
+2026-11-17T18:51:00.423725463Z 2026-11-17 18:51:00.423 UTC [250] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w047-cw4-k1-read LOG:  disconnection: session time: 0:00:00.004 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:02.330048157Z 2026-11-17 18:51:02.329 UTC [257] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:02.330890920Z 2026-11-17 18:51:02.330 UTC [257] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w050-cw5-k1-read
+2026-11-17T18:51:02.333342759Z 2026-11-17 18:51:02.333 UTC [257] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w050-cw5-k1-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:03.271394287Z 2026-11-17 18:51:03.270 UTC [264] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:03.272484997Z 2026-11-17 18:51:03.272 UTC [264] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:03.275402164Z 2026-11-17 18:51:03.275 UTC [264] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.004 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:04.478998743Z 2026-11-17 18:51:04.478 UTC [271] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:04.479511894Z 2026-11-17 18:51:04.479 UTC [271] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w052-cw6-k1-read
+2026-11-17T18:51:04.481863562Z 2026-11-17 18:51:04.481 UTC [271] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w052-cw6-k1-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:04.679056094Z 2026-11-17 18:51:04.678 UTC [278] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:04.679677887Z 2026-11-17 18:51:04.679 UTC [278] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w052-cw6-k1-txn
+2026-11-17T18:51:04.692848344Z 2026-11-17 18:51:04.692 UTC [278] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w052-cw6-k1-txn LOG:  disconnection: session time: 0:00:00.014 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:04.906780862Z 2026-11-17 18:51:04.906 UTC [285] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:04.907741638Z 2026-11-17 18:51:04.907 UTC [285] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:04.910324288Z 2026-11-17 18:51:04.910 UTC [285] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.004 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:05.218020789Z 2026-11-17 18:51:05.217 UTC [292] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:05.218796695Z 2026-11-17 18:51:05.218 UTC [292] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:05.221729663Z 2026-11-17 18:51:05.221 UTC [292] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.004 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:05.516583429Z 2026-11-17 18:51:05.516 UTC [299] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:05.517307234Z 2026-11-17 18:51:05.516 UTC [299] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w054-cw6-replay-read
+2026-11-17T18:51:05.519622783Z 2026-11-17 18:51:05.519 UTC [299] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w054-cw6-replay-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:06.634047802Z 2026-11-17 18:51:06.633 UTC [307] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:06.634719756Z 2026-11-17 18:51:06.634 UTC [307] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w055-cw7a-k1-read
+2026-11-17T18:51:06.637153138Z 2026-11-17 18:51:06.636 UTC [307] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w055-cw7a-k1-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:06.837743751Z 2026-11-17 18:51:06.837 UTC [314] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:06.838286778Z 2026-11-17 18:51:06.838 UTC [314] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w055-cw7a-k1-txn
+2026-11-17T18:51:06.853018409Z 2026-11-17 18:51:06.852 UTC [314] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w055-cw7a-k1-txn LOG:  disconnection: session time: 0:00:00.015 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:07.318413916Z 2026-11-17 18:51:07.318 UTC [321] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:07.319159939Z 2026-11-17 18:51:07.318 UTC [321] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:07.321743705Z 2026-11-17 18:51:07.321 UTC [321] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.003 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:08.044155345Z 2026-11-17 18:51:08.043 UTC [328] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:08.044833603Z 2026-11-17 18:51:08.044 UTC [328] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:08.047840297Z 2026-11-17 18:51:08.047 UTC [328] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.003 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:08.343768815Z 2026-11-17 18:51:08.343 UTC [335] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:08.344377118Z 2026-11-17 18:51:08.344 UTC [335] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w057-cw7a-replay-read
+2026-11-17T18:51:08.346757472Z 2026-11-17 18:51:08.346 UTC [335] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w057-cw7a-replay-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:09.473383561Z 2026-11-17 18:51:09.473 UTC [342] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:09.474522368Z 2026-11-17 18:51:09.474 UTC [342] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w058-cw7b-k1-read
+2026-11-17T18:51:09.477019924Z 2026-11-17 18:51:09.476 UTC [342] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w058-cw7b-k1-read LOG:  disconnection: session time: 0:00:00.004 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:09.684527558Z 2026-11-17 18:51:09.684 UTC [349] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:09.685277730Z 2026-11-17 18:51:09.685 UTC [349] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w058-cw7b-k1-txn
+2026-11-17T18:51:09.699075980Z 2026-11-17 18:51:09.698 UTC [349] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w058-cw7b-k1-txn LOG:  disconnection: session time: 0:00:00.014 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:10.109961646Z 2026-11-17 18:51:10.109 UTC [356] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:10.110642916Z 2026-11-17 18:51:10.110 UTC [356] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:10.113428771Z 2026-11-17 18:51:10.113 UTC [356] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.003 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:10.797723085Z 2026-11-17 18:51:10.797 UTC [363] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:10.798354187Z 2026-11-17 18:51:10.798 UTC [363] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w059-cw7b-replay-read
+2026-11-17T18:51:10.800805604Z 2026-11-17 18:51:10.800 UTC [363] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w059-cw7b-replay-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:11.959769460Z 2026-11-17 18:51:11.959 UTC [371] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:11.960496483Z 2026-11-17 18:51:11.960 UTC [371] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w060-cw8-k1-read
+2026-11-17T18:51:11.963333108Z 2026-11-17 18:51:11.963 UTC [371] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w060-cw8-k1-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:12.299174379Z 2026-11-17 18:51:12.298 UTC [378] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:12.300512193Z 2026-11-17 18:51:12.300 UTC [378] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:12.303372063Z 2026-11-17 18:51:12.303 UTC [378] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.004 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:12.595285799Z 2026-11-17 18:51:12.595 UTC [385] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:12.596026576Z 2026-11-17 18:51:12.595 UTC [385] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w062-cw8-gate-read
+2026-11-17T18:51:12.598278885Z 2026-11-17 18:51:12.598 UTC [385] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w062-cw8-gate-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:12.808545096Z 2026-11-17 18:51:12.808 UTC [392] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:12.809405475Z 2026-11-17 18:51:12.809 UTC [392] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:12.812539038Z 2026-11-17 18:51:12.812 UTC [392] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.004 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:13.618357067Z 2026-11-17 18:51:13.618 UTC [399] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:13.619216172Z 2026-11-17 18:51:13.618 UTC [399] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:13.621880647Z 2026-11-17 18:51:13.621 UTC [399] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.003 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:14.839710182Z 2026-11-17 18:51:14.839 UTC [406] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:14.840983905Z 2026-11-17 18:51:14.840 UTC [406] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_r_d76b2f46 application_name=a2-w064-sp-k1-read
+2026-11-17T18:51:14.844179054Z 2026-11-17 18:51:14.844 UTC [406] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=a2-w064-sp-k1-read LOG:  disconnection: session time: 0:00:00.004 user=wproof_issuer database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:51:15.036909114Z 2026-11-17 18:51:15.036 UTC [413] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:15.037431841Z 2026-11-17 18:51:15.037 UTC [413] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_r_d76b2f46 application_name=a2-w064-sp-k1-txn
+2026-11-17T18:51:15.052339258Z 2026-11-17 18:51:15.052 UTC [413] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=a2-w064-sp-k1-txn LOG:  disconnection: session time: 0:00:00.015 user=wproof_issuer database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:51:15.252873612Z 2026-11-17 18:51:15.252 UTC [420] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:15.253480105Z 2026-11-17 18:51:15.253 UTC [420] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_r_d76b2f46 application_name=pg_dump
+2026-11-17T18:51:15.330439076Z 2026-11-17 18:51:15.329 UTC [420] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=pg_dump LOG:  disconnection: session time: 0:00:00.077 user=wproof_admin database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:51:15.648332141Z 2026-11-17 18:51:15.648 UTC [427] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:15.648890155Z 2026-11-17 18:51:15.648 UTC [427] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_r_d76b2f46 application_name=a2-w065-sp-k2-read
+2026-11-17T18:51:15.651642710Z 2026-11-17 18:51:15.651 UTC [427] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=a2-w065-sp-k2-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:51:15.851946753Z 2026-11-17 18:51:15.851 UTC [434] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:15.853215248Z 2026-11-17 18:51:15.852 UTC [434] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_r_d76b2f46 application_name=a2-w065-sp-k2-txn
+2026-11-17T18:51:15.867291593Z 2026-11-17 18:51:15.866 UTC [434] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=a2-w065-sp-k2-txn LOG:  disconnection: session time: 0:00:00.015 user=wproof_issuer database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:51:16.276501557Z 2026-11-17 18:51:16.276 UTC [441] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:16.277237127Z 2026-11-17 18:51:16.276 UTC [441] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:16.281346176Z 2026-11-17 18:51:16.280 UTC [441] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.005 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:16.466349595Z 2026-11-17 18:51:16.465 UTC [448] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:16.467593884Z 2026-11-17 18:51:16.467 UTC [448] sqlstate=00000 user=wproof_admin db=postgres app=[unknown] LOG:  connection authorized: user=wproof_admin database=postgres application_name=dropdb
+2026-11-17T18:51:16.477573021Z 2026-11-17 18:51:16.477 UTC [86] sqlstate=00000 user= db= app= LOG:  checkpoint starting: immediate force wait
+2026-11-17T18:51:17.626720455Z 2026-11-17 18:51:17.626 UTC [86] sqlstate=00000 user= db= app= LOG:  checkpoint complete: wrote 993 buffers (6.1%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.046 s, sync=1.056 s, total=1.150 s; sync files=355, longest=0.008 s, average=0.003 s; distance=8771 kB, estimate=8771 kB; lsn=0/21AFFA8, redo lsn=0/21AFF70
+2026-11-17T18:51:17.641694515Z 2026-11-17 18:51:17.641 UTC [448] sqlstate=00000 user=wproof_admin db=postgres app=dropdb LOG:  disconnection: session time: 0:00:01.175 user=wproof_admin database=postgres host=[local]
+2026-11-17T18:51:17.835558075Z 2026-11-17 18:51:17.835 UTC [455] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:17.836232714Z 2026-11-17 18:51:17.835 UTC [455] sqlstate=00000 user=wproof_admin db=postgres app=[unknown] LOG:  connection authorized: user=wproof_admin database=postgres application_name=createdb
+2026-11-17T18:51:17.910595432Z 2026-11-17 18:51:17.910 UTC [455] sqlstate=00000 user=wproof_admin db=postgres app=createdb LOG:  disconnection: session time: 0:00:00.075 user=wproof_admin database=postgres host=[local]
+2026-11-17T18:51:18.087840487Z 2026-11-17 18:51:18.087 UTC [463] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:18.088343368Z 2026-11-17 18:51:18.088 UTC [463] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_r_d76b2f46 application_name=pg_restore
+2026-11-17T18:51:18.160455274Z 2026-11-17 18:51:18.160 UTC [463] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=pg_restore LOG:  disconnection: session time: 0:00:00.072 user=wproof_admin database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:51:18.344703124Z 2026-11-17 18:51:18.344 UTC [470] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:18.345431144Z 2026-11-17 18:51:18.345 UTC [470] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_r_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:18.350146245Z 2026-11-17 18:51:18.349 UTC [470] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.005 user=wproof_admin database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:51:18.959394735Z 2026-11-17 18:51:18.959 UTC [477] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:18.960757543Z 2026-11-17 18:51:18.960 UTC [477] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_r_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:18.963605907Z 2026-11-17 18:51:18.963 UTC [477] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.004 user=wproof_admin database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:51:19.829472263Z 2026-11-17 18:51:19.829 UTC [484] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:19.830171221Z 2026-11-17 18:51:19.829 UTC [484] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_r_d76b2f46 application_name=a2-w068-sp-k2-after-recovery-read
+2026-11-17T18:51:19.832861476Z 2026-11-17 18:51:19.832 UTC [484] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=a2-w068-sp-k2-after-recovery-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:51:20.152687399Z 2026-11-17 18:51:20.152 UTC [491] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:20.153336343Z 2026-11-17 18:51:20.153 UTC [491] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_r_d76b2f46 application_name=a2-w069-sp-k3-after-recovery-read
+2026-11-17T18:51:20.156377081Z 2026-11-17 18:51:20.156 UTC [491] sqlstate=00000 user=wproof_issuer db=wproof_r_d76b2f46 app=a2-w069-sp-k3-after-recovery-read LOG:  disconnection: session time: 0:00:00.004 user=wproof_issuer database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:51:20.366435379Z 2026-11-17 18:51:20.366 UTC [498] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:20.367423351Z 2026-11-17 18:51:20.367 UTC [498] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_r_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:20.370012260Z 2026-11-17 18:51:20.369 UTC [498] sqlstate=00000 user=wproof_admin db=wproof_r_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.003 user=wproof_admin database=wproof_r_d76b2f46 host=[local]
+2026-11-17T18:51:26.241768826Z 2026-11-17 18:51:26.241 UTC [505] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:26.243131488Z 2026-11-17 18:51:26.242 UTC [505] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w070-p3-k1-read
+2026-11-17T18:51:26.246151231Z 2026-11-17 18:51:26.245 UTC [505] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w070-p3-k1-read LOG:  disconnection: session time: 0:00:00.004 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:26.443421333Z 2026-11-17 18:51:26.443 UTC [512] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:26.444773889Z 2026-11-17 18:51:26.444 UTC [512] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w070-p3-k1-txn
+2026-11-17T18:51:26.458781143Z 2026-11-17 18:51:26.458 UTC [512] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w070-p3-k1-txn LOG:  disconnection: session time: 0:00:00.015 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:26.758454041Z 2026-11-17 18:51:26.758 UTC [519] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:26.759020738Z 2026-11-17 18:51:26.758 UTC [519] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w071-p3-k2-read
+2026-11-17T18:51:26.761741443Z 2026-11-17 18:51:26.761 UTC [519] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w071-p3-k2-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:26.969850733Z 2026-11-17 18:51:26.969 UTC [526] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:26.970403490Z 2026-11-17 18:51:26.970 UTC [526] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w071-p3-k2-txn
+2026-11-17T18:51:26.984803775Z 2026-11-17 18:51:26.984 UTC [526] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w071-p3-k2-txn LOG:  disconnection: session time: 0:00:00.015 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:28.126911797Z 2026-11-17 18:51:28.126 UTC [533] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:28.127853480Z 2026-11-17 18:51:28.127 UTC [533] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_d76b2f46 application_name=a2-w072-p3-k2-again-read
+2026-11-17T18:51:28.130766088Z 2026-11-17 18:51:28.130 UTC [533] sqlstate=00000 user=wproof_issuer db=wproof_d76b2f46 app=a2-w072-p3-k2-again-read LOG:  disconnection: session time: 0:00:00.004 user=wproof_issuer database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:29.265890811Z 2026-11-17 18:51:29.265 UTC [541] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:29.266957643Z 2026-11-17 18:51:29.266 UTC [541] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_p_d76b2f46 application_name=a2-w073-p3b-k1-read
+2026-11-17T18:51:29.269589942Z 2026-11-17 18:51:29.269 UTC [541] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=a2-w073-p3b-k1-read LOG:  disconnection: session time: 0:00:00.004 user=wproof_issuer database=wproof_p_d76b2f46 host=[local]
+2026-11-17T18:51:29.474020008Z 2026-11-17 18:51:29.473 UTC [548] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:29.475179704Z 2026-11-17 18:51:29.474 UTC [548] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_p_d76b2f46 application_name=a2-w073-p3b-k1-txn
+2026-11-17T18:51:29.488978167Z 2026-11-17 18:51:29.488 UTC [548] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=a2-w073-p3b-k1-txn LOG:  disconnection: session time: 0:00:00.015 user=wproof_issuer database=wproof_p_d76b2f46 host=[local]
+2026-11-17T18:51:29.701181717Z 2026-11-17 18:51:29.700 UTC [555] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:29.701881896Z 2026-11-17 18:51:29.701 UTC [555] sqlstate=00000 user=wproof_admin db=wproof_p_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_p_d76b2f46 application_name=pg_dump
+2026-11-17T18:51:29.780751245Z 2026-11-17 18:51:29.780 UTC [555] sqlstate=00000 user=wproof_admin db=wproof_p_d76b2f46 app=pg_dump LOG:  disconnection: session time: 0:00:00.079 user=wproof_admin database=wproof_p_d76b2f46 host=[local]
+2026-11-17T18:51:30.079662332Z 2026-11-17 18:51:30.079 UTC [563] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:30.080490908Z 2026-11-17 18:51:30.080 UTC [563] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_p_d76b2f46 application_name=a2-w074-p3b-k2-read
+2026-11-17T18:51:30.083073280Z 2026-11-17 18:51:30.082 UTC [563] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=a2-w074-p3b-k2-read LOG:  disconnection: session time: 0:00:00.003 user=wproof_issuer database=wproof_p_d76b2f46 host=[local]
+2026-11-17T18:51:30.268752573Z 2026-11-17 18:51:30.268 UTC [570] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:30.269275061Z 2026-11-17 18:51:30.269 UTC [570] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_p_d76b2f46 application_name=a2-w074-p3b-k2-txn
+2026-11-17T18:51:30.283151235Z 2026-11-17 18:51:30.282 UTC [570] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=a2-w074-p3b-k2-txn LOG:  disconnection: session time: 0:00:00.014 user=wproof_issuer database=wproof_p_d76b2f46 host=[local]
+2026-11-17T18:51:30.919144549Z 2026-11-17 18:51:30.918 UTC [577] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:30.919793758Z 2026-11-17 18:51:30.919 UTC [577] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_d76b2f46 application_name=harness-admin
+2026-11-17T18:51:30.923118941Z 2026-11-17 18:51:30.922 UTC [577] sqlstate=00000 user=wproof_admin db=wproof_d76b2f46 app=harness-admin LOG:  disconnection: session time: 0:00:00.004 user=wproof_admin database=wproof_d76b2f46 host=[local]
+2026-11-17T18:51:31.109306526Z 2026-11-17 18:51:31.109 UTC [584] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:31.110166043Z 2026-11-17 18:51:31.109 UTC [584] sqlstate=00000 user=wproof_admin db=postgres app=[unknown] LOG:  connection authorized: user=wproof_admin database=postgres application_name=dropdb
+2026-11-17T18:51:31.118530161Z 2026-11-17 18:51:31.118 UTC [86] sqlstate=00000 user= db= app= LOG:  checkpoint starting: immediate force wait
+2026-11-17T18:51:32.175822777Z 2026-11-17 18:51:32.175 UTC [86] sqlstate=00000 user= db= app= LOG:  checkpoint complete: wrote 975 buffers (6.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.046 s, sync=0.975 s, total=1.058 s; sync files=320, longest=0.008 s, average=0.004 s; distance=4553 kB, estimate=8349 kB; lsn=0/2622670, redo lsn=0/2622638
+2026-11-17T18:51:32.192639028Z 2026-11-17 18:51:32.192 UTC [584] sqlstate=00000 user=wproof_admin db=postgres app=dropdb LOG:  disconnection: session time: 0:00:01.083 user=wproof_admin database=postgres host=[local]
+2026-11-17T18:51:32.372769951Z 2026-11-17 18:51:32.372 UTC [591] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:32.373424012Z 2026-11-17 18:51:32.373 UTC [591] sqlstate=00000 user=wproof_admin db=postgres app=[unknown] LOG:  connection authorized: user=wproof_admin database=postgres application_name=createdb
+2026-11-17T18:51:32.441599788Z 2026-11-17 18:51:32.441 UTC [591] sqlstate=00000 user=wproof_admin db=postgres app=createdb LOG:  disconnection: session time: 0:00:00.068 user=wproof_admin database=postgres host=[local]
+2026-11-17T18:51:32.631018113Z 2026-11-17 18:51:32.630 UTC [598] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:32.631657602Z 2026-11-17 18:51:32.631 UTC [598] sqlstate=00000 user=wproof_admin db=wproof_p_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_admin database=wproof_p_d76b2f46 application_name=pg_restore
+2026-11-17T18:51:32.700184898Z 2026-11-17 18:51:32.699 UTC [598] sqlstate=00000 user=wproof_admin db=wproof_p_d76b2f46 app=pg_restore LOG:  disconnection: session time: 0:00:00.069 user=wproof_admin database=wproof_p_d76b2f46 host=[local]
+2026-11-17T18:51:33.372600967Z 2026-11-17 18:51:33.372 UTC [605] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:33.373511453Z 2026-11-17 18:51:33.373 UTC [605] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_p_d76b2f46 application_name=a2-w075-p3b-k2-again-read
+2026-11-17T18:51:33.377224580Z 2026-11-17 18:51:33.376 UTC [605] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=a2-w075-p3b-k2-again-read LOG:  disconnection: session time: 0:00:00.005 user=wproof_issuer database=wproof_p_d76b2f46 host=[local]
+2026-11-17T18:51:33.603185880Z 2026-11-17 18:51:33.602 UTC [612] sqlstate=00000 user=[unknown] db=[unknown] app=[unknown] LOG:  connection received: host=[local]
+2026-11-17T18:51:33.603861722Z 2026-11-17 18:51:33.603 UTC [612] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=[unknown] LOG:  connection authorized: user=wproof_issuer database=wproof_p_d76b2f46 application_name=a2-w075-p3b-k2-again-txn
+2026-11-17T18:51:33.617653671Z 2026-11-17 18:51:33.617 UTC [612] sqlstate=00000 user=wproof_issuer db=wproof_p_d76b2f46 app=a2-w075-p3b-k2-again-txn LOG:  disconnection: session time: 0:00:00.014 user=wproof_issuer database=wproof_p_d76b2f46 host=[local]

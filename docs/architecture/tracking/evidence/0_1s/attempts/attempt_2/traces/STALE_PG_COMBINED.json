@@ -1,0 +1,256 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-sp"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "sp-w",
+    "t": "2026-11-17T18:51:14.584599+00:00"
+  },
+  {
+    "app": "a2-w064-sp-k1",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sp",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "05f02328-d53e-4fbc-9eec-918285059c8b"
+    },
+    "t": "2026-11-17T18:51:15.098506+00:00",
+    "t_end": "2026-11-17T18:51:15.098506+00:00",
+    "t_start": "2026-11-17T18:51:14.592161+00:00",
+    "tag": "w064-sp-k1"
+  },
+  {
+    "body": {
+      "head_hash": "77020d7c139c13d2b150b2098887cc0fd6cc595972838eee1d78891745c75ec2",
+      "seq": 4
+    },
+    "kind": "server_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "77020d7c139c13d2b150b2098887cc0fd6cc595972838eee1d78891745c75ec2",
+        "seq": 4
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "server": "sp-w",
+    "t": "2026-11-17T18:51:15.367151+00:00"
+  },
+  {
+    "app": "a2-w065-sp-k2",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sp",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "640327d3-402e-4ead-a09c-7cb1349e71d2"
+    },
+    "t": "2026-11-17T18:51:15.912097+00:00",
+    "t_end": "2026-11-17T18:51:15.912097+00:00",
+    "t_start": "2026-11-17T18:51:15.375663+00:00",
+    "tag": "w065-sp-k2"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "77020d7c139c13d2b150b2098887cc0fd6cc595972838eee1d78891745c75ec2",
+        "seq": 4
+      },
+      "high_water": {
+        "digest": "389eac52c89e68285ca5b3085f01aeeedc76945aa4bc5896706488f8a8759e8f",
+        "journal_incarnation": "fbee58d2-bf79-44b2-85a2-43c6dd219bb3",
+        "seq": 6
+      },
+      "hw_state": "UNCHECKED",
+      "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+      "status": "WITNESS_FAILED"
+    },
+    "server": "sp-w",
+    "t": "2026-11-17T18:51:18.577110+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-sp",
+      "payload_hash": "85eec15d3c57ec98714cccf3e75e66248196cac6c334e5a89740def0cfc99ea1",
+      "request_id": "k2",
+      "ticket_id": "c1efe5a0-11ef-4fef-8e28-27930846e15e"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+      "status": "WITNESS_FAILED"
+    },
+    "server": "sp-w",
+    "t": "2026-11-17T18:51:18.578326+00:00"
+  },
+  {
+    "app": "a2-w066-sp-k2-reuse",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sp",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+      "result": "ISSUE_DENIED_WITNESS_FAILED",
+      "witness": "WITNESS_FAILED"
+    },
+    "t": "2026-11-17T18:51:18.684326+00:00",
+    "t_end": "2026-11-17T18:51:18.684326+00:00",
+    "t_start": "2026-11-17T18:51:18.587306+00:00",
+    "tag": "w066-sp-k2-reuse"
+  },
+  {
+    "app": "a2-w067-sp-k3-new",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sp",
+    "principal": "issuer_a",
+    "request_id": "k3",
+    "result": {
+      "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+      "result": "ISSUE_DENIED_WITNESS_FAILED",
+      "witness": "WITNESS_FAILED"
+    },
+    "t": "2026-11-17T18:51:18.790870+00:00",
+    "t_end": "2026-11-17T18:51:18.790870+00:00",
+    "t_start": "2026-11-17T18:51:18.690976+00:00",
+    "tag": "w067-sp-k3-new"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "77020d7c139c13d2b150b2098887cc0fd6cc595972838eee1d78891745c75ec2",
+        "seq": 4
+      },
+      "high_water": {
+        "digest": "389eac52c89e68285ca5b3085f01aeeedc76945aa4bc5896706488f8a8759e8f",
+        "journal_incarnation": "fbee58d2-bf79-44b2-85a2-43c6dd219bb3",
+        "seq": 6
+      },
+      "hw_state": "CONSISTENT",
+      "reason": null,
+      "status": "OK"
+    },
+    "server": "sp-w",
+    "t": "2026-11-17T18:51:19.565987+00:00"
+  },
+  {
+    "app": "a2-w068-sp-k2-after-recovery",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "existing_reservation",
+      "pg_read_rows"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sp",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "pg_row": null,
+      "result": "ISSUE_DENIED_RECONCILIATION_REQUIRED",
+      "state": "COMMIT_CONFIRMED"
+    },
+    "t": "2026-11-17T18:51:19.872040+00:00",
+    "t_end": "2026-11-17T18:51:19.872040+00:00",
+    "t_start": "2026-11-17T18:51:19.572245+00:00",
+    "tag": "w068-sp-k2-after-recovery"
+  },
+  {
+    "app": "a2-w069-sp-k3-after-recovery",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-sp",
+    "principal": "issuer_a",
+    "request_id": "k3",
+    "result": {
+      "reasons": [
+        "CONFIRMED_TICKET_MISSING_OR_DIFFERENT_IN_PG:k2"
+      ],
+      "result": "ISSUE_DENIED_GATE_CLOSED"
+    },
+    "t": "2026-11-17T18:51:20.193211+00:00",
+    "t_end": "2026-11-17T18:51:20.193211+00:00",
+    "t_start": "2026-11-17T18:51:19.881542+00:00",
+    "tag": "w069-sp-k3-after-recovery"
+  }
+]

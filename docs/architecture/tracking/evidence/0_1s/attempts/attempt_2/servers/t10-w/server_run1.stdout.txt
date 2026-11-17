@@ -1,0 +1,32 @@
+{"event": "hw_initialized", "journal_incarnation": "02b83d76-2c11-4e55-8210-318aaa36a30c", "t": 1794941437.6289973}
+{"event": "genesis_written", "journal_incarnation": "02b83d76-2c11-4e55-8210-318aaa36a30c", "t": 1794941437.6380777}
+{"event": "roll_forward", "seq": 1, "t": 1794941437.6439378, "type": "GENESIS"}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "high_water": {"digest": "92e307aec5270380c725bc02e0a43d344b9e83cea57f386c847361846b4ae414", "journal_incarnation": "02b83d76-2c11-4e55-8210-318aaa36a30c", "seq": 1}, "hw_reason": null, "hw_state": "CONSISTENT", "order": "append_first", "pid": 42252, "records": 1, "t": 1794941437.6439378}
+{"body_ns": "ns-c", "body_request_id": null, "body_seq": null, "event": "request", "op": "epoch_set", "principal": "operator", "reason": null, "seq": 2, "status": "EPOCH_SET", "t": 1794941437.756679}
+{"body_ns": "ns-c", "body_request_id": "race-1", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": 3, "status": "RESERVED", "t": 1794941441.7652338}
+{"body_ns": "ns-c", "body_request_id": "race-1", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941441.7657743}
+{"body_ns": "ns-c", "body_request_id": "race-1", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941441.766364}
+{"body_ns": "ns-c", "body_request_id": "race-1", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941441.766364}
+{"body_ns": "ns-c", "body_request_id": "race-1", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941441.7669475}
+{"body_ns": "ns-c", "body_request_id": "race-1", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941441.7692416}
+{"body_ns": "ns-c", "body_request_id": "race-1", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941441.770012}
+{"body_ns": "ns-c", "body_request_id": "race-1", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941441.7706869}
+{"body_ns": "ns-c", "body_request_id": "race-2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": 4, "status": "RESERVED", "t": 1794941445.8471608}
+{"body_ns": "ns-c", "body_request_id": "race-2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941445.8476822}
+{"body_ns": "ns-c", "body_request_id": "race-2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941445.8476822}
+{"body_ns": "ns-c", "body_request_id": "race-2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941445.848226}
+{"body_ns": "ns-c", "body_request_id": "race-2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941445.848226}
+{"body_ns": "ns-c", "body_request_id": "race-2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941445.8487837}
+{"body_ns": "ns-c", "body_request_id": "race-2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941445.8493578}
+{"body_ns": "ns-c", "body_request_id": "race-2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941445.8499062}
+{"body_ns": "ns-c", "body_request_id": "race-3", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": 5, "status": "RESERVED", "t": 1794941449.9147007}
+{"body_ns": "ns-c", "body_request_id": "race-3", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941449.9147007}
+{"body_ns": "ns-c", "body_request_id": "race-3", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941449.9152117}
+{"body_ns": "ns-c", "body_request_id": "race-3", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941449.9152117}
+{"body_ns": "ns-c", "body_request_id": "race-3", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941449.9156983}
+{"body_ns": "ns-c", "body_request_id": "race-3", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941449.9162197}
+{"body_ns": "ns-c", "body_request_id": "race-3", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941449.9162197}
+{"body_ns": "ns-c", "body_request_id": "race-3", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941449.9162197}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941450.3844476}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941450.3865252}
+{"event": "stopped", "t": 1794941450.3879778}

@@ -1,0 +1,7 @@
+EVENT {"epoch": 1, "event": "start", "fault": "crash_after_reserve", "incarnation": "5025341d-6cf5-4a5e-b2bb-cdde68e1ba37", "mode": "issue", "mono": 0.0, "ns": "ns-cw8", "payload_hash": "ab268cbde0fa875aedcf7e8090edc84f824a7b2922c8a01e0b2dbf1bcd7984e8", "principal": "issuer_a", "request_id": "k1", "t": 1794941471.7770975}
+EVENT {"durability": null, "event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794941471.7791076}
+EVENT {"complete": true, "event": "history_check", "high_water_seq": 2, "journal_len": 2, "mono": 0.0, "problem": null, "t": 1794941471.7807808}
+EVENT {"event": "pg_read_rows", "exit": 0, "mono": 0.219, "sqlstates": [], "t": 1794941471.9866593}
+EVENT {"event": "gate", "mono": 0.219, "open": true, "reasons": [], "t": 1794941471.9866593}
+EVENT {"durability": null, "event": "witness_reserve", "mono": 0.219, "reason": null, "seq": 3, "status": "RESERVED", "t": 1794941471.9969106}
+EVENT {"event": "fault_crash", "mono": 0.219, "point": "after_reservation_before_pg", "t": 1794941471.9969106}

@@ -1,0 +1,199 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-cw7a"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "cw7a-w",
+    "t": "2026-11-17T18:52:43.794310+00:00"
+  },
+  {
+    "body": {
+      "fault": "crash_before_append",
+      "on_type": "OUTCOME"
+    },
+    "kind": "server_call",
+    "op": "fault",
+    "principal": "harness",
+    "response": {
+      "name": "crash_before_append",
+      "on_type": "OUTCOME",
+      "status": "FAULT_ARMED"
+    },
+    "server": "cw7a-w",
+    "t": "2026-11-17T18:52:43.795824+00:00"
+  },
+  {
+    "app": "a3-w055-cw7a-k1",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_unavailable"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw7a",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "error": "io:EOFError",
+      "result": "ISSUE_OUTCOME_UNKNOWN",
+      "wanted": "COMMIT_CONFIRMED"
+    },
+    "t": "2026-11-17T18:52:44.313156+00:00",
+    "t_end": "2026-11-17T18:52:44.313156+00:00",
+    "t_start": "2026-11-17T18:52:43.803196+00:00",
+    "tag": "w055-cw7a-k1"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "seq": 0
+      },
+      "high_water": {
+        "digest": "c375431b8c38d4094962c4ec47ec3d461aa3a03cd67a622534c6f6594405cfc1",
+        "journal_incarnation": "ba9a3b39-7bde-4c16-a9db-540903ae07a3",
+        "seq": 3
+      },
+      "hw_state": "CONSISTENT",
+      "reason": null,
+      "status": "OK"
+    },
+    "server": "cw7a-w",
+    "t": "2026-11-17T18:52:44.915605+00:00"
+  },
+  {
+    "app": "a3-w056-cw7a-retry",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "witness_outcome",
+      "restart_recovery",
+      "witness_export",
+      "history_check",
+      "existing_reservation"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw7a",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_DENIED_IN_DOUBT",
+      "state": "IN_DOUBT"
+    },
+    "t": "2026-11-17T18:52:45.286445+00:00",
+    "t_end": "2026-11-17T18:52:45.286445+00:00",
+    "t_start": "2026-11-17T18:52:45.128318+00:00",
+    "tag": "w056-cw7a-retry"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true,
+        "reason": "tombstone absent"
+      },
+      "ns": "ns-cw7a",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "e5b73b37-c780-4a07-abf4-4ac0fd24f728"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "IN_DOUBT",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "server": "cw7a-w",
+    "t": "2026-11-17T18:52:45.486280+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "tombstone_payload_hash": "8a22b03e9cbaef014d299c389647920b5e555615fa22bb91f37593166fd3cbac",
+        "tombstone_ticket_id": "e5b73b37-c780-4a07-abf4-4ac0fd24f728"
+      },
+      "ns": "ns-cw7a",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "e5b73b37-c780-4a07-abf4-4ac0fd24f728"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 5,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "server": "cw7a-w",
+    "t": "2026-11-17T18:52:45.495777+00:00"
+  },
+  {
+    "append": "APPENDED",
+    "auto_abort": "INVALID_TRANSITION",
+    "decision": "COMMIT_CONFIRMED",
+    "key": "ns-cw7a|k1",
+    "kind": "reconcile",
+    "pg_row": {
+      "issued_by": "issuer_a",
+      "payload_hash": "8a22b03e9cbaef014d299c389647920b5e555615fa22bb91f37593166fd3cbac",
+      "request_id": "k1",
+      "ticket_id": "e5b73b37-c780-4a07-abf4-4ac0fd24f728",
+      "witness_seq": 3
+    },
+    "t": "2026-11-17T18:52:45.495777+00:00",
+    "witness_state_before": "IN_DOUBT"
+  },
+  {
+    "app": "a3-w057-cw7a-replay",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "existing_reservation",
+      "pg_read_rows"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw7a",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_REPLAY_ISSUED",
+      "ticket_id": "e5b73b37-c780-4a07-abf4-4ac0fd24f728"
+    },
+    "t": "2026-11-17T18:52:45.836941+00:00",
+    "t_end": "2026-11-17T18:52:45.836941+00:00",
+    "t_start": "2026-11-17T18:52:45.503432+00:00",
+    "tag": "w057-cw7a-replay"
+  }
+]

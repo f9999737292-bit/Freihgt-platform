@@ -1,0 +1,1 @@
+{"request":{"body":{"head_hash":"8d85a648bd67bdd8261bbd4e2fb46f7202d49631e6021f6a4d1aee8889b92cc3","seq":4},"mac":"3bba1b71ad553fd56fde0e76172d54e57c3fa385d750e97f5b7dbbdd4dcb7abd","nonce":"038b8c8140eb31a6","op":"checkpoint_accept","principal":"operator"}}

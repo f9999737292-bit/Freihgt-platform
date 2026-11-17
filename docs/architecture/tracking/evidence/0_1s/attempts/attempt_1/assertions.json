@@ -1,0 +1,1565 @@
+[
+  {
+    "id": "T1-CONSISTENT",
+    "scenario": "T1_CONSISTENT",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Journal complete and equal to the high-water mark: witness CONSISTENT after restart, k2 cannot be reserved again (DUPLICATE), a new key in a fresh namespace is issued after the issuer's own history check",
+    "observed": {
+      "seed": [
+        "EPOCH_SET",
+        "RESERVED",
+        "APPENDED",
+        "CHECKPOINT_ACCEPTED",
+        "RESERVED",
+        "APPENDED"
+      ],
+      "health": {
+        "status": "OK",
+        "reason": null,
+        "hw_state": "CONSISTENT",
+        "records": 6,
+        "high_water": {
+          "journal_incarnation": "47106bfa-66d1-4507-b17c-1ac2f4ee830e",
+          "seq": 6,
+          "digest": "1fb81bf466cec2e8e7054632a180d0ee9dc50bea9a8c12a4bb2fba07f6aae77f"
+        },
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "b2d72f7073c856fc43d31353d6bfcc1596208f974a72f89fe6bffba6360acaab"
+        }
+      },
+      "high_water_seq": 6,
+      "dup": {
+        "status": "DUPLICATE",
+        "state": "COMMIT_CONFIRMED",
+        "reservation_seq": 5
+      },
+      "worker": {
+        "result": "ISSUE_OK",
+        "resumed": false,
+        "ticket_id": "252beea4-075b-4fc8-aeea-781c543357ce"
+      },
+      "history_check": {
+        "complete": true,
+        "event": "history_check",
+        "high_water_seq": 7,
+        "journal_len": 7,
+        "mono": 0.0,
+        "problem": null,
+        "t": 1794941320.786457
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T2-DETECTED",
+    "scenario": "T2_LAST_RECORD_DELETED",
+    "kind": "DETECTION",
+    "description": "Last confirmed record (seq 6) deleted: the witness refuses to serve with reason ROLLBACK_DETECTED source=high_water",
+    "observed": {
+      "health": {
+        "status": "WITNESS_FAILED",
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=5 high_water_seq=6",
+        "hw_state": "UNCHECKED",
+        "records": 5,
+        "high_water": {
+          "journal_incarnation": "9764d406-90dc-4e9b-8fc8-0eaf395b134a",
+          "seq": 6,
+          "digest": "3a33f539c2ffdabcada3ffccdd9f5adfc5d5b4cfea184db81922db8e0ffcabbe"
+        },
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "e2feed10d4d919c4c26fd4a590fa24f04f092a576f2847d9ac0273be70b2d22c"
+        }
+      },
+      "local_chain_check": "VALID"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T2-NO-DUPLICATE",
+    "scenario": "T2_LAST_RECORD_DELETED",
+    "kind": "DENIAL",
+    "description": "Re-reserving k2 is refused (WITNESS_FAILED), nothing is appended, the mark is unchanged",
+    "observed": {
+      "reserve_k2": {
+        "status": "WITNESS_FAILED",
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=5 high_water_seq=6"
+      },
+      "journal_lines": [
+        5,
+        5
+      ],
+      "mark_unchanged": true
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T2-GATE-CLOSED",
+    "scenario": "T2_LAST_RECORD_DELETED",
+    "kind": "DENIAL",
+    "description": "The issuer is denied before any PostgreSQL connection",
+    "observed": {
+      "worker": {
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=5 high_water_seq=6",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T3-DETECTED",
+    "scenario": "T3_TRUNCATED_TO_CHECKPOINT",
+    "kind": "DETECTION",
+    "description": "Journal truncated exactly to the old operator checkpoint (seq 4): the witness refuses to serve with reason ROLLBACK_DETECTED source=high_water",
+    "observed": {
+      "health": {
+        "status": "WITNESS_FAILED",
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+        "hw_state": "UNCHECKED",
+        "records": 4,
+        "high_water": {
+          "journal_incarnation": "e4c2a601-704f-4e19-84d6-c0759598ef34",
+          "seq": 6,
+          "digest": "8185573e1181e8ded23f29d15a239bec7dd94a7975247f1dab35524c97b8f674"
+        },
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "ae3f8f5dc4c9b82528cce4aa0d5268385126a90e0db34e10cf079665abcb8afc"
+        }
+      },
+      "local_chain_check": "VALID"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T3-NO-DUPLICATE",
+    "scenario": "T3_TRUNCATED_TO_CHECKPOINT",
+    "kind": "DENIAL",
+    "description": "Re-reserving k2 is refused (WITNESS_FAILED), nothing is appended, the mark is unchanged",
+    "observed": {
+      "reserve_k2": {
+        "status": "WITNESS_FAILED",
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6"
+      },
+      "journal_lines": [
+        4,
+        4
+      ],
+      "mark_unchanged": true
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T3-GATE-CLOSED",
+    "scenario": "T3_TRUNCATED_TO_CHECKPOINT",
+    "kind": "DENIAL",
+    "description": "The issuer is denied before any PostgreSQL connection",
+    "observed": {
+      "worker": {
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T4-DETECTED",
+    "scenario": "T4_RESTORED_ONE_BELOW",
+    "kind": "DETECTION",
+    "description": "Journal replaced by a byte copy taken at seq 5 (one below the mark): the witness refuses to serve with reason ROLLBACK_DETECTED source=high_water",
+    "observed": {
+      "health": {
+        "status": "WITNESS_FAILED",
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=5 high_water_seq=6",
+        "hw_state": "UNCHECKED",
+        "records": 5,
+        "high_water": {
+          "journal_incarnation": "30562e1c-421a-43c8-b564-9f2a25c25ad6",
+          "seq": 6,
+          "digest": "37f15d19a07faa5025251705680c80e045ead72ab7979dc0abda42bbe881592f"
+        },
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "f7fa847a529eb7796451b5a11f838be8e9138c999f8222d1c661e9d7f93774b3"
+        }
+      },
+      "local_chain_check": "VALID"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T4-NO-DUPLICATE",
+    "scenario": "T4_RESTORED_ONE_BELOW",
+    "kind": "DENIAL",
+    "description": "Re-reserving k2 is refused (WITNESS_FAILED), nothing is appended, the mark is unchanged",
+    "observed": {
+      "reserve_k2": {
+        "status": "WITNESS_FAILED",
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=5 high_water_seq=6"
+      },
+      "journal_lines": [
+        5,
+        5
+      ],
+      "mark_unchanged": true
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T4-GATE-CLOSED",
+    "scenario": "T4_RESTORED_ONE_BELOW",
+    "kind": "DENIAL",
+    "description": "The issuer is denied before any PostgreSQL connection",
+    "observed": {
+      "worker": {
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=5 high_water_seq=6",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T5-DETECTED",
+    "scenario": "T5_SAME_SEQ_OTHER_DIGEST",
+    "kind": "DETECTION",
+    "description": "Journal with the same length but a validly signed, validly chained different record at seq 6: the witness refuses to serve with reason FORK_DETECTED source=high_water seq=6",
+    "observed": {
+      "health": {
+        "status": "WITNESS_FAILED",
+        "reason": "FORK_DETECTED source=high_water seq=6",
+        "hw_state": "UNCHECKED",
+        "records": 6,
+        "high_water": {
+          "journal_incarnation": "5b3ca829-a060-4524-8ca2-86a79723e041",
+          "seq": 6,
+          "digest": "71307413916928b8694f74a8ca49dfc585711230218713e846128b6ae9b7764d"
+        },
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "4970028a3552bb44d101e5e0d98246ae64f0b110171c3c2be91602104127f9df"
+        }
+      },
+      "local_chain_check": "VALID"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T5-NO-DUPLICATE",
+    "scenario": "T5_SAME_SEQ_OTHER_DIGEST",
+    "kind": "DENIAL",
+    "description": "Re-reserving k2 is refused (WITNESS_FAILED), nothing is appended, the mark is unchanged",
+    "observed": {
+      "reserve_k2": {
+        "status": "WITNESS_FAILED",
+        "reason": "FORK_DETECTED source=high_water seq=6"
+      },
+      "journal_lines": [
+        6,
+        6
+      ],
+      "mark_unchanged": true
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T5-GATE-CLOSED",
+    "scenario": "T5_SAME_SEQ_OTHER_DIGEST",
+    "kind": "DENIAL",
+    "description": "The issuer is denied before any PostgreSQL connection",
+    "observed": {
+      "worker": {
+        "reason": "FORK_DETECTED source=high_water seq=6",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T6A-DETECTED",
+    "scenario": "T6_OTHER_INCARNATION",
+    "kind": "DETECTION",
+    "description": "Journal rebuilt with the same records under a different GENESIS incarnation (valid chain); operator checkpoint left in place: the witness refuses to serve with reason FORK_DETECTED source=operator_checkpoint",
+    "observed": {
+      "health": {
+        "status": "WITNESS_FAILED",
+        "reason": "FORK_DETECTED source=operator_checkpoint seq=4",
+        "hw_state": "UNCHECKED",
+        "records": 6,
+        "high_water": null,
+        "checkpoint": {
+          "seq": 0,
+          "head_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "local_chain_check": "VALID"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T6A-NO-DUPLICATE",
+    "scenario": "T6_OTHER_INCARNATION",
+    "kind": "DENIAL",
+    "description": "Re-reserving k2 is refused (WITNESS_FAILED), nothing is appended, the mark is unchanged",
+    "observed": {
+      "reserve_k2": {
+        "status": "WITNESS_FAILED",
+        "reason": "FORK_DETECTED source=operator_checkpoint seq=4"
+      },
+      "journal_lines": [
+        6,
+        6
+      ],
+      "mark_unchanged": true
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T6A-GATE-CLOSED",
+    "scenario": "T6_OTHER_INCARNATION",
+    "kind": "DENIAL",
+    "description": "The issuer is denied before any PostgreSQL connection",
+    "observed": {
+      "worker": {
+        "reason": "FORK_DETECTED source=operator_checkpoint seq=4",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T6B-DETECTED",
+    "scenario": "T6_OTHER_INCARNATION",
+    "kind": "DETECTION",
+    "description": "Journal rebuilt under a different GENESIS incarnation and the local operator checkpoint deleted too: the witness refuses to serve with reason INCARNATION_MISMATCH source=high_water",
+    "observed": {
+      "health": {
+        "status": "WITNESS_FAILED",
+        "reason": "INCARNATION_MISMATCH source=high_water",
+        "hw_state": "UNCHECKED",
+        "records": 6,
+        "high_water": {
+          "journal_incarnation": "3a8ac524-4e7e-4aa6-976f-cd773594a713",
+          "seq": 6,
+          "digest": "cebccdaf1dd2bd1e0fbed258f415f5a307cf1316836039ae9f620ad3df23bd06"
+        },
+        "checkpoint": {
+          "seq": 0,
+          "head_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "local_chain_check": "VALID"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T6B-NO-DUPLICATE",
+    "scenario": "T6_OTHER_INCARNATION",
+    "kind": "DENIAL",
+    "description": "Re-reserving k2 is refused (WITNESS_FAILED), nothing is appended, the mark is unchanged",
+    "observed": {
+      "reserve_k2": {
+        "status": "WITNESS_FAILED",
+        "reason": "INCARNATION_MISMATCH source=high_water"
+      },
+      "journal_lines": [
+        6,
+        6
+      ],
+      "mark_unchanged": true
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T6B-GATE-CLOSED",
+    "scenario": "T6_OTHER_INCARNATION",
+    "kind": "DENIAL",
+    "description": "The issuer is denied before any PostgreSQL connection",
+    "observed": {
+      "worker": {
+        "reason": "INCARNATION_MISMATCH source=high_water",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T7-HW-DOWN-AT-START",
+    "scenario": "T7_HW_UNAVAILABLE",
+    "kind": "FAIL_CLOSED",
+    "description": "High-water authority down when the witness starts: witness HIGH_WATER_UNAVAILABLE, reserve refused without append, issuer denied before PostgreSQL",
+    "observed": {
+      "health": {
+        "status": "HIGH_WATER_UNAVAILABLE",
+        "reason": "HW_UNREACHABLE connect:FileNotFoundError",
+        "hw_state": "HW_UNAVAILABLE",
+        "records": 6,
+        "high_water": null,
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "c273341b900b618ef4e61557c00506ab244a9822d22c7881f9ac685247baf594"
+        }
+      },
+      "reserve": {
+        "status": "HIGH_WATER_UNAVAILABLE",
+        "reason": "HW_UNREACHABLE connect:FileNotFoundError",
+        "hw_state": "HW_UNAVAILABLE"
+      },
+      "journal_lines": 6,
+      "worker": {
+        "reason": "HW_UNREACHABLE connect:FileNotFoundError",
+        "result": "ISSUE_DENIED_HIGH_WATER_UNAVAILABLE",
+        "witness": "HIGH_WATER_UNAVAILABLE"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T7-RECOVERS-WHEN-HW-RETURNS",
+    "scenario": "T7_HW_UNAVAILABLE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "When the authority returns, the witness re-verifies and becomes CONSISTENT without restart",
+    "observed": {
+      "status": "OK",
+      "reason": null,
+      "hw_state": "CONSISTENT",
+      "records": 6,
+      "high_water": {
+        "journal_incarnation": "67f52fff-a57c-4bff-bf60-5754a08adab9",
+        "seq": 6,
+        "digest": "21b2f1c0d967128fdbbacf6bb739a1037c6755a24e1547e6b0644bd13334f742"
+      },
+      "checkpoint": {
+        "seq": 4,
+        "head_hash": "c273341b900b618ef4e61557c00506ab244a9822d22c7881f9ac685247baf594"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T7-ISSUER-OWN-HW-CHECK",
+    "scenario": "T7_HW_UNAVAILABLE",
+    "kind": "FAIL_CLOSED",
+    "description": "Witness still CONSISTENT in memory, authority down: the issuer's own high-water read fails and it is denied before PostgreSQL",
+    "observed": {
+      "worker": {
+        "error": "connect:FileNotFoundError",
+        "result": "ISSUE_DENIED_HIGH_WATER_UNAVAILABLE"
+      },
+      "events": [
+        "start",
+        "witness_export",
+        "high_water_unavailable"
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T7-PREPARED-NOT-ACKNOWLEDGED",
+    "scenario": "T7_HW_UNAVAILABLE",
+    "kind": "FAIL_CLOSED",
+    "description": "Authority lost mid-operation: the k4 record is journaled (PREPARED) but the reply is HIGH_WATER_UNAVAILABLE, not RESERVED; the next write (k5) is refused without append",
+    "observed": {
+      "k4": {
+        "status": "HIGH_WATER_UNAVAILABLE",
+        "durability": "PREPARED",
+        "journal_seq": 7
+      },
+      "k5": {
+        "status": "HIGH_WATER_UNAVAILABLE",
+        "reason": "HW_UNREACHABLE connect:FileNotFoundError",
+        "hw_state": "HW_UNAVAILABLE"
+      },
+      "journal_lines": [
+        7,
+        7
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T7-ROLL-FORWARD",
+    "scenario": "T7_HW_UNAVAILABLE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Authority back: the single PREPARED record chains from the pinned head and is rolled forward; k4 is RESERVED and cannot be reserved again",
+    "observed": {
+      "health": {
+        "status": "OK",
+        "reason": null,
+        "hw_state": "CONSISTENT",
+        "records": 7,
+        "high_water": {
+          "journal_incarnation": "67f52fff-a57c-4bff-bf60-5754a08adab9",
+          "seq": 7,
+          "digest": "dd08c6056007995d5743d3ae6ad095ca5360faf12ab8e918939a92d2cfa79c9b"
+        },
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "c273341b900b618ef4e61557c00506ab244a9822d22c7881f9ac685247baf594"
+        }
+      },
+      "roll_forward": [
+        {
+          "event": "roll_forward",
+          "seq": 7,
+          "t": 1794941333.6184475,
+          "type": "RESERVE"
+        }
+      ],
+      "high_water_seq": 7,
+      "k4": "RESERVED",
+      "reserve_again": {
+        "status": "DUPLICATE",
+        "state": "RESERVED",
+        "reservation_seq": 7
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T8A-DETECTED",
+    "scenario": "T8_HW_CORRUPTED",
+    "kind": "DETECTION",
+    "description": "High-water store tampered (mark_digest changed, hash not recomputed): the authority loads in FAILED mode with HW_HASH_MISMATCH",
+    "observed": {
+      "status": "FAILED",
+      "reason": "HW_HASH_MISMATCH seq=7",
+      "records": 6
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T8A-GATE-CLOSED",
+    "scenario": "T8_HW_CORRUPTED",
+    "kind": "FAIL_CLOSED",
+    "description": "The witness reports HIGH_WATER_UNAVAILABLE, refuses k2 and the issuer is denied before PostgreSQL",
+    "observed": {
+      "witness_health": {
+        "status": "HIGH_WATER_UNAVAILABLE",
+        "reason": "HW_FAILED HW_HASH_MISMATCH seq=7",
+        "hw_state": "HW_UNAVAILABLE",
+        "records": 6,
+        "high_water": null,
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "a68b265f26e5d537110fe7e747d13889b31b72e6826cade4cfa6ae447aa90c18"
+        }
+      },
+      "reserve": {
+        "status": "HIGH_WATER_UNAVAILABLE",
+        "reason": "HW_FAILED HW_HASH_MISMATCH seq=7",
+        "hw_state": "HW_UNAVAILABLE"
+      },
+      "worker": {
+        "reason": "HW_FAILED HW_HASH_MISMATCH seq=7",
+        "result": "ISSUE_DENIED_HIGH_WATER_UNAVAILABLE",
+        "witness": "HIGH_WATER_UNAVAILABLE"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T8B-DETECTED",
+    "scenario": "T8_HW_CORRUPTED",
+    "kind": "DETECTION",
+    "description": "High-water store tampered (mark_digest changed and record hash recomputed (signed request unchanged)): the authority loads in FAILED mode with HW_RECORD_REQUEST_MISMATCH",
+    "observed": {
+      "status": "FAILED",
+      "reason": "HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest",
+      "records": 6
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T8B-GATE-CLOSED",
+    "scenario": "T8_HW_CORRUPTED",
+    "kind": "FAIL_CLOSED",
+    "description": "The witness reports HIGH_WATER_UNAVAILABLE, refuses k2 and the issuer is denied before PostgreSQL",
+    "observed": {
+      "witness_health": {
+        "status": "HIGH_WATER_UNAVAILABLE",
+        "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest",
+        "hw_state": "HW_UNAVAILABLE",
+        "records": 6,
+        "high_water": null,
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "e8b2d05ffcd905a376c20bbbcdd0eb197707b542f500101338bd71d577054938"
+        }
+      },
+      "reserve": {
+        "status": "HIGH_WATER_UNAVAILABLE",
+        "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest",
+        "hw_state": "HW_UNAVAILABLE"
+      },
+      "worker": {
+        "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest",
+        "result": "ISSUE_DENIED_HIGH_WATER_UNAVAILABLE",
+        "witness": "HIGH_WATER_UNAVAILABLE"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T8C-DETECTED",
+    "scenario": "T8_HW_CORRUPTED",
+    "kind": "DETECTION",
+    "description": "High-water store tampered (mark_digest and signed request body changed, record hash recomputed, MAC not recomputable): the authority loads in FAILED mode with HW_REQUEST_MAC_INVALID",
+    "observed": {
+      "status": "FAILED",
+      "reason": "HW_REQUEST_MAC_INVALID seq=7",
+      "records": 6
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T8C-GATE-CLOSED",
+    "scenario": "T8_HW_CORRUPTED",
+    "kind": "FAIL_CLOSED",
+    "description": "The witness reports HIGH_WATER_UNAVAILABLE, refuses k2 and the issuer is denied before PostgreSQL",
+    "observed": {
+      "witness_health": {
+        "status": "HIGH_WATER_UNAVAILABLE",
+        "reason": "HW_FAILED HW_REQUEST_MAC_INVALID seq=7",
+        "hw_state": "HW_UNAVAILABLE",
+        "records": 6,
+        "high_water": null,
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "04f73f2fcf3f83444896de62e4e5f53f70a3f4e44abe2863c48c5d0144bdc480"
+        }
+      },
+      "reserve": {
+        "status": "HIGH_WATER_UNAVAILABLE",
+        "reason": "HW_FAILED HW_REQUEST_MAC_INVALID seq=7",
+        "hw_state": "HW_UNAVAILABLE"
+      },
+      "worker": {
+        "reason": "HW_FAILED HW_REQUEST_MAC_INVALID seq=7",
+        "result": "ISSUE_DENIED_HIGH_WATER_UNAVAILABLE",
+        "witness": "HIGH_WATER_UNAVAILABLE"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T9-LOWER-REJECTED",
+    "scenario": "T9_HW_LOWER_REJECTED",
+    "kind": "DENIAL",
+    "description": "Every attempt to lower, overwrite, skip, fork, re-initialise or delete the mark is rejected; non-writer principals cannot write; the mark and the authority log are unchanged",
+    "observed": {
+      "observed": {
+        "lower_seq": "NOT_MONOTONIC",
+        "same_seq_other_digest": "CONFLICT",
+        "gap": "GAP",
+        "wrong_prev": "PREV_MISMATCH",
+        "other_incarnation": "INCARNATION_MISMATCH",
+        "reinit": "ALREADY_INITIALIZED",
+        "issuer_advance": "ROLE_FORBIDDEN",
+        "operator_advance": "ROLE_FORBIDDEN",
+        "auditor_advance": "ROLE_FORBIDDEN",
+        "issuer_init": "ROLE_FORBIDDEN",
+        "op_set": "UNSUPPORTED_OP",
+        "op_lower": "UNSUPPORTED_OP",
+        "op_reset": "UNSUPPORTED_OP",
+        "op_delete": "UNSUPPORTED_OP",
+        "op_truncate": "UNSUPPORTED_OP",
+        "op_rollback": "UNSUPPORTED_OP",
+        "op_rewrite": "UNSUPPORTED_OP",
+        "idempotent_current": "IDEMPOTENT"
+      },
+      "mismatches": {},
+      "records": [
+        7,
+        7
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T9-WITNESS-STILL-CONSISTENT",
+    "scenario": "T9_HW_LOWER_REJECTED",
+    "kind": "POSITIVE_CONTROL",
+    "description": "After the rejected attempts the witness restarts CONSISTENT and serves a new reservation",
+    "observed": {
+      "health": {
+        "status": "OK",
+        "reason": null,
+        "hw_state": "CONSISTENT",
+        "records": 6,
+        "high_water": {
+          "journal_incarnation": "1f197259-2d83-416c-847a-22ec03d8469d",
+          "seq": 6,
+          "digest": "dfe28d37b58484ad6a4cc2ef0d8945c538d8fcb224f3bbf3a7de16b2be706f65"
+        },
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "d7aeadcdcb225723625432286d6f938df3a8eab88e683bcfcad508a7ed0c47d3"
+        }
+      },
+      "reserve": {
+        "status": "RESERVED",
+        "seq": 7,
+        "epoch": 1,
+        "high_water_seq": 7
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T10-RACE-1",
+    "scenario": "T10_CONCURRENT_RESERVE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Round 1: 8 processes reserve one key at once: exactly one RESERVED, seven DUPLICATE, one RESERVE record, mark equal to journal length",
+    "observed": {
+      "results": [
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "RESERVED",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE"
+      ],
+      "reserve_records": 1,
+      "high_water_seq": 3,
+      "journal_lines": 3
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T10-RACE-2",
+    "scenario": "T10_CONCURRENT_RESERVE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Round 2: 8 processes reserve one key at once: exactly one RESERVED, seven DUPLICATE, one RESERVE record, mark equal to journal length",
+    "observed": {
+      "results": [
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "RESERVED",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE"
+      ],
+      "reserve_records": 1,
+      "high_water_seq": 4,
+      "journal_lines": 4
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T10-RACE-3",
+    "scenario": "T10_CONCURRENT_RESERVE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Round 3: 8 processes reserve one key at once: exactly one RESERVED, seven DUPLICATE, one RESERVE record, mark equal to journal length",
+    "observed": {
+      "results": [
+        "RESERVED",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE"
+      ],
+      "reserve_records": 1,
+      "high_water_seq": 5,
+      "journal_lines": 5
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T10-SINGLE-WRITER",
+    "scenario": "T10_CONCURRENT_RESERVE",
+    "kind": "DENIAL",
+    "description": "A second authority or witness process on the same store exits with store_locked (code 3)",
+    "observed": {
+      "hw_second_exit": 3,
+      "witness_second_exit": 3
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "JW-SETUP",
+    "scenario": "J_WIT_001",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Steps 1-6: epoch, k1 reserved+confirmed, operator checkpoint, k2 reserved+confirmed; the independent mark equals the journal head",
+    "observed": {
+      "statuses": [
+        "EPOCH_SET",
+        "RESERVED",
+        "APPENDED",
+        "CHECKPOINT_ACCEPTED",
+        "RESERVED",
+        "APPENDED"
+      ],
+      "checkpoint": {
+        "seq": 4,
+        "head_hash": "89713f046c1deaa9d3f18218a489b664b992ec3dd2a182cba73212e02998930e"
+      },
+      "high_water": {
+        "seq": 6,
+        "digest": "3af31f77fb70b297887e3f18755896b43eefb84fcaa3da65ebfdd8479183c90d"
+      },
+      "journal_len": 6
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "JW-LOCAL-CHECKS-PASS-ON-TRUNCATED",
+    "scenario": "J_WIT_001",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Control: the truncated journal is a valid chain that still satisfies the operator checkpoint, so the 0.1R local checks alone would accept it",
+    "observed": {
+      "chain": "VALID",
+      "len": 4
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "JW-TAIL-LOSS-DETECTED",
+    "scenario": "J_WIT_001",
+    "kind": "DETECTION",
+    "description": "TAIL_LOSS_DETECTED=YES after restart",
+    "observed": {
+      "status": "WITNESS_FAILED",
+      "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+      "hw_state": "UNCHECKED",
+      "records": 4,
+      "high_water": {
+        "journal_incarnation": "21c3f710-ef3f-46f0-b0df-cd3bcdc1a9aa",
+        "seq": 6,
+        "digest": "3af31f77fb70b297887e3f18755896b43eefb84fcaa3da65ebfdd8479183c90d"
+      },
+      "checkpoint": {
+        "seq": 4,
+        "head_hash": "89713f046c1deaa9d3f18218a489b664b992ec3dd2a182cba73212e02998930e"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "JW-DUPLICATE-NOT-ACCEPTED",
+    "scenario": "J_WIT_001",
+    "kind": "DENIAL",
+    "description": "DUPLICATE_RESERVATION_ACCEPTED=NO: reserve k2 is refused and the journal holds no k2 reservation",
+    "observed": {
+      "reserve_k2": {
+        "status": "WITNESS_FAILED",
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6"
+      },
+      "k2_reserve_records": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "JW-GATE-CLOSED",
+    "scenario": "J_WIT_001",
+    "kind": "DENIAL",
+    "description": "ISSUER_ISSUANCE_GATE=CLOSED: the issuer is denied for k2 and for a new key, with no PostgreSQL connection",
+    "observed": {
+      "k2": {
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "k7": {
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW1",
+    "scenario": "CW1_BEFORE_RESERVATION",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Issuer stops before reserve: no record, no PostgreSQL transaction; the key is still free and the retry issues",
+    "observed": {
+      "exit": 137,
+      "journal": [
+        2,
+        2
+      ],
+      "retry": {
+        "result": "ISSUE_OK",
+        "resumed": false,
+        "ticket_id": "db209ce9-e3ca-40b7-a940-0f8979009a3f"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW2",
+    "scenario": "CW2_AFTER_PREPARE_BEFORE_APPEND",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Witness stops after validating, before append: issuer sees an unknown outcome and opens no transaction; nothing was journaled or marked, so after restart the key is free and the retry issues",
+    "observed": {
+      "worker": {
+        "error": "io:EOFError",
+        "result": "ISSUE_WITNESS_OUTCOME_UNKNOWN",
+        "stage": "reserve"
+      },
+      "witness_exit": 137,
+      "journal": [
+        2,
+        2
+      ],
+      "mark_unchanged": true,
+      "health": {
+        "status": "OK",
+        "reason": null,
+        "hw_state": "CONSISTENT",
+        "records": 2,
+        "high_water": {
+          "journal_incarnation": "f4326294-8a8a-4a58-ab62-a367b3975dd1",
+          "seq": 2,
+          "digest": "21c86377c4c4ff900bc455fdf252714688fbe29fbcd9c53e84f51418776b83ff"
+        },
+        "checkpoint": {
+          "seq": 0,
+          "head_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "retry": {
+        "result": "ISSUE_OK",
+        "resumed": false,
+        "ticket_id": "2f97e05b-572c-44bf-b3c4-d066e746f1d1"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW3-NO-ISSUE-OK",
+    "scenario": "CW3_BETWEEN_APPEND_AND_HW",
+    "kind": "FAIL_CLOSED",
+    "description": "Crash between journal append and high-water update: the issuer never receives RESERVED, reports an unknown outcome and opens no PostgreSQL transaction; the journal is one record ahead of the mark",
+    "observed": {
+      "worker": {
+        "error": "io:EOFError",
+        "result": "ISSUE_WITNESS_OUTCOME_UNKNOWN",
+        "stage": "reserve"
+      },
+      "witness_exit": 137,
+      "journal_len": 3,
+      "high_water_seq": 2
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW3-ROLL-FORWARD-NO-REISSUE",
+    "scenario": "CW3_BETWEEN_APPEND_AND_HW",
+    "kind": "DENIAL",
+    "description": "After restart the PREPARED record is rolled forward (mark = journal); k1 is RESERVED, the retry goes IN_DOUBT and is denied, other keys are gated, reconciliation cannot abort and ends PERMANENTLY_DENIED",
+    "observed": {
+      "health": {
+        "status": "OK",
+        "reason": null,
+        "hw_state": "CONSISTENT",
+        "records": 3,
+        "high_water": {
+          "journal_incarnation": "77d4a80f-08a4-49fb-9267-67596f6c669a",
+          "seq": 3,
+          "digest": "fb6f80a40735c37637c1980c4cd71993bc1c22718324ea5ce4d3f01572973816"
+        },
+        "checkpoint": {
+          "seq": 0,
+          "head_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "roll_forward": [
+        {
+          "event": "roll_forward",
+          "seq": 3,
+          "t": 1794941361.5934346,
+          "type": "RESERVE"
+        }
+      ],
+      "k1": "RESERVED",
+      "retry": {
+        "result": "ISSUE_DENIED_IN_DOUBT",
+        "state": "IN_DOUBT"
+      },
+      "other": {
+        "reasons": [
+          "OPEN_RESERVATIONS:k1"
+        ],
+        "result": "ISSUE_DENIED_GATE_CLOSED"
+      },
+      "reconcile": {
+        "key": "ns-cw3|k1",
+        "witness_state_before": "IN_DOUBT",
+        "pg_row": null,
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "PERMANENTLY_DENIED",
+        "append": "APPENDED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW4-HW-FIRST-WORKS-NORMALLY",
+    "scenario": "CW4_BETWEEN_HW_AND_APPEND",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Control: the hw_first order issues normally",
+    "observed": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "36b50896-3c7f-40b7-aaad-73aade33533c"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW4-FAIL-CLOSED-NOT-LIVE",
+    "scenario": "CW4_BETWEEN_HW_AND_APPEND",
+    "kind": "FAIL_CLOSED",
+    "description": "Crash between high-water update and journal append: no transaction; after restart the mark is ahead of the journal, which is indistinguishable from tail loss, so the witness stays FAILED and every issuance is denied (safe, but needs manual recovery; this is why append_first is selected)",
+    "observed": {
+      "worker": {
+        "error": "io:EOFError",
+        "result": "ISSUE_WITNESS_OUTCOME_UNKNOWN",
+        "stage": "reserve"
+      },
+      "witness_exit": 137,
+      "journal_len": 4,
+      "high_water_seq": 5,
+      "health": {
+        "status": "WITNESS_FAILED",
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=5",
+        "hw_state": "UNCHECKED",
+        "records": 4,
+        "high_water": {
+          "journal_incarnation": "52416a2b-dca9-481d-8a10-d51b7af09098",
+          "seq": 5,
+          "digest": "226854559b309a488390c92692afef16ab8be40d7807684d0ed3f1043f302d58"
+        },
+        "checkpoint": {
+          "seq": 0,
+          "head_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "retry": {
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=5",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "other": {
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=5",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW5",
+    "scenario": "CW5_AFTER_HW_BEFORE_REPLY",
+    "kind": "FAIL_CLOSED",
+    "description": "Crash after the mark covers the reservation, before the reply: issuer unknown outcome, no transaction; after restart the journal equals the mark (no roll-forward), k1 RESERVED -> IN_DOUBT -> PERMANENTLY_DENIED",
+    "observed": {
+      "worker": {
+        "error": "io:EOFError",
+        "result": "ISSUE_WITNESS_OUTCOME_UNKNOWN",
+        "stage": "reserve"
+      },
+      "journal_len": 3,
+      "high_water_seq": 3,
+      "k1": "RESERVED",
+      "retry": {
+        "result": "ISSUE_DENIED_IN_DOUBT",
+        "state": "IN_DOUBT"
+      },
+      "reconcile": {
+        "key": "ns-cw5|k1",
+        "witness_state_before": "IN_DOUBT",
+        "pg_row": null,
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "PERMANENTLY_DENIED",
+        "append": "APPENDED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW6",
+    "scenario": "CW6_AFTER_PG_COMMIT",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Issuer stops after COMMIT, before outcome: row exists, key RESERVED; retry IN_DOUBT; reconciliation against the tombstone gives COMMIT_CONFIRMED; then the retry replays the same ticket",
+    "observed": {
+      "rows": [
+        "k1"
+      ],
+      "k1": "RESERVED",
+      "retry": {
+        "result": "ISSUE_DENIED_IN_DOUBT",
+        "state": "IN_DOUBT"
+      },
+      "reconcile": {
+        "key": "ns-cw6|k1",
+        "witness_state_before": "IN_DOUBT",
+        "pg_row": {
+          "issued_by": "issuer_a",
+          "ticket_id": "1d6956ca-e6b0-4113-bec4-35d658c9a4f9",
+          "request_id": "k1",
+          "witness_seq": 3,
+          "payload_hash": "eeb4a828002bda64cc8e39c2b0636a3e82993c1ef2598de68c7ac5e6385d7001"
+        },
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "COMMIT_CONFIRMED",
+        "append": "APPENDED"
+      },
+      "replay": {
+        "result": "ISSUE_REPLAY_ISSUED",
+        "ticket_id": "1d6956ca-e6b0-4113-bec4-35d658c9a4f9"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW7A",
+    "scenario": "CW7A_OUTCOME_BEFORE_APPEND",
+    "kind": "FAIL_CLOSED",
+    "description": "Witness stops before appending COMMIT_CONFIRMED: issuer reports ISSUE_OUTCOME_UNKNOWN (never ISSUE_OK); row exists, key RESERVED -> IN_DOUBT; reconciliation COMMIT_CONFIRMED; replay of the same ticket",
+    "observed": {
+      "worker": {
+        "error": "io:EOFError",
+        "result": "ISSUE_OUTCOME_UNKNOWN",
+        "wanted": "COMMIT_CONFIRMED"
+      },
+      "rows": [
+        "k1"
+      ],
+      "k1": "RESERVED",
+      "retry": {
+        "result": "ISSUE_DENIED_IN_DOUBT",
+        "state": "IN_DOUBT"
+      },
+      "reconcile": {
+        "key": "ns-cw7a|k1",
+        "witness_state_before": "IN_DOUBT",
+        "pg_row": {
+          "issued_by": "issuer_a",
+          "ticket_id": "324526e9-1628-4f50-8942-0f2e1c7c92ca",
+          "request_id": "k1",
+          "witness_seq": 3,
+          "payload_hash": "8a22b03e9cbaef014d299c389647920b5e555615fa22bb91f37593166fd3cbac"
+        },
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "COMMIT_CONFIRMED",
+        "append": "APPENDED"
+      },
+      "replay": {
+        "result": "ISSUE_REPLAY_ISSUED",
+        "ticket_id": "324526e9-1628-4f50-8942-0f2e1c7c92ca"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW7B",
+    "scenario": "CW7B_OUTCOME_AFTER_APPEND_BEFORE_HW",
+    "kind": "FAIL_CLOSED",
+    "description": "Witness stops after appending COMMIT_CONFIRMED, before the mark: issuer reports ISSUE_OUTCOME_UNKNOWN; after restart the outcome is rolled forward and the retry replays the same ticket",
+    "observed": {
+      "worker": {
+        "error": "io:EOFError",
+        "result": "ISSUE_OUTCOME_UNKNOWN",
+        "wanted": "COMMIT_CONFIRMED"
+      },
+      "rows": [
+        "k1"
+      ],
+      "k1": "COMMIT_CONFIRMED",
+      "roll_forward": [
+        {
+          "event": "roll_forward",
+          "seq": 4,
+          "t": 1794941374.1663468,
+          "type": "OUTCOME"
+        }
+      ],
+      "replay": {
+        "result": "ISSUE_REPLAY_ISSUED",
+        "ticket_id": "0bb9accd-0326-447c-88b1-44b78c62bc3b"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW8-RECONCILER-STOPS-BEFORE-APPEND",
+    "scenario": "CW8_DURING_RECONCILIATION",
+    "kind": "FAIL_CLOSED",
+    "description": "Reconciler reads state and PostgreSQL, then stops before writing: the key stays IN_DOUBT and the gate stays closed",
+    "observed": {
+      "k1": "IN_DOUBT",
+      "gate": {
+        "reasons": [
+          "OPEN_RESERVATIONS:k1"
+        ],
+        "result": "ISSUE_DENIED_GATE_CLOSED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "CW8-WITNESS-STOPS-DURING-DECISION",
+    "scenario": "CW8_DURING_RECONCILIATION",
+    "kind": "FAIL_CLOSED",
+    "description": "Witness stops after journaling the operator's PERMANENTLY_DENIED, before the mark: the reconciler sees no reply; after restart the decision is rolled forward; re-running reconciliation is idempotent and never aborts; k1 stays denied",
+    "observed": {
+      "first": {
+        "key": "ns-cw8|k1",
+        "witness_state_before": "IN_DOUBT",
+        "pg_row": null,
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "PERMANENTLY_DENIED",
+        "append": "UNAVAILABLE"
+      },
+      "witness_exit": 137,
+      "roll_forward": [
+        {
+          "event": "roll_forward",
+          "seq": 5,
+          "t": 1794941377.0151854,
+          "type": "OUTCOME"
+        }
+      ],
+      "k1": "PERMANENTLY_DENIED",
+      "second": {
+        "key": "ns-cw8|k1",
+        "witness_state_before": "PERMANENTLY_DENIED",
+        "pg_row": null,
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "PERMANENTLY_DENIED",
+        "append": "IDEMPOTENT"
+      },
+      "retry": {
+        "result": "ISSUE_DENIED_PERMANENTLY",
+        "state": "PERMANENTLY_DENIED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SP-SETUP",
+    "scenario": "STALE_PG_COMBINED",
+    "kind": "POSITIVE_CONTROL",
+    "description": "k1 issued, dump taken, checkpoint, k2 issued; after the stale restore PostgreSQL holds only k1",
+    "observed": {
+      "k1": {
+        "result": "ISSUE_OK",
+        "resumed": false,
+        "ticket_id": "f208be09-fea4-42d9-8b88-3e181057979f"
+      },
+      "k2": {
+        "result": "ISSUE_OK",
+        "resumed": false,
+        "ticket_id": "91c9eb90-b47b-434b-85dd-1964e3737426"
+      },
+      "restore": {
+        "dropdb": 0,
+        "createdb": 0,
+        "pg_restore": 0
+      },
+      "rows_after_restore": [
+        "k1"
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SP-TAIL-LOSS-DETECTED",
+    "scenario": "STALE_PG_COMBINED",
+    "kind": "DETECTION",
+    "description": "Witness tail loss detected against the high-water mark",
+    "observed": {
+      "status": "WITNESS_FAILED",
+      "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+      "hw_state": "UNCHECKED",
+      "records": 4,
+      "high_water": {
+        "journal_incarnation": "8af11636-67d9-4012-8934-b8f1cb50cd2c",
+        "seq": 6,
+        "digest": "0e2cc534272b17270a5194c17aa6a9150ea8cebaf9a6788908b388f93cb7ca70"
+      },
+      "checkpoint": {
+        "seq": 4,
+        "head_hash": "ba3e26f171590e6b2a0ac173079a6d2aa5d40e77f4d83824dc4b25b8ff37474c"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SP-NO-SECOND-RESERVED",
+    "scenario": "STALE_PG_COMBINED",
+    "kind": "DENIAL",
+    "description": "A second reservation of k2 is refused",
+    "observed": {
+      "status": "WITNESS_FAILED",
+      "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SP-NO-SECOND-TICKET",
+    "scenario": "STALE_PG_COMBINED",
+    "kind": "DENIAL",
+    "description": "Reusing k2 and issuing a new key are denied before PostgreSQL; no second ticket exists",
+    "observed": {
+      "k2": {
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "k3": {
+        "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=6",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "rows": [
+        "k1"
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SP-GATE-CLOSED-UNTIL-RECONCILED",
+    "scenario": "STALE_PG_COMBINED",
+    "kind": "DENIAL",
+    "description": "After the complete journal is restored the witness is CONSISTENT again, but issuance stays closed: k2 needs reconciliation (confirmed ticket missing in the stale database) and new keys are gated",
+    "observed": {
+      "health": {
+        "status": "OK",
+        "reason": null,
+        "hw_state": "CONSISTENT",
+        "records": 6,
+        "high_water": {
+          "journal_incarnation": "8af11636-67d9-4012-8934-b8f1cb50cd2c",
+          "seq": 6,
+          "digest": "0e2cc534272b17270a5194c17aa6a9150ea8cebaf9a6788908b388f93cb7ca70"
+        },
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "ba3e26f171590e6b2a0ac173079a6d2aa5d40e77f4d83824dc4b25b8ff37474c"
+        }
+      },
+      "k2": {
+        "pg_row": null,
+        "result": "ISSUE_DENIED_RECONCILIATION_REQUIRED",
+        "state": "COMMIT_CONFIRMED"
+      },
+      "k3": {
+        "reasons": [
+          "CONFIRMED_TICKET_MISSING_OR_DIFFERENT_IN_PG:k2"
+        ],
+        "result": "ISSUE_DENIED_GATE_CLOSED"
+      },
+      "k2_original_ticket": "91c9eb90-b47b-434b-85dd-1964e3737426"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "P1-DETECTED",
+    "scenario": "P1_JOURNAL_ONLY",
+    "kind": "DETECTION",
+    "description": "Attacker with journal write access and every witness key replaces the tail with a longer valid chain: the pinned digest at seq 5 no longer matches -> FORK_DETECTED; k2 cannot be reserved",
+    "observed": {
+      "health": {
+        "status": "WITNESS_FAILED",
+        "reason": "FORK_DETECTED source=high_water seq=5",
+        "hw_state": "UNCHECKED",
+        "records": 7,
+        "high_water": {
+          "journal_incarnation": "53afd094-b09d-4a56-aa32-5a29a79a8325",
+          "seq": 6,
+          "digest": "7bf6e56fa0aca0c4c397546a22ef39c221e5e2a8423de7e6104bec29521bd0fa"
+        },
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "06c88662f789a6fde3be0b99673afca6a940a58742d85b36583c97fa73eec7d8"
+        }
+      },
+      "reserve_k2": {
+        "status": "WITNESS_FAILED",
+        "reason": "FORK_DETECTED source=high_water seq=5"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "P2A-HW-ROLLBACK-FAILS-CLOSED",
+    "scenario": "P2_HIGH_WATER_ONLY",
+    "kind": "FAIL_CLOSED",
+    "description": "Authority store rolled back by more than one record: the journal is ahead by an unacknowledged-looking suffix that cannot be rolled forward -> UNCOVERED_SUFFIX, witness refuses",
+    "observed": {
+      "health": {
+        "status": "WITNESS_FAILED",
+        "reason": "UNCOVERED_SUFFIX journal_len=6 high_water_seq=3",
+        "hw_state": "UNCHECKED",
+        "records": 6,
+        "high_water": {
+          "journal_incarnation": "92bedee9-494c-466e-acc5-2e165d941406",
+          "seq": 3,
+          "digest": "44b5d64ac1e092a343aed077cd78fff38fbeb3b8f8c8c33cd819264ee906cc26"
+        },
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "d9f894fe45d7003261760f8b2489ccc0502a9f122fcb3718d63feb08de1dcc9b"
+        }
+      },
+      "reserve_k2": {
+        "status": "WITNESS_FAILED",
+        "reason": "UNCOVERED_SUFFIX journal_len=6 high_water_seq=3"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "P2B-HW-WIPED-NO-REINIT",
+    "scenario": "P2_HIGH_WATER_ONLY",
+    "kind": "FAIL_CLOSED",
+    "description": "Authority store deleted: the witness with a non-empty journal refuses (HIGH_WATER_MISSING) and does not re-initialise the mark",
+    "observed": {
+      "health": {
+        "status": "WITNESS_FAILED",
+        "reason": "HIGH_WATER_MISSING journal_len=6",
+        "hw_state": "UNCHECKED",
+        "records": 6,
+        "high_water": null,
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "c89ca0c7ea5b03b7a994a5217a3c99ebef9f34e0480fdf465a88f40c3fd41b07"
+        }
+      },
+      "mark": null
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "P3A-UNDETECTED-BY-WITNESS",
+    "scenario": "P3_BOTH_ROLLED_BACK",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "Both stores rolled back consistently: the witness is CONSISTENT and accepts a second successful reservation of k2 (outside the model: the authority itself must not be rollback-able)",
+    "observed": {
+      "health": {
+        "status": "OK",
+        "reason": null,
+        "hw_state": "CONSISTENT",
+        "records": 4,
+        "high_water": {
+          "journal_incarnation": "4738f5f7-2597-4111-bef9-336117207644",
+          "seq": 4,
+          "digest": "5d3bdbd4517fd406982625cfc04f3e432d88c2d85aea390bcca950c9e471f892"
+        },
+        "checkpoint": {
+          "seq": 0,
+          "head_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "reserve_k2": {
+        "status": "RESERVED",
+        "seq": 5,
+        "epoch": 1,
+        "high_water_seq": 5
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "P3A-PG-ROW-STILL-GATES",
+    "scenario": "P3_BOTH_ROLLED_BACK",
+    "kind": "DENIAL",
+    "description": "PostgreSQL was not rolled back: the issuer's gate sees k2's row without a reservation and refuses",
+    "observed": {
+      "reasons": [
+        "TICKET_IN_PG_WITHOUT_RESERVATION:k2"
+      ],
+      "result": "ISSUE_DENIED_GATE_CLOSED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "P3B-SECOND-TICKET",
+    "scenario": "P3_BOTH_ROLLED_BACK",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "Journal, authority and PostgreSQL all rolled back to the same point: k2 is issued again with a different ticket id. No local mechanism detects a consistent rollback of every store",
+    "observed": {
+      "first_ticket": "ecae427b-fbaa-4b5a-bf76-55900f5c5cb3",
+      "second_ticket": "b2d3161b-8e11-44b5-b854-13754f2f5ebf",
+      "restore": {
+        "dropdb": 0,
+        "createdb": 0,
+        "pg_restore": 0
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "P4-HISTORY-PIN-DETECTS",
+    "scenario": "P4_WITNESS_CREDENTIAL",
+    "kind": "DETECTION",
+    "description": "With the witness credential the attacker can advance the mark to a forged head (the authority cannot check content) but cannot lower it; the earlier pinned digests still expose the rewrite (FORK_DETECTED seq=5)",
+    "observed": {
+      "advance": "ADVANCED",
+      "lower": "NOT_MONOTONIC",
+      "health": {
+        "status": "WITNESS_FAILED",
+        "reason": "FORK_DETECTED source=high_water seq=5",
+        "hw_state": "UNCHECKED",
+        "records": 7,
+        "high_water": {
+          "journal_incarnation": "c865ef02-487e-436c-9cb6-247eba3b39fc",
+          "seq": 7,
+          "digest": "b00e578df7c17de05ef6ec42a9bec2d7c8dd0dd02454b5f84f87ba7ad650f3a8"
+        },
+        "checkpoint": {
+          "seq": 4,
+          "head_hash": "5673ef97954671cc2f9039a08a3c7e8c0161f52605eefa179c5f53fa7d5076ab"
+        }
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "HYGIENE-CONTAINER-REMOVED",
+    "scenario": "HYGIENE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "PostgreSQL container removed",
+    "observed": true,
+    "result": "PASS"
+  },
+  {
+    "id": "HYGIENE-TMP-REMOVED",
+    "scenario": "HYGIENE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Server temp directory removed",
+    "observed": true,
+    "result": "PASS"
+  },
+  {
+    "id": "HYGIENE-SECRET-SCAN",
+    "scenario": "HYGIENE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "No generated key, pipe authkey, or password in any evidence file",
+    "observed": "none",
+    "result": "PASS"
+  }
+]

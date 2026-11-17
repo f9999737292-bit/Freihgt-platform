@@ -1,0 +1,9 @@
+{
+  "description": "Journal rebuilt under a different GENESIS incarnation and the local operator checkpoint deleted too",
+  "forged_incarnation": "6c8a8fb3-a9e2-45df-8b0a-a8a4e4cb58a5",
+  "lines_after": 6,
+  "lines_before": 6,
+  "local_chain_check_on_tampered_journal": "VALID",
+  "operator_checkpoint_deleted": true,
+  "original_incarnation": "5ffa14ba-7630-4004-850c-9cb058c9697d"
+}

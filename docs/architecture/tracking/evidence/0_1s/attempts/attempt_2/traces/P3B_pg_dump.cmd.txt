@@ -1,0 +1,1 @@
+docker exec bintrans-proof-0-1s-d76b2f46 pg_dump -U wproof_admin -Fc -d wproof_p_d76b2f46 -f /tmp/p3b.dump

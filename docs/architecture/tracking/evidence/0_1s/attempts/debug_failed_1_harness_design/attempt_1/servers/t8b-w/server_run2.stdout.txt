@@ -1,0 +1,10 @@
+{"event": "hw_unavailable", "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest", "t": 1794941040.3140526}
+{"checkpoint": {"head_hash": "ceeb37794b1d8cc24b93a90a7b4ea4e1e6b09c18a6c9dced218fed5f03c97c57", "seq": 4}, "event": "ready", "failed": null, "high_water": null, "hw_reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest", "hw_state": "HW_UNAVAILABLE", "order": "append_first", "pid": 29168, "records": 6, "t": 1794941040.3140526}
+{"event": "hw_unavailable", "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest", "t": 1794941040.4176297}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest", "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941040.4176297}
+{"event": "hw_unavailable", "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest", "t": 1794941040.4206743}
+{"body_ns": "ns-t", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest", "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941040.4206743}
+{"event": "hw_unavailable", "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest", "t": 1794941040.5134134}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest", "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941040.5134134}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941040.675811}
+{"event": "stopped", "t": 1794941040.6763604}

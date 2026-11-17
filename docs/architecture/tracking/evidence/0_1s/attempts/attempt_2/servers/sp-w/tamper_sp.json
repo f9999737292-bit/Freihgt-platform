@@ -1,0 +1,5 @@
+{
+  "description": "journal truncated to checkpoint and PostgreSQL restored from an older dump",
+  "lines_after": 4,
+  "lines_before": 6
+}

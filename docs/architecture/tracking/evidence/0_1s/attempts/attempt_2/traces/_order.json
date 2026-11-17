@@ -1,0 +1,52 @@
+[
+  {
+    "kind": "scenario_start",
+    "name": "sc_t1",
+    "t": "2026-11-17T18:50:13.836681+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_t2_t6",
+    "t": "2026-11-17T18:50:15.665659+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_t7",
+    "t": "2026-11-17T18:50:25.186090+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_t8",
+    "t": "2026-11-17T18:50:28.109737+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_t9",
+    "t": "2026-11-17T18:50:35.235796+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_t10",
+    "t": "2026-11-17T18:50:37.036119+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_jwit001",
+    "t": "2026-11-17T18:50:50.798984+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_crash_windows",
+    "t": "2026-11-17T18:50:52.660871+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_stale_pg_combined",
+    "t": "2026-11-17T18:51:14.163061+00:00"
+  },
+  {
+    "kind": "scenario_start",
+    "name": "sc_privileged",
+    "t": "2026-11-17T18:51:20.805676+00:00"
+  }
+]

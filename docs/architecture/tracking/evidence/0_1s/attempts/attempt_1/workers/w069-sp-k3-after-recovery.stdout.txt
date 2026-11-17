@@ -1,0 +1,6 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "b4c94ef7-6cbb-43fe-8231-bcb2dfb5b315", "mode": "issue", "mono": 0.0, "ns": "ns-sp", "payload_hash": "94730fdedbd25faa05af0b5e4ade997b47e56733978fa455032b7c5df1c74002", "principal": "issuer_a", "request_id": "k3", "t": 1794941383.8601468}
+EVENT {"durability": null, "event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794941383.8612518}
+EVENT {"complete": true, "event": "history_check", "high_water_seq": 6, "journal_len": 6, "mono": 0.0, "problem": null, "t": 1794941383.8635159}
+EVENT {"event": "pg_read_rows", "exit": 0, "mono": 0.188, "sqlstates": [], "t": 1794941384.0475652}
+EVENT {"event": "gate", "mono": 0.188, "open": false, "reasons": ["CONFIRMED_TICKET_MISSING_OR_DIFFERENT_IN_PG:k2"], "t": 1794941384.0475652}
+RESULT {"reasons": ["CONFIRMED_TICKET_MISSING_OR_DIFFERENT_IN_PG:k2"], "result": "ISSUE_DENIED_GATE_CLOSED"}

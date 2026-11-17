@@ -1,0 +1,10 @@
+{"event": "hw_unavailable", "reason": "HW_FAILED HW_HASH_MISMATCH seq=7", "t": 1794941429.559733}
+{"checkpoint": {"head_hash": "5a2a42e510cc35326aa32a8097427a9ad1c4888f365cc9954c23436f71279159", "seq": 4}, "event": "ready", "failed": null, "high_water": null, "hw_reason": "HW_FAILED HW_HASH_MISMATCH seq=7", "hw_state": "HW_UNAVAILABLE", "order": "append_first", "pid": 23068, "records": 6, "t": 1794941429.559733}
+{"event": "hw_unavailable", "reason": "HW_FAILED HW_HASH_MISMATCH seq=7", "t": 1794941429.663279}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": "HW_FAILED HW_HASH_MISMATCH seq=7", "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941429.6637907}
+{"event": "hw_unavailable", "reason": "HW_FAILED HW_HASH_MISMATCH seq=7", "t": 1794941429.6668065}
+{"body_ns": "ns-t", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": "HW_FAILED HW_HASH_MISMATCH seq=7", "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941429.6668065}
+{"event": "hw_unavailable", "reason": "HW_FAILED HW_HASH_MISMATCH seq=7", "t": 1794941429.7990453}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": "HW_FAILED HW_HASH_MISMATCH seq=7", "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941429.7990453}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941429.943405}
+{"event": "stopped", "t": 1794941429.943405}

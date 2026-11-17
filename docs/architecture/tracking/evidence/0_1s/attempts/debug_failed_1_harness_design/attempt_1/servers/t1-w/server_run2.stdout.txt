@@ -1,0 +1,6 @@
+{"checkpoint": {"head_hash": "4dcf48f6ab4a1935aed4b7ef81c791f10db5ed0f118d5a762a72d2908ef7c040", "seq": 4}, "event": "ready", "failed": null, "high_water": {"digest": "4d346581755cb446af06e2247adcc1c60fccf9d9f2943f2637bed92258fafabb", "journal_incarnation": "5e8c1ba2-a4fc-4d4d-a2d9-7a02aa9293c2", "seq": 6}, "hw_reason": null, "hw_state": "CONSISTENT", "order": "append_first", "pid": 24688, "records": 6, "t": 1794941025.204157}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941025.306193}
+{"body_ns": "ns-t", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": null, "status": "DUPLICATE", "t": 1794941025.308727}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941025.4131594}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941025.6451337}
+{"event": "stopped", "t": 1794941025.6456568}

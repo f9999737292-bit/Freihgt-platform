@@ -1,0 +1,6 @@
+{"event": "witness_failed", "reason": "UNCOVERED_SUFFIX journal_len=6 high_water_seq=3", "t": 1794941580.8781874}
+{"checkpoint": {"head_hash": "57cd0caadaecc756ee8e416edace588aa83993c41c723bca9a7aceb4c9c1d1dd", "seq": 4}, "event": "ready", "failed": "UNCOVERED_SUFFIX journal_len=6 high_water_seq=3", "high_water": {"digest": "47c450ac2c399d62e6ac3c5cc5809ac87603b4b9e9e3cb9a39724f96e42a98bc", "journal_incarnation": "5672f013-756e-4e65-a794-d4b791561ac6", "seq": 3}, "hw_reason": null, "hw_state": "UNCHECKED", "order": "append_first", "pid": 37656, "records": 6, "t": 1794941580.8781874}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": "UNCOVERED_SUFFIX journal_len=6 high_water_seq=3", "seq": null, "status": "WITNESS_FAILED", "t": 1794941580.9814315}
+{"body_ns": "ns-t", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": "UNCOVERED_SUFFIX journal_len=6 high_water_seq=3", "seq": null, "status": "WITNESS_FAILED", "t": 1794941580.982432}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941580.9846237}
+{"event": "stopped", "t": 1794941580.9846237}

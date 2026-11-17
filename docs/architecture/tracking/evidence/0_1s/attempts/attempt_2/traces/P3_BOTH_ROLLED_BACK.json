@@ -1,0 +1,258 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-p3"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "p3-w",
+    "t": "2026-11-17T18:51:25.961358+00:00"
+  },
+  {
+    "app": "a2-w070-p3-k1",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-p3",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "0e87e2a8-309a-4a6a-8cf7-6f54f9920c5e"
+    },
+    "t": "2026-11-17T18:51:26.504039+00:00",
+    "t_end": "2026-11-17T18:51:26.504039+00:00",
+    "t_start": "2026-11-17T18:51:25.968840+00:00",
+    "tag": "w070-p3-k1"
+  },
+  {
+    "app": "a2-w071-p3-k2",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-p3",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "d0358a00-038b-4bd4-a126-89c15772b9e0"
+    },
+    "t": "2026-11-17T18:51:27.057970+00:00",
+    "t_end": "2026-11-17T18:51:27.057970+00:00",
+    "t_start": "2026-11-17T18:51:26.511458+00:00",
+    "tag": "w071-p3-k2"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "seq": 0
+      },
+      "high_water": {
+        "digest": "234149fcb3b08e580307df3078ea0072f0caa724eaa7591639003476e97b874d",
+        "journal_incarnation": "19a03638-26c6-492f-97e0-1e9a1915f317",
+        "seq": 4
+      },
+      "hw_state": "CONSISTENT",
+      "reason": null,
+      "status": "OK"
+    },
+    "server": "p3-w",
+    "t": "2026-11-17T18:51:27.883444+00:00"
+  },
+  {
+    "app": "a2-w072-p3-k2-again",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-p3",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "reasons": [
+        "TICKET_IN_PG_WITHOUT_RESERVATION:k2"
+      ],
+      "result": "ISSUE_DENIED_GATE_CLOSED"
+    },
+    "t": "2026-11-17T18:51:28.165069+00:00",
+    "t_end": "2026-11-17T18:51:28.165069+00:00",
+    "t_start": "2026-11-17T18:51:27.890681+00:00",
+    "tag": "w072-p3-k2-again"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-p3",
+      "payload_hash": "a2fe166b90927dab9218600377ba8dffee2eb0d21582bb04702fd7a3a02c7168",
+      "request_id": "k2",
+      "ticket_id": "45c967c5-65a4-4051-b2bc-118fb639a229"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "high_water_seq": 5,
+      "seq": 5,
+      "status": "RESERVED"
+    },
+    "server": "p3-w",
+    "t": "2026-11-17T18:51:28.177137+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-p3b"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "p3b-w",
+    "t": "2026-11-17T18:51:29.014184+00:00"
+  },
+  {
+    "app": "a2-w073-p3b-k1",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-p3b",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "94ac4919-4eb2-4f2c-9cf5-5182411fac9b"
+    },
+    "t": "2026-11-17T18:51:29.536089+00:00",
+    "t_end": "2026-11-17T18:51:29.536089+00:00",
+    "t_start": "2026-11-17T18:51:29.022186+00:00",
+    "tag": "w073-p3b-k1"
+  },
+  {
+    "app": "a2-w074-p3b-k2",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-p3b",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "dd04ad5c-7759-47cf-9728-63c0e1d31312"
+    },
+    "t": "2026-11-17T18:51:30.329574+00:00",
+    "t_end": "2026-11-17T18:51:30.329574+00:00",
+    "t_start": "2026-11-17T18:51:29.813497+00:00",
+    "tag": "w074-p3b-k2"
+  },
+  {
+    "app": "a2-w075-p3b-k2-again",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-p3b",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "722e7931-9dd9-468f-a18d-221e748ba007"
+    },
+    "t": "2026-11-17T18:51:33.663477+00:00",
+    "t_end": "2026-11-17T18:51:33.663477+00:00",
+    "t_start": "2026-11-17T18:51:33.126735+00:00",
+    "tag": "w075-p3b-k2-again"
+  }
+]

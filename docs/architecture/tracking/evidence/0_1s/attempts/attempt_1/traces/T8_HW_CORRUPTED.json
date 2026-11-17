@@ -1,0 +1,572 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-t"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "t8a-w",
+    "t": "2026-11-17T18:48:54.668236+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "7ab8a93936406a39cf29ebb24a7025d8f9c0b64a49b93fa01f762620ab70f4d9",
+      "request_id": "k1",
+      "ticket_id": "a6349bfc-bf6a-4e4f-9154-6e054e980e29"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "high_water_seq": 3,
+      "seq": 3,
+      "status": "RESERVED"
+    },
+    "server": "t8a-w",
+    "t": "2026-11-17T18:48:54.677645+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-t",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "a6349bfc-bf6a-4e4f-9154-6e054e980e29"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 4,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "server": "t8a-w",
+    "t": "2026-11-17T18:48:54.687851+00:00"
+  },
+  {
+    "body": {
+      "head_hash": "a68b265f26e5d537110fe7e747d13889b31b72e6826cade4cfa6ae447aa90c18",
+      "seq": 4
+    },
+    "kind": "server_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "a68b265f26e5d537110fe7e747d13889b31b72e6826cade4cfa6ae447aa90c18",
+        "seq": 4
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "server": "t8a-w",
+    "t": "2026-11-17T18:48:54.698465+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "ab2b0eb1b61e9ab781cf4f05d10d835190896809aea4180c4d673a132be868e9",
+      "request_id": "k2",
+      "ticket_id": "0a4ef109-f6d0-4f8b-a382-f8d2eaac99a0"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "high_water_seq": 5,
+      "seq": 5,
+      "status": "RESERVED"
+    },
+    "server": "t8a-w",
+    "t": "2026-11-17T18:48:54.707365+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-t",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "0a4ef109-f6d0-4f8b-a382-f8d2eaac99a0"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 6,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "server": "t8a-w",
+    "t": "2026-11-17T18:48:54.717364+00:00"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "reason": "HW_HASH_MISMATCH seq=7",
+      "status": "FAILED"
+    },
+    "server": "t8a-hw",
+    "t": "2026-11-17T18:48:55.330220+00:00"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "a68b265f26e5d537110fe7e747d13889b31b72e6826cade4cfa6ae447aa90c18",
+        "seq": 4
+      },
+      "high_water": null,
+      "hw_state": "HW_UNAVAILABLE",
+      "reason": "HW_FAILED HW_HASH_MISMATCH seq=7",
+      "status": "HIGH_WATER_UNAVAILABLE"
+    },
+    "server": "t8a-w",
+    "t": "2026-11-17T18:48:55.534691+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "ab2b0eb1b61e9ab781cf4f05d10d835190896809aea4180c4d673a132be868e9",
+      "request_id": "k2",
+      "ticket_id": "e3d258a4-e157-4b91-9824-91a1fe6b5d18"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "hw_state": "HW_UNAVAILABLE",
+      "reason": "HW_FAILED HW_HASH_MISMATCH seq=7",
+      "status": "HIGH_WATER_UNAVAILABLE"
+    },
+    "server": "t8a-w",
+    "t": "2026-11-17T18:48:55.536708+00:00"
+  },
+  {
+    "app": "a1-w010-t8a-k2",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-t",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "reason": "HW_FAILED HW_HASH_MISMATCH seq=7",
+      "result": "ISSUE_DENIED_HIGH_WATER_UNAVAILABLE",
+      "witness": "HIGH_WATER_UNAVAILABLE"
+    },
+    "t": "2026-11-17T18:48:55.672483+00:00",
+    "t_end": "2026-11-17T18:48:55.671506+00:00",
+    "t_start": "2026-11-17T18:48:55.544207+00:00",
+    "tag": "w010-t8a-k2"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-t"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "t8b-w",
+    "t": "2026-11-17T18:48:56.592943+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "7ab8a93936406a39cf29ebb24a7025d8f9c0b64a49b93fa01f762620ab70f4d9",
+      "request_id": "k1",
+      "ticket_id": "faa0a241-b543-4015-8a47-cf013ff4c945"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "high_water_seq": 3,
+      "seq": 3,
+      "status": "RESERVED"
+    },
+    "server": "t8b-w",
+    "t": "2026-11-17T18:48:56.603516+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-t",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "faa0a241-b543-4015-8a47-cf013ff4c945"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 4,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "server": "t8b-w",
+    "t": "2026-11-17T18:48:56.611395+00:00"
+  },
+  {
+    "body": {
+      "head_hash": "e8b2d05ffcd905a376c20bbbcdd0eb197707b542f500101338bd71d577054938",
+      "seq": 4
+    },
+    "kind": "server_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "e8b2d05ffcd905a376c20bbbcdd0eb197707b542f500101338bd71d577054938",
+        "seq": 4
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "server": "t8b-w",
+    "t": "2026-11-17T18:48:56.621613+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "ab2b0eb1b61e9ab781cf4f05d10d835190896809aea4180c4d673a132be868e9",
+      "request_id": "k2",
+      "ticket_id": "9c109474-b6fa-48f1-b41d-edcfb992eeae"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "high_water_seq": 5,
+      "seq": 5,
+      "status": "RESERVED"
+    },
+    "server": "t8b-w",
+    "t": "2026-11-17T18:48:56.632696+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-t",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "9c109474-b6fa-48f1-b41d-edcfb992eeae"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 6,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "server": "t8b-w",
+    "t": "2026-11-17T18:48:56.642005+00:00"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "reason": "HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest",
+      "status": "FAILED"
+    },
+    "server": "t8b-hw",
+    "t": "2026-11-17T18:48:57.257924+00:00"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "e8b2d05ffcd905a376c20bbbcdd0eb197707b542f500101338bd71d577054938",
+        "seq": 4
+      },
+      "high_water": null,
+      "hw_state": "HW_UNAVAILABLE",
+      "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest",
+      "status": "HIGH_WATER_UNAVAILABLE"
+    },
+    "server": "t8b-w",
+    "t": "2026-11-17T18:48:57.460436+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "ab2b0eb1b61e9ab781cf4f05d10d835190896809aea4180c4d673a132be868e9",
+      "request_id": "k2",
+      "ticket_id": "90ae3f58-8835-4e95-a6fe-c430f9490b46"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "hw_state": "HW_UNAVAILABLE",
+      "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest",
+      "status": "HIGH_WATER_UNAVAILABLE"
+    },
+    "server": "t8b-w",
+    "t": "2026-11-17T18:48:57.463270+00:00"
+  },
+  {
+    "app": "a1-w011-t8b-k2",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-t",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "reason": "HW_FAILED HW_RECORD_REQUEST_MISMATCH seq=7 field=mark_digest",
+      "result": "ISSUE_DENIED_HIGH_WATER_UNAVAILABLE",
+      "witness": "HIGH_WATER_UNAVAILABLE"
+    },
+    "t": "2026-11-17T18:48:57.567773+00:00",
+    "t_end": "2026-11-17T18:48:57.567773+00:00",
+    "t_start": "2026-11-17T18:48:57.470383+00:00",
+    "tag": "w011-t8b-k2"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-t"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "t8c-w",
+    "t": "2026-11-17T18:48:58.486147+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "7ab8a93936406a39cf29ebb24a7025d8f9c0b64a49b93fa01f762620ab70f4d9",
+      "request_id": "k1",
+      "ticket_id": "bc9c809c-3d73-4f19-9628-bf1353ba177d"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "high_water_seq": 3,
+      "seq": 3,
+      "status": "RESERVED"
+    },
+    "server": "t8c-w",
+    "t": "2026-11-17T18:48:58.496204+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-t",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "bc9c809c-3d73-4f19-9628-bf1353ba177d"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 4,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "server": "t8c-w",
+    "t": "2026-11-17T18:48:58.505149+00:00"
+  },
+  {
+    "body": {
+      "head_hash": "04f73f2fcf3f83444896de62e4e5f53f70a3f4e44abe2863c48c5d0144bdc480",
+      "seq": 4
+    },
+    "kind": "server_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "04f73f2fcf3f83444896de62e4e5f53f70a3f4e44abe2863c48c5d0144bdc480",
+        "seq": 4
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "server": "t8c-w",
+    "t": "2026-11-17T18:48:58.516158+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "ab2b0eb1b61e9ab781cf4f05d10d835190896809aea4180c4d673a132be868e9",
+      "request_id": "k2",
+      "ticket_id": "4b5567ca-aa3c-456c-a500-4383e909047b"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "high_water_seq": 5,
+      "seq": 5,
+      "status": "RESERVED"
+    },
+    "server": "t8c-w",
+    "t": "2026-11-17T18:48:58.525522+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-t",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "4b5567ca-aa3c-456c-a500-4383e909047b"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 6,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "server": "t8c-w",
+    "t": "2026-11-17T18:48:58.535278+00:00"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "reason": "HW_REQUEST_MAC_INVALID seq=7",
+      "status": "FAILED"
+    },
+    "server": "t8c-hw",
+    "t": "2026-11-17T18:48:59.145267+00:00"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "04f73f2fcf3f83444896de62e4e5f53f70a3f4e44abe2863c48c5d0144bdc480",
+        "seq": 4
+      },
+      "high_water": null,
+      "hw_state": "HW_UNAVAILABLE",
+      "reason": "HW_FAILED HW_REQUEST_MAC_INVALID seq=7",
+      "status": "HIGH_WATER_UNAVAILABLE"
+    },
+    "server": "t8c-w",
+    "t": "2026-11-17T18:48:59.352890+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "ab2b0eb1b61e9ab781cf4f05d10d835190896809aea4180c4d673a132be868e9",
+      "request_id": "k2",
+      "ticket_id": "4cbc125d-0662-41b3-b6fe-ffcb3230434c"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "hw_state": "HW_UNAVAILABLE",
+      "reason": "HW_FAILED HW_REQUEST_MAC_INVALID seq=7",
+      "status": "HIGH_WATER_UNAVAILABLE"
+    },
+    "server": "t8c-w",
+    "t": "2026-11-17T18:48:59.354917+00:00"
+  },
+  {
+    "app": "a1-w012-t8c-k2",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-t",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "reason": "HW_FAILED HW_REQUEST_MAC_INVALID seq=7",
+      "result": "ISSUE_DENIED_HIGH_WATER_UNAVAILABLE",
+      "witness": "HIGH_WATER_UNAVAILABLE"
+    },
+    "t": "2026-11-17T18:48:59.466326+00:00",
+    "t_end": "2026-11-17T18:48:59.465326+00:00",
+    "t_start": "2026-11-17T18:48:59.363208+00:00",
+    "tag": "w012-t8c-k2"
+  }
+]

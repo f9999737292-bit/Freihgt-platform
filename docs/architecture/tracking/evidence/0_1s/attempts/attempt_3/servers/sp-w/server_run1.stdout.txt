@@ -1,0 +1,15 @@
+{"event": "hw_initialized", "journal_incarnation": "56adb2fc-1a4c-482e-acab-07bb56f2c1fe", "t": 1794941572.0008078}
+{"event": "genesis_written", "journal_incarnation": "56adb2fc-1a4c-482e-acab-07bb56f2c1fe", "t": 1794941572.008548}
+{"event": "roll_forward", "seq": 1, "t": 1794941572.0136766, "type": "GENESIS"}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "high_water": {"digest": "08e51581eaed40395b972309c807202dd021b370bff9397824625e54fa2b01e7", "journal_incarnation": "56adb2fc-1a4c-482e-acab-07bb56f2c1fe", "seq": 1}, "hw_reason": null, "hw_state": "CONSISTENT", "order": "append_first", "pid": 13628, "records": 1, "t": 1794941572.0136766}
+{"body_ns": "ns-sp", "body_request_id": null, "body_seq": null, "event": "request", "op": "epoch_set", "principal": "operator", "reason": null, "seq": 2, "status": "EPOCH_SET", "t": 1794941572.1241252}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941572.2277842}
+{"body_ns": "ns-sp", "body_request_id": "k1", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": 3, "status": "RESERVED", "t": 1794941572.4198442}
+{"body_ns": "ns-sp", "body_request_id": "k1", "body_seq": null, "event": "request", "op": "outcome", "principal": "issuer_a", "reason": null, "seq": 4, "status": "APPENDED", "t": 1794941572.6239336}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941572.9125767}
+{"body_ns": null, "body_request_id": null, "body_seq": 4, "event": "request", "op": "checkpoint_accept", "principal": "operator", "reason": null, "seq": null, "status": "CHECKPOINT_ACCEPTED", "t": 1794941572.9211106}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941573.0121639}
+{"body_ns": "ns-sp", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": 5, "status": "RESERVED", "t": 1794941573.2168562}
+{"body_ns": "ns-sp", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "outcome", "principal": "issuer_a", "reason": null, "seq": 6, "status": "APPENDED", "t": 1794941573.4295292}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941573.4616656}
+{"event": "stopped", "t": 1794941573.462664}

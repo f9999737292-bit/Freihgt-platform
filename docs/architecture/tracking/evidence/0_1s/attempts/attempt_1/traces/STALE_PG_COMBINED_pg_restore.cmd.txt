@@ -1,0 +1,1 @@
+docker exec bintrans-proof-0-1s-2c7a427a pg_restore -U wproof_admin -d wproof_r_2c7a427a /tmp/sp0.dump
