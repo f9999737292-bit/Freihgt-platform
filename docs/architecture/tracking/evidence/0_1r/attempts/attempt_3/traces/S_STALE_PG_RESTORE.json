@@ -1,0 +1,233 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-r"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:40:34.290422+00:00",
+    "witness": "restore"
+  },
+  {
+    "app": "a3-w052-r-k1",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-r",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "a8e75796-5d00-44ac-b3a8-e6dd802f957e"
+    },
+    "t": "2026-11-17T17:40:34.934577+00:00",
+    "t_end": "2026-11-17T17:40:34.934577+00:00",
+    "t_start": "2026-11-17T17:40:34.304159+00:00",
+    "tag": "w052-r-k1"
+  },
+  {
+    "app": "a3-w053-r-k2",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-r",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "127e859f-73f4-4e39-b6ee-dd883d83ea49"
+    },
+    "t": "2026-11-17T17:40:36.381089+00:00",
+    "t_end": "2026-11-17T17:40:36.381089+00:00",
+    "t_start": "2026-11-17T17:40:35.560567+00:00",
+    "tag": "w053-r-k2"
+  },
+  {
+    "app": "a3-w054-r-k3-crash",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "fault_crash"
+    ],
+    "exit": 137,
+    "fault": "crash_after_commit",
+    "kind": "worker",
+    "ns": "ns-r",
+    "principal": "issuer_a",
+    "request_id": "k3",
+    "result": null,
+    "t": "2026-11-17T17:40:37.346954+00:00",
+    "t_end": "2026-11-17T17:40:37.346954+00:00",
+    "t_start": "2026-11-17T17:40:36.396089+00:00",
+    "tag": "w054-r-k3-crash"
+  },
+  {
+    "app": "a3-w055-r-k2-retry",
+    "events": [
+      "start",
+      "witness_export",
+      "witness_outcome",
+      "restart_recovery",
+      "witness_export",
+      "existing_reservation",
+      "pg_read_rows"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-r",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "pg_row": null,
+      "result": "ISSUE_DENIED_RECONCILIATION_REQUIRED",
+      "state": "COMMIT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:40:40.803370+00:00",
+    "t_end": "2026-11-17T17:40:40.802835+00:00",
+    "t_start": "2026-11-17T17:40:40.379998+00:00",
+    "tag": "w055-r-k2-retry"
+  },
+  {
+    "app": "a3-w056-r-k3-retry",
+    "events": [
+      "start",
+      "witness_export",
+      "existing_reservation"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-r",
+    "principal": "issuer_a",
+    "request_id": "k3",
+    "result": {
+      "result": "ISSUE_DENIED_IN_DOUBT",
+      "state": "IN_DOUBT"
+    },
+    "t": "2026-11-17T17:40:41.616040+00:00",
+    "t_end": "2026-11-17T17:40:41.616040+00:00",
+    "t_start": "2026-11-17T17:40:41.183875+00:00",
+    "tag": "w056-r-k3-retry"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true,
+        "reason": "tombstone absent"
+      },
+      "ns": "ns-r",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "k3",
+      "ticket_id": "0a116a83-af9e-4ae5-93ce-dfc48abd4da9"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "IN_DOUBT",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:40:41.896927+00:00",
+    "witness": "restore"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_row": null,
+        "reason": "tombstone absent or different; abort cannot be proven"
+      },
+      "ns": "ns-r",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "k3",
+      "ticket_id": "0a116a83-af9e-4ae5-93ce-dfc48abd4da9"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 8,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:40:41.903388+00:00",
+    "witness": "restore"
+  },
+  {
+    "append": "APPENDED",
+    "auto_abort": "INVALID_TRANSITION",
+    "decision": "PERMANENTLY_DENIED",
+    "key": "ns-r|k3",
+    "kind": "reconcile",
+    "pg_row": null,
+    "t": "2026-11-17T17:40:41.903388+00:00",
+    "witness_state_before": "IN_DOUBT"
+  },
+  {
+    "app": "a3-w057-r-k4-new",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-r",
+    "principal": "issuer_a",
+    "request_id": "k4",
+    "result": {
+      "reasons": [
+        "CONFIRMED_TICKET_MISSING_OR_DIFFERENT_IN_PG:k2"
+      ],
+      "result": "ISSUE_DENIED_GATE_CLOSED"
+    },
+    "t": "2026-11-17T17:40:42.282224+00:00",
+    "t_end": "2026-11-17T17:40:42.282224+00:00",
+    "t_start": "2026-11-17T17:40:41.913019+00:00",
+    "tag": "w057-r-k4-new"
+  }
+]

@@ -1,0 +1,3 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "08f243e0-e365-48a8-b2bf-ba03e596aaaf", "mode": "issue", "mono": 0.0, "ns": "ns-u", "payload_hash": "5932eb99f1b57c712a680a7ecc50d23b6dcec00269c9db051384d59728abc5b1", "principal": "issuer_a", "request_id": "k1", "t": 1794937079.2152007}
+EVENT {"error": "connect:FileNotFoundError", "event": "witness_unavailable", "mono": 0.0, "op": "export", "t": 1794937079.2152007}
+RESULT {"error": "connect:FileNotFoundError", "result": "ISSUE_DENIED_WITNESS_UNAVAILABLE"}

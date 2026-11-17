@@ -1,0 +1,6 @@
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "pid": 34328, "records": 1, "t": 1794937156.9257073}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937157.0288455}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937157.03047}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937157.0310025}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "shutdown", "principal": "harness", "seq": null, "status": "SHUTDOWN", "t": 1794937157.0315402}
+{"event": "stopped", "t": 1794937157.0320556}

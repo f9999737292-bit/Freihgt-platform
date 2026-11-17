@@ -1,0 +1,1124 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-x"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:39:37.947820+00:00",
+    "witness": "corrupt-flip"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "7eb0fc73328a3ec4cdb72f6221fa94735c9febbcf0fc7aeb1e40a2c1c9ca0a8e",
+      "request_id": "k1",
+      "ticket_id": "96d1c99a-1208-4e47-8127-d0665f2f8468"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 2,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:37.950440+00:00",
+    "witness": "corrupt-flip"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "96d1c99a-1208-4e47-8127-d0665f2f8468"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:37.956655+00:00",
+    "witness": "corrupt-flip"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "edef79b167f5f8d99a574c0bfaf89de39936caa0df4f127334d810ecb0374919",
+      "request_id": "k2",
+      "ticket_id": "2670e973-96ee-429f-8633-25eda80791b4"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 4,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:37.960535+00:00",
+    "witness": "corrupt-flip"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "2670e973-96ee-429f-8633-25eda80791b4"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 5,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:37.966443+00:00",
+    "witness": "corrupt-flip"
+  },
+  {
+    "body": {
+      "head_hash": "fd5b55afa08a860064128b0868ca66e1e37e28bd3b75afbcc9d88b31346511e2",
+      "seq": 5
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "fd5b55afa08a860064128b0868ca66e1e37e28bd3b75afbcc9d88b31346511e2",
+        "seq": 5
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "t": "2026-11-17T17:39:37.974467+00:00",
+    "witness": "corrupt-flip"
+  },
+  {
+    "app": "a2-w086-x-flip",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-x",
+    "principal": "issuer_a",
+    "request_id": "k9",
+    "result": {
+      "reason": "HASH_MISMATCH seq=2",
+      "result": "ISSUE_DENIED_WITNESS_FAILED",
+      "witness": "WITNESS_FAILED"
+    },
+    "t": "2026-11-17T17:39:38.511479+00:00",
+    "t_end": "2026-11-17T17:39:38.511479+00:00",
+    "t_start": "2026-11-17T17:39:38.395401+00:00",
+    "tag": "w086-x-flip"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-x"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:39:39.010102+00:00",
+    "witness": "corrupt-rewrite-record"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "7eb0fc73328a3ec4cdb72f6221fa94735c9febbcf0fc7aeb1e40a2c1c9ca0a8e",
+      "request_id": "k1",
+      "ticket_id": "50f2cac1-b93f-4855-8e54-ec987638bfc3"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 2,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:39.019507+00:00",
+    "witness": "corrupt-rewrite-record"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "50f2cac1-b93f-4855-8e54-ec987638bfc3"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:39.024444+00:00",
+    "witness": "corrupt-rewrite-record"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "edef79b167f5f8d99a574c0bfaf89de39936caa0df4f127334d810ecb0374919",
+      "request_id": "k2",
+      "ticket_id": "c9e1d2cd-2599-40f6-9e1a-075595a19665"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 4,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:39.027992+00:00",
+    "witness": "corrupt-rewrite-record"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "c9e1d2cd-2599-40f6-9e1a-075595a19665"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 5,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:39.032639+00:00",
+    "witness": "corrupt-rewrite-record"
+  },
+  {
+    "body": {
+      "head_hash": "d245a8c0a796cdb11f97e4a919a270ad82d2fe860d9637d322a751a5c8c05c9b",
+      "seq": 5
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "d245a8c0a796cdb11f97e4a919a270ad82d2fe860d9637d322a751a5c8c05c9b",
+        "seq": 5
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "t": "2026-11-17T17:39:39.040611+00:00",
+    "witness": "corrupt-rewrite-record"
+  },
+  {
+    "app": "a2-w087-x-rewrite-record",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-x",
+    "principal": "issuer_a",
+    "request_id": "k9",
+    "result": {
+      "reason": "RECORD_REQUEST_MISMATCH seq=2 field=payload_hash",
+      "result": "ISSUE_DENIED_WITNESS_FAILED",
+      "witness": "WITNESS_FAILED"
+    },
+    "t": "2026-11-17T17:39:39.565764+00:00",
+    "t_end": "2026-11-17T17:39:39.565764+00:00",
+    "t_start": "2026-11-17T17:39:39.462596+00:00",
+    "tag": "w087-x-rewrite-record"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-x"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:39:40.077808+00:00",
+    "witness": "corrupt-rewrite-signed"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "7eb0fc73328a3ec4cdb72f6221fa94735c9febbcf0fc7aeb1e40a2c1c9ca0a8e",
+      "request_id": "k1",
+      "ticket_id": "d4043b36-e9c0-4c18-84fc-649647308eb9"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 2,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:40.083508+00:00",
+    "witness": "corrupt-rewrite-signed"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "d4043b36-e9c0-4c18-84fc-649647308eb9"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:40.088045+00:00",
+    "witness": "corrupt-rewrite-signed"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "edef79b167f5f8d99a574c0bfaf89de39936caa0df4f127334d810ecb0374919",
+      "request_id": "k2",
+      "ticket_id": "a540fd1e-6826-478f-8150-63a528818dbe"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 4,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:40.094282+00:00",
+    "witness": "corrupt-rewrite-signed"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "a540fd1e-6826-478f-8150-63a528818dbe"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 5,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:40.099160+00:00",
+    "witness": "corrupt-rewrite-signed"
+  },
+  {
+    "body": {
+      "head_hash": "b64a39fe4fca1520da05fe819da9163e948b13cc4ca63c2e2c8190a01baf6982",
+      "seq": 5
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "b64a39fe4fca1520da05fe819da9163e948b13cc4ca63c2e2c8190a01baf6982",
+        "seq": 5
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "t": "2026-11-17T17:39:40.111281+00:00",
+    "witness": "corrupt-rewrite-signed"
+  },
+  {
+    "app": "a2-w088-x-rewrite-signed",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-x",
+    "principal": "issuer_a",
+    "request_id": "k9",
+    "result": {
+      "reason": "REQUEST_MAC_INVALID seq=2",
+      "result": "ISSUE_DENIED_WITNESS_FAILED",
+      "witness": "WITNESS_FAILED"
+    },
+    "t": "2026-11-17T17:39:40.665477+00:00",
+    "t_end": "2026-11-17T17:39:40.665477+00:00",
+    "t_start": "2026-11-17T17:39:40.546656+00:00",
+    "tag": "w088-x-rewrite-signed"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-x"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:39:41.170660+00:00",
+    "witness": "corrupt-reorder"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "7eb0fc73328a3ec4cdb72f6221fa94735c9febbcf0fc7aeb1e40a2c1c9ca0a8e",
+      "request_id": "k1",
+      "ticket_id": "c796aeda-9924-4eed-80db-e473fbb3c368"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 2,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:41.175597+00:00",
+    "witness": "corrupt-reorder"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "c796aeda-9924-4eed-80db-e473fbb3c368"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:41.180107+00:00",
+    "witness": "corrupt-reorder"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "edef79b167f5f8d99a574c0bfaf89de39936caa0df4f127334d810ecb0374919",
+      "request_id": "k2",
+      "ticket_id": "cb95a90c-da92-4b60-b57a-bf46f6fe5aec"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 4,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:41.184416+00:00",
+    "witness": "corrupt-reorder"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "cb95a90c-da92-4b60-b57a-bf46f6fe5aec"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 5,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:41.189111+00:00",
+    "witness": "corrupt-reorder"
+  },
+  {
+    "body": {
+      "head_hash": "9a3d67c8d091e334114cc4b19233102d9bc316be7c5188a43911721c80d4378b",
+      "seq": 5
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "9a3d67c8d091e334114cc4b19233102d9bc316be7c5188a43911721c80d4378b",
+        "seq": 5
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "t": "2026-11-17T17:39:41.201379+00:00",
+    "witness": "corrupt-reorder"
+  },
+  {
+    "app": "a2-w089-x-reorder",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-x",
+    "principal": "issuer_a",
+    "request_id": "k9",
+    "result": {
+      "reason": "SEQUENCE_VIOLATION line=4 seq=5",
+      "result": "ISSUE_DENIED_WITNESS_FAILED",
+      "witness": "WITNESS_FAILED"
+    },
+    "t": "2026-11-17T17:39:41.815368+00:00",
+    "t_end": "2026-11-17T17:39:41.815368+00:00",
+    "t_start": "2026-11-17T17:39:41.639812+00:00",
+    "tag": "w089-x-reorder"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-x"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:39:42.376472+00:00",
+    "witness": "corrupt-truncate-below-checkpoint"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "7eb0fc73328a3ec4cdb72f6221fa94735c9febbcf0fc7aeb1e40a2c1c9ca0a8e",
+      "request_id": "k1",
+      "ticket_id": "a226c86a-2ee5-4f5e-a375-ed04c6ac42bb"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 2,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:42.381039+00:00",
+    "witness": "corrupt-truncate-below-checkpoint"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "a226c86a-2ee5-4f5e-a375-ed04c6ac42bb"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:42.385997+00:00",
+    "witness": "corrupt-truncate-below-checkpoint"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "edef79b167f5f8d99a574c0bfaf89de39936caa0df4f127334d810ecb0374919",
+      "request_id": "k2",
+      "ticket_id": "bfd5962d-1951-40d1-9514-250a9b92041c"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 4,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:42.389808+00:00",
+    "witness": "corrupt-truncate-below-checkpoint"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "bfd5962d-1951-40d1-9514-250a9b92041c"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 5,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:42.394198+00:00",
+    "witness": "corrupt-truncate-below-checkpoint"
+  },
+  {
+    "body": {
+      "head_hash": "8c57f2109df679d46bb1f0a02e12aedbb315de9541d556f9465e408e7bdae731",
+      "seq": 5
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "8c57f2109df679d46bb1f0a02e12aedbb315de9541d556f9465e408e7bdae731",
+        "seq": 5
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "t": "2026-11-17T17:39:42.404067+00:00",
+    "witness": "corrupt-truncate-below-checkpoint"
+  },
+  {
+    "app": "a2-w090-x-truncate-below-checkpoint",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-x",
+    "principal": "issuer_a",
+    "request_id": "k9",
+    "result": {
+      "reason": "ROLLBACK_DETECTED log_len=3 accepted_seq=5",
+      "result": "ISSUE_DENIED_WITNESS_FAILED",
+      "witness": "WITNESS_FAILED"
+    },
+    "t": "2026-11-17T17:39:42.937331+00:00",
+    "t_end": "2026-11-17T17:39:42.937331+00:00",
+    "t_start": "2026-11-17T17:39:42.828768+00:00",
+    "tag": "w090-x-truncate-below-checkpoint"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-x"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:39:43.442551+00:00",
+    "witness": "corrupt-forge-checkpoint"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "7eb0fc73328a3ec4cdb72f6221fa94735c9febbcf0fc7aeb1e40a2c1c9ca0a8e",
+      "request_id": "k1",
+      "ticket_id": "b3da5e67-98e9-41ba-9dcb-b141db801ed5"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 2,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:43.447921+00:00",
+    "witness": "corrupt-forge-checkpoint"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "b3da5e67-98e9-41ba-9dcb-b141db801ed5"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:43.452449+00:00",
+    "witness": "corrupt-forge-checkpoint"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "edef79b167f5f8d99a574c0bfaf89de39936caa0df4f127334d810ecb0374919",
+      "request_id": "k2",
+      "ticket_id": "1d6d9d9d-6893-46f8-8eb7-32aeeab42055"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 4,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:43.456983+00:00",
+    "witness": "corrupt-forge-checkpoint"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "1d6d9d9d-6893-46f8-8eb7-32aeeab42055"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 5,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:43.461509+00:00",
+    "witness": "corrupt-forge-checkpoint"
+  },
+  {
+    "body": {
+      "head_hash": "08c55f4d43cc7f67b177d15486d09ecf0092919bcbaeded19309b1319c94c21d",
+      "seq": 5
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "08c55f4d43cc7f67b177d15486d09ecf0092919bcbaeded19309b1319c94c21d",
+        "seq": 5
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "t": "2026-11-17T17:39:43.471718+00:00",
+    "witness": "corrupt-forge-checkpoint"
+  },
+  {
+    "app": "a2-w091-x-forge-checkpoint",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-x",
+    "principal": "issuer_a",
+    "request_id": "k9",
+    "result": {
+      "reason": "CHECKPOINT_MAC_INVALID",
+      "result": "ISSUE_DENIED_WITNESS_FAILED",
+      "witness": "WITNESS_FAILED"
+    },
+    "t": "2026-11-17T17:39:44.197072+00:00",
+    "t_end": "2026-11-17T17:39:44.197072+00:00",
+    "t_start": "2026-11-17T17:39:44.041826+00:00",
+    "tag": "w091-x-forge-checkpoint"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-x"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:39:44.720198+00:00",
+    "witness": "corrupt-garbage"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "7eb0fc73328a3ec4cdb72f6221fa94735c9febbcf0fc7aeb1e40a2c1c9ca0a8e",
+      "request_id": "k1",
+      "ticket_id": "c01f58e2-a157-40bf-a37a-cd205e5c6853"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 2,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:44.726279+00:00",
+    "witness": "corrupt-garbage"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "c01f58e2-a157-40bf-a37a-cd205e5c6853"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:44.731143+00:00",
+    "witness": "corrupt-garbage"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "edef79b167f5f8d99a574c0bfaf89de39936caa0df4f127334d810ecb0374919",
+      "request_id": "k2",
+      "ticket_id": "254e35ab-a300-4411-822a-1a20d2e6cfec"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 4,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:44.735366+00:00",
+    "witness": "corrupt-garbage"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "254e35ab-a300-4411-822a-1a20d2e6cfec"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 5,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:44.739408+00:00",
+    "witness": "corrupt-garbage"
+  },
+  {
+    "body": {
+      "head_hash": "f4426feeeb79a86f61a32347483258b82a570c4d6b86877c4de95b95db895b22",
+      "seq": 5
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "f4426feeeb79a86f61a32347483258b82a570c4d6b86877c4de95b95db895b22",
+        "seq": 5
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "t": "2026-11-17T17:39:44.750875+00:00",
+    "witness": "corrupt-garbage"
+  },
+  {
+    "app": "a2-w092-x-garbage",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-x",
+    "principal": "issuer_a",
+    "request_id": "k9",
+    "result": {
+      "reason": "UNPARSEABLE_RECORD line=3",
+      "result": "ISSUE_DENIED_WITNESS_FAILED",
+      "witness": "WITNESS_FAILED"
+    },
+    "t": "2026-11-17T17:39:45.283150+00:00",
+    "t_end": "2026-11-17T17:39:45.283150+00:00",
+    "t_start": "2026-11-17T17:39:45.175155+00:00",
+    "tag": "w092-x-garbage"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-x"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:39:45.775703+00:00",
+    "witness": "corrupt-tail-loss"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "7eb0fc73328a3ec4cdb72f6221fa94735c9febbcf0fc7aeb1e40a2c1c9ca0a8e",
+      "request_id": "k1",
+      "ticket_id": "82d42537-6193-45a7-975a-864c5646c9d6"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 2,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:45.782976+00:00",
+    "witness": "corrupt-tail-loss"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "82d42537-6193-45a7-975a-864c5646c9d6"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:45.788225+00:00",
+    "witness": "corrupt-tail-loss"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "seed",
+      "ns": "ns-x",
+      "payload_hash": "edef79b167f5f8d99a574c0bfaf89de39936caa0df4f127334d810ecb0374919",
+      "request_id": "k2",
+      "ticket_id": "30dad1f2-7ec5-421b-913f-19f510a0adc4"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 4,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:45.793378+00:00",
+    "witness": "corrupt-tail-loss"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-x",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "30dad1f2-7ec5-421b-913f-19f510a0adc4"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 5,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:39:45.797809+00:00",
+    "witness": "corrupt-tail-loss"
+  },
+  {
+    "body": {
+      "head_hash": "179b9927131b44324b9370caee17c4dbe3b4833fec0b77bbfa9545c46438136b",
+      "seq": 3
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "179b9927131b44324b9370caee17c4dbe3b4833fec0b77bbfa9545c46438136b",
+        "seq": 3
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "t": "2026-11-17T17:39:45.808121+00:00",
+    "witness": "corrupt-tail-loss"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "after-tamper",
+      "ns": "ns-x",
+      "payload_hash": "7eb0fc73328a3ec4cdb72f6221fa94735c9febbcf0fc7aeb1e40a2c1c9ca0a8e",
+      "request_id": "k1",
+      "ticket_id": "b434502e-f6e1-4828-ae9f-781bbabbfb22"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "reservation_seq": 2,
+      "state": "COMMIT_CONFIRMED",
+      "status": "DUPLICATE"
+    },
+    "t": "2026-11-17T17:39:46.222391+00:00",
+    "witness": "corrupt-tail-loss"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "after-tamper",
+      "ns": "ns-x",
+      "payload_hash": "edef79b167f5f8d99a574c0bfaf89de39936caa0df4f127334d810ecb0374919",
+      "request_id": "k2",
+      "ticket_id": "a52749c6-28e0-4334-b4bf-eac5a9983f81"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 4,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:39:46.226931+00:00",
+    "witness": "corrupt-tail-loss"
+  }
+]

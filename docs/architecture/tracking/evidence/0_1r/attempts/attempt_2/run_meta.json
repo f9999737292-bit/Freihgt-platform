@@ -1,0 +1,35 @@
+{
+  "attempt": 2,
+  "container": "bintrans-proof-0-1r-77a2511d",
+  "container_removed": true,
+  "db": "wproof_77a2511d",
+  "db_restore": "wproof_r_77a2511d",
+  "findings": [
+    {
+      "evidence": {
+        "key": "ns-x|k2",
+        "second_reserve": {
+          "epoch": 1,
+          "seq": 4,
+          "status": "RESERVED"
+        }
+      },
+      "id": "F-TAIL-LOSS",
+      "text": "Witness storage rollback after the last accepted checkpoint is undetectable in this model; the lost key was reserved a second time (two successful reservations of one key across a storage rollback)."
+    }
+  ],
+  "harness_error": null,
+  "host_os": "win32",
+  "image": "postgres:16",
+  "image_id": "sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+  "network": "none",
+  "network_mode": "none",
+  "port_bindings": "{}",
+  "published_ports": "none",
+  "python": "3.12.10",
+  "server_version": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "t_end": "2026-11-17T17:39:50.018443+00:00",
+  "t_start": "2026-11-17T17:38:32.700771+00:00",
+  "witness_tmp_removed": true,
+  "witness_tmp_root": "<per-attempt temp dir outside repository>"
+}

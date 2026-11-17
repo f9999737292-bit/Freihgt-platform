@@ -1,0 +1,6 @@
+{"event": "witness_failed", "reason": "RECORD_REQUEST_MISMATCH seq=2 field=payload_hash", "t": 1794937259.7244205}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": "RECORD_REQUEST_MISMATCH seq=2 field=payload_hash", "pid": 47892, "records": 1, "t": 1794937259.7254324}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "WITNESS_FAILED", "t": 1794937259.8275158}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "WITNESS_FAILED", "t": 1794937259.9285457}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "shutdown", "principal": "harness", "seq": null, "status": "SHUTDOWN", "t": 1794937260.0342124}
+{"event": "stopped", "t": 1794937260.0348296}

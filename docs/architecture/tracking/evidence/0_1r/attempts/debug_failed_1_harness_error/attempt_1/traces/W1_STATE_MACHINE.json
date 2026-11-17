@@ -1,0 +1,420 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-sm"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:34:29.468409+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i1",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "k1",
+      "ticket_id": "3af1ac7b-eb06-4c3e-afe4-c1c6bf5f1c5e"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 2,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:34:29.474618+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i2",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "k1",
+      "ticket_id": "4b43ac6d-32ff-469c-ba69-31d1eacd86f3"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "reservation_seq": 2,
+      "state": "RESERVED",
+      "status": "DUPLICATE"
+    },
+    "t": "2026-11-17T17:34:29.477048+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i3",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "k1",
+      "ticket_id": "4b43ac6d-32ff-469c-ba69-31d1eacd86f3"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_b",
+    "response": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "status": "NOT_EPOCH_HOLDER"
+    },
+    "t": "2026-11-17T17:34:29.480271+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i4",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "kx",
+      "ticket_id": "4b43ac6d-32ff-469c-ba69-31d1eacd86f3"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "operator",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "t": "2026-11-17T17:34:29.481332+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i4",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "kx",
+      "ticket_id": "4b43ac6d-32ff-469c-ba69-31d1eacd86f3"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "auditor",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "t": "2026-11-17T17:34:29.482344+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i5",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "kx",
+      "ticket_id": "4b43ac6d-32ff-469c-ba69-31d1eacd86f3"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "status": "AUTH_FAILED"
+    },
+    "t": "2026-11-17T17:34:29.482344+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "4b43ac6d-32ff-469c-ba69-31d1eacd86f3"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "status": "TICKET_MISMATCH"
+    },
+    "t": "2026-11-17T17:34:29.484420+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "3af1ac7b-eb06-4c3e-afe4-c1c6bf5f1c5e"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_b",
+    "response": {
+      "status": "NOT_RESERVATION_OWNER"
+    },
+    "t": "2026-11-17T17:34:29.484420+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {},
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "3af1ac7b-eb06-4c3e-afe4-c1c6bf5f1c5e"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "status": "EVIDENCE_REQUIRED"
+    },
+    "t": "2026-11-17T17:34:29.485940+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "3af1ac7b-eb06-4c3e-afe4-c1c6bf5f1c5e"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:34:29.491137+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "3af1ac7b-eb06-4c3e-afe4-c1c6bf5f1c5e"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "state": "COMMIT_CONFIRMED",
+      "status": "IDEMPOTENT"
+    },
+    "t": "2026-11-17T17:34:29.493813+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "ns": "ns-sm",
+      "request_id": "k1"
+    },
+    "kind": "witness_call",
+    "op": "delete",
+    "principal": "operator",
+    "response": {
+      "op": "delete",
+      "status": "UNSUPPORTED_OP"
+    },
+    "t": "2026-11-17T17:34:29.497065+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "ns": "ns-sm",
+      "request_id": "k1"
+    },
+    "kind": "witness_call",
+    "op": "update",
+    "principal": "operator",
+    "response": {
+      "op": "update",
+      "status": "UNSUPPORTED_OP"
+    },
+    "t": "2026-11-17T17:34:29.497065+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "ns": "ns-sm",
+      "request_id": "k1"
+    },
+    "kind": "witness_call",
+    "op": "truncate",
+    "principal": "operator",
+    "response": {
+      "op": "truncate",
+      "status": "UNSUPPORTED_OP"
+    },
+    "t": "2026-11-17T17:34:29.498534+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "ns": "ns-sm",
+      "request_id": "k1"
+    },
+    "kind": "witness_call",
+    "op": "rewrite",
+    "principal": "operator",
+    "response": {
+      "op": "rewrite",
+      "status": "UNSUPPORTED_OP"
+    },
+    "t": "2026-11-17T17:34:29.498534+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "ns": "ns-sm",
+      "request_id": "k1"
+    },
+    "kind": "witness_call",
+    "op": "release",
+    "principal": "operator",
+    "response": {
+      "op": "release",
+      "status": "UNSUPPORTED_OP"
+    },
+    "t": "2026-11-17T17:34:29.499715+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "x"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "nope",
+      "ticket_id": "3af1ac7b-eb06-4c3e-afe4-c1c6bf5f1c5e"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "status": "NO_RESERVATION"
+    },
+    "t": "2026-11-17T17:34:29.500714+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_b",
+      "ns": "ns-sm"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "current": {
+        "epoch": 1,
+        "holder": "issuer_a"
+      },
+      "status": "EPOCH_NOT_MONOTONIC"
+    },
+    "t": "2026-11-17T17:34:29.501716+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 9,
+      "holder": "issuer_a",
+      "ns": "ns-sm"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "issuer_a",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "t": "2026-11-17T17:34:29.502758+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "head_hash": "c4335c2711bfae93be3bb8f9f2e43e75b1a0cf86424026ee871ad8a22a0b8c6e",
+      "seq": 3
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "c4335c2711bfae93be3bb8f9f2e43e75b1a0cf86424026ee871ad8a22a0b8c6e",
+        "seq": 3
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "t": "2026-11-17T17:34:29.512883+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "head_hash": "4e3c27f5c1b0d3a38cb1255fc1ad34bf47d65f46107125ac6186466a32907989",
+      "seq": 2
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "current": {
+        "head_hash": "c4335c2711bfae93be3bb8f9f2e43e75b1a0cf86424026ee871ad8a22a0b8c6e",
+        "seq": 3
+      },
+      "status": "CHECKPOINT_LOWER_REJECTED"
+    },
+    "t": "2026-11-17T17:34:29.514903+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "head_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "seq": 3
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "status": "CHECKPOINT_HASH_MISMATCH"
+    },
+    "t": "2026-11-17T17:34:29.516090+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "head_hash": "c4335c2711bfae93be3bb8f9f2e43e75b1a0cf86424026ee871ad8a22a0b8c6e",
+      "seq": 3
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "issuer_a",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "t": "2026-11-17T17:34:29.517091+00:00",
+    "witness": "sm"
+  }
+]

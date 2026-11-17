@@ -1,0 +1,5 @@
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "pid": 36516, "records": 0, "t": 1794937232.7242107}
+{"body_ns": "ns-u", "body_request_id": null, "event": "request", "op": "epoch_set", "principal": "operator", "seq": 1, "status": "EPOCH_SET", "t": 1794937232.8330524}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937232.8346684}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "shutdown", "principal": "harness", "seq": null, "status": "SHUTDOWN", "t": 1794937232.8357458}
+{"event": "stopped", "t": 1794937232.8362787}

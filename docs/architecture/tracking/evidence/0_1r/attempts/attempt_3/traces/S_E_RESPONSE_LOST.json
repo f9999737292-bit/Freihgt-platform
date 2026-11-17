@@ -1,0 +1,92 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-e"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 30,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:40:28.749938+00:00",
+    "witness": "e2e"
+  },
+  {
+    "app": "a3-w046-e-lost",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome",
+      "response_lost"
+    ],
+    "exit": 0,
+    "fault": "lose_response",
+    "kind": "worker",
+    "ns": "ns-e",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "RESPONSE_LOST"
+    },
+    "t": "2026-11-17T17:40:29.259706+00:00",
+    "t_end": "2026-11-17T17:40:29.259706+00:00",
+    "t_start": "2026-11-17T17:40:28.758790+00:00",
+    "tag": "w046-e-lost"
+  },
+  {
+    "app": "a3-w047-e-retry",
+    "events": [
+      "start",
+      "witness_export",
+      "existing_reservation",
+      "pg_read_rows"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-e",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_REPLAY_ISSUED",
+      "ticket_id": "18f8e7a5-87a4-4ec6-85b4-ba21e823009d"
+    },
+    "t": "2026-11-17T17:40:29.748796+00:00",
+    "t_end": "2026-11-17T17:40:29.748796+00:00",
+    "t_start": "2026-11-17T17:40:29.457021+00:00",
+    "tag": "w047-e-retry"
+  },
+  {
+    "app": "a3-w048-e-mismatch",
+    "events": [
+      "start",
+      "witness_export",
+      "existing_reservation"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-e",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_DENIED_PAYLOAD_MISMATCH",
+      "state": "COMMIT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:40:29.857288+00:00",
+    "t_end": "2026-11-17T17:40:29.857288+00:00",
+    "t_start": "2026-11-17T17:40:29.757974+00:00",
+    "tag": "w048-e-mismatch"
+  }
+]

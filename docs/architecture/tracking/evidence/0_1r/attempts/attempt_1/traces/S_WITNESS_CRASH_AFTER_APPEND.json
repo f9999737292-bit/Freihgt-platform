@@ -1,0 +1,137 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-l"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:37:57.397695+00:00",
+    "witness": "lostack"
+  },
+  {
+    "body": {
+      "fault": "crash_after_append_before_reply"
+    },
+    "kind": "witness_call",
+    "op": "fault",
+    "principal": "harness",
+    "response": {
+      "name": "crash_after_append_before_reply",
+      "status": "FAULT_ARMED"
+    },
+    "t": "2026-11-17T17:37:57.405927+00:00",
+    "witness": "lostack"
+  },
+  {
+    "app": "a1-w049-l-unknown",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate",
+      "witness_unavailable"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-l",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "error": "io:EOFError",
+      "result": "ISSUE_WITNESS_OUTCOME_UNKNOWN",
+      "stage": "reserve"
+    },
+    "t": "2026-11-17T17:37:57.687492+00:00",
+    "t_end": "2026-11-17T17:37:57.687492+00:00",
+    "t_start": "2026-11-17T17:37:57.412787+00:00",
+    "tag": "w049-l-unknown"
+  },
+  {
+    "app": "a1-w050-l-restart",
+    "events": [
+      "start",
+      "witness_export",
+      "witness_outcome",
+      "restart_recovery",
+      "witness_export",
+      "existing_reservation"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-l",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_DENIED_IN_DOUBT",
+      "state": "IN_DOUBT"
+    },
+    "t": "2026-11-17T17:37:58.288421+00:00",
+    "t_end": "2026-11-17T17:37:58.288421+00:00",
+    "t_start": "2026-11-17T17:37:58.175375+00:00",
+    "tag": "w050-l-restart"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true,
+        "reason": "tombstone absent"
+      },
+      "ns": "ns-l",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "c10cd27b-8194-42e9-8c2a-3e309197c191"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "IN_DOUBT",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:58.464819+00:00",
+    "witness": "lostack"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_row": null,
+        "reason": "tombstone absent or different; abort cannot be proven"
+      },
+      "ns": "ns-l",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "k1",
+      "ticket_id": "c10cd27b-8194-42e9-8c2a-3e309197c191"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 4,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:58.469796+00:00",
+    "witness": "lostack"
+  },
+  {
+    "append": "APPENDED",
+    "auto_abort": "INVALID_TRANSITION",
+    "decision": "PERMANENTLY_DENIED",
+    "key": "ns-l|k1",
+    "kind": "reconcile",
+    "pg_row": null,
+    "t": "2026-11-17T17:37:58.469796+00:00",
+    "witness_state_before": "IN_DOUBT"
+  }
+]

@@ -1,0 +1,3 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "fa036e9c-d7ee-4d4f-85ea-8adebc1337bf", "mode": "reserve_only", "mono": 0.0, "ns": "ns-sb-race", "payload_hash": "c3aba83279d07d3fd23c2beb2fe47941a605a661e218977530d0b5caf02435e0", "principal": "issuer_a", "request_id": "race-2", "t": 1794937092.1979291}
+EVENT {"event": "witness_reserve", "mono": 3.797, "seq": null, "status": "NOT_EPOCH_HOLDER", "t": 1794937095.9960449}
+RESULT {"result": "NOT_EPOCH_HOLDER", "seq": null, "ticket_id": "a630abb6-9ce6-4384-8f1e-96a4cfa8ea11"}

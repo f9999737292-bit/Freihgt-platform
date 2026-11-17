@@ -1,0 +1,26 @@
+{
+  "app": "a2-w091-x-forge-checkpoint",
+  "container": "bintrans-proof-0-1r-77a2511d",
+  "db": "wproof_77a2511d",
+  "epoch": 1,
+  "fault": "",
+  "incarnation": "6e5d5f53-1399-4ee9-9fe4-fdce900fd4c0",
+  "mode": "issue",
+  "ns": "ns-x",
+  "payload": {
+    "execution_ids": [
+      "exe-2",
+      "exe-1"
+    ],
+    "expected_epoch": 1,
+    "expected_revision": 1,
+    "operation": "ISSUE_TRACKING_BINDING",
+    "shipment": "shp-k9",
+    "sub": "user-0.1r-test",
+    "tenant_id": "tenant-0.1r-test"
+  },
+  "pg_role": "wproof_issuer",
+  "pipe": "bintrans-0-1r-77a2511d-corrupt-forge-checkpoint",
+  "principal": "issuer_a",
+  "request_id": "k9"
+}

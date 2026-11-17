@@ -1,0 +1,20 @@
+[
+  {
+    "attempt": 1,
+    "container": "bintrans-proof-0-1r-952bb461",
+    "container_removed": true,
+    "counts": {
+      "FAIL": 1,
+      "PASS": 26
+    },
+    "failed": [
+      "HARNESS-ERROR"
+    ],
+    "findings": [],
+    "harness_error": "TypeError: wcall() got multiple values for argument 'name'",
+    "image_id": "sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+    "network_mode": "none",
+    "port_bindings": "{}",
+    "server_version": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit"
+  }
+]

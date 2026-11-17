@@ -1,0 +1,6 @@
+{"event": "witness_failed", "reason": "REQUEST_MAC_INVALID seq=2", "t": 1794937260.7813735}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": "REQUEST_MAC_INVALID seq=2", "pid": 36584, "records": 1, "t": 1794937260.7813735}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "WITNESS_FAILED", "t": 1794937260.883824}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "WITNESS_FAILED", "t": 1794937260.9792142}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "shutdown", "principal": "harness", "seq": null, "status": "SHUTDOWN", "t": 1794937261.1014357}
+{"event": "stopped", "t": 1794937261.102009}

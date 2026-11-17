@@ -1,0 +1,4 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "362fc372-fa51-4126-a38f-59bf21153963", "mode": "issue", "mono": 0.0, "ns": "ns-a", "payload_hash": "6f4c5701421c03c8811e9882432dda11787e93ba95e7ca6955341593066dc896", "principal": "issuer_a", "request_id": "k1", "t": 1794937217.2071862}
+EVENT {"event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794937217.208319}
+EVENT {"event": "existing_reservation", "mono": 0.0, "reservation_ticket_id": "9d7ddfb7-fdc5-4e8f-a6b4-a1b6499daf76", "state": "PERMANENTLY_DENIED", "t": 1794937217.208319}
+RESULT {"result": "ISSUE_DENIED_PERMANENTLY", "state": "PERMANENTLY_DENIED"}

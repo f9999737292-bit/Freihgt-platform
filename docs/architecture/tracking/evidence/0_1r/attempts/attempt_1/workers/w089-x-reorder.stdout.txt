@@ -1,0 +1,3 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "c9a51f3c-d026-46ec-b99c-ace89648397c", "mode": "issue", "mono": 0.0, "ns": "ns-x", "payload_hash": "1f923697d2d3cea8976f0a56da3fe4b31dfcb471d0a8003102f67789868b7996", "principal": "issuer_a", "request_id": "k9", "t": 1794937104.253731}
+EVENT {"event": "witness_export", "mono": 0.0, "reason": "SEQUENCE_VIOLATION line=4 seq=5", "seq": null, "status": "WITNESS_FAILED", "t": 1794937104.253731}
+RESULT {"reason": "SEQUENCE_VIOLATION line=4 seq=5", "result": "ISSUE_DENIED_WITNESS_FAILED", "witness": "WITNESS_FAILED"}

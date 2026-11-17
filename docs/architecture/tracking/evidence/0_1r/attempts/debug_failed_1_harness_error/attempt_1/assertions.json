@@ -1,0 +1,302 @@
+[
+  {
+    "id": "W1-RESERVE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "First reserve of (ns, k1) is RESERVED",
+    "observed": {
+      "status": "RESERVED",
+      "seq": 2,
+      "epoch": 1
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-SECOND-RESERVE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "Second reserve of the same key is DUPLICATE and appends nothing",
+    "observed": {
+      "response": {
+        "status": "DUPLICATE",
+        "state": "RESERVED",
+        "reservation_seq": 2
+      },
+      "records": [
+        2,
+        2
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NON-HOLDER-RESERVE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "A non-holder issuer cannot reserve",
+    "observed": {
+      "status": "NOT_EPOCH_HOLDER",
+      "holder": "issuer_a",
+      "epoch": 1
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-OPERATOR-CANNOT-RESERVE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "operator cannot reserve",
+    "observed": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-AUDITOR-CANNOT-RESERVE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "auditor cannot reserve",
+    "observed": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-BAD-SIGNATURE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "A request signed with the wrong key is AUTH_FAILED",
+    "observed": {
+      "status": "AUTH_FAILED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-TICKET-MISMATCH",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "Outcome citing a different ticket_id is rejected",
+    "observed": {
+      "status": "TICKET_MISMATCH"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NOT-OWNER",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "Another issuer cannot append the outcome",
+    "observed": {
+      "status": "NOT_RESERVATION_OWNER"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-EVIDENCE-REQUIRED",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "COMMIT_CONFIRMED without a commit acknowledgement is rejected",
+    "observed": {
+      "status": "EVIDENCE_REQUIRED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-COMMIT",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Owner appends COMMIT_CONFIRMED for its reservation",
+    "observed": {
+      "status": "APPENDED",
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-OUTCOME-IDEMPOTENT",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Repeating the same outcome is IDEMPOTENT and appends nothing",
+    "observed": {
+      "response": {
+        "status": "IDEMPOTENT",
+        "state": "COMMIT_CONFIRMED"
+      },
+      "records": [
+        3,
+        3
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-DELETE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "There is no 'delete' operation (UNSUPPORTED_OP)",
+    "observed": {
+      "status": "UNSUPPORTED_OP",
+      "op": "delete"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-UPDATE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "There is no 'update' operation (UNSUPPORTED_OP)",
+    "observed": {
+      "status": "UNSUPPORTED_OP",
+      "op": "update"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-TRUNCATE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "There is no 'truncate' operation (UNSUPPORTED_OP)",
+    "observed": {
+      "status": "UNSUPPORTED_OP",
+      "op": "truncate"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-REWRITE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "There is no 'rewrite' operation (UNSUPPORTED_OP)",
+    "observed": {
+      "status": "UNSUPPORTED_OP",
+      "op": "rewrite"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-RELEASE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "There is no 'release' operation (UNSUPPORTED_OP)",
+    "observed": {
+      "status": "UNSUPPORTED_OP",
+      "op": "release"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-RESERVATION",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "Outcome without a reservation is rejected",
+    "observed": {
+      "status": "NO_RESERVATION"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-EPOCH-MONOTONIC",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "Epoch cannot be set to a value not above the current one",
+    "observed": {
+      "status": "EPOCH_NOT_MONOTONIC",
+      "current": {
+        "epoch": 1,
+        "holder": "issuer_a"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-EPOCH-ROLE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "An issuer cannot set the fencing epoch",
+    "observed": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-CHECKPOINT",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Operator records the accepted sequence",
+    "observed": {
+      "status": "CHECKPOINT_ACCEPTED",
+      "checkpoint": {
+        "seq": 3,
+        "head_hash": "c4335c2711bfae93be3bb8f9f2e43e75b1a0cf86424026ee871ad8a22a0b8c6e"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-CHECKPOINT-NO-LOWER",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "The accepted sequence cannot be lowered",
+    "observed": {
+      "status": "CHECKPOINT_LOWER_REJECTED",
+      "current": {
+        "seq": 3,
+        "head_hash": "c4335c2711bfae93be3bb8f9f2e43e75b1a0cf86424026ee871ad8a22a0b8c6e"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-CHECKPOINT-HASH",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "A checkpoint with a wrong head hash is rejected",
+    "observed": {
+      "status": "CHECKPOINT_HASH_MISMATCH"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-CHECKPOINT-ROLE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "An issuer cannot move the checkpoint",
+    "observed": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "HARNESS-ERROR",
+    "scenario": "HARNESS",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Harness completed without exception",
+    "observed": "TypeError: wcall() got multiple values for argument 'name'",
+    "result": "FAIL"
+  },
+  {
+    "id": "HYGIENE-CONTAINER-REMOVED",
+    "scenario": "HYGIENE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "PostgreSQL container removed",
+    "observed": true,
+    "result": "PASS"
+  },
+  {
+    "id": "HYGIENE-TMP-REMOVED",
+    "scenario": "HYGIENE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Witness temp directory removed",
+    "observed": true,
+    "result": "PASS"
+  },
+  {
+    "id": "HYGIENE-SECRET-SCAN",
+    "scenario": "HYGIENE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "No generated key, pipe authkey, or password in any evidence file",
+    "observed": "none",
+    "result": "PASS"
+  }
+]

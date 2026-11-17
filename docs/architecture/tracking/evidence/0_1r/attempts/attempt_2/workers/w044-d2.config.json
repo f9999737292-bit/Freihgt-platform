@@ -1,0 +1,27 @@
+{
+  "app": "a2-w044-d2",
+  "container": "bintrans-proof-0-1r-77a2511d",
+  "db": "wproof_77a2511d",
+  "epoch": 1,
+  "fault": "backend_terminated_before_commit",
+  "go_file": "C:\\Users\\73B5~1\\AppData\\Local\\Temp\\bintrans-0.1r-77a2511d-1bbnwkbm\\d2.go",
+  "incarnation": "35c97ac2-bdb1-44ef-bcfb-e204f6c8c78f",
+  "mode": "issue",
+  "ns": "ns-d2",
+  "payload": {
+    "execution_ids": [
+      "exe-2",
+      "exe-1"
+    ],
+    "expected_epoch": 1,
+    "expected_revision": 1,
+    "operation": "ISSUE_TRACKING_BINDING",
+    "shipment": "shp-k1",
+    "sub": "user-0.1r-test",
+    "tenant_id": "tenant-0.1r-test"
+  },
+  "pg_role": "wproof_issuer",
+  "pipe": "bintrans-0-1r-77a2511d-e2e",
+  "principal": "issuer_a",
+  "request_id": "k1"
+}

@@ -1,0 +1,1 @@
+docker exec -i bintrans-proof-0-1r-77a2511d psql -X -v ON_ERROR_STOP=1 -U wproof_admin -d wproof_r_77a2511d -f -

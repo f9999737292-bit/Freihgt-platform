@@ -1,0 +1,7 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "4bdf4047-e1f0-458f-9f95-950de3c279d5", "mode": "issue", "mono": 0.0, "ns": "ns-a", "payload_hash": "6f4c5701421c03c8811e9882432dda11787e93ba95e7ca6955341593066dc896", "principal": "issuer_a", "request_id": "k1", "t": 1794937216.421269}
+EVENT {"event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794937216.423271}
+EVENT {"event": "witness_outcome", "mono": 0.0, "reason": null, "seq": 6, "status": "APPENDED", "t": 1794937216.4284546}
+EVENT {"event": "restart_recovery", "marked_in_doubt": [{"key": "ns-a|k1", "status": "APPENDED"}], "mono": 0.0, "t": 1794937216.4284546}
+EVENT {"event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794937216.4306474}
+EVENT {"event": "existing_reservation", "mono": 0.0, "reservation_ticket_id": "9d7ddfb7-fdc5-4e8f-a6b4-a1b6499daf76", "state": "IN_DOUBT", "t": 1794937216.4306474}
+RESULT {"result": "ISSUE_DENIED_IN_DOUBT", "state": "IN_DOUBT"}
