@@ -43,7 +43,7 @@ Ownership of `transport.transport_execution_active_shipments` is `NOT_PROVEN` (`
 
 ## Isolated tests, not run
 
-The witness reservation, the fencing epoch, the namespace transition, and the unique index on `(issuer_namespace_id, request_id)` are `PROPOSED_NOT_IMPLEMENTED`. `OLD_PRIMARY_FENCING=NOT_PROVEN`. No storage product is selected for the witness. The document object store is not that witness. The rows below are not executed.
+The witness reservation, the fencing epoch, the namespace transition, and the unique index on `(issuer_namespace_id, request_id)` are `PROPOSED_NOT_IMPLEMENTED`. `OLD_PRIMARY_FENCING=NOT_PROVEN`. Holding an epoch row `FOR UPDATE` does not reject the holder's `COMMIT`. `WITNESS_FAILURE_DOMAIN=NOT_PROVEN`. No storage product is selected for the witness. The document object store is not that witness. The rows below are not executed.
 
 | Test | Required result |
 | --- | --- |
@@ -91,7 +91,16 @@ The witness reservation, the fencing epoch, the namespace transition, and the un
 | Crash before PostgreSQL `COMMIT` | The reservation remains. No automatic new ticket |
 | PostgreSQL `COMMIT` before the witness outcome | The reservation blocks a second ticket. No HTTP grant until `COMMIT_CONFIRMED` |
 | Crash after PostgreSQL `COMMIT` | Outcome becomes `IN_DOUBT` or `COMMIT_CONFIRMED`. No second ticket |
-| Old primary still running | Its new reservation is rejected after the epoch increment. Its in-flight `COMMIT` is `NOT_PROVEN` to fail |
+| Epoch 10 transaction still open | Its `COMMIT` is not rejected by the epoch-row lock. The gate stays `CLOSED` |
+| Handover requested | State `HANDOVER_PENDING`. Neither epoch receives a new reservation |
+| Old backend termination requested | The request is not proof the backend is gone. The gate stays `CLOSED` until a later observation |
+| Open transaction ends by rollback | The reservation stays. No second ticket |
+| Old credential connects again | Connection denied only when that denial is observed. Until then the gate stays `CLOSED` |
+| New epoch issues | Only after the old backends are gone and the old credential cannot connect. A larger epoch number is not enough |
+| PostgreSQL epoch update crashes | `HANDOVER_PENDING` remains. The gate stays `CLOSED` |
+| Witness epoch update crashes | `HANDOVER_PENDING` remains. The two writes are not one transaction |
+| Two handover requests | One `HANDOVER_PENDING`. The second does not open a second transition |
+| Old primary still running | Its new reservation is rejected. Its in-flight `COMMIT` is `NOT_PROVEN` to fail |
 | Lagging replica promoted | Gate `CLOSED`. Old reservations are not new authority |
 | Two timelines issue at once | One reservation per `request_id`. Both cannot reach `COMMIT_CONFIRMED` for that request |
 | Stale fencing epoch at the witness | No new reservation |

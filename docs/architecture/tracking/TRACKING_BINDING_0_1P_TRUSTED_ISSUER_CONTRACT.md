@@ -164,7 +164,7 @@ While a request with that `request_id` can still pass the signature, token, and 
 
 Cleanup locks the idempotency row `FOR UPDATE` and then the ticket, the same order as a retry. It does not lock the ticket first. Revocation locks only the ticket, so cleanup waits for that lock and then leaves the tombstone, including `payload_hash`. A cleanup that deleted the key or the digest would hide a prior request. This cleanup does not. The unique index still conflicts for that `request_id` under a later signing key. A concurrent first insert of a new `request_id` is unchanged: the unique constraint admits one commit. A retry after a lost HTTP response reads the tombstone in a new transaction and does not insert another ticket. Key rotation does not delete these rows. Cleanup does not delete or rewrite a witness record. A witness cleanup that would remove proof of an earlier issuance is forbidden.
 
-The PostgreSQL tombstones are not proof that this database is the latest history. A restored copy can agree with itself and still omit committed tickets. `SELECT COUNT(*)` and the existence of the table are not that proof. The proposed check is an append-only witness outside the PostgreSQL data directory. Restoring the database does not restore the witness and does not rewind it. No storage product is selected. The document-service object store, whether local or S3, stores documents. It is not this witness, and it is not an authority boundary for issuance. The witness is `PROPOSED_NOT_IMPLEMENTED`. It is not installed in BINTRANS.
+The PostgreSQL tombstones are not proof that this database is the latest history. A restored copy can agree with itself and still omit committed tickets. `SELECT COUNT(*)` and the existence of the table are not that proof. The proposed check is an append-only witness that is not restored with the database. A directory outside the PostgreSQL data directory is not a separate failure domain. The witness still needs its own failure domain, its own credentials, append-only retention, a history that cannot be rewritten, and a completeness check. None of that is established. `WITNESS_FAILURE_DOMAIN=NOT_PROVEN`. No storage product is selected. The document-service object store, whether local or S3, stores documents. It is not this witness, and it is not an authority boundary for issuance. The witness is `PROPOSED_NOT_IMPLEMENTED`. It is not installed in BINTRANS.
 
 Each witness record carries a sequence assigned by the witness, the previous sequence, `issuer_namespace_id`, `request_id`, the reservation state, the fencing epoch that created the reservation, `payload_hash`, and, once a ticket exists, `ticket_id` and the original `gateway_key_id`. The sequence has no gaps. One `(issuer_namespace_id, request_id)` has one reservation, whichever signing key is presented. The issuer cannot submit a lower checkpoint or a lower epoch. The witness rejects a delete or a rewrite. Dropping an access token does not remove the witness record. No storage product is selected for these properties. The document-service object store does not provide them.
 
@@ -174,7 +174,28 @@ The witness reservation and the PostgreSQL commit are two commits. They are not 
 
 The witness keeps one monotonic fencing epoch for each `issuer_namespace_id`. A new reservation is accepted only from the current epoch, and only from the one holder of that epoch. The recovery operator, not the old issuer, asks the witness to increment the epoch. The witness then refuses new reservations from the old epoch. That increment does not abort a PostgreSQL transaction the old issuer has already started. A lease timeout is not evidence that the old transaction will fail to `COMMIT`. The old epoch may still append the outcome of a reservation it already holds, so a commit is not forgotten. It cannot open a second reservation.
 
-The PostgreSQL check that would make the old `COMMIT` fail is not installed. The required shape is one epoch row per namespace, locked `FOR UPDATE` for the whole issuance transaction, with the transaction's epoch equal to that locked row. A boolean in the issuer process is not that lock. `freight` can still insert without it. Whether that login is superuser is `NOT_PROVEN`. The table owner and a superuser can disable a trigger, and `session_replication_role = replica` can skip one. `OLD_PRIMARY_FENCING=NOT_PROVEN`. Until a check inside PostgreSQL rejects that `COMMIT`, promotion does not open `ISSUER_ISSUANCE_GATE`.
+Holding the epoch row `FOR UPDATE` for the whole transaction does not make PostgreSQL reject that holder's `COMMIT`. The lock stops other sessions from changing the row until this transaction ends. When the holder commits, the commit stands. A check at the start of the transaction does not see an epoch change that happens later. A check in the same transaction immediately before `COMMIT` still commits only PostgreSQL. It is not atomic with the witness. A lease expiry does not end the open transaction. `pg_terminate_backend` can be requested by a role that PostgreSQL allows to signal that backend. The request's return is not proof that the backend has ended. Proof is a later observation that the backend is gone and that the old credential cannot open another one. That observation is not available. `OLD_PRIMARY_FENCING=NOT_PROVEN`.
+
+Handover uses the witness state `HANDOVER_PENDING`. While it is set, `ISSUER_ISSUANCE_GATE=CLOSED` for the old epoch and for the new epoch. Neither epoch receives a new reservation. Existing reservations stay. A timeout does not release them, and handover does not create a second ticket. This protocol is `PROPOSED_NOT_IMPLEMENTED`.
+
+Phase A closes issuance. The gate is closed, the witness records `HANDOVER_PENDING`, and it records the current sequence as the checkpoint. New reservations stop for the old epoch. They also stop for the new epoch until handover finishes. The issuer cannot lower the checkpoint.
+
+Phase B identifies every PostgreSQL backend and open transaction of the old issuer write identity. A new connection with that identity is rejected. `REVOKE` without proof that no backend remains is not enough, and a lease timeout is not enough. The fencing actor may request `pg_terminate_backend` for each identified backend, or it may observe a transaction end on its own. The handover stays pending until a later check shows those backends are gone and no issuance transaction for the old identity is still open, and until a new connection with the old credential fails. The fencing actor is a future login. It is not the issuer login being removed, not the gateway, and not `freight`. If the actor were the identity being removed, a compromised issuer could refuse to finish handover or could lose the right to finish it. That fencing login does not exist.
+
+Phase C writes the new epoch in PostgreSQL and appends it to the witness only after phase B's observation. Those are two commits, not one. If either outcome is unknown, the state stays `HANDOVER_PENDING` and the gate stays `CLOSED`. Reconciliation matches reservations to tombstones and does not mint a ticket. Used `request_id` values stay reserved.
+
+Phase D lets the new epoch reserve only when the old credential cannot open a backend, the old transactions are observed finished or gone, PostgreSQL and the witness show the same epoch, the reservation history is complete, no second issuer can write another timeline, and the recovery comparison is recorded. A larger epoch number is not enough while an old transaction or an old credential still works. Otherwise the gate stays `CLOSED`. A person's approval does not replace the observation.
+
+Two handover requests for one namespace produce one `HANDOVER_PENDING`. The second does not start another transition. An interrupted handover stays pending and does not open the gate.
+
+| Case | What the mechanism does | Gate |
+| --- | --- | --- |
+| Old issuer holds the epoch row and commits | The lock does not reject that `COMMIT`. Reconcile it to the existing reservation or leave the reservation `IN_DOUBT` | `CLOSED`. Prevention is `NOT_PROVEN` |
+| Lease lost, backend still connected | Lease expiry does not disconnect the backend | `CLOSED` until the backend is observed gone. `NOT_PROVEN` |
+| Old issuer connects again after the new epoch | The old credential must fail to connect | `CLOSED` while that credential works, including `freight`. `NOT_PROVEN` |
+| Two database timelines diverge | One reservation can reach `COMMIT_CONFIRMED` for one `request_id` | `CLOSED` on both. Stopping both writers is `NOT_PROVEN` |
+| An old replica still accepts writes | Promotion has not removed that write path | `CLOSED`. `NOT_PROVEN` |
+| Witness names the new holder, PostgreSQL still accepts the old writer | The stores disagree, so the new epoch does not reserve | `CLOSED`. Rejection of the old writer is `NOT_PROVEN` |
 
 A reservation is one of `RESERVED`, `COMMIT_CONFIRMED`, `ABORT_CONFIRMED`, `IN_DOUBT`, or `PERMANENTLY_DENIED`. `RESERVED` follows a durable unique append. `COMMIT_CONFIRMED` follows an outcome that cites that same reservation and a committed ticket. `ABORT_CONFIRMED` follows proof that the PostgreSQL transaction rolled back and that no commit of that reservation exists. A timeout is not that proof, and a missing HTTP response is not that proof. `IN_DOUBT` follows a crash or an unknown outcome. `PERMANENTLY_DENIED` follows an unknown fate that cannot be proven. `RESERVED` and `IN_DOUBT` are never deleted and never returned to an empty key. `COMMIT_CONFIRMED` and `PERMANENTLY_DENIED` do not change. `IN_DOUBT` becomes `COMMIT_CONFIRMED` only when the matching tombstone is found. The same reservation, after a proven abort, may be resumed into the one PostgreSQL insert. That resume is not a new reservation.
 
@@ -200,7 +221,7 @@ Restore and failover stay `PROPOSED_NOT_IMPLEMENTED`.
 4. A reservation the database lacks is not issued again. Its key stays reserved, denied, or matched to a restored tombstone.
 5. Do not treat the old primary as fenced. `OLD_PRIMARY_FENCING=NOT_PROVEN`. The new epoch does not open the gate.
 6. Two timelines do not both receive `COMMIT_CONFIRMED` for one `request_id`. The witness has one reservation. They can still both write through `freight`. That bypass is open.
-7. The gate stays `CLOSED` until the reservation history and a PostgreSQL epoch check are both proven. Neither is proven. The issuer does not open the gate because a person approved it or because the table is present.
+7. The gate stays `CLOSED` until handover leaves `HANDOVER_PENDING` by the observations in phase D. Those observations are not proven. A PostgreSQL epoch value is not that fence. The issuer does not open the gate because a person approved it or because the table is present.
 
 Promoting a lagging replica closes the gate. Split-brain closes both sides for new reservations. A lost, rewound, or unreachable witness leaves the gate `CLOSED`. A configuration change after the restore does not open it.
 
@@ -211,12 +232,12 @@ The issuer still checks the gateway signature, the access token, the operation s
 Transaction A, the first issuance:
 
 1. Check the gateway signature, the access token, the issuer operation scope, and `issuer_namespace_id`.
-2. Check that the issuance gate is open and that this process holds the current fencing epoch. A closed gate stops the transaction here.
+2. Check that the issuance gate is open, that handover is not pending, and that this process holds the current fencing epoch. A larger epoch number does not pass while an old credential can still connect. A closed gate stops the transaction here.
 3. Append one reservation for `(issuer_namespace_id, request_id)` to the witness.
 4. Continue only after that append is durable and the state is `RESERVED`.
 5. Begin the PostgreSQL transaction.
 6. Insert the ticket and the idempotency tombstone together.
-7. In that same transaction, lock the epoch row and require it to equal the reservation epoch. A local flag is not this step. This lock is `PROPOSED_NOT_IMPLEMENTED` and is not a proven fence.
+7. Read the epoch in this transaction if the row exists. That read does not make a later epoch change reject this `COMMIT`, and it is not atomic with the witness.
 8. `COMMIT` the ticket and the tombstone.
 9. Append the outcome. `COMMIT_CONFIRMED` cites that reservation and that `ticket_id`.
 10. Send the HTTP response only after the outcome is `COMMIT_CONFIRMED`. If the outcome is not confirmed, the response has no ticket id and is not a new grant.
@@ -294,7 +315,8 @@ Each row fails closed when the authority is missing.
 - A missing idempotency row is not first issuance. The witness reservation is. The unique constraint on `(issuer_namespace_id, request_id)` remains for a database that still has the row. `gateway_key_id` is not that namespace.
 - That unique key, the original signing key, and `payload_hash` are a tombstone. They are not deleted at `ticket.expires_at`, at the end of the signature window, or when the signing key rotates. One `request_id` is not a second ticket.
 - Issuer restart, failover, and restore handling are `PROPOSED_NOT_IMPLEMENTED`. A stale restore closes issuance. The external witness is not installed. The document object store is not that witness. Two commits are not one atomic operation. A reservation is not released on a timeout.
-- `OLD_PRIMARY_FENCING=NOT_PROVEN`. A lease timeout is not proof that an old transaction will fail its `COMMIT`. A person's approval does not open the gate. Direct SQL as `freight` bypasses an uninstalled epoch lock.
+- `OLD_PRIMARY_FENCING=NOT_PROVEN`. An epoch-row lock does not reject the holder's `COMMIT`. A lease timeout does not end the backend. A terminate request is not proof the backend is gone. A person's approval does not open the gate.
+- `WITNESS_FAILURE_DOMAIN=NOT_PROVEN`. A path outside the PostgreSQL data directory is not that proof. `HANDOVER_PENDING` keeps the gate closed for both epochs.
 - `issuer_namespace_id` is not a switch. A new identifier does not make a used `request_id` a new authority.
 - `X-Internal-Service-Token` is not gateway authentication.
 - Sharing the `freight` password with a second process and naming that process "issuer" does not split the principal. Compose still uses that login.
