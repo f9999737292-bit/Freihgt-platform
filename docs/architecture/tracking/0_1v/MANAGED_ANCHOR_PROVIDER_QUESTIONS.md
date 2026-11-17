@@ -6,7 +6,7 @@ The questions are the gaps in `MANAGED_ANCHOR_SECURITY_MATRIX.md`. A marketing c
 
 ## C1 — Microsoft, Azure Confidential Ledger
 
-1. After the write API returns success, is the entry durable on a majority of ledger nodes before that response, and which receipt field is the acknowledgement?
+1. `waitForCommit=true` on preview API `2026-07-31-preview` is already documented: the response follows commit and can include the receipt, support must enable it, and a dropped connection can leave a committed write that a retry duplicates. What remains open is whether "committed" means a durable majority before the response, and which receipt field is the acknowledgement when the connection completes. Do not treat the preview flag as a pilot approval.
 2. Can a caller condition the write on an application predecessor, so sequence `N+1` is accepted only when the stored record is exactly `(namespace, incarnation, N, predecessor_digest)`?
 3. Can any identity, including the subscription Owner and a Microsoft operator, restore the ledger to an earlier transaction or delete a committed entry without deleting the whole resource?
 4. The overview says control-plane deletion is a hard delete. Is there a lock, legal hold, or support process that prevents the subscription Owner from deleting the resource for a stated retention period?
@@ -27,7 +27,7 @@ No suitability question remains. PITR restore and table deletion are already doc
 
 ## C4 — Google Cloud Storage, locked retention
 
-1. Can the project owner, or a Google operator, delete the project or restore a snapshot while a locked bucket still holds objects inside their retention period?
+1. The bucket-lock page already documents the project path: locking the policy places a lien, the project owner or an organization administrator can remove it, and the lien is what blocks `resourcemanager.projects.delete`. Removing the lien does not remove the locked retention policy. What remains open is whether a later project delete, or a snapshot restore, destroys objects that have not met retention, and whether a Google operator can do that without the customer removing the lien.
 2. Can a write be rejected unless the object body contains the exact next application sequence, rather than only matching an object generation?
 3. If retention forbids replacing an object, how should a checkpoint advance without creating a second name that an administrator can point readers at?
 4. On a regional outage, can recovered objects omit a write that had already returned success?

@@ -13,13 +13,13 @@ PR #390 requires a durable acknowledgement of the exact next `(namespace, incarn
 | Gate | Result |
 | --- | --- |
 | A product whose data plane rejects a lower sequence | Not documented. DynamoDB and the two object stores can condition a write on a key, an ETag, or a generation. None of those is the BINTRANS sequence. |
-| A product whose owner cannot delete or rewind acknowledged history | Not documented. Confidential Ledger hard-deletes from the control plane. DynamoDB restores from PITR. S3 compliance mode still documents account deletion, and a delete marker changes the current name. Cloud Storage blocks early object replacement and leaves project deletion `NOT_VERIFIED`. Rekor detects a split view only for a witness that kept the old checkpoint. |
+| A product whose owner cannot delete or rewind acknowledged history | Not documented. Confidential Ledger hard-deletes from the control plane. DynamoDB restores from PITR. S3 compliance mode still documents account deletion, and a delete marker changes the current name. Cloud Storage blocks early object replacement. Locking the policy adds a project lien, and the project owner or an organization administrator can remove that lien and then delete the project. Removing the lien does not unlock the bucket policy. Rekor detects a split view only for a witness that kept the old checkpoint. |
 | A published price for the best-documented candidate | `PRICE_NOT_VERIFIED` for Azure Confidential Ledger. |
 | An isolated host | PR #391: `AVAILABLE` isolated hosts were zero, and the third existing server is `NOT_SUITABLE`. |
 
-`BEST_DOCUMENTED_CANDIDATE=C1` Azure Confidential Ledger. It is the candidate to put the questions to. It is not a candidate to deploy.
+`BEST_DOCUMENTED_CANDIDATE=AZURE_CONFIDENTIAL_LEDGER_NOT_APPROVED`. The preview parameter `waitForCommit=true` documents a response after commit. It does not approve a pilot. Exact successor, retry idempotency, and subscription hard delete stay open.
 
-`LOWEST_VERIFIED_COST=C2` DynamoDB, $0.75 per 1,000,000 confirmations on the published US East (N. Virginia) example rates, under the assumptions in the cost model. Price does not make it an anchor.
+`LOWEST_VERIFIED_COST=C2` DynamoDB. `DYNAMODB_0_75_USD_PER_MILLION=ONE_WRITE_PLUS_ONE_STRONG_READ_ONLY` on the published US East (N. Virginia) example rates. `DYNAMODB_FULL_ANCHOR_COST=NOT_VERIFIED`. Price does not make it an anchor. The figures were not recalculated.
 
 ## What a later go would require
 
