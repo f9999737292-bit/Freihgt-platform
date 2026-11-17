@@ -66,6 +66,13 @@ Ownership of `transport.transport_execution_active_shipments` is `NOT_PROVEN` (`
 | Unknown ticket status | `ISSUE_DENIED_UNKNOWN_STATUS` |
 | Insert error other than the unique conflict | Rollback. No ticket and no idempotency row |
 | Same `request_id` with a different operation | `ISSUE_DENIED_PAYLOAD_MISMATCH` |
+| Retry after `REVOKED`, `EXPIRED`, or `CONSUMED` | Denied. The tombstone remains. No second ticket |
+| Retry after `ticket.expires_at` while the signature window is still open | `ISSUE_DENIED_EXPIRED`. The row is still there |
+| Retry after the signature window | Denied. The tombstone remains |
+| Same `request_id` signed again | Denied. `request_id` is not reused for a new ticket |
+| Cleanup runs during a retry | No second ticket. Cleanup does not delete the unique key and locks the idempotency row before the ticket |
+| Cleanup runs during a first insert of that same key | The unique key, once committed, still conflicts. Cleanup does not remove it |
+| Tombstone still stored | A later insert of that pair does not commit a new ticket |
 | Writer calls the issuer function | `42501` |
 | Writer `SET ROLE binding_authority_issuer` | Denied |
 | Ticket for another tenant | Consume denied, no write |

@@ -133,13 +133,28 @@ The signed payload contains:
 - operation, tenant claim, shipment, and execution scope
 - `signed_at` and a short signature expiry
 
-The issuer checks the signature expiry against its own clock. A stale signature fails even when `request_id` is new. The access-token `exp` is a second, independent check.
+The issuer checks the signature against its own clock. `signed_at` in the future by more than the clock-skew allowance fails. `signed_at` older than the signature lifetime plus that allowance fails, including when `request_id` has not been stored yet. The caller's timestamp is not enough. The access-token `exp` is a separate check. `ticket.expires_at` is the lifetime of an issued authority. It is not the signature lifetime and it is not how long the idempotency key is kept.
 
 The idempotency key is `(gateway_key_id, request_id)`. PostgreSQL enforces it with a unique constraint. Go checking the key before the insert does not. Both columns are `NOT NULL`. A `NULL` is not a key, and it must not be stored. A missing `gateway_key_id` or `request_id` is `ISSUE_DENIED_AUTH` and writes nothing.
 
 The idempotency row stores `ticket_id`, which is `NOT NULL` and references that ticket. The ticket insert and the idempotency insert are one transaction. A deferred check at commit rejects a ticket that has no idempotency row. A failure rolls both back. No migration number is reserved for this table.
 
-The row stays after `REVOKED`, `EXPIRED`, and `CONSUMED`. Those status changes do not delete it. It remains at least until the ticket `expires_at`. A purge before that time is not part of this contract. While the row exists, the unique key still blocks a second ticket for that pair.
+`(gateway_key_id, request_id)` is single-use for the life of the issuer. A later request does not receive a second ticket for that pair. The gateway signing the same `request_id` again, with a new `signed_at`, is that later request. The old signature's lifetime does not make the key reusable.
+
+Two retention shapes were compared. A bounded row, deleted when the signature window ends, is not enough. After the delete, the issuer cannot tell a new `request_id` from one it has already used, and a new signature of the old `request_id` would pass the signature check and insert a second ticket. `ticket.expires_at` is a shorter clock than that window whenever the ticket expires first, so it is not the retention bound either.
+
+The selected record is a tombstone. After `REVOKED`, `EXPIRED`, or `CONSUMED`, the unique key, `ticket_id`, and the status needed for the denial stay. Status changes do not delete them. Cleanup may drop the access token and the rest of the signed payload only after the signature window has ended. It does not delete the unique key. A full delete is not part of this contract, because no remaining check can reject the same `request_id` once the row is gone.
+
+While a request with that `request_id` can still pass the signature, token, and operation checks, the row that blocks a second ticket stays. That includes a ticket that is already expired and a signature that is still inside its window. The four stored outcomes are:
+
+| Stored state | Result |
+| --- | --- |
+| Ticket expired, tombstone present | `ISSUE_DENIED_EXPIRED`. No second ticket |
+| Ticket `REVOKED` or `CONSUMED`, tombstone present | `ISSUE_DENIED_REVOKED` or `ISSUE_DENIED_CONSUMED` |
+| Ticket expired and the row removed while the old signature is still acceptable | Forbidden. The row is not removed. Without it the issuer cannot refuse and avoid a second insert |
+| Same `request_id` signed again | Denied. The tombstone is the record of prior use. A different payload hash is `ISSUE_DENIED_PAYLOAD_MISMATCH` |
+
+Cleanup locks the idempotency row `FOR UPDATE` and then the ticket, the same order as a retry. It does not lock the ticket first. Revocation locks only the ticket, so cleanup waits for that lock and then leaves the tombstone. A cleanup that deleted the key would let an insert of the same pair commit. This cleanup does not delete it, so the unique index still conflicts. A concurrent first insert of a new pair is unchanged: the unique constraint admits one commit. A retry after a lost HTTP response reads the tombstone in a new transaction and does not insert another ticket.
 
 `SELECT ... FOR UPDATE` does not lock a row that is not there. Two first issuances of the same pair can both see no row. The unique constraint is what stops the second commit.
 
@@ -221,6 +236,7 @@ Each row fails closed when the authority is missing.
 - The gateway signature, the issuer revalidation, and the request-id store are `PROPOSED`. They are not running.
 - A stored ticket is returned only for `ISSUE_REPLAY_ISSUED`. `REVOKED`, `EXPIRED`, `CONSUMED`, an elapsed `expires_at`, and an unknown status are denials.
 - A lock of an absent idempotency row is not the first-issuance barrier. The unique constraint on `(gateway_key_id, request_id)` is.
+- That unique key is a tombstone. It is not deleted at `ticket.expires_at` or at the end of the signature window. `request_id` is not reused for a second ticket.
 - `X-Internal-Service-Token` is not gateway authentication.
 - Sharing the `freight` password with a second process and naming that process "issuer" does not split the principal. Compose still uses that login.
 - `iss`, `aud`, token revocation, and the issuer's operation check are `NOT_PROVEN`.
