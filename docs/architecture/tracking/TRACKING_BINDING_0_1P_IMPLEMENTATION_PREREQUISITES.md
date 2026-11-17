@@ -13,9 +13,10 @@ These statements are a checklist for a later change. They are not SQL to run now
 | `binding_authority_issuer` | `LOGIN`, non-superuser, `NOINHERIT`, `NOBYPASSRLS`. Password only on the issuer process. |
 | `binding_authority_owner` | `NOLOGIN`, non-superuser. Owns functions, ticket table, and audit table. Does not own the execution or active-link tables. |
 | `binding_authority_caller` | `LOGIN`, non-superuser, `NOINHERIT`. The shipment writer pool. |
+| `binding_authority_fencing` | Future `LOGIN`, non-superuser, `NOINHERIT`. Not created. Not the issuer, the owner, the caller, or `freight`. Runs handover only. |
 | Issuer `EXECUTE` | Granted to `binding_authority_issuer` only. Revoked from `PUBLIC`, `freight`, `shipment_runtime`, and `binding_authority_caller`. |
 | Consume `EXECUTE` | Granted to `binding_authority_caller` only. |
-| Membership | No `GRANT issuer TO caller`, no `GRANT owner TO caller`, no `GRANT issuer TO freight`. |
+| Membership | No `GRANT issuer TO caller`, no `GRANT owner TO caller`, no `GRANT issuer TO freight`, and no `GRANT` of `binding_authority_fencing` to those roles. |
 | `SET ROLE` | Caller is not a member, so `SET ROLE` to the issuer or the owner fails. |
 | Ticket and audit DML | Writer has no `INSERT` or `UPDATE`. Issuer inserts tickets. The owner function updates the ticket to `CONSUMED` and inserts `audit.ticket_id`. |
 | Execution and link DML | Table `INSERT` and the sensitive `UPDATE` leave `shipment_runtime` only when the consume function replaces those writes. Removing them first stops `Project`. |
@@ -92,7 +93,11 @@ The witness reservation, the fencing epoch, the namespace transition, and the un
 | PostgreSQL `COMMIT` before the witness outcome | The reservation blocks a second ticket. No HTTP grant until `COMMIT_CONFIRMED` |
 | Crash after PostgreSQL `COMMIT` | Outcome becomes `IN_DOUBT` or `COMMIT_CONFIRMED`. No second ticket |
 | Epoch 10 transaction still open | Its `COMMIT` is not rejected by the epoch-row lock. The gate stays `CLOSED` |
-| Handover requested | State `HANDOVER_PENDING`. Neither epoch receives a new reservation |
+| Handover requested | State `HANDOVER_PENDING`. Neither epoch receives a new reservation. The gate stays `CLOSED` |
+| Backend count before the reconnect ban | Quiesce does not start. Gate `CLOSED` |
+| `REVOKE CONNECT` without a failed login | Not a confirmed ban. Gate `CLOSED` |
+| Ban confirmed, then the old identity connects | Stay in `HANDOVER_PENDING`. No new epoch |
+| `freight` connects during handover | The ban is not confirmed. Gate `CLOSED`. `OLD_PRIMARY_FENCING` stays `NOT_PROVEN` |
 | Old backend termination requested | The request is not proof the backend is gone. The gate stays `CLOSED` until a later observation |
 | Open transaction ends by rollback | The reservation stays. No second ticket |
 | Old credential connects again | Connection denied only when that denial is observed. Until then the gate stays `CLOSED` |
