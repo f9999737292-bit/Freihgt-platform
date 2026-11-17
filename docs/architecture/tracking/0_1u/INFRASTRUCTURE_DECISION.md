@@ -1,6 +1,6 @@
 # 0.1U: Infrastructure decision
 
-Status: `REQUIRES_PROVIDER_VERIFICATION`. No class is purchased, deployed, or approved for implementation.
+Status: `PENDING`. The three-server check is in `THREE_SERVER_INDEPENDENCE.md`. S3 is `NOT_SUITABLE` as an anchor. A managed log at a second provider has no confirmed product, specification, or price. No class is purchased, deployed, or approved for implementation.
 
 `RECOMMENDED_CLASS=B_MANAGED_OUTSIDE_BINTRANS_ADMIN`.
 That is a class to verify next. It is not a statement that a managed log solves P3B.
@@ -54,4 +54,4 @@ No price was available. A provider that cannot state a price can still be examin
 | A named managed log that meets checks 1–7 | `NOT_VERIFIED` |
 | A price for that log | `NOT_VERIFIED` |
 
-`INFRASTRUCTURE_DECISION=REQUIRES_PROVIDER_VERIFICATION`.
+`INFRASTRUCTURE_DECISION=PENDING`.
