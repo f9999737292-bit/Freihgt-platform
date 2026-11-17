@@ -1,0 +1,16 @@
+__M135__
+__M139__
+__M142__
+__M144__
+__M145__
+__M148__
+ERROR:  40001: could not serialize access due to concurrent update
+CONTEXT:  SQL statement "SELECT epoch, holder                            FROM proof.issuance_epoch WHERE issuer_namespace_id = p_ns FOR UPDATE"
+PL/pgSQL function proof.issue_ticket(text,text,text,bigint) line 15 at SQL statement
+LOCATION:  ExecLockRows, nodeLockRows.c:226
+__M150__
+__M151__
+ERROR:  P0001: STALE_EPOCH expected=1 current=2
+CONTEXT:  PL/pgSQL function proof.issue_ticket(text,text,text,bigint) line 18 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+__M154__

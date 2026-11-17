@@ -1,0 +1,1 @@
+docker exec -i bintrans-proof-0-1q-2b0867f3 sh -c cat > "$PGDATA/pg_hba.conf"

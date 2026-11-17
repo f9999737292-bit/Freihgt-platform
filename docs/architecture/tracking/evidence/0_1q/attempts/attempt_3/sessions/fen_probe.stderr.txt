@@ -1,0 +1,5 @@
+ERROR:  42501: permission denied to terminate process
+DETAIL:  Only roles with the SUPERUSER attribute may terminate processes of roles with the SUPERUSER attribute.
+CONTEXT:  SQL function "probe_terminate_any" statement 1
+LOCATION:  pg_terminate_backend, signalfuncs.c:233
+__M171__

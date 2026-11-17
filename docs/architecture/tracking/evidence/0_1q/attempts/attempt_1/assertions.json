@@ -1,0 +1,1547 @@
+[
+  {
+    "id": "T01-LOGIN-proof_issuer_login",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_issuer_login logs in with its own credentials; session_user = current_user = proof_issuer_login",
+    "observed": {
+      "connected": true,
+      "value": "proof_issuer_login,proof_issuer_login,154"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-LOGIN-proof_issuer_b_login",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_issuer_b_login logs in with its own credentials; session_user = current_user = proof_issuer_b_login",
+    "observed": {
+      "connected": true,
+      "value": "proof_issuer_b_login,proof_issuer_b_login,161"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-LOGIN-proof_writer_login",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_writer_login logs in with its own credentials; session_user = current_user = proof_writer_login",
+    "observed": {
+      "connected": true,
+      "value": "proof_writer_login,proof_writer_login,168"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-LOGIN-proof_other_service_login",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_other_service_login logs in with its own credentials; session_user = current_user = proof_other_service_login",
+    "observed": {
+      "connected": true,
+      "value": "proof_other_service_login,proof_other_service_login,175"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-LOGIN-proof_fencing_login",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_fencing_login logs in with its own credentials; session_user = current_user = proof_fencing_login",
+    "observed": {
+      "connected": true,
+      "value": "proof_fencing_login,proof_fencing_login,182"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-LOGIN-proof_fencing_direct_login",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_fencing_direct_login logs in with its own credentials; session_user = current_user = proof_fencing_direct_login",
+    "observed": {
+      "connected": true,
+      "value": "proof_fencing_direct_login,proof_fencing_direct_login,189"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-LOGIN-proof_shared_login",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_shared_login logs in with its own credentials; session_user = current_user = proof_shared_login",
+    "observed": {
+      "connected": true,
+      "value": "proof_shared_login,proof_shared_login,196"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-NOLOGIN-proof_authority_owner",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "DENIAL",
+    "description": "proof_authority_owner is NOLOGIN; login is rejected with 28000",
+    "observed": {
+      "connected": false,
+      "sqlstate": "28000",
+      "stderr": "psql: error: connection to server at \"127.0.0.1\", port 5432 failed: FATAL:  role \"proof_authority_owner\" is not permitted to log in\n"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-NOLOGIN-proof_fence_owner",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "DENIAL",
+    "description": "proof_fence_owner is NOLOGIN; login is rejected with 28000",
+    "observed": {
+      "connected": false,
+      "sqlstate": "28000",
+      "stderr": "psql: error: connection to server at \"127.0.0.1\", port 5432 failed: FATAL:  role \"proof_fence_owner\" is not permitted to log in\n"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-RUNTIME-ATTRS",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Runtime logins (issuer, issuer_b, writer, other service, fencing) are LOGIN and have no SUPERUSER/CREATEROLE/CREATEDB/REPLICATION/BYPASSRLS",
+    "observed": {
+      "proof_issuer_login": {
+        "rolname": "proof_issuer_login",
+        "rolcanlogin": true,
+        "rolsuper": false,
+        "rolinherit": false,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolreplication": false,
+        "rolbypassrls": false
+      },
+      "proof_issuer_b_login": {
+        "rolname": "proof_issuer_b_login",
+        "rolcanlogin": true,
+        "rolsuper": false,
+        "rolinherit": false,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolreplication": false,
+        "rolbypassrls": false
+      },
+      "proof_writer_login": {
+        "rolname": "proof_writer_login",
+        "rolcanlogin": true,
+        "rolsuper": false,
+        "rolinherit": false,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolreplication": false,
+        "rolbypassrls": false
+      },
+      "proof_other_service_login": {
+        "rolname": "proof_other_service_login",
+        "rolcanlogin": true,
+        "rolsuper": false,
+        "rolinherit": false,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolreplication": false,
+        "rolbypassrls": false
+      },
+      "proof_fencing_login": {
+        "rolname": "proof_fencing_login",
+        "rolcanlogin": true,
+        "rolsuper": false,
+        "rolinherit": false,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolreplication": false,
+        "rolbypassrls": false
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-OWNERS-NOLOGIN",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Owner roles are NOLOGIN",
+    "observed": {
+      "proof_authority_owner": {
+        "rolname": "proof_authority_owner",
+        "rolcanlogin": false,
+        "rolsuper": false,
+        "rolinherit": false,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolreplication": false,
+        "rolbypassrls": false
+      },
+      "proof_fence_owner": {
+        "rolname": "proof_fence_owner",
+        "rolcanlogin": false,
+        "rolsuper": false,
+        "rolinherit": false,
+        "rolcreaterole": true,
+        "rolcreatedb": false,
+        "rolreplication": false,
+        "rolbypassrls": false
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-NO-MEMBERSHIP",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "No runtime login is a member of, can use the privileges of, or can SET ROLE to any owner, issuer, writer, fencing, shared, or pg_signal_backend role",
+    "observed": "none",
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-NO-AUTH-MEMBERS",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "pg_auth_members has no rows whose member is a runtime login",
+    "observed": "none",
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-SECDEF-SEARCH-PATH",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Every proof/proof_fence function is SECURITY DEFINER with proconfig = {search_path=pg_catalog}",
+    "observed": "none",
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-PUBLIC-EXECUTE",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Only the deliberate counterexample proof.unprotected_issue(text) keeps PUBLIC EXECUTE",
+    "observed": [
+      "proof.unprotected_issue(text)"
+    ],
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-DB-CONNECT",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Main database has no PUBLIC CONNECT; the counterexample database keeps PUBLIC CONNECT",
+    "observed": {
+      "main": {
+        "datname": "proof_0_1q_99e796c3",
+        "datacl": "{proof_admin=CTc/proof_admin,proof_issuer_login=c/proof_admin,proof_issuer_b_login=c/proof_admin,proof_writer_login=c/proof_admin,proof_other_service_login=c/proof_admin,proof_fencing_login=c/proof_admin,proof_fencing_direct_login=c/proof_admin,proof_shared_login=c/proof_admin}",
+        "public_connect": false
+      },
+      "pub": {
+        "datname": "proof_pub_99e796c3",
+        "datacl": null,
+        "public_connect": true
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-NO-PROTECTED-DML",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "No runtime login has INSERT/UPDATE/DELETE/TRUNCATE on tickets, issuance_epoch, handover_state, allowlist",
+    "observed": "none",
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-ISSUER-NO-BUSINESS",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Issuer logins can only SELECT proof.issuance_epoch; no business-table rights",
+    "observed": [
+      {
+        "role": "proof_issuer_b_login",
+        "table": "proof.issuance_epoch",
+        "select": true,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false
+      },
+      {
+        "role": "proof_issuer_login",
+        "table": "proof.issuance_epoch",
+        "select": true,
+        "insert": false,
+        "update": false,
+        "delete": false,
+        "truncate": false
+      }
+    ],
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-WRITER-COLUMNS",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Writer may UPDATE business_rows.note only, not owner_epoch or id",
+    "observed": {
+      "id": false,
+      "note": true,
+      "owner_epoch": false
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-EXECUTE-MATRIX",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "EXECUTE matrix matches the model: issuer=issue only, writer=consume only, fencing=handover/fence only, other service=none (plus PUBLIC counterexample)",
+    "observed": "none",
+    "result": "PASS"
+  },
+  {
+    "id": "T01-CAT-NO-SCHEMA-CREATE",
+    "test": "T01_IDENTITY_CATALOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "No runtime login has CREATE on proof, proof_fence, or public",
+    "observed": "none",
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_writer_login-1",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_writer_login: SET ROLE proof_issuer_login is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_issuer_login\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_writer_login-2",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_writer_login: SET ROLE proof_authority_owner is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_authority_owner\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_writer_login-3",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_writer_login: SET ROLE proof_fencing_login is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_fencing_login\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_writer_login-4",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_writer_login: SET ROLE proof_fence_owner is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_fence_owner\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_writer_login-5",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_writer_login: SET SESSION AUTHORIZATION proof_issuer_login is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set session authorization \"proof_issuer_login\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_writer_login-IDENTITY",
+    "test": "T02_SET_ROLE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_writer_login: session_user and current_user unchanged after denied SET ROLE",
+    "observed": "proof_writer_login,proof_writer_login",
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_issuer_login-1",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_issuer_login: SET ROLE proof_authority_owner is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_authority_owner\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_issuer_login-2",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_issuer_login: SET ROLE proof_writer_login is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_writer_login\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_issuer_login-3",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_issuer_login: SET ROLE proof_fence_owner is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_fence_owner\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_issuer_login-IDENTITY",
+    "test": "T02_SET_ROLE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_issuer_login: session_user and current_user unchanged after denied SET ROLE",
+    "observed": "proof_issuer_login,proof_issuer_login",
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_fencing_login-1",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_fencing_login: SET ROLE proof_issuer_login is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_issuer_login\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_fencing_login-2",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_fencing_login: SET ROLE proof_fence_owner is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_fence_owner\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_fencing_login-3",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_fencing_login: SET ROLE proof_authority_owner is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_authority_owner\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_fencing_login-IDENTITY",
+    "test": "T02_SET_ROLE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_fencing_login: session_user and current_user unchanged after denied SET ROLE",
+    "observed": "proof_fencing_login,proof_fencing_login",
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_fencing_direct_login-1",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_fencing_direct_login: SET ROLE proof_issuer_b_login is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_issuer_b_login\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_fencing_direct_login-IDENTITY",
+    "test": "T02_SET_ROLE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_fencing_direct_login: session_user and current_user unchanged after denied SET ROLE",
+    "observed": "proof_fencing_direct_login,proof_fencing_direct_login",
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_other_service_login-1",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_other_service_login: SET ROLE proof_issuer_login is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_issuer_login\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_other_service_login-2",
+    "test": "T02_SET_ROLE",
+    "kind": "DENIAL",
+    "description": "proof_other_service_login: SET ROLE proof_writer_login is rejected with 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stderr": "ERROR:  42501: permission denied to set role \"proof_writer_login\"\nLOCATION:  call_string_check_hook, guc.c:6781"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T02-proof_other_service_login-IDENTITY",
+    "test": "T02_SET_ROLE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "proof_other_service_login: session_user and current_user unchanged after denied SET ROLE",
+    "observed": "proof_other_service_login,proof_other_service_login",
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-INSERT-TICKET",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "writer INSERT into proof.tickets -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for table tickets\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-UPDATE-TICKET",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "writer UPDATE proof.tickets status -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for table tickets\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-CALL-ISSUE",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "writer calls proof.issue_ticket -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for function issue_ticket\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-CALL-ISSUE-SNAP",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "writer calls proof.issue_ticket_snapshot -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for function issue_ticket_snapshot\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-UPDATE-EPOCH-COL",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "writer UPDATE business_rows.owner_epoch (sensitive column) -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for table business_rows\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-UPDATE-NOTE",
+    "test": "T03_DIRECT_DML",
+    "kind": "POSITIVE_CONTROL",
+    "description": "writer UPDATE business_rows.note (granted column) -> succeeds",
+    "observed": {
+      "sqlstates": [],
+      "stdout": "UPDATE 1",
+      "stderr": ""
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-DELETE",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "writer DELETE business_rows -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for table business_rows\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-EPOCH",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "writer UPDATE proof.issuance_epoch -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for table issuance_epoch\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-HANDOVER",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "writer calls proof.set_handover -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for function set_handover\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-FENCE",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "writer calls proof_fence.deny_login -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for schema proof_fence\nLINE 1: SELECT proof_fence.deny_login('proof_issuer_login');\n               ^\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-CREATE-FN",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "writer CREATE FUNCTION in schema proof -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for schema proof\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-CONSUME",
+    "test": "T03_DIRECT_DML",
+    "kind": "POSITIVE_CONTROL",
+    "description": "writer calls proof.consume_ticket (granted) -> succeeds",
+    "observed": {
+      "sqlstates": [],
+      "stdout": " consume_ticket \n----------------\n f\n(1 row)\n",
+      "stderr": ""
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-W-UNPROTECTED",
+    "test": "T03_DIRECT_DML",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "COUNTEREXAMPLE: writer calls proof.unprotected_issue (PUBLIC EXECUTE left at default) -> succeeds",
+    "observed": {
+      "sqlstates": [],
+      "stdout": " unprotected_issue \n-------------------\n                 1\n(1 row)\n",
+      "stderr": ""
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-I-INSERT-TICKET",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "issuer INSERT into proof.tickets directly -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for table tickets\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-I-UPDATE-EPOCH",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "issuer UPDATE proof.issuance_epoch directly -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for table issuance_epoch\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-I-SELECT-BUSINESS",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "issuer SELECT proof.business_rows -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for table business_rows\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-I-UPDATE-BUSINESS",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "issuer UPDATE proof.business_rows -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for table business_rows\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-I-CONSUME",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "issuer calls proof.consume_ticket -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for function consume_ticket\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-I-FENCE",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "issuer calls proof_fence.census -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for schema proof_fence\nLINE 1: SELECT proof_fence.census('proof_issuer_login');\n               ^\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-O-CALL-ISSUE",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "other service calls proof.issue_ticket -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for function issue_ticket\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-O-SELECT-TICKETS",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "other service SELECT proof.tickets -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for table tickets\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-O-CONTROL-INSERT",
+    "test": "T03_DIRECT_DML",
+    "kind": "POSITIVE_CONTROL",
+    "description": "other service INSERT into its own control table -> succeeds",
+    "observed": {
+      "sqlstates": [],
+      "stdout": "INSERT 0 1",
+      "stderr": ""
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-O-UNPROTECTED",
+    "test": "T03_DIRECT_DML",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "COUNTEREXAMPLE: other service calls proof.unprotected_issue via PUBLIC -> succeeds",
+    "observed": {
+      "sqlstates": [],
+      "stdout": " unprotected_issue \n-------------------\n                 2\n(1 row)\n",
+      "stderr": ""
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-F-INSERT-TICKET",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "fencing INSERT into proof.tickets -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for table tickets\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-F-CALL-ISSUE",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "fencing calls proof.issue_ticket -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied for function issue_ticket\nLOCATION:  aclcheck_error, aclchk.c:2812"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-F-ALTER-PASSWORD",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "fencing ALTER ROLE proof_issuer_login PASSWORD (takeover attempt) -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied to alter role\nDETAIL:  To change another role's password, the current user must have the CREATEROLE attribute and the ADMIN option on the role.\nLOCATION:  AlterRole, user.c:788"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-F-ALTER-NOLOGIN-DIRECT",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "fencing ALTER ROLE proof_issuer_login NOLOGIN directly (outside definer) -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied to alter role\nDETAIL:  Only roles with the CREATEROLE attribute and the ADMIN option on role \"proof_issuer_login\" may alter this role.\nLOCATION:  AlterRole, user.c:780"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-F-SELF-GRANT",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "fencing GRANT proof_issuer_login TO itself -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied to grant role \"proof_issuer_login\"\nDETAIL:  Only roles with the ADMIN option on role \"proof_issuer_login\" may grant this role.\nLOCATION:  check_role_membership_authorization, user.c:2157"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-F-TERMINATE-RAW",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "fencing calls pg_terminate_backend directly on a live other-service backend (no pg_signal_backend) -> 42501",
+    "observed": {
+      "sqlstates": [
+        "42501"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  42501: permission denied to terminate process\nDETAIL:  Only roles with privileges of the role whose process is being terminated or with privileges of the \"pg_signal_backend\" role may terminate this process.\nLOCATION:  pg_terminate_backend, signalfuncs.c:240"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-F-TERMINATE-RAW-VICTIM-ALIVE",
+    "test": "T03_DIRECT_DML",
+    "kind": "POSITIVE_CONTROL",
+    "description": "The other-service backend survives the denied raw terminate",
+    "observed": true,
+    "result": "PASS"
+  },
+  {
+    "id": "T03-I-NO-DIGEST",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "issuer issue_ticket without payload digest -> ISSUE_DENIED_AUTH -> P0001",
+    "observed": {
+      "sqlstates": [
+        "P0001"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  P0001: ISSUE_DENIED_AUTH missing_digest\nCONTEXT:  PL/pgSQL function proof.issue_ticket(text,text,text,bigint) line 9 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3897"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-I-ISSUE-OK",
+    "test": "T03_DIRECT_DML",
+    "kind": "POSITIVE_CONTROL",
+    "description": "issuer issue_ticket with digest and current epoch (granted path) -> succeeds",
+    "observed": {
+      "sqlstates": [],
+      "stdout": " issue_ticket \n--------------\n            3\n(1 row)\n",
+      "stderr": ""
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-I-DUPLICATE",
+    "test": "T03_DIRECT_DML",
+    "kind": "DENIAL",
+    "description": "issuer issue_ticket same (ns, request_id) again -> unique violation -> 23505",
+    "observed": {
+      "sqlstates": [
+        "23505"
+      ],
+      "stdout": "",
+      "stderr": "ERROR:  23505: duplicate key value violates unique constraint \"tickets_issuer_namespace_id_request_id_key\"\nDETAIL:  Key (issuer_namespace_id, request_id)=(ns-t03, i-ok) already exists.\nCONTEXT:  SQL statement \"INSERT INTO proof.tickets (issuer_namespace_id, request_id, payload_hash, issued_epoch, issued_by)\n  VALUES (p_ns, p_req, p_hash, v_epoch, session_user)\n  RETURNING ticket_id\"\nPL/pgSQL function proof.issue_ticket(text,text,text,bigint) line 23 at SQL statement\nSCHEMA NAME:  proof\nTABLE NAME:  tickets\nCONSTRAINT NAME:  tickets_issuer_namespace_id_request_id_key\nLOCATION:  _bt_check_unique, nbtinsert.c:666"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T03-I-ISSUED-BY",
+    "test": "T03_DIRECT_DML",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Ticket records issued_by = session_user of the issuer login (not the definer owner)",
+    "observed": "proof_issuer_login,1",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-PRE-ISS1-OPEN-TXN",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Old issuer opens a transaction that issues a ticket",
+    "observed": "BEGIN\n issue_ticket \n--------------\n            5\n(1 row)\n",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-PRE-ISS4-OPEN-TXN",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Second old-issuer transaction issues a ticket",
+    "observed": "BEGIN\n issue_ticket \n--------------\n            6\n(1 row)\n",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-PRE-OTHER-OPEN-TXN",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Other service holds an open transaction",
+    "observed": "BEGIN\nINSERT 0 1",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-A-CLOSE",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Fencing controller closes the issuance gates",
+    "observed": "      set_handover       \n-------------------------\n HANDOVER_PENDING:CLOSED\n(1 row)\n\n      set_handover       \n-------------------------\n HANDOVER_PENDING:CLOSED\n(1 row)\n",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-A-NEW-ISSUE-DENIED",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "DENIAL",
+    "description": "A new issuance attempt after CLOSE fails with GATE_CLOSED",
+    "observed": "ERROR:  P0001: GATE_CLOSED ns=ns-main\nCONTEXT:  PL/pgSQL function proof.issue_ticket(text,text,text,bigint) line 13 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3897",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-B-DENY",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Fencing controller sets NOLOGIN on the old issuer via the definer function",
+    "observed": "         deny_login         \n----------------------------\n NOLOGIN:proof_issuer_login\n(1 row)\n",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-B-RECONNECT-DENIED",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "DENIAL",
+    "description": "Old issuer reconnect after ban fails with 28000 (not permitted to log in)",
+    "observed": {
+      "stderr": "psql: error: connection to server at \"127.0.0.1\", port 5432 failed: FATAL:  role \"proof_issuer_login\" is not permitted to log in\n",
+      "exit": 2
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-B-EXISTING-SURVIVES-BAN",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "Existing old-issuer backend with an open transaction stays alive and usable after NOLOGIN",
+    "observed": {
+      "stdout": " ?column? \n----------\n VAL=767\n(1 row)\n",
+      "pid_present": true
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-N4-INFLIGHT-COMMIT",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "Old issuer COMMIT before quiesce succeeds even after CLOSE and DENY (gate/ban are not commit fences)",
+    "observed": {
+      "stdout": "COMMIT",
+      "committed_rows": "1"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-D-POOL-RECONNECT",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "DENIAL",
+    "description": "Five pool reconnects (3 tcp, 2 unix socket) are all denied with 28000",
+    "observed": [
+      {
+        "transport": "tcp",
+        "connected": false,
+        "sqlstate": "28000"
+      },
+      {
+        "transport": "tcp",
+        "connected": false,
+        "sqlstate": "28000"
+      },
+      {
+        "transport": "tcp",
+        "connected": false,
+        "sqlstate": "28000"
+      },
+      {
+        "transport": "socket",
+        "connected": false,
+        "sqlstate": "28000"
+      },
+      {
+        "transport": "socket",
+        "connected": false,
+        "sqlstate": "28000"
+      }
+    ],
+    "result": "PASS"
+  },
+  {
+    "id": "T04-C-CENSUS-EXACT",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Census by role OID returns exactly the four old-issuer backends",
+    "observed": {
+      "census": [
+        333,
+        334,
+        335,
+        336
+      ],
+      "expected": [
+        333,
+        334,
+        335,
+        336
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-C-CENSUS-EXCLUDES-OTHERS",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Census excludes the other service (spoofed application_name), writer, and controller",
+    "observed": [
+      333,
+      334,
+      335,
+      336
+    ],
+    "result": "PASS"
+  },
+  {
+    "id": "T04-ORDER-DENY-BEFORE-CENSUS",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "ORDERING",
+    "description": "Deny committed, then reconnect denial observed, then census started",
+    "observed": {
+      "deny_done": "2026-11-17T16:13:01.117133+00:00",
+      "reconnect_denied": "2026-11-17T16:13:01.327467+00:00",
+      "census_sent": "2026-11-17T16:13:02.619765+00:00"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-C-APPNAME-SPOOF",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "A census by application_name would include the other service (spoofed name) and is unsafe",
+    "observed": {
+      "application_name_pids": [
+        333,
+        334,
+        335,
+        336,
+        343
+      ],
+      "other_service_pid": 343
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-C-NO-EPOCH-WITH-OLD-BACKENDS",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "DENIAL",
+    "description": "New epoch is refused while old-issuer backends remain (OLD_BACKENDS_PRESENT)",
+    "observed": "ERROR:  P0001: OLD_BACKENDS_PRESENT holder=proof_issuer_login count=4\nCONTEXT:  PL/pgSQL function proof.transition_epoch(text,bigint,name) line 20 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3897",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-C-WRONG-PID-REFUSED",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "DENIAL",
+    "description": "Controller refuses to terminate a pid not owned by the target role",
+    "observed": "ERROR:  P0001: PID_NOT_OWNED_BY_TARGET pid=343 target=proof_issuer_login\nCONTEXT:  PL/pgSQL function proof_fence.terminate(name,integer) line 9 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3897",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-C-TARGET-NOT-ALLOWLISTED",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "DENIAL",
+    "description": "Controller refuses a non-allowlisted target role",
+    "observed": "ERROR:  P0001: TARGET_NOT_ALLOWLISTED proof_other_service_login\nCONTEXT:  PL/pgSQL function proof_fence.terminate(name,integer) line 4 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3897",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-C-SIGNALS-SENT",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "pg_terminate_backend returned true for every census pid",
+    "observed": {
+      "333": true,
+      "334": true,
+      "335": true,
+      "336": true
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-C-SIGNAL-VS-GONE",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "OBSERVATION",
+    "description": "Was the pid still visible to an independent observer immediately after terminate returned true?",
+    "observed": {
+      "333": false,
+      "334": false,
+      "335": false,
+      "336": false
+    },
+    "result": "OBSERVED"
+  },
+  {
+    "id": "T04-C-BACKENDS-GONE",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Independent observer (separate admin session) confirms all old-issuer pids are gone",
+    "observed": {
+      "remaining": [],
+      "polls": 1
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-C-CLIENTS-SEE-TERMINATION",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Every terminated client observes connection loss (FATAL 57P01 or lost connection) and psql exits",
+    "observed": {
+      "iss1_open_txn": {
+        "done": false,
+        "sqlstates": [
+          "57P01"
+        ],
+        "lost": true,
+        "exit": 2,
+        "stderr": "FATAL:  57P01: terminating connection due to administrator command\nLOCATION:  ProcessInterrupts, postgres.c:3286\nserver closed the connection unexpectedly\n\tThis probably means the server terminated abnormally\n\tbefore or while processing the request.\nconnection to server was lost"
+      },
+      "iss2_pool_idle": {
+        "done": false,
+        "sqlstates": [
+          "57P01"
+        ],
+        "lost": true,
+        "exit": 2,
+        "stderr": "FATAL:  57P01: terminating connection due to administrator command\nLOCATION:  ProcessInterrupts, postgres.c:3286\nserver closed the connection unexpectedly\n\tThis probably means the server terminated abnormally\n\tbefore or while processing the request.\nconnection to server was lost"
+      },
+      "iss3_pool_socket": {
+        "done": false,
+        "sqlstates": [
+          "57P01"
+        ],
+        "lost": true,
+        "exit": 2,
+        "stderr": "FATAL:  57P01: terminating connection due to administrator command\nLOCATION:  ProcessInterrupts, postgres.c:3286\nserver closed the connection unexpectedly\n\tThis probably means the server terminated abnormally\n\tbefore or while processing the request.\nconnection to server was lost"
+      },
+      "iss4_inflight_commit": {
+        "done": false,
+        "sqlstates": [
+          "57P01"
+        ],
+        "lost": true,
+        "exit": 2,
+        "stderr": "FATAL:  57P01: terminating connection due to administrator command\nLOCATION:  ProcessInterrupts, postgres.c:3286\nserver closed the connection unexpectedly\n\tThis probably means the server terminated abnormally\n\tbefore or while processing the request.\nconnection to server was lost"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-B-ISS1-57P01",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "The open-transaction client reports FATAL 57P01 (administrator termination) on COMMIT",
+    "observed": {
+      "done": false,
+      "sqlstates": [
+        "57P01"
+      ],
+      "lost": true,
+      "exit": 2,
+      "stderr": "FATAL:  57P01: terminating connection due to administrator command\nLOCATION:  ProcessInterrupts, postgres.c:3286\nserver closed the connection unexpectedly\n\tThis probably means the server terminated abnormally\n\tbefore or while processing the request.\nconnection to server was lost"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-B-ROLLBACK",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "The terminated open transaction was rolled back (0 rows for req-open-1)",
+    "observed": "0",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-C-OTHER-SERVICES-UNAFFECTED",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Other service (spoofed application_name) and writer sessions survive and commit",
+    "observed": {
+      "other_alive": true,
+      "writer_alive": true,
+      "other_commit": "COMMIT",
+      "other_rows": "1",
+      "writer_update": "UPDATE 1"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-D-TRANSITION",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "After ban + confirmed termination, transition to epoch 2 / proof_issuer_b_login succeeds",
+    "observed": "2",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-E-GATE-STAYS-CLOSED",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "DENIAL",
+    "description": "Gate stays CLOSED because no external witness confirmation exists (witness NOT_RUN)",
+    "observed": {
+      "result": "CLOSED:WITNESS_NOT_CONFIRMED",
+      "gate_state": "CLOSED,TRANSITIONED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T04-E-NEW-HOLDER-BLOCKED",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "DENIAL",
+    "description": "New epoch holder cannot issue while the gate is CLOSED",
+    "observed": "ERROR:  P0001: GATE_CLOSED ns=ns-main\nCONTEXT:  PL/pgSQL function proof.issue_ticket(text,text,text,bigint) line 13 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3897",
+    "result": "PASS"
+  },
+  {
+    "id": "T04-E-OLD-IDENTITY-REJECTED",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "DENIAL",
+    "description": "Old issuer credentials cannot open a session after handover",
+    "observed": [
+      {
+        "transport": "tcp",
+        "stderr": "psql: error: connection to server at \"127.0.0.1\", port 5432 failed: FATAL:  role \"proof_issuer_login\" is not permitted to log in\n"
+      },
+      {
+        "transport": "socket",
+        "stderr": "psql: error: connection to server on socket \"/var/run/postgresql/.s.PGSQL.5432\" failed: FATAL:  role \"proof_issuer_login\" is not permitted to log in\n"
+      }
+    ],
+    "result": "PASS"
+  },
+  {
+    "id": "T04-C-CLIENT-EXIT-CODES",
+    "test": "T04_RECONNECT_FIRST_HANDOVER",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Terminated psql clients exit with code 2 (connection lost)",
+    "observed": {
+      "iss1_open_txn": 2,
+      "iss2_pool_idle": 2,
+      "iss3_pool_socket": 2,
+      "iss4_inflight_commit": 2
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T05-N1-REVOKE-ACTIVE-BACKEND",
+    "test": "T05_INSUFFICIENT_BANS",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "REVOKE CONNECT does not affect an already-open backend; it still issues and commits",
+    "observed": " issue_ticket \n--------------\n            7\n(1 row)\n",
+    "result": "PASS"
+  },
+  {
+    "id": "T05-N1-REVOKE-BLOCKS-NEW",
+    "test": "T05_INSUFFICIENT_BANS",
+    "kind": "DENIAL",
+    "description": "New connection after REVOKE CONNECT fails with 42501",
+    "observed": "psql: error: connection to server at \"127.0.0.1\", port 5432 failed: FATAL:  permission denied for database \"proof_0_1q_99e796c3\"\nDETAIL:  User does not have CONNECT privilege.\n",
+    "result": "PASS"
+  },
+  {
+    "id": "T05-N2-INSUFFICIENT-REVOKE",
+    "test": "T05_INSUFFICIENT_BANS",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "REVOKE CONNECT from one role is insufficient while PUBLIC keeps CONNECT: connection succeeds",
+    "observed": {
+      "value": "proof_issuer_b_login,proof_issuer_b_login,429",
+      "stderr": ""
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T05-N3-SUPERUSER-IGNORES-REVOKE",
+    "test": "T05_INSUFFICIENT_BANS",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "A superuser login ignores REVOKE CONNECT",
+    "observed": {
+      "value": "proof_shared_login,proof_shared_login,436",
+      "stderr": ""
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T06-E1-LOCK-NOT-FENCE",
+    "test": "T06_EPOCH",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "Epoch change waits on the holder's FOR UPDATE lock; the holder still commits under epoch 1, then the epoch becomes 2",
+    "observed": {
+      "changer_wait_event_type": "Lock",
+      "changer_blocked": true,
+      "holder_commit": "COMMIT",
+      "changer_result": "UPDATE 1",
+      "ticket_epoch,current_epoch": "1,2"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T06-E2-STALE-SNAPSHOT-COMMIT",
+    "test": "T06_EPOCH",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "A snapshot read of the epoch commits a ticket under epoch 1 after epoch 2 was committed",
+    "observed": {
+      "issue": " issue_ticket_snapshot \n-----------------------\n                     9\n(1 row)\n",
+      "commit": "COMMIT",
+      "ticket_epoch,current_epoch": "1,2"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T06-E2B-RR-FOR-UPDATE",
+    "test": "T06_EPOCH",
+    "kind": "DENIAL",
+    "description": "FOR UPDATE on a concurrently changed epoch row under RR fails with 40001",
+    "observed": "ERROR:  40001: could not serialize access due to concurrent update\nCONTEXT:  SQL statement \"SELECT epoch, holder                            FROM proof.issuance_epoch WHERE issuer_namespace_id = p_ns FOR UPDATE\"\nPL/pgSQL function proof.issue_ticket(text,text,text,bigint) line 15 at SQL statement\nLOCATION:  ExecLockRows, nodeLockRows.c:226",
+    "result": "PASS"
+  },
+  {
+    "id": "T06-E2C-RC-STALE-REJECTED",
+    "test": "T06_EPOCH",
+    "kind": "DENIAL",
+    "description": "A statement that starts after the epoch change is rejected (STALE_EPOCH)",
+    "observed": "ERROR:  P0001: STALE_EPOCH expected=1 current=2\nCONTEXT:  PL/pgSQL function proof.issue_ticket(text,text,text,bigint) line 18 at RAISE\nLOCATION:  exec_stmt_raise, pl_exec.c:3897",
+    "result": "PASS"
+  },
+  {
+    "id": "T06-E4-UNKNOWN-OUTCOME",
+    "test": "T06_EPOCH",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Controller terminated mid-transition: client never sees COMMIT, epoch unchanged, state HANDOVER_PENDING, gate CLOSED",
+    "observed": {
+      "transition_in_txn": "BEGIN\n  set_handover   \n-----------------\n QUIESCED:CLOSED\n(1 row)\n\n transition_epoch \n------------------\n                2\n(1 row)\n",
+      "terminated": "true",
+      "pid_gone": true,
+      "client_commit_done": false,
+      "client_stderr": "FATAL:  57P01: terminating connection due to administrator command\nLOCATION:  ProcessInterrupts, postgres.c:3286\nserver closed the connection unexpectedly\n\tThis probably means the server terminated abnormally\n\tbefore or while processing the request.\nconnection to server was lost",
+      "persisted": "HANDOVER_PENDING,CLOSED,1,proof_issuer_login",
+      "try_open_gate": "CLOSED:STATE_HANDOVER_PENDING"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T07-E-SHARED-LOGIN-BYPASS",
+    "test": "T07_SHARED_LOGIN_AND_DIRECT_CONTROLLER",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "A shared superuser login bypasses every control: forged direct INSERT, gate reopened, issuer identity assumed, NOLOGIN undone and old issuer reconnects",
+    "observed": {
+      "direct_insert": "INSERT 0 1",
+      "gate_update": "UPDATE 1",
+      "assume_identity": "SET\n                 ?column?                  \n-------------------------------------------\n VAL=proof_issuer_login,proof_issuer_login\n(1 row)\n\nRESET",
+      "alter_login": "ALTER ROLE",
+      "old_issuer_reconnect": "proof_issuer_login,proof_issuer_login,478"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T07-E-SUPERUSER-NOT-TERMINABLE",
+    "test": "T07_SHARED_LOGIN_AND_DIRECT_CONTROLLER",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "pg_signal_backend cannot terminate a superuser backend (42501); the shared login stays connected",
+    "observed": {
+      "stderr": "ERROR:  42501: permission denied to terminate process\nDETAIL:  Only roles with the SUPERUSER attribute may terminate processes of roles with the SUPERUSER attribute.\nCONTEXT:  SQL function \"probe_terminate_any\" statement 1\nLOCATION:  pg_terminate_backend, signalfuncs.c:233",
+      "still_present": true
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T07-F-DIRECT-CONTROLLER-TAKEOVER",
+    "test": "T07_SHARED_LOGIN_AND_DIRECT_CONTROLLER",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "A controller holding CREATEROLE + ADMIN on an issuer role can reset its password and log in as that issuer",
+    "observed": {
+      "alter": "ALTER ROLE",
+      "stderr": "",
+      "login": "proof_issuer_b_login,proof_issuer_b_login,499"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "T07-F-DIRECT-CONTROLLER-SELF-GRANT",
+    "test": "T07_SHARED_LOGIN_AND_DIRECT_CONTROLLER",
+    "kind": "OBSERVATION",
+    "description": "Outcome of a CREATEROLE + ADMIN controller granting the issuer role to itself WITH SET TRUE, then SET ROLE",
+    "observed": {
+      "grant_sqlstates": [],
+      "grant_stdout": "GRANT ROLE",
+      "grant_stderr": "",
+      "set_role_sqlstates": [],
+      "set_role_stdout": "SET\n                      ?column?                       \n-----------------------------------------------------\n VAL=proof_fencing_direct_login,proof_issuer_b_login\n(1 row)\n"
+    },
+    "result": "OBSERVED"
+  },
+  {
+    "id": "T08-LOG-28000",
+    "test": "T08_SERVER_LOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Server log records exactly 8 old-issuer reconnect denials with SQLSTATE 28000 (1 phase-B verification + 5 pool reconnects + 2 post-handover attempts)",
+    "observed": 8,
+    "result": "PASS"
+  },
+  {
+    "id": "T08-LOG-42501",
+    "test": "T08_SERVER_LOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Server log records the REVOKE CONNECT denial for issuer_b with SQLSTATE 42501",
+    "observed": 1,
+    "result": "PASS"
+  },
+  {
+    "id": "T08-LOG-57P01",
+    "test": "T08_SERVER_LOG",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Server log records administrator termination (57P01) for exactly the four old-issuer backends",
+    "observed": 4,
+    "result": "PASS"
+  },
+  {
+    "id": "T09-CONTAINER-REMOVED",
+    "test": "T09_HYGIENE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "The attempt container was removed and no container with its name remains",
+    "observed": true,
+    "result": "PASS"
+  },
+  {
+    "id": "T09-SECRET-SCAN",
+    "test": "T09_HYGIENE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "No generated password value appears in any evidence file of this attempt",
+    "observed": "none",
+    "result": "PASS"
+  }
+]

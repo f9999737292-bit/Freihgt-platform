@@ -1,0 +1,24 @@
+__M74__
+__M78__
+__M80__
+__M82__
+__M92__
+__M94__
+ERROR:  P0001: OLD_BACKENDS_PRESENT holder=proof_issuer_login count=4
+CONTEXT:  PL/pgSQL function proof.transition_epoch(text,bigint,name) line 20 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+__M95__
+ERROR:  P0001: PID_NOT_OWNED_BY_TARGET pid=353 target=proof_issuer_login
+CONTEXT:  PL/pgSQL function proof_fence.terminate(name,integer) line 9 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+__M96__
+ERROR:  P0001: TARGET_NOT_ALLOWLISTED proof_other_service_login
+CONTEXT:  PL/pgSQL function proof_fence.terminate(name,integer) line 4 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+__M97__
+__M98__
+__M100__
+__M102__
+__M104__
+__M117__
+__M118__

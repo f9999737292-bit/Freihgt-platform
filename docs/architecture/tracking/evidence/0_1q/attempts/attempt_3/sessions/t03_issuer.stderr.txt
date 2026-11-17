@@ -1,0 +1,20 @@
+ERROR:  42501: permission denied for table tickets
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M43__
+ERROR:  42501: permission denied for table issuance_epoch
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M44__
+ERROR:  42501: permission denied for table business_rows
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M45__
+ERROR:  42501: permission denied for table business_rows
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M46__
+ERROR:  42501: permission denied for function consume_ticket
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M47__
+ERROR:  42501: permission denied for schema proof_fence
+LINE 1: SELECT proof_fence.census('proof_issuer_login');
+               ^
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M48__

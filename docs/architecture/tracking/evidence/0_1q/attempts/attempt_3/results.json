@@ -1,0 +1,40 @@
+{
+  "t03": {
+    "other_unprotected_ok": true,
+    "writer_unprotected_ok": true
+  },
+  "t04": {
+    "backends_gone": true,
+    "deny_before_census": true,
+    "epoch_refused_with_old_backends": true,
+    "gate_closed": true,
+    "old_identity_rejected": true,
+    "others_unaffected": true,
+    "pids": {
+      "fen_controller": 354,
+      "iss1_open_txn": 337,
+      "iss2_pool_idle": 340,
+      "iss3_pool_socket": 351,
+      "iss4_inflight_commit": 352,
+      "oth_spoofed_appname": 353,
+      "wr_writer": 355
+    },
+    "pool_denied": true,
+    "reconnect_denied": true,
+    "rollback": true
+  },
+  "t05": {
+    "insufficient_revoke_reproduced": true,
+    "revoke_active_commits": true
+  },
+  "t06": {
+    "lock_not_fence": true,
+    "rr_for_update_40001": true,
+    "stale_commit_reproduced": true,
+    "unknown_outcome_closed": true
+  },
+  "t07": {
+    "direct_takeover": true,
+    "shared_bypass": true
+  }
+}

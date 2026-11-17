@@ -1,0 +1,10 @@
+ERROR:  42501: permission denied to set role "proof_authority_owner"
+LOCATION:  call_string_check_hook, guc.c:6781
+__M17__
+ERROR:  42501: permission denied to set role "proof_writer_login"
+LOCATION:  call_string_check_hook, guc.c:6781
+__M18__
+ERROR:  42501: permission denied to set role "proof_fence_owner"
+LOCATION:  call_string_check_hook, guc.c:6781
+__M19__
+__M20__
