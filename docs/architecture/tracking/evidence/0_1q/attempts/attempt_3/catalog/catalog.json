@@ -1,0 +1,1380 @@
+{
+  "column_privileges": [
+    {
+      "column": "id",
+      "role": "proof_fencing_login",
+      "update": false
+    },
+    {
+      "column": "note",
+      "role": "proof_fencing_login",
+      "update": false
+    },
+    {
+      "column": "owner_epoch",
+      "role": "proof_fencing_login",
+      "update": false
+    },
+    {
+      "column": "id",
+      "role": "proof_issuer_b_login",
+      "update": false
+    },
+    {
+      "column": "note",
+      "role": "proof_issuer_b_login",
+      "update": false
+    },
+    {
+      "column": "owner_epoch",
+      "role": "proof_issuer_b_login",
+      "update": false
+    },
+    {
+      "column": "id",
+      "role": "proof_issuer_login",
+      "update": false
+    },
+    {
+      "column": "note",
+      "role": "proof_issuer_login",
+      "update": false
+    },
+    {
+      "column": "owner_epoch",
+      "role": "proof_issuer_login",
+      "update": false
+    },
+    {
+      "column": "id",
+      "role": "proof_other_service_login",
+      "update": false
+    },
+    {
+      "column": "note",
+      "role": "proof_other_service_login",
+      "update": false
+    },
+    {
+      "column": "owner_epoch",
+      "role": "proof_other_service_login",
+      "update": false
+    },
+    {
+      "column": "id",
+      "role": "proof_writer_login",
+      "update": false
+    },
+    {
+      "column": "note",
+      "role": "proof_writer_login",
+      "update": true
+    },
+    {
+      "column": "owner_epoch",
+      "role": "proof_writer_login",
+      "update": false
+    }
+  ],
+  "databases": [
+    {
+      "datacl": "{proof_admin=CTc/proof_admin,proof_issuer_login=c/proof_admin,proof_issuer_b_login=c/proof_admin,proof_writer_login=c/proof_admin,proof_other_service_login=c/proof_admin,proof_fencing_login=c/proof_admin,proof_fencing_direct_login=c/proof_admin,proof_shared_login=c/proof_admin}",
+      "datname": "proof_0_1q_a08c1aa0",
+      "public_connect": false
+    },
+    {
+      "datacl": null,
+      "datname": "proof_pub_a08c1aa0",
+      "public_connect": true
+    }
+  ],
+  "db_connect": [
+    {
+      "connect": false,
+      "datname": "proof_0_1q_a08c1aa0",
+      "role": "proof_authority_owner"
+    },
+    {
+      "connect": true,
+      "datname": "proof_pub_a08c1aa0",
+      "role": "proof_authority_owner"
+    },
+    {
+      "connect": false,
+      "datname": "proof_0_1q_a08c1aa0",
+      "role": "proof_fence_owner"
+    },
+    {
+      "connect": true,
+      "datname": "proof_pub_a08c1aa0",
+      "role": "proof_fence_owner"
+    },
+    {
+      "connect": true,
+      "datname": "proof_0_1q_a08c1aa0",
+      "role": "proof_fencing_direct_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_pub_a08c1aa0",
+      "role": "proof_fencing_direct_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_0_1q_a08c1aa0",
+      "role": "proof_fencing_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_pub_a08c1aa0",
+      "role": "proof_fencing_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_0_1q_a08c1aa0",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_pub_a08c1aa0",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_0_1q_a08c1aa0",
+      "role": "proof_issuer_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_pub_a08c1aa0",
+      "role": "proof_issuer_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_0_1q_a08c1aa0",
+      "role": "proof_other_service_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_pub_a08c1aa0",
+      "role": "proof_other_service_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_0_1q_a08c1aa0",
+      "role": "proof_shared_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_pub_a08c1aa0",
+      "role": "proof_shared_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_0_1q_a08c1aa0",
+      "role": "proof_writer_login"
+    },
+    {
+      "connect": true,
+      "datname": "proof_pub_a08c1aa0",
+      "role": "proof_writer_login"
+    }
+  ],
+  "function_execute": [
+    {
+      "execute": false,
+      "function": "proof.consume_ticket(bigint)",
+      "role": "proof_fencing_login"
+    },
+    {
+      "execute": true,
+      "function": "proof_fence.census(name)",
+      "role": "proof_fencing_login"
+    },
+    {
+      "execute": true,
+      "function": "proof_fence.deny_login(name)",
+      "role": "proof_fencing_login"
+    },
+    {
+      "execute": true,
+      "function": "proof_fence.terminate(name,integer)",
+      "role": "proof_fencing_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.issue_ticket_snapshot(text,text,text,bigint)",
+      "role": "proof_fencing_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.issue_ticket(text,text,text,bigint)",
+      "role": "proof_fencing_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.set_handover(text,text)",
+      "role": "proof_fencing_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.transition_epoch(text,bigint,name)",
+      "role": "proof_fencing_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.try_open_gate(text)",
+      "role": "proof_fencing_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.unprotected_issue(text)",
+      "role": "proof_fencing_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.consume_ticket(bigint)",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.census(name)",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.deny_login(name)",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.terminate(name,integer)",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.issue_ticket_snapshot(text,text,text,bigint)",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.issue_ticket(text,text,text,bigint)",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.set_handover(text,text)",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.transition_epoch(text,bigint,name)",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.try_open_gate(text)",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.unprotected_issue(text)",
+      "role": "proof_issuer_b_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.consume_ticket(bigint)",
+      "role": "proof_issuer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.census(name)",
+      "role": "proof_issuer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.deny_login(name)",
+      "role": "proof_issuer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.terminate(name,integer)",
+      "role": "proof_issuer_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.issue_ticket_snapshot(text,text,text,bigint)",
+      "role": "proof_issuer_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.issue_ticket(text,text,text,bigint)",
+      "role": "proof_issuer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.set_handover(text,text)",
+      "role": "proof_issuer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.transition_epoch(text,bigint,name)",
+      "role": "proof_issuer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.try_open_gate(text)",
+      "role": "proof_issuer_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.unprotected_issue(text)",
+      "role": "proof_issuer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.consume_ticket(bigint)",
+      "role": "proof_other_service_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.census(name)",
+      "role": "proof_other_service_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.deny_login(name)",
+      "role": "proof_other_service_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.terminate(name,integer)",
+      "role": "proof_other_service_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.issue_ticket_snapshot(text,text,text,bigint)",
+      "role": "proof_other_service_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.issue_ticket(text,text,text,bigint)",
+      "role": "proof_other_service_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.set_handover(text,text)",
+      "role": "proof_other_service_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.transition_epoch(text,bigint,name)",
+      "role": "proof_other_service_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.try_open_gate(text)",
+      "role": "proof_other_service_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.unprotected_issue(text)",
+      "role": "proof_other_service_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.consume_ticket(bigint)",
+      "role": "proof_writer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.census(name)",
+      "role": "proof_writer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.deny_login(name)",
+      "role": "proof_writer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof_fence.terminate(name,integer)",
+      "role": "proof_writer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.issue_ticket_snapshot(text,text,text,bigint)",
+      "role": "proof_writer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.issue_ticket(text,text,text,bigint)",
+      "role": "proof_writer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.set_handover(text,text)",
+      "role": "proof_writer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.transition_epoch(text,bigint,name)",
+      "role": "proof_writer_login"
+    },
+    {
+      "execute": false,
+      "function": "proof.try_open_gate(text)",
+      "role": "proof_writer_login"
+    },
+    {
+      "execute": true,
+      "function": "proof.unprotected_issue(text)",
+      "role": "proof_writer_login"
+    }
+  ],
+  "functions": [
+    {
+      "function": "proof_fence.deny_login(name)",
+      "owner": "proof_fence_owner",
+      "proacl": "{proof_fence_owner=X/proof_fence_owner,proof_fencing_login=X/proof_fence_owner}",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "prosecdef": true,
+      "public_execute": false
+    },
+    {
+      "function": "proof_fence.census(name)",
+      "owner": "proof_fence_owner",
+      "proacl": "{proof_fence_owner=X/proof_fence_owner,proof_fencing_login=X/proof_fence_owner}",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "prosecdef": true,
+      "public_execute": false
+    },
+    {
+      "function": "proof_fence.terminate(name,integer)",
+      "owner": "proof_fence_owner",
+      "proacl": "{proof_fence_owner=X/proof_fence_owner,proof_fencing_login=X/proof_fence_owner}",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "prosecdef": true,
+      "public_execute": false
+    },
+    {
+      "function": "proof.unprotected_issue(text)",
+      "owner": "proof_authority_owner",
+      "proacl": null,
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "prosecdef": true,
+      "public_execute": true
+    },
+    {
+      "function": "proof.issue_ticket(text,text,text,bigint)",
+      "owner": "proof_authority_owner",
+      "proacl": "{proof_authority_owner=X/proof_authority_owner,proof_issuer_login=X/proof_authority_owner,proof_issuer_b_login=X/proof_authority_owner}",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "prosecdef": true,
+      "public_execute": false
+    },
+    {
+      "function": "proof.issue_ticket_snapshot(text,text,text,bigint)",
+      "owner": "proof_authority_owner",
+      "proacl": "{proof_authority_owner=X/proof_authority_owner,proof_issuer_login=X/proof_authority_owner,proof_issuer_b_login=X/proof_authority_owner}",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "prosecdef": true,
+      "public_execute": false
+    },
+    {
+      "function": "proof.consume_ticket(bigint)",
+      "owner": "proof_authority_owner",
+      "proacl": "{proof_authority_owner=X/proof_authority_owner,proof_writer_login=X/proof_authority_owner}",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "prosecdef": true,
+      "public_execute": false
+    },
+    {
+      "function": "proof.set_handover(text,text)",
+      "owner": "proof_authority_owner",
+      "proacl": "{proof_authority_owner=X/proof_authority_owner,proof_fencing_login=X/proof_authority_owner}",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "prosecdef": true,
+      "public_execute": false
+    },
+    {
+      "function": "proof.transition_epoch(text,bigint,name)",
+      "owner": "proof_authority_owner",
+      "proacl": "{proof_authority_owner=X/proof_authority_owner,proof_fencing_login=X/proof_authority_owner}",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "prosecdef": true,
+      "public_execute": false
+    },
+    {
+      "function": "proof.try_open_gate(text)",
+      "owner": "proof_authority_owner",
+      "proacl": "{proof_authority_owner=X/proof_authority_owner,proof_fencing_login=X/proof_authority_owner}",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "prosecdef": true,
+      "public_execute": false
+    }
+  ],
+  "hba": [
+    {
+      "address": null,
+      "auth_method": "trust",
+      "database": [
+        "all"
+      ],
+      "error": null,
+      "line": 1,
+      "type": "local",
+      "user_name": [
+        "proof_admin"
+      ]
+    },
+    {
+      "address": null,
+      "auth_method": "scram-sha-256",
+      "database": [
+        "all"
+      ],
+      "error": null,
+      "line": 2,
+      "type": "local",
+      "user_name": [
+        "all"
+      ]
+    },
+    {
+      "address": "127.0.0.1",
+      "auth_method": "scram-sha-256",
+      "database": [
+        "all"
+      ],
+      "error": null,
+      "line": 3,
+      "type": "host",
+      "user_name": [
+        "all"
+      ]
+    },
+    {
+      "address": "::1",
+      "auth_method": "scram-sha-256",
+      "database": [
+        "all"
+      ],
+      "error": null,
+      "line": 4,
+      "type": "host",
+      "user_name": [
+        "all"
+      ]
+    }
+  ],
+  "memberships": [
+    {
+      "admin_option": false,
+      "grantor": "proof_admin",
+      "inherit_option": true,
+      "member": "proof_fence_owner",
+      "role": "pg_signal_backend",
+      "set_option": false
+    },
+    {
+      "admin_option": true,
+      "grantor": "proof_admin",
+      "inherit_option": false,
+      "member": "proof_fence_owner",
+      "role": "proof_issuer_b_login",
+      "set_option": false
+    },
+    {
+      "admin_option": true,
+      "grantor": "proof_admin",
+      "inherit_option": false,
+      "member": "proof_fencing_direct_login",
+      "role": "proof_issuer_b_login",
+      "set_option": false
+    },
+    {
+      "admin_option": true,
+      "grantor": "proof_admin",
+      "inherit_option": false,
+      "member": "proof_fence_owner",
+      "role": "proof_issuer_login",
+      "set_option": false
+    }
+  ],
+  "role_matrix": [
+    {
+      "member": false,
+      "role": "proof_fencing_login",
+      "set": false,
+      "target": "pg_signal_backend",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_fencing_login",
+      "set": false,
+      "target": "proof_authority_owner",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_fencing_login",
+      "set": false,
+      "target": "proof_fence_owner",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_fencing_login",
+      "set": false,
+      "target": "proof_issuer_b_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_fencing_login",
+      "set": false,
+      "target": "proof_issuer_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_fencing_login",
+      "set": false,
+      "target": "proof_other_service_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_fencing_login",
+      "set": false,
+      "target": "proof_shared_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_fencing_login",
+      "set": false,
+      "target": "proof_writer_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_b_login",
+      "set": false,
+      "target": "pg_signal_backend",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_b_login",
+      "set": false,
+      "target": "proof_authority_owner",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_b_login",
+      "set": false,
+      "target": "proof_fence_owner",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_b_login",
+      "set": false,
+      "target": "proof_fencing_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_b_login",
+      "set": false,
+      "target": "proof_issuer_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_b_login",
+      "set": false,
+      "target": "proof_other_service_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_b_login",
+      "set": false,
+      "target": "proof_shared_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_b_login",
+      "set": false,
+      "target": "proof_writer_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_login",
+      "set": false,
+      "target": "pg_signal_backend",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_login",
+      "set": false,
+      "target": "proof_authority_owner",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_login",
+      "set": false,
+      "target": "proof_fence_owner",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_login",
+      "set": false,
+      "target": "proof_fencing_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_login",
+      "set": false,
+      "target": "proof_issuer_b_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_login",
+      "set": false,
+      "target": "proof_other_service_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_login",
+      "set": false,
+      "target": "proof_shared_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_issuer_login",
+      "set": false,
+      "target": "proof_writer_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_other_service_login",
+      "set": false,
+      "target": "pg_signal_backend",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_other_service_login",
+      "set": false,
+      "target": "proof_authority_owner",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_other_service_login",
+      "set": false,
+      "target": "proof_fence_owner",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_other_service_login",
+      "set": false,
+      "target": "proof_fencing_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_other_service_login",
+      "set": false,
+      "target": "proof_issuer_b_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_other_service_login",
+      "set": false,
+      "target": "proof_issuer_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_other_service_login",
+      "set": false,
+      "target": "proof_shared_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_other_service_login",
+      "set": false,
+      "target": "proof_writer_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_writer_login",
+      "set": false,
+      "target": "pg_signal_backend",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_writer_login",
+      "set": false,
+      "target": "proof_authority_owner",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_writer_login",
+      "set": false,
+      "target": "proof_fence_owner",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_writer_login",
+      "set": false,
+      "target": "proof_fencing_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_writer_login",
+      "set": false,
+      "target": "proof_issuer_b_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_writer_login",
+      "set": false,
+      "target": "proof_issuer_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_writer_login",
+      "set": false,
+      "target": "proof_other_service_login",
+      "usage": false
+    },
+    {
+      "member": false,
+      "role": "proof_writer_login",
+      "set": false,
+      "target": "proof_shared_login",
+      "usage": false
+    }
+  ],
+  "roles": [
+    {
+      "rolbypassrls": true,
+      "rolcanlogin": true,
+      "rolcreatedb": true,
+      "rolcreaterole": true,
+      "rolinherit": true,
+      "rolname": "proof_admin",
+      "rolreplication": true,
+      "rolsuper": true
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": false,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "proof_authority_owner",
+      "rolreplication": false,
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": false,
+      "rolcreatedb": false,
+      "rolcreaterole": true,
+      "rolinherit": false,
+      "rolname": "proof_fence_owner",
+      "rolreplication": false,
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": true,
+      "rolcreatedb": false,
+      "rolcreaterole": true,
+      "rolinherit": false,
+      "rolname": "proof_fencing_direct_login",
+      "rolreplication": false,
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": true,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "proof_fencing_login",
+      "rolreplication": false,
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": true,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "proof_issuer_b_login",
+      "rolreplication": false,
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": true,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "proof_issuer_login",
+      "rolreplication": false,
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": true,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "proof_other_service_login",
+      "rolreplication": false,
+      "rolsuper": false
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": true,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": true,
+      "rolname": "proof_shared_login",
+      "rolreplication": false,
+      "rolsuper": true
+    },
+    {
+      "rolbypassrls": false,
+      "rolcanlogin": true,
+      "rolcreatedb": false,
+      "rolcreaterole": false,
+      "rolinherit": false,
+      "rolname": "proof_writer_login",
+      "rolreplication": false,
+      "rolsuper": false
+    }
+  ],
+  "schema_privileges": [
+    {
+      "create": false,
+      "role": "proof_fencing_login",
+      "schema": "proof",
+      "usage": true
+    },
+    {
+      "create": false,
+      "role": "proof_fencing_login",
+      "schema": "proof_fence",
+      "usage": true
+    },
+    {
+      "create": false,
+      "role": "proof_fencing_login",
+      "schema": "public",
+      "usage": false
+    },
+    {
+      "create": false,
+      "role": "proof_issuer_b_login",
+      "schema": "proof",
+      "usage": true
+    },
+    {
+      "create": false,
+      "role": "proof_issuer_b_login",
+      "schema": "proof_fence",
+      "usage": false
+    },
+    {
+      "create": false,
+      "role": "proof_issuer_b_login",
+      "schema": "public",
+      "usage": false
+    },
+    {
+      "create": false,
+      "role": "proof_issuer_login",
+      "schema": "proof",
+      "usage": true
+    },
+    {
+      "create": false,
+      "role": "proof_issuer_login",
+      "schema": "proof_fence",
+      "usage": false
+    },
+    {
+      "create": false,
+      "role": "proof_issuer_login",
+      "schema": "public",
+      "usage": false
+    },
+    {
+      "create": false,
+      "role": "proof_other_service_login",
+      "schema": "proof",
+      "usage": true
+    },
+    {
+      "create": false,
+      "role": "proof_other_service_login",
+      "schema": "proof_fence",
+      "usage": false
+    },
+    {
+      "create": false,
+      "role": "proof_other_service_login",
+      "schema": "public",
+      "usage": false
+    },
+    {
+      "create": false,
+      "role": "proof_writer_login",
+      "schema": "proof",
+      "usage": true
+    },
+    {
+      "create": false,
+      "role": "proof_writer_login",
+      "schema": "proof_fence",
+      "usage": false
+    },
+    {
+      "create": false,
+      "role": "proof_writer_login",
+      "schema": "public",
+      "usage": false
+    }
+  ],
+  "server": {
+    "listen_addresses": "*",
+    "log_connections": "on",
+    "password_encryption": "scram-sha-256",
+    "server_version": "16.15 (Debian 16.15-1.pgdg13+2)",
+    "server_version_num": "160015"
+  },
+  "table_privileges": [
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_fencing_login",
+      "select": false,
+      "table": "proof.business_rows",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_fencing_login",
+      "select": false,
+      "table": "proof.control_rows",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_fencing_login",
+      "select": false,
+      "table": "proof_fence.allowlist",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_fencing_login",
+      "select": false,
+      "table": "proof.handover_state",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_fencing_login",
+      "select": false,
+      "table": "proof.issuance_epoch",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_fencing_login",
+      "select": false,
+      "table": "proof.tickets",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_b_login",
+      "select": false,
+      "table": "proof.business_rows",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_b_login",
+      "select": false,
+      "table": "proof.control_rows",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_b_login",
+      "select": false,
+      "table": "proof_fence.allowlist",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_b_login",
+      "select": false,
+      "table": "proof.handover_state",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_b_login",
+      "select": true,
+      "table": "proof.issuance_epoch",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_b_login",
+      "select": false,
+      "table": "proof.tickets",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_login",
+      "select": false,
+      "table": "proof.business_rows",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_login",
+      "select": false,
+      "table": "proof.control_rows",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_login",
+      "select": false,
+      "table": "proof_fence.allowlist",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_login",
+      "select": false,
+      "table": "proof.handover_state",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_login",
+      "select": true,
+      "table": "proof.issuance_epoch",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_issuer_login",
+      "select": false,
+      "table": "proof.tickets",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_other_service_login",
+      "select": false,
+      "table": "proof.business_rows",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": true,
+      "role": "proof_other_service_login",
+      "select": true,
+      "table": "proof.control_rows",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_other_service_login",
+      "select": false,
+      "table": "proof_fence.allowlist",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_other_service_login",
+      "select": false,
+      "table": "proof.handover_state",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_other_service_login",
+      "select": false,
+      "table": "proof.issuance_epoch",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_other_service_login",
+      "select": false,
+      "table": "proof.tickets",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_writer_login",
+      "select": true,
+      "table": "proof.business_rows",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": true,
+      "role": "proof_writer_login",
+      "select": true,
+      "table": "proof.control_rows",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_writer_login",
+      "select": false,
+      "table": "proof_fence.allowlist",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_writer_login",
+      "select": false,
+      "table": "proof.handover_state",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_writer_login",
+      "select": false,
+      "table": "proof.issuance_epoch",
+      "truncate": false,
+      "update": false
+    },
+    {
+      "delete": false,
+      "insert": false,
+      "role": "proof_writer_login",
+      "select": false,
+      "table": "proof.tickets",
+      "truncate": false,
+      "update": false
+    }
+  ]
+}

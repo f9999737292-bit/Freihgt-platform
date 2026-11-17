@@ -1,0 +1,231 @@
+{
+  "epochs": [
+    {
+      "epoch": 2,
+      "holder": "proof_issuer_b_login",
+      "issuer_namespace_id": "ns-e1"
+    },
+    {
+      "epoch": 2,
+      "holder": "proof_issuer_b_login",
+      "issuer_namespace_id": "ns-e2"
+    },
+    {
+      "epoch": 2,
+      "holder": "proof_issuer_b_login",
+      "issuer_namespace_id": "ns-e2b"
+    },
+    {
+      "epoch": 2,
+      "holder": "proof_issuer_b_login",
+      "issuer_namespace_id": "ns-e2c"
+    },
+    {
+      "epoch": 1,
+      "holder": "proof_issuer_login",
+      "issuer_namespace_id": "ns-e4"
+    },
+    {
+      "epoch": 2,
+      "holder": "proof_issuer_b_login",
+      "issuer_namespace_id": "ns-main"
+    },
+    {
+      "epoch": 1,
+      "holder": "proof_issuer_login",
+      "issuer_namespace_id": "ns-n4"
+    },
+    {
+      "epoch": 1,
+      "holder": "proof_issuer_b_login",
+      "issuer_namespace_id": "ns-revoke"
+    },
+    {
+      "epoch": 1,
+      "holder": "proof_issuer_login",
+      "issuer_namespace_id": "ns-t03"
+    }
+  ],
+  "handover": [
+    {
+      "gate": "OPEN",
+      "issuer_namespace_id": "ns-e1",
+      "new_holder": null,
+      "old_holder": null,
+      "state": "OPEN",
+      "witness_confirmed": false
+    },
+    {
+      "gate": "OPEN",
+      "issuer_namespace_id": "ns-e2",
+      "new_holder": null,
+      "old_holder": null,
+      "state": "OPEN",
+      "witness_confirmed": false
+    },
+    {
+      "gate": "OPEN",
+      "issuer_namespace_id": "ns-e2b",
+      "new_holder": null,
+      "old_holder": null,
+      "state": "OPEN",
+      "witness_confirmed": false
+    },
+    {
+      "gate": "OPEN",
+      "issuer_namespace_id": "ns-e2c",
+      "new_holder": null,
+      "old_holder": null,
+      "state": "OPEN",
+      "witness_confirmed": false
+    },
+    {
+      "gate": "CLOSED",
+      "issuer_namespace_id": "ns-e4",
+      "new_holder": null,
+      "old_holder": null,
+      "state": "HANDOVER_PENDING",
+      "witness_confirmed": false
+    },
+    {
+      "gate": "OPEN",
+      "issuer_namespace_id": "ns-main",
+      "new_holder": "proof_issuer_b_login",
+      "old_holder": "proof_issuer_login",
+      "state": "TRANSITIONED",
+      "witness_confirmed": false
+    },
+    {
+      "gate": "CLOSED",
+      "issuer_namespace_id": "ns-n4",
+      "new_holder": null,
+      "old_holder": null,
+      "state": "HANDOVER_PENDING",
+      "witness_confirmed": false
+    },
+    {
+      "gate": "OPEN",
+      "issuer_namespace_id": "ns-revoke",
+      "new_holder": null,
+      "old_holder": null,
+      "state": "OPEN",
+      "witness_confirmed": false
+    },
+    {
+      "gate": "OPEN",
+      "issuer_namespace_id": "ns-t03",
+      "new_holder": null,
+      "old_holder": null,
+      "state": "OPEN",
+      "witness_confirmed": false
+    }
+  ],
+  "roles": [
+    {
+      "rolcanlogin": true,
+      "rolname": "proof_admin"
+    },
+    {
+      "rolcanlogin": false,
+      "rolname": "proof_authority_owner"
+    },
+    {
+      "rolcanlogin": false,
+      "rolname": "proof_fence_owner"
+    },
+    {
+      "rolcanlogin": true,
+      "rolname": "proof_fencing_direct_login"
+    },
+    {
+      "rolcanlogin": true,
+      "rolname": "proof_fencing_login"
+    },
+    {
+      "rolcanlogin": true,
+      "rolname": "proof_issuer_b_login"
+    },
+    {
+      "rolcanlogin": true,
+      "rolname": "proof_issuer_login"
+    },
+    {
+      "rolcanlogin": true,
+      "rolname": "proof_other_service_login"
+    },
+    {
+      "rolcanlogin": true,
+      "rolname": "proof_shared_login"
+    },
+    {
+      "rolcanlogin": true,
+      "rolname": "proof_writer_login"
+    }
+  ],
+  "tickets": [
+    {
+      "issued_by": "proof_writer_login",
+      "issued_epoch": 0,
+      "issuer_namespace_id": "ns-unprotected",
+      "request_id": "writer-via-public",
+      "status": "ISSUED",
+      "ticket_id": 1
+    },
+    {
+      "issued_by": "proof_other_service_login",
+      "issued_epoch": 0,
+      "issuer_namespace_id": "ns-unprotected",
+      "request_id": "other-via-public",
+      "status": "ISSUED",
+      "ticket_id": 2
+    },
+    {
+      "issued_by": "proof_issuer_login",
+      "issued_epoch": 1,
+      "issuer_namespace_id": "ns-t03",
+      "request_id": "i-ok",
+      "status": "ISSUED",
+      "ticket_id": 3
+    },
+    {
+      "issued_by": "proof_issuer_login",
+      "issued_epoch": 1,
+      "issuer_namespace_id": "ns-n4",
+      "request_id": "req-n4",
+      "status": "ISSUED",
+      "ticket_id": 6
+    },
+    {
+      "issued_by": "proof_issuer_b_login",
+      "issued_epoch": 1,
+      "issuer_namespace_id": "ns-revoke",
+      "request_id": "req-r1",
+      "status": "ISSUED",
+      "ticket_id": 7
+    },
+    {
+      "issued_by": "proof_issuer_b_login",
+      "issued_epoch": 1,
+      "issuer_namespace_id": "ns-e1",
+      "request_id": "req-e1",
+      "status": "ISSUED",
+      "ticket_id": 8
+    },
+    {
+      "issued_by": "proof_issuer_b_login",
+      "issued_epoch": 1,
+      "issuer_namespace_id": "ns-e2",
+      "request_id": "req-e2",
+      "status": "ISSUED",
+      "ticket_id": 9
+    },
+    {
+      "issued_by": "proof_issuer_login",
+      "issued_epoch": 1,
+      "issuer_namespace_id": "ns-main",
+      "request_id": "req-shared-direct",
+      "status": "ISSUED",
+      "ticket_id": 10
+    }
+  ]
+}

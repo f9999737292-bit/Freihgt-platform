@@ -1,0 +1,35 @@
+BEGIN
+ issue_ticket 
+--------------
+            8
+(1 row)
+
+__M135__
+COMMIT
+__M139__
+BEGIN
+ epoch 
+-------
+     1
+(1 row)
+
+__M142__
+ issue_ticket_snapshot 
+-----------------------
+                     9
+(1 row)
+
+__M144__
+COMMIT
+__M145__
+BEGIN
+ epoch 
+-------
+     1
+(1 row)
+
+__M148__
+__M150__
+ROLLBACK
+__M151__
+__M154__

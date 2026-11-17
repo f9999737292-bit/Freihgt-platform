@@ -1,0 +1,164 @@
+[
+  {
+    "attempt": 1,
+    "container": "bintrans-proof-0-1q-99e796c3",
+    "counts": {
+      "OBSERVED": 2,
+      "PASS": 119
+    },
+    "failed": [],
+    "image_id": "sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+    "network_mode": "none",
+    "port_bindings": "{}",
+    "removed": true,
+    "results": {
+      "t03": {
+        "other_unprotected_ok": true,
+        "writer_unprotected_ok": true
+      },
+      "t04": {
+        "backends_gone": true,
+        "deny_before_census": true,
+        "epoch_refused_with_old_backends": true,
+        "gate_closed": true,
+        "old_identity_rejected": true,
+        "others_unaffected": true,
+        "pids": {
+          "fen_controller": 345,
+          "iss1_open_txn": 333,
+          "iss2_pool_idle": 334,
+          "iss3_pool_socket": 335,
+          "iss4_inflight_commit": 336,
+          "oth_spoofed_appname": 343,
+          "wr_writer": 344
+        },
+        "pool_denied": true,
+        "reconnect_denied": true,
+        "rollback": true
+      },
+      "t05": {
+        "insufficient_revoke_reproduced": true,
+        "revoke_active_commits": true
+      },
+      "t06": {
+        "lock_not_fence": true,
+        "rr_for_update_40001": true,
+        "stale_commit_reproduced": true,
+        "unknown_outcome_closed": true
+      },
+      "t07": {
+        "direct_takeover": true,
+        "shared_bypass": true
+      }
+    },
+    "server_version": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit"
+  },
+  {
+    "attempt": 2,
+    "container": "bintrans-proof-0-1q-2b0867f3",
+    "counts": {
+      "OBSERVED": 2,
+      "PASS": 119
+    },
+    "failed": [],
+    "image_id": "sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+    "network_mode": "none",
+    "port_bindings": "{}",
+    "removed": true,
+    "results": {
+      "t03": {
+        "other_unprotected_ok": true,
+        "writer_unprotected_ok": true
+      },
+      "t04": {
+        "backends_gone": true,
+        "deny_before_census": true,
+        "epoch_refused_with_old_backends": true,
+        "gate_closed": true,
+        "old_identity_rejected": true,
+        "others_unaffected": true,
+        "pids": {
+          "fen_controller": 349,
+          "iss1_open_txn": 316,
+          "iss2_pool_idle": 339,
+          "iss3_pool_socket": 346,
+          "iss4_inflight_commit": 347,
+          "oth_spoofed_appname": 348,
+          "wr_writer": 350
+        },
+        "pool_denied": true,
+        "reconnect_denied": true,
+        "rollback": true
+      },
+      "t05": {
+        "insufficient_revoke_reproduced": true,
+        "revoke_active_commits": true
+      },
+      "t06": {
+        "lock_not_fence": true,
+        "rr_for_update_40001": true,
+        "stale_commit_reproduced": true,
+        "unknown_outcome_closed": true
+      },
+      "t07": {
+        "direct_takeover": true,
+        "shared_bypass": true
+      }
+    },
+    "server_version": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit"
+  },
+  {
+    "attempt": 3,
+    "container": "bintrans-proof-0-1q-a08c1aa0",
+    "counts": {
+      "OBSERVED": 2,
+      "PASS": 119
+    },
+    "failed": [],
+    "image_id": "sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+    "network_mode": "none",
+    "port_bindings": "{}",
+    "removed": true,
+    "results": {
+      "t03": {
+        "other_unprotected_ok": true,
+        "writer_unprotected_ok": true
+      },
+      "t04": {
+        "backends_gone": true,
+        "deny_before_census": true,
+        "epoch_refused_with_old_backends": true,
+        "gate_closed": true,
+        "old_identity_rejected": true,
+        "others_unaffected": true,
+        "pids": {
+          "fen_controller": 354,
+          "iss1_open_txn": 337,
+          "iss2_pool_idle": 340,
+          "iss3_pool_socket": 351,
+          "iss4_inflight_commit": 352,
+          "oth_spoofed_appname": 353,
+          "wr_writer": 355
+        },
+        "pool_denied": true,
+        "reconnect_denied": true,
+        "rollback": true
+      },
+      "t05": {
+        "insufficient_revoke_reproduced": true,
+        "revoke_active_commits": true
+      },
+      "t06": {
+        "lock_not_fence": true,
+        "rr_for_update_40001": true,
+        "stale_commit_reproduced": true,
+        "unknown_outcome_closed": true
+      },
+      "t07": {
+        "direct_takeover": true,
+        "shared_bypass": true
+      }
+    },
+    "server_version": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit"
+  }
+]

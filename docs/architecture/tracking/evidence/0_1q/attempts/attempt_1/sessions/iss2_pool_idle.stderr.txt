@@ -1,0 +1,11 @@
+__M69__
+ERROR:  P0001: GATE_CLOSED ns=ns-main
+CONTEXT:  PL/pgSQL function proof.issue_ticket(text,text,text,bigint) line 13 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+__M79__
+FATAL:  57P01: terminating connection due to administrator command
+LOCATION:  ProcessInterrupts, postgres.c:3286
+server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+connection to server was lost

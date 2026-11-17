@@ -1,0 +1,24 @@
+    v    
+---------
+ VAL=467
+(1 row)
+
+__M156__
+      set_handover       
+-------------------------
+ HANDOVER_PENDING:CLOSED
+(1 row)
+
+__M157__
+BEGIN
+  set_handover   
+-----------------
+ QUIESCED:CLOSED
+(1 row)
+
+ transition_epoch 
+------------------
+                2
+(1 row)
+
+__M158__

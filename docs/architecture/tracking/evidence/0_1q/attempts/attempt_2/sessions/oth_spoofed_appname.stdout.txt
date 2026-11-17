@@ -1,0 +1,11 @@
+    v    
+---------
+ VAL=348
+(1 row)
+
+__M72__
+BEGIN
+INSERT 0 1
+__M77__
+COMMIT
+__M114__

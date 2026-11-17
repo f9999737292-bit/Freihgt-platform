@@ -1,0 +1,35 @@
+ERROR:  42501: permission denied for table tickets
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M30__
+ERROR:  42501: permission denied for table tickets
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M31__
+ERROR:  42501: permission denied for function issue_ticket
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M32__
+ERROR:  42501: permission denied for function issue_ticket_snapshot
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M33__
+ERROR:  42501: permission denied for table business_rows
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M34__
+__M35__
+ERROR:  42501: permission denied for table business_rows
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M36__
+ERROR:  42501: permission denied for table issuance_epoch
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M37__
+ERROR:  42501: permission denied for function set_handover
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M38__
+ERROR:  42501: permission denied for schema proof_fence
+LINE 1: SELECT proof_fence.deny_login('proof_issuer_login');
+               ^
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M39__
+ERROR:  42501: permission denied for schema proof
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M40__
+__M41__
+__M42__

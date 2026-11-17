@@ -1,0 +1,4 @@
+ERROR:  42501: permission denied to set role "proof_issuer_b_login"
+LOCATION:  call_string_check_hook, guc.c:6781
+__M25__
+__M26__

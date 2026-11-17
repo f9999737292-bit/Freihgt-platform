@@ -1,0 +1,8 @@
+ERROR:  42501: permission denied for function issue_ticket
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M49__
+ERROR:  42501: permission denied for table tickets
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M50__
+__M51__
+__M52__

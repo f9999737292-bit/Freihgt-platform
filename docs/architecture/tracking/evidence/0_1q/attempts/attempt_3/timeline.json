@@ -1,0 +1,672 @@
+[
+  {
+    "t": "2026-11-17T16:13:45.879702+00:00",
+    "mono": 453221.781,
+    "event": "container_started",
+    "container": "bintrans-proof-0-1q-a08c1aa0"
+  },
+  {
+    "t": "2026-11-17T16:13:52.845490+00:00",
+    "mono": 453228.75,
+    "event": "postgres_ready"
+  },
+  {
+    "t": "2026-11-17T16:13:54.817216+00:00",
+    "mono": 453230.718,
+    "event": "session_start",
+    "session": "adm_observer",
+    "role": "proof_admin",
+    "transport": "socket",
+    "application_name": "proof-observer"
+  },
+  {
+    "t": "2026-11-17T16:13:55.019795+00:00",
+    "mono": 453230.921,
+    "event": "session_pid",
+    "session": "adm_observer",
+    "role": "proof_admin",
+    "pid": 158
+  },
+  {
+    "t": "2026-11-17T16:13:55.252687+00:00",
+    "mono": 453231.156,
+    "event": "connect_attempt",
+    "label": "proof_issuer_login login",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "connected": true,
+    "sqlstate": null
+  },
+  {
+    "t": "2026-11-17T16:13:55.464935+00:00",
+    "mono": 453231.359,
+    "event": "connect_attempt",
+    "label": "proof_issuer_b_login login",
+    "role": "proof_issuer_b_login",
+    "transport": "tcp",
+    "connected": true,
+    "sqlstate": null
+  },
+  {
+    "t": "2026-11-17T16:13:55.675441+00:00",
+    "mono": 453231.578,
+    "event": "connect_attempt",
+    "label": "proof_writer_login login",
+    "role": "proof_writer_login",
+    "transport": "tcp",
+    "connected": true,
+    "sqlstate": null
+  },
+  {
+    "t": "2026-11-17T16:13:55.899737+00:00",
+    "mono": 453231.796,
+    "event": "connect_attempt",
+    "label": "proof_other_service_login login",
+    "role": "proof_other_service_login",
+    "transport": "tcp",
+    "connected": true,
+    "sqlstate": null
+  },
+  {
+    "t": "2026-11-17T16:13:56.429514+00:00",
+    "mono": 453232.328,
+    "event": "connect_attempt",
+    "label": "proof_fencing_login login",
+    "role": "proof_fencing_login",
+    "transport": "tcp",
+    "connected": true,
+    "sqlstate": null
+  },
+  {
+    "t": "2026-11-17T16:13:56.775172+00:00",
+    "mono": 453232.671,
+    "event": "connect_attempt",
+    "label": "proof_fencing_direct_login login",
+    "role": "proof_fencing_direct_login",
+    "transport": "tcp",
+    "connected": true,
+    "sqlstate": null
+  },
+  {
+    "t": "2026-11-17T16:13:57.001453+00:00",
+    "mono": 453232.906,
+    "event": "connect_attempt",
+    "label": "proof_shared_login login",
+    "role": "proof_shared_login",
+    "transport": "tcp",
+    "connected": true,
+    "sqlstate": null
+  },
+  {
+    "t": "2026-11-17T16:13:57.219067+00:00",
+    "mono": 453233.125,
+    "event": "connect_attempt",
+    "label": "proof_authority_owner login attempt",
+    "role": "proof_authority_owner",
+    "transport": "tcp",
+    "connected": false,
+    "sqlstate": "28000"
+  },
+  {
+    "t": "2026-11-17T16:13:57.426112+00:00",
+    "mono": 453233.328,
+    "event": "connect_attempt",
+    "label": "proof_fence_owner login attempt",
+    "role": "proof_fence_owner",
+    "transport": "tcp",
+    "connected": false,
+    "sqlstate": "28000"
+  },
+  {
+    "t": "2026-11-17T16:13:57.673536+00:00",
+    "mono": 453233.578,
+    "event": "session_start",
+    "session": "t02_proof_writer_login",
+    "role": "proof_writer_login",
+    "transport": "tcp",
+    "application_name": "proof-t02"
+  },
+  {
+    "t": "2026-11-17T16:13:58.102271+00:00",
+    "mono": 453234.0,
+    "event": "session_start",
+    "session": "t02_proof_issuer_login",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "application_name": "proof-t02"
+  },
+  {
+    "t": "2026-11-17T16:13:58.539597+00:00",
+    "mono": 453234.437,
+    "event": "session_start",
+    "session": "t02_proof_fencing_login",
+    "role": "proof_fencing_login",
+    "transport": "tcp",
+    "application_name": "proof-t02"
+  },
+  {
+    "t": "2026-11-17T16:13:58.996521+00:00",
+    "mono": 453234.89,
+    "event": "session_start",
+    "session": "t02_proof_fencing_direct_login",
+    "role": "proof_fencing_direct_login",
+    "transport": "tcp",
+    "application_name": "proof-t02"
+  },
+  {
+    "t": "2026-11-17T16:13:59.424616+00:00",
+    "mono": 453235.328,
+    "event": "session_start",
+    "session": "t02_proof_other_service_login",
+    "role": "proof_other_service_login",
+    "transport": "tcp",
+    "application_name": "proof-t02"
+  },
+  {
+    "t": "2026-11-17T16:13:59.875065+00:00",
+    "mono": 453235.781,
+    "event": "session_start",
+    "session": "t03_writer",
+    "role": "proof_writer_login",
+    "transport": "tcp",
+    "application_name": "proof-writer"
+  },
+  {
+    "t": "2026-11-17T16:14:00.398763+00:00",
+    "mono": 453236.296,
+    "event": "session_start",
+    "session": "t03_issuer",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "application_name": "proof-issuer"
+  },
+  {
+    "t": "2026-11-17T16:14:00.864494+00:00",
+    "mono": 453236.765,
+    "event": "session_start",
+    "session": "t03_other",
+    "role": "proof_other_service_login",
+    "transport": "tcp",
+    "application_name": "proof-other"
+  },
+  {
+    "t": "2026-11-17T16:14:01.320391+00:00",
+    "mono": 453237.218,
+    "event": "session_start",
+    "session": "t03_fencing",
+    "role": "proof_fencing_login",
+    "transport": "tcp",
+    "application_name": "proof-fencing"
+  },
+  {
+    "t": "2026-11-17T16:14:01.526093+00:00",
+    "mono": 453237.421,
+    "event": "session_start",
+    "session": "t03_victim_other",
+    "role": "proof_other_service_login",
+    "transport": "tcp",
+    "application_name": "proof-other"
+  },
+  {
+    "t": "2026-11-17T16:14:01.742881+00:00",
+    "mono": 453237.64,
+    "event": "session_pid",
+    "session": "t03_victim_other",
+    "role": "proof_other_service_login",
+    "pid": 299
+  },
+  {
+    "t": "2026-11-17T16:14:02.260303+00:00",
+    "mono": 453238.156,
+    "event": "session_start",
+    "session": "t03_issuer_fn",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "application_name": "proof-issuer"
+  },
+  {
+    "t": "2026-11-17T16:14:02.766449+00:00",
+    "mono": 453238.671,
+    "event": "session_start",
+    "session": "iss1_open_txn",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "application_name": "proof-issuer"
+  },
+  {
+    "t": "2026-11-17T16:14:02.779374+00:00",
+    "mono": 453238.687,
+    "event": "session_start",
+    "session": "iss2_pool_idle",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "application_name": "proof-issuer"
+  },
+  {
+    "t": "2026-11-17T16:14:02.794081+00:00",
+    "mono": 453238.703,
+    "event": "session_start",
+    "session": "iss3_pool_socket",
+    "role": "proof_issuer_login",
+    "transport": "socket",
+    "application_name": "proof-issuer"
+  },
+  {
+    "t": "2026-11-17T16:14:02.820158+00:00",
+    "mono": 453238.718,
+    "event": "session_start",
+    "session": "iss4_inflight_commit",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "application_name": "proof-issuer"
+  },
+  {
+    "t": "2026-11-17T16:14:02.846050+00:00",
+    "mono": 453238.75,
+    "event": "session_start",
+    "session": "oth_spoofed_appname",
+    "role": "proof_other_service_login",
+    "transport": "tcp",
+    "application_name": "proof-issuer"
+  },
+  {
+    "t": "2026-11-17T16:14:02.879331+00:00",
+    "mono": 453238.781,
+    "event": "session_start",
+    "session": "wr_writer",
+    "role": "proof_writer_login",
+    "transport": "tcp",
+    "application_name": "proof-writer"
+  },
+  {
+    "t": "2026-11-17T16:14:02.914181+00:00",
+    "mono": 453238.812,
+    "event": "session_start",
+    "session": "fen_controller",
+    "role": "proof_fencing_login",
+    "transport": "tcp",
+    "application_name": "proof-fencing"
+  },
+  {
+    "t": "2026-11-17T16:14:03.123011+00:00",
+    "mono": 453239.031,
+    "event": "session_pid",
+    "session": "iss1_open_txn",
+    "role": "proof_issuer_login",
+    "pid": 337
+  },
+  {
+    "t": "2026-11-17T16:14:03.135859+00:00",
+    "mono": 453239.031,
+    "event": "session_pid",
+    "session": "iss2_pool_idle",
+    "role": "proof_issuer_login",
+    "pid": 340
+  },
+  {
+    "t": "2026-11-17T16:14:03.189194+00:00",
+    "mono": 453239.093,
+    "event": "session_pid",
+    "session": "iss3_pool_socket",
+    "role": "proof_issuer_login",
+    "pid": 351
+  },
+  {
+    "t": "2026-11-17T16:14:03.194449+00:00",
+    "mono": 453239.093,
+    "event": "session_pid",
+    "session": "iss4_inflight_commit",
+    "role": "proof_issuer_login",
+    "pid": 352
+  },
+  {
+    "t": "2026-11-17T16:14:03.201993+00:00",
+    "mono": 453239.109,
+    "event": "session_pid",
+    "session": "oth_spoofed_appname",
+    "role": "proof_other_service_login",
+    "pid": 353
+  },
+  {
+    "t": "2026-11-17T16:14:03.224536+00:00",
+    "mono": 453239.125,
+    "event": "session_pid",
+    "session": "wr_writer",
+    "role": "proof_writer_login",
+    "pid": 355
+  },
+  {
+    "t": "2026-11-17T16:14:03.227253+00:00",
+    "mono": 453239.125,
+    "event": "session_pid",
+    "session": "fen_controller",
+    "role": "proof_fencing_login",
+    "pid": 354
+  },
+  {
+    "t": "2026-11-17T16:14:03.242744+00:00",
+    "mono": 453239.14,
+    "event": "phase",
+    "phase": "A_CLOSE"
+  },
+  {
+    "t": "2026-11-17T16:14:03.310221+00:00",
+    "mono": 453239.218,
+    "event": "phase",
+    "phase": "B_DENY_RECONNECT"
+  },
+  {
+    "t": "2026-11-17T16:14:03.317613+00:00",
+    "mono": 453239.218,
+    "event": "deny_committed",
+    "step": 80
+  },
+  {
+    "t": "2026-11-17T16:14:03.558854+00:00",
+    "mono": 453239.453,
+    "event": "connect_attempt",
+    "label": "Phase B: verify reconnect denied (tcp)",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "connected": false,
+    "sqlstate": "28000"
+  },
+  {
+    "t": "2026-11-17T16:14:03.815044+00:00",
+    "mono": 453239.718,
+    "event": "connect_attempt",
+    "label": "pool reconnect tcp #1",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "connected": false,
+    "sqlstate": "28000"
+  },
+  {
+    "t": "2026-11-17T16:14:04.093247+00:00",
+    "mono": 453240.0,
+    "event": "connect_attempt",
+    "label": "pool reconnect tcp #2",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "connected": false,
+    "sqlstate": "28000"
+  },
+  {
+    "t": "2026-11-17T16:14:04.295328+00:00",
+    "mono": 453240.203,
+    "event": "connect_attempt",
+    "label": "pool reconnect tcp #3",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "connected": false,
+    "sqlstate": "28000"
+  },
+  {
+    "t": "2026-11-17T16:14:04.505296+00:00",
+    "mono": 453240.406,
+    "event": "connect_attempt",
+    "label": "pool reconnect socket #1",
+    "role": "proof_issuer_login",
+    "transport": "socket",
+    "connected": false,
+    "sqlstate": "28000"
+  },
+  {
+    "t": "2026-11-17T16:14:04.722604+00:00",
+    "mono": 453240.625,
+    "event": "connect_attempt",
+    "label": "pool reconnect socket #2",
+    "role": "proof_issuer_login",
+    "transport": "socket",
+    "connected": false,
+    "sqlstate": "28000"
+  },
+  {
+    "t": "2026-11-17T16:14:04.722604+00:00",
+    "mono": 453240.625,
+    "event": "phase",
+    "phase": "C_QUIESCE"
+  },
+  {
+    "t": "2026-11-17T16:14:04.756158+00:00",
+    "mono": 453240.656,
+    "event": "terminate_signal_returned",
+    "pid": 337,
+    "returned": true
+  },
+  {
+    "t": "2026-11-17T16:14:04.763015+00:00",
+    "mono": 453240.671,
+    "event": "terminate_signal_returned",
+    "pid": 340,
+    "returned": true
+  },
+  {
+    "t": "2026-11-17T16:14:04.768724+00:00",
+    "mono": 453240.671,
+    "event": "terminate_signal_returned",
+    "pid": 351,
+    "returned": true
+  },
+  {
+    "t": "2026-11-17T16:14:04.775486+00:00",
+    "mono": 453240.671,
+    "event": "terminate_signal_returned",
+    "pid": 352,
+    "returned": true
+  },
+  {
+    "t": "2026-11-17T16:14:04.780884+00:00",
+    "mono": 453240.687,
+    "event": "old_backends_gone_confirmed",
+    "remaining": [],
+    "polls": 1
+  },
+  {
+    "t": "2026-11-17T16:14:04.960878+00:00",
+    "mono": 453240.859,
+    "event": "phase",
+    "phase": "D_TRANSITION"
+  },
+  {
+    "t": "2026-11-17T16:14:04.967480+00:00",
+    "mono": 453240.875,
+    "event": "phase",
+    "phase": "E_OPEN_ATTEMPT"
+  },
+  {
+    "t": "2026-11-17T16:14:04.979521+00:00",
+    "mono": 453240.875,
+    "event": "session_start",
+    "session": "ib_new_holder",
+    "role": "proof_issuer_b_login",
+    "transport": "tcp",
+    "application_name": "proof-issuer-b"
+  },
+  {
+    "t": "2026-11-17T16:14:05.655343+00:00",
+    "mono": 453241.562,
+    "event": "connect_attempt",
+    "label": "old identity after handover (tcp)",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "connected": false,
+    "sqlstate": "28000"
+  },
+  {
+    "t": "2026-11-17T16:14:05.902602+00:00",
+    "mono": 453241.796,
+    "event": "connect_attempt",
+    "label": "old identity after handover (socket)",
+    "role": "proof_issuer_login",
+    "transport": "socket",
+    "connected": false,
+    "sqlstate": "28000"
+  },
+  {
+    "t": "2026-11-17T16:14:07.545532+00:00",
+    "mono": 453243.453,
+    "event": "session_start",
+    "session": "ib1_revoke_active",
+    "role": "proof_issuer_b_login",
+    "transport": "tcp",
+    "application_name": "proof-issuer-b"
+  },
+  {
+    "t": "2026-11-17T16:14:07.765602+00:00",
+    "mono": 453243.671,
+    "event": "session_pid",
+    "session": "ib1_revoke_active",
+    "role": "proof_issuer_b_login",
+    "pid": 425
+  },
+  {
+    "t": "2026-11-17T16:14:07.818969+00:00",
+    "mono": 453243.718,
+    "event": "revoke_connect_committed",
+    "role": "proof_issuer_b_login"
+  },
+  {
+    "t": "2026-11-17T16:14:08.041405+00:00",
+    "mono": 453243.937,
+    "event": "connect_attempt",
+    "label": "issuer_b reconnect main after REVOKE CONNECT",
+    "role": "proof_issuer_b_login",
+    "transport": "tcp",
+    "connected": false,
+    "sqlstate": "42501"
+  },
+  {
+    "t": "2026-11-17T16:14:08.319981+00:00",
+    "mono": 453244.218,
+    "event": "connect_attempt",
+    "label": "issuer_b connect pub db (PUBLIC CONNECT retained)",
+    "role": "proof_issuer_b_login",
+    "transport": "tcp",
+    "connected": true,
+    "sqlstate": null
+  },
+  {
+    "t": "2026-11-17T16:14:08.608163+00:00",
+    "mono": 453244.515,
+    "event": "connect_attempt",
+    "label": "shared superuser connect after REVOKE CONNECT",
+    "role": "proof_shared_login",
+    "transport": "tcp",
+    "connected": true,
+    "sqlstate": null
+  },
+  {
+    "t": "2026-11-17T16:14:08.905963+00:00",
+    "mono": 453244.812,
+    "event": "session_start",
+    "session": "e1_holder",
+    "role": "proof_issuer_b_login",
+    "transport": "tcp",
+    "application_name": "proof-issuer-b"
+  },
+  {
+    "t": "2026-11-17T16:14:08.931346+00:00",
+    "mono": 453244.828,
+    "event": "session_start",
+    "session": "e1_naive_epoch_change",
+    "role": "proof_admin",
+    "transport": "socket",
+    "application_name": "proof-naive-controller"
+  },
+  {
+    "t": "2026-11-17T16:14:09.143215+00:00",
+    "mono": 453245.046,
+    "event": "session_pid",
+    "session": "e1_naive_epoch_change",
+    "role": "proof_admin",
+    "pid": 460
+  },
+  {
+    "t": "2026-11-17T16:14:10.362885+00:00",
+    "mono": 453246.265,
+    "event": "session_start",
+    "session": "e4_controller_crash",
+    "role": "proof_fencing_login",
+    "transport": "tcp",
+    "application_name": "proof-fencing"
+  },
+  {
+    "t": "2026-11-17T16:14:10.576230+00:00",
+    "mono": 453246.484,
+    "event": "session_pid",
+    "session": "e4_controller_crash",
+    "role": "proof_fencing_login",
+    "pid": 467
+  },
+  {
+    "t": "2026-11-17T16:14:10.779733+00:00",
+    "mono": 453246.687,
+    "event": "session_start",
+    "session": "e4_controller_retry",
+    "role": "proof_fencing_login",
+    "transport": "tcp",
+    "application_name": "proof-fencing"
+  },
+  {
+    "t": "2026-11-17T16:14:11.481985+00:00",
+    "mono": 453247.39,
+    "event": "session_start",
+    "session": "sh_shared_superuser",
+    "role": "proof_shared_login",
+    "transport": "tcp",
+    "application_name": "proof-shared"
+  },
+  {
+    "t": "2026-11-17T16:14:11.696140+00:00",
+    "mono": 453247.593,
+    "event": "session_pid",
+    "session": "sh_shared_superuser",
+    "role": "proof_shared_login",
+    "pid": 481
+  },
+  {
+    "t": "2026-11-17T16:14:12.010705+00:00",
+    "mono": 453247.906,
+    "event": "connect_attempt",
+    "label": "old issuer reconnect after shared login undid the ban",
+    "role": "proof_issuer_login",
+    "transport": "tcp",
+    "connected": true,
+    "sqlstate": null
+  },
+  {
+    "t": "2026-11-17T16:14:12.069953+00:00",
+    "mono": 453247.968,
+    "event": "session_start",
+    "session": "fen_probe",
+    "role": "proof_fencing_login",
+    "transport": "tcp",
+    "application_name": "proof-fencing"
+  },
+  {
+    "t": "2026-11-17T16:14:12.790302+00:00",
+    "mono": 453248.687,
+    "event": "session_start",
+    "session": "fd_direct_controller",
+    "role": "proof_fencing_direct_login",
+    "transport": "tcp",
+    "application_name": "proof-fencing-direct"
+  },
+  {
+    "t": "2026-11-17T16:14:13.297888+00:00",
+    "mono": 453249.203,
+    "event": "connect_attempt",
+    "label": "login as issuer_b with controller-chosen password",
+    "role": "proof_issuer_b_login",
+    "transport": "tcp",
+    "connected": true,
+    "sqlstate": null
+  },
+  {
+    "t": "2026-11-17T16:14:14.517684+00:00",
+    "mono": 453250.421,
+    "event": "container_removed",
+    "removed": true
+  }
+]

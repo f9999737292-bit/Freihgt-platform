@@ -1,0 +1,7 @@
+ERROR:  42501: permission denied to set role "proof_issuer_login"
+LOCATION:  call_string_check_hook, guc.c:6781
+__M27__
+ERROR:  42501: permission denied to set role "proof_writer_login"
+LOCATION:  call_string_check_hook, guc.c:6781
+__M28__
+__M29__
