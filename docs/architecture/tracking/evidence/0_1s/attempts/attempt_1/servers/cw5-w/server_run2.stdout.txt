@@ -1,0 +1,11 @@
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "high_water": {"digest": "452e431d6eae6cba436470f48775c59fb83e98bd595d7a2cf45ad666e4105da1", "journal_incarnation": "fa54295a-1284-477c-8a39-d73b7e552907", "seq": 3}, "hw_reason": null, "hw_state": "CONSISTENT", "order": "append_first", "pid": 7580, "records": 3, "t": 1794941366.4566388}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941366.5581744}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941366.7610176}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941366.8573837}
+{"body_ns": "ns-cw5", "body_request_id": "k1", "body_seq": null, "event": "request", "op": "outcome", "principal": "issuer_a", "reason": null, "seq": 4, "status": "APPENDED", "t": 1794941366.8695493}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941366.8695493}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941366.8878164}
+{"body_ns": "ns-cw5", "body_request_id": "k1", "body_seq": null, "event": "request", "op": "outcome", "principal": "operator", "reason": null, "seq": null, "status": "INVALID_TRANSITION", "t": 1794941367.076229}
+{"body_ns": "ns-cw5", "body_request_id": "k1", "body_seq": null, "event": "request", "op": "outcome", "principal": "operator", "reason": null, "seq": 5, "status": "APPENDED", "t": 1794941367.0845735}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941367.1652434}
+{"event": "stopped", "t": 1794941367.165796}

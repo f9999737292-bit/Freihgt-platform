@@ -1,0 +1,10 @@
+{
+  "description": "Journal with the same length but a validly signed, validly chained different record at seq 6",
+  "forged_hash": "8f56ed569abb92163747a2e694ebfb6ae6bc2bfe9fc0dfbf95e4e47bda06ac27",
+  "lines_after": 6,
+  "lines_before": 6,
+  "local_chain_check_on_tampered_journal": "VALID",
+  "operator_checkpoint_deleted": false,
+  "original_hash": "ee0bef8f3d768e62ac70499582bd5b742d3963e92d10245b8a53d77117a397f3",
+  "replaced_seq": 6
+}

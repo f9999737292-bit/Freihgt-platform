@@ -1,0 +1,15 @@
+{"event": "ready", "failed": null, "marks": {}, "pid": 43492, "records": 0, "t": 1794941418.9353752}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": null, "seq": null, "status": "NO_MARK", "t": 1794941419.139982}
+{"body_ns": null, "body_request_id": null, "body_seq": 0, "event": "request", "op": "init", "principal": "witness_svc", "reason": null, "seq": null, "status": "INITIALIZED", "t": 1794941419.1453302}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": null, "seq": null, "status": "OK", "t": 1794941419.1469376}
+{"body_ns": null, "body_request_id": null, "body_seq": 1, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941419.1579955}
+{"body_ns": null, "body_request_id": null, "body_seq": 2, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941419.270894}
+{"body_ns": null, "body_request_id": null, "body_seq": 3, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941419.2819014}
+{"body_ns": null, "body_request_id": null, "body_seq": 4, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941419.291153}
+{"body_ns": null, "body_request_id": null, "body_seq": 5, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941419.3114629}
+{"body_ns": null, "body_request_id": null, "body_seq": 6, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941419.3225787}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941419.323579}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": null, "seq": null, "status": "OK", "t": 1794941419.630453}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941419.8443887}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941420.210425}
+{"event": "stopped", "t": 1794941420.210425}

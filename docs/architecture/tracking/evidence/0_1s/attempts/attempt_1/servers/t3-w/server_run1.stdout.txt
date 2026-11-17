@@ -1,0 +1,13 @@
+{"event": "hw_initialized", "journal_incarnation": "e4c2a601-704f-4e19-84d6-c0759598ef34", "t": 1794941323.5635319}
+{"event": "genesis_written", "journal_incarnation": "e4c2a601-704f-4e19-84d6-c0759598ef34", "t": 1794941323.5709426}
+{"event": "roll_forward", "seq": 1, "t": 1794941323.5762985, "type": "GENESIS"}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "high_water": {"digest": "24de4dde47fd7bd8a055e2445ca0b9c21b83e6d0e6ec505c272f85c62e3464ae", "journal_incarnation": "e4c2a601-704f-4e19-84d6-c0759598ef34", "seq": 1}, "hw_reason": null, "hw_state": "CONSISTENT", "order": "append_first", "pid": 21276, "records": 1, "t": 1794941323.5762985}
+{"body_ns": "ns-t", "body_request_id": null, "body_seq": null, "event": "request", "op": "epoch_set", "principal": "operator", "reason": null, "seq": 2, "status": "EPOCH_SET", "t": 1794941323.6877615}
+{"body_ns": "ns-t", "body_request_id": "k1", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": 3, "status": "RESERVED", "t": 1794941323.6964588}
+{"body_ns": "ns-t", "body_request_id": "k1", "body_seq": null, "event": "request", "op": "outcome", "principal": "issuer_a", "reason": null, "seq": 4, "status": "APPENDED", "t": 1794941323.7061157}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941323.7076397}
+{"body_ns": null, "body_request_id": null, "body_seq": 4, "event": "request", "op": "checkpoint_accept", "principal": "operator", "reason": null, "seq": null, "status": "CHECKPOINT_ACCEPTED", "t": 1794941323.7174916}
+{"body_ns": "ns-t", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": 5, "status": "RESERVED", "t": 1794941323.727381}
+{"body_ns": "ns-t", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "outcome", "principal": "issuer_a", "reason": null, "seq": 6, "status": "APPENDED", "t": 1794941323.738225}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941323.7405558}
+{"event": "stopped", "t": 1794941323.7405558}

@@ -1,0 +1,12 @@
+{"event": "ready", "failed": null, "marks": {}, "pid": 10772, "records": 0, "t": 1794941546.9438918}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": null, "seq": null, "status": "NO_MARK", "t": 1794941547.1512167}
+{"body_ns": null, "body_request_id": null, "body_seq": 0, "event": "request", "op": "init", "principal": "witness_svc", "reason": null, "seq": null, "status": "INITIALIZED", "t": 1794941547.1576557}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": null, "seq": null, "status": "OK", "t": 1794941547.1586752}
+{"body_ns": null, "body_request_id": null, "body_seq": 1, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941547.1694922}
+{"body_ns": null, "body_request_id": null, "body_seq": 2, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941547.2821727}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941547.3737953}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941547.6805456}
+{"body_ns": null, "body_request_id": null, "body_seq": 3, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941547.8794215}
+{"body_ns": null, "body_request_id": null, "body_seq": 4, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941548.092157}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941548.3931174}
+{"event": "stopped", "t": 1794941548.3936517}

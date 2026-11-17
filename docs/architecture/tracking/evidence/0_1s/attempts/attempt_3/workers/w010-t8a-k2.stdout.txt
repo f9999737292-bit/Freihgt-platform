@@ -1,0 +1,3 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "b484d6ec-000b-461d-80cb-a865d7bf0265", "mode": "issue", "mono": 0.0, "ns": "ns-t", "payload_hash": "ab2b0eb1b61e9ab781cf4f05d10d835190896809aea4180c4d673a132be868e9", "principal": "issuer_a", "request_id": "k2", "t": 1794941525.9380872}
+EVENT {"durability": null, "event": "witness_export", "mono": 0.0, "reason": "HW_FAILED HW_HASH_MISMATCH seq=7", "seq": null, "status": "HIGH_WATER_UNAVAILABLE", "t": 1794941525.9407208}
+RESULT {"reason": "HW_FAILED HW_HASH_MISMATCH seq=7", "result": "ISSUE_DENIED_HIGH_WATER_UNAVAILABLE", "witness": "HIGH_WATER_UNAVAILABLE"}

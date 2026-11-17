@@ -1,0 +1,12 @@
+{"event": "ready", "failed": null, "marks": {}, "pid": 14376, "records": 0, "t": 1794941338.1511166}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": null, "seq": null, "status": "NO_MARK", "t": 1794941338.353421}
+{"body_ns": null, "body_request_id": null, "body_seq": 0, "event": "request", "op": "init", "principal": "witness_svc", "reason": null, "seq": null, "status": "INITIALIZED", "t": 1794941338.359743}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": null, "seq": null, "status": "OK", "t": 1794941338.3617272}
+{"body_ns": null, "body_request_id": null, "body_seq": 1, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941338.3730135}
+{"body_ns": null, "body_request_id": null, "body_seq": 2, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941338.4861474}
+{"body_ns": null, "body_request_id": null, "body_seq": 3, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941338.495206}
+{"body_ns": null, "body_request_id": null, "body_seq": 4, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941338.5051494}
+{"body_ns": null, "body_request_id": null, "body_seq": 5, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941338.525522}
+{"body_ns": null, "body_request_id": null, "body_seq": 6, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941338.535278}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941338.7425299}
+{"event": "stopped", "t": 1794941338.7435536}

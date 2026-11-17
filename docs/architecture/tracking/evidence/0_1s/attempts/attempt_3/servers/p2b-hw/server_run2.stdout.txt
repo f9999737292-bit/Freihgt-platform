@@ -1,0 +1,5 @@
+{"event": "ready", "failed": null, "marks": {}, "pid": 36412, "records": 0, "t": 1794941582.389068}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": null, "seq": null, "status": "NO_MARK", "t": 1794941582.5905964}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "auditor", "reason": null, "seq": null, "status": "NO_MARK", "t": 1794941582.6947908}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941582.9019048}
+{"event": "stopped", "t": 1794941582.9025156}

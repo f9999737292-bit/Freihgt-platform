@@ -1,0 +1,13 @@
+{"event": "roll_forward", "seq": 3, "t": 1794941457.7588751, "type": "RESERVE"}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "high_water": {"digest": "7ac4917a7e6c90b7e627d7f797ca26caa25c675f706b417f1d3182329732bca2", "journal_incarnation": "893adaff-4b3a-4f5d-935a-ea0cf2cf7581", "seq": 3}, "hw_reason": null, "hw_state": "CONSISTENT", "order": "append_first", "pid": 38952, "records": 3, "t": 1794941457.7588751}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941457.8622618}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941458.0634508}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941458.2348106}
+{"body_ns": "ns-cw3", "body_request_id": "k1", "body_seq": null, "event": "request", "op": "outcome", "principal": "issuer_a", "reason": null, "seq": 4, "status": "APPENDED", "t": 1794941458.246579}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941458.2485096}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941458.3574557}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941458.5498955}
+{"body_ns": "ns-cw3", "body_request_id": "k1", "body_seq": null, "event": "request", "op": "outcome", "principal": "operator", "reason": null, "seq": null, "status": "INVALID_TRANSITION", "t": 1794941458.728696}
+{"body_ns": "ns-cw3", "body_request_id": "k1", "body_seq": null, "event": "request", "op": "outcome", "principal": "operator", "reason": null, "seq": 5, "status": "APPENDED", "t": 1794941458.7364354}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941458.7380154}
+{"event": "stopped", "t": 1794941458.7390907}

@@ -1,0 +1,6 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "5b8808ae-f5bb-4a2b-b2c0-43615dc7e40e", "mode": "issue", "mono": 0.0, "ns": "ns-cw7b", "payload_hash": "f4968a5314a6f0a667fe83ace1cd6fe3464d8fcc34c95b46b195ea0762947c48", "principal": "issuer_a", "request_id": "k1", "t": 1794941568.1034868}
+EVENT {"durability": null, "event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794941568.104487}
+EVENT {"complete": true, "event": "history_check", "high_water_seq": 4, "journal_len": 4, "mono": 0.0, "problem": null, "t": 1794941568.105467}
+EVENT {"event": "existing_reservation", "mono": 0.0, "reservation_ticket_id": "4de9dac6-8694-403e-b4cd-958f1c903190", "state": "COMMIT_CONFIRMED", "t": 1794941568.1067672}
+EVENT {"event": "pg_read_rows", "exit": 0, "mono": 0.204, "sqlstates": [], "t": 1794941568.3034792}
+RESULT {"result": "ISSUE_REPLAY_ISSUED", "ticket_id": "4de9dac6-8694-403e-b4cd-958f1c903190"}

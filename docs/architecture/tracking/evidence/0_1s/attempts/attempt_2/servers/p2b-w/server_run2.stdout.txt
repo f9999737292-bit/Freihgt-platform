@@ -1,0 +1,5 @@
+{"event": "witness_failed", "reason": "HIGH_WATER_MISSING journal_len=6", "t": 1794941485.0167506}
+{"checkpoint": {"head_hash": "f4ea3df4ed07e932434c1f5fe5ec87aab91c739a1385128e3c20ccdce7d2075e", "seq": 4}, "event": "ready", "failed": "HIGH_WATER_MISSING journal_len=6", "high_water": null, "hw_reason": null, "hw_state": "UNCHECKED", "order": "append_first", "pid": 19836, "records": 6, "t": 1794941485.0167506}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": "HIGH_WATER_MISSING journal_len=6", "seq": null, "status": "WITNESS_FAILED", "t": 1794941485.1203265}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941485.1238143}
+{"event": "stopped", "t": 1794941485.1238143}

@@ -1,0 +1,157 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-cw4"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "cw4-w",
+    "t": "2026-11-17T18:50:59.570878+00:00"
+  },
+  {
+    "app": "a2-w046-cw4-k0",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw4",
+    "principal": "issuer_a",
+    "request_id": "k0",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "38a226ef-e19c-4eef-94d0-a0ae2f99e7b0"
+    },
+    "t": "2026-11-17T18:51:00.145812+00:00",
+    "t_end": "2026-11-17T18:51:00.145812+00:00",
+    "t_start": "2026-11-17T18:50:59.578482+00:00",
+    "tag": "w046-cw4-k0"
+  },
+  {
+    "body": {
+      "fault": "crash_after_hw_before_append",
+      "on_type": "RESERVE"
+    },
+    "kind": "server_call",
+    "op": "fault",
+    "principal": "harness",
+    "response": {
+      "name": "crash_after_hw_before_append",
+      "on_type": "RESERVE",
+      "status": "FAULT_ARMED"
+    },
+    "server": "cw4-w",
+    "t": "2026-11-17T18:51:00.147839+00:00"
+  },
+  {
+    "app": "a2-w047-cw4-k1",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_unavailable"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw4",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "error": "io:EOFError",
+      "result": "ISSUE_WITNESS_OUTCOME_UNKNOWN",
+      "stage": "reserve"
+    },
+    "t": "2026-11-17T18:51:00.471413+00:00",
+    "t_end": "2026-11-17T18:51:00.471413+00:00",
+    "t_start": "2026-11-17T18:51:00.154796+00:00",
+    "tag": "w047-cw4-k1"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "seq": 0
+      },
+      "high_water": {
+        "digest": "f05be2ea1438e1440c6e24a048f7907d577edb89fcd98dfc7d17d77cf6d24135",
+        "journal_incarnation": "8b83cb72-bba2-4ce5-a227-3544578744f8",
+        "seq": 5
+      },
+      "hw_state": "UNCHECKED",
+      "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=5",
+      "status": "WITNESS_FAILED"
+    },
+    "server": "cw4-w",
+    "t": "2026-11-17T18:51:00.877055+00:00"
+  },
+  {
+    "app": "a2-w048-cw4-retry",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw4",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=5",
+      "result": "ISSUE_DENIED_WITNESS_FAILED",
+      "witness": "WITNESS_FAILED"
+    },
+    "t": "2026-11-17T18:51:00.985049+00:00",
+    "t_end": "2026-11-17T18:51:00.985049+00:00",
+    "t_start": "2026-11-17T18:51:00.883694+00:00",
+    "tag": "w048-cw4-retry"
+  },
+  {
+    "app": "a2-w049-cw4-other",
+    "events": [
+      "start",
+      "witness_export"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw4",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=5",
+      "result": "ISSUE_DENIED_WITNESS_FAILED",
+      "witness": "WITNESS_FAILED"
+    },
+    "t": "2026-11-17T18:51:01.093679+00:00",
+    "t_end": "2026-11-17T18:51:01.093679+00:00",
+    "t_start": "2026-11-17T18:51:00.991772+00:00",
+    "tag": "w049-cw4-other"
+  }
+]

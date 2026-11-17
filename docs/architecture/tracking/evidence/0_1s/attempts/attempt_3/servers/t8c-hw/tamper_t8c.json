@@ -1,0 +1,4 @@
+{
+  "description": "mark_digest and signed request body changed, record hash recomputed, MAC not recomputable",
+  "record_seq": 7
+}

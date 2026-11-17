@@ -1,0 +1,9 @@
+{"event": "hw_failed", "reason": "HW_REQUEST_MAC_INVALID seq=7", "t": 1794941529.3694668}
+{"event": "ready", "failed": "HW_REQUEST_MAC_INVALID seq=7", "marks": {"journal-t8c-w": {"digest": "ad35f342120331bf4e76658dc9819d15885fd3b330f9e5bf539c463c178007f4", "seq": 5}}, "pid": 9836, "records": 6, "t": 1794941529.3694668}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": "HW_REQUEST_MAC_INVALID seq=7", "seq": null, "status": "FAILED", "t": 1794941529.4719186}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": "HW_REQUEST_MAC_INVALID seq=7", "seq": null, "status": "HW_FAILED", "t": 1794941529.5679226}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": "HW_REQUEST_MAC_INVALID seq=7", "seq": null, "status": "HW_FAILED", "t": 1794941529.672512}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": "HW_REQUEST_MAC_INVALID seq=7", "seq": null, "status": "HW_FAILED", "t": 1794941529.674654}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": "HW_REQUEST_MAC_INVALID seq=7", "seq": null, "status": "HW_FAILED", "t": 1794941529.7684917}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941530.071172}
+{"event": "stopped", "t": 1794941530.071172}

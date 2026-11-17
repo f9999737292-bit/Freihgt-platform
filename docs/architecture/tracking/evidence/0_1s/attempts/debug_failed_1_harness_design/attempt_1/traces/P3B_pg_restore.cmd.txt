@@ -1,0 +1,1 @@
+docker exec bintrans-proof-0-1s-c2bfc215 pg_restore -U wproof_admin -d wproof_p_c2bfc215 /tmp/p3b.dump

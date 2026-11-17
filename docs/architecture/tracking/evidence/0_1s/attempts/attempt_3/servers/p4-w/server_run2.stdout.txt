@@ -1,0 +1,6 @@
+{"event": "witness_failed", "reason": "FORK_DETECTED source=high_water seq=5", "t": 1794941592.452926}
+{"checkpoint": {"head_hash": "098038c317301d9e02f8756476649fc929a6e26714168fa52ef4db220e4ab093", "seq": 4}, "event": "ready", "failed": "FORK_DETECTED source=high_water seq=5", "high_water": {"digest": "807e193570802d775906e76c384676fb2b80e0671bfa80eadb96712135734786", "journal_incarnation": "f9ea96a1-11d2-4816-b0c8-6688d0f136ca", "seq": 7}, "hw_reason": null, "hw_state": "UNCHECKED", "order": "append_first", "pid": 3024, "records": 7, "t": 1794941592.452926}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": "FORK_DETECTED source=high_water seq=5", "seq": null, "status": "WITNESS_FAILED", "t": 1794941592.5560887}
+{"body_ns": "ns-t", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": "FORK_DETECTED source=high_water seq=5", "seq": null, "status": "WITNESS_FAILED", "t": 1794941592.5574107}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941592.5584333}
+{"event": "stopped", "t": 1794941592.5584333}

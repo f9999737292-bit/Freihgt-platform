@@ -1,0 +1,4 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "4847c7a5-ab06-459e-9989-8c56e9fbd165", "mode": "issue", "mono": 0.0, "ns": "ns-t", "payload_hash": "d330b30ddd6bf72f7b365be7e958284531f9207be1c8df6972b41047a1f45c83", "principal": "issuer_a", "request_id": "k6", "t": 1794941427.1655176}
+EVENT {"durability": null, "event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794941427.1670716}
+EVENT {"error": "connect:FileNotFoundError", "event": "high_water_unavailable", "mono": 0.0, "t": 1794941427.1678212}
+RESULT {"error": "connect:FileNotFoundError", "result": "ISSUE_DENIED_HIGH_WATER_UNAVAILABLE"}

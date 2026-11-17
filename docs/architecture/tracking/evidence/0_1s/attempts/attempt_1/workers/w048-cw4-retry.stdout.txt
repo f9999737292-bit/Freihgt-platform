@@ -1,0 +1,3 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "9afc6a15-2df6-41ce-84a2-59d02250f6c1", "mode": "issue", "mono": 0.0, "ns": "ns-cw4", "payload_hash": "148165cab5da833c85ac439ac17ce5607ddb6128cec58ca721ecc9b3d783af03", "principal": "issuer_a", "request_id": "k1", "t": 1794941364.7905319}
+EVENT {"durability": null, "event": "witness_export", "mono": 0.016, "reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=5", "seq": null, "status": "WITNESS_FAILED", "t": 1794941364.7920413}
+RESULT {"reason": "ROLLBACK_DETECTED source=high_water journal_len=4 high_water_seq=5", "result": "ISSUE_DENIED_WITNESS_FAILED", "witness": "WITNESS_FAILED"}

@@ -1,0 +1,280 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-cw8"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "cw8-w",
+    "t": "2026-11-17T18:51:11.677621+00:00"
+  },
+  {
+    "app": "a2-w060-cw8-k1",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "fault_crash"
+    ],
+    "exit": 137,
+    "fault": "crash_after_reserve",
+    "kind": "worker",
+    "ns": "ns-cw8",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": null,
+    "t": "2026-11-17T18:51:12.004610+00:00",
+    "t_end": "2026-11-17T18:51:12.004610+00:00",
+    "t_start": "2026-11-17T18:51:11.686014+00:00",
+    "tag": "w060-cw8-k1"
+  },
+  {
+    "app": "a2-w061-cw8-retry",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "witness_outcome",
+      "restart_recovery",
+      "witness_export",
+      "history_check",
+      "existing_reservation"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw8",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_DENIED_IN_DOUBT",
+      "state": "IN_DOUBT"
+    },
+    "t": "2026-11-17T18:51:12.133493+00:00",
+    "t_end": "2026-11-17T18:51:12.133493+00:00",
+    "t_start": "2026-11-17T18:51:12.014591+00:00",
+    "tag": "w061-cw8-retry"
+  },
+  {
+    "key": {
+      "epoch": 1,
+      "history": [
+        3,
+        4
+      ],
+      "incarnation": "5025341d-6cf5-4a5e-b2bb-cdde68e1ba37",
+      "payload_hash": "ab268cbde0fa875aedcf7e8090edc84f824a7b2922c8a01e0b2dbf1bcd7984e8",
+      "principal": "issuer_a",
+      "state": "IN_DOUBT",
+      "ticket_id": "9f75ec06-c2e0-41c1-980c-d21d2b97ea7f"
+    },
+    "kind": "reconciler_stopped_after_read",
+    "pg_row": null,
+    "t": "2026-11-17T18:51:12.329294+00:00"
+  },
+  {
+    "app": "a2-w062-cw8-gate",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw8",
+    "principal": "issuer_a",
+    "request_id": "k2",
+    "result": {
+      "reasons": [
+        "OPEN_RESERVATIONS:k1"
+      ],
+      "result": "ISSUE_DENIED_GATE_CLOSED"
+    },
+    "t": "2026-11-17T18:51:12.637545+00:00",
+    "t_end": "2026-11-17T18:51:12.637545+00:00",
+    "t_start": "2026-11-17T18:51:12.336353+00:00",
+    "tag": "w062-cw8-gate"
+  },
+  {
+    "body": {
+      "fault": "crash_after_append_before_hw",
+      "on_type": "OUTCOME"
+    },
+    "kind": "server_call",
+    "op": "fault",
+    "principal": "harness",
+    "response": {
+      "name": "crash_after_append_before_hw",
+      "on_type": "OUTCOME",
+      "status": "FAULT_ARMED"
+    },
+    "server": "cw8-w",
+    "t": "2026-11-17T18:51:12.639545+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true,
+        "reason": "tombstone absent"
+      },
+      "ns": "ns-cw8",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "9f75ec06-c2e0-41c1-980c-d21d2b97ea7f"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "IN_DOUBT",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "server": "cw8-w",
+    "t": "2026-11-17T18:51:12.835862+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_row": null,
+        "reason": "tombstone absent or different; abort cannot be proven"
+      },
+      "ns": "ns-cw8",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "k1",
+      "ticket_id": "9f75ec06-c2e0-41c1-980c-d21d2b97ea7f"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "error": "io:EOFError",
+      "status": "UNAVAILABLE"
+    },
+    "server": "cw8-w",
+    "t": "2026-11-17T18:51:12.842458+00:00"
+  },
+  {
+    "append": "UNAVAILABLE",
+    "auto_abort": "INVALID_TRANSITION",
+    "decision": "PERMANENTLY_DENIED",
+    "key": "ns-cw8|k1",
+    "kind": "reconcile",
+    "pg_row": null,
+    "t": "2026-11-17T18:51:12.842458+00:00",
+    "witness_state_before": "IN_DOUBT"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "seq": 0
+      },
+      "high_water": {
+        "digest": "403e5280974c6e36aebe728df778b0a66ec4e694e9fdeaab1e6b0ce416a5c236",
+        "journal_incarnation": "a41bfd62-aec2-4170-a9a1-60fa7478b0b7",
+        "seq": 5
+      },
+      "hw_state": "CONSISTENT",
+      "reason": null,
+      "status": "OK"
+    },
+    "server": "cw8-w",
+    "t": "2026-11-17T18:51:13.255222+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true,
+        "reason": "tombstone absent"
+      },
+      "ns": "ns-cw8",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "9f75ec06-c2e0-41c1-980c-d21d2b97ea7f"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "PERMANENTLY_DENIED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "server": "cw8-w",
+    "t": "2026-11-17T18:51:13.645643+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_row": null,
+        "reason": "tombstone absent or different; abort cannot be proven"
+      },
+      "ns": "ns-cw8",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "k1",
+      "ticket_id": "9f75ec06-c2e0-41c1-980c-d21d2b97ea7f"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "state": "PERMANENTLY_DENIED",
+      "status": "IDEMPOTENT"
+    },
+    "server": "cw8-w",
+    "t": "2026-11-17T18:51:13.646770+00:00"
+  },
+  {
+    "append": "IDEMPOTENT",
+    "auto_abort": "INVALID_TRANSITION",
+    "decision": "PERMANENTLY_DENIED",
+    "key": "ns-cw8|k1",
+    "kind": "reconcile",
+    "pg_row": null,
+    "t": "2026-11-17T18:51:13.646770+00:00",
+    "witness_state_before": "PERMANENTLY_DENIED"
+  },
+  {
+    "app": "a2-w063-cw8-after",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "existing_reservation"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw8",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_DENIED_PERMANENTLY",
+      "state": "PERMANENTLY_DENIED"
+    },
+    "t": "2026-11-17T18:51:13.750806+00:00",
+    "t_end": "2026-11-17T18:51:13.750806+00:00",
+    "t_start": "2026-11-17T18:51:13.652792+00:00",
+    "tag": "w063-cw8-after"
+  }
+]

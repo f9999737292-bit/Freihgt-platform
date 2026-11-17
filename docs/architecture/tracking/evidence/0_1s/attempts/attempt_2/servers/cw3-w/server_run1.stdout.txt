@@ -1,0 +1,8 @@
+{"event": "hw_initialized", "journal_incarnation": "893adaff-4b3a-4f5d-935a-ea0cf2cf7581", "t": 1794941456.8842325}
+{"event": "genesis_written", "journal_incarnation": "893adaff-4b3a-4f5d-935a-ea0cf2cf7581", "t": 1794941456.8907897}
+{"event": "roll_forward", "seq": 1, "t": 1794941456.895732, "type": "GENESIS"}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "high_water": {"digest": "9ff7b33f21eb681503010f3776db88eb706b2a4106db0a4465eadca2fdef166d", "journal_incarnation": "893adaff-4b3a-4f5d-935a-ea0cf2cf7581", "seq": 1}, "hw_reason": null, "hw_state": "CONSISTENT", "order": "append_first", "pid": 45320, "records": 1, "t": 1794941456.895732}
+{"body_ns": "ns-cw3", "body_request_id": null, "body_seq": null, "event": "request", "op": "epoch_set", "principal": "operator", "reason": null, "seq": 2, "status": "EPOCH_SET", "t": 1794941457.0094466}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "fault", "principal": "harness", "reason": null, "seq": null, "status": "FAULT_ARMED", "t": 1794941457.0124433}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941457.214036}
+{"event": "fault_crash", "hw_seq": 2, "journal_len": 3, "point": "crash_after_append_before_hw", "t": 1794941457.4360988, "type": "RESERVE"}

@@ -1,0 +1,7 @@
+{"event": "witness_failed", "reason": "FORK_DETECTED source=operator_checkpoint seq=4", "t": 1794941033.5255215}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": "FORK_DETECTED source=operator_checkpoint seq=4", "high_water": null, "hw_reason": null, "hw_state": "UNCHECKED", "order": "append_first", "pid": 26332, "records": 6, "t": 1794941033.5255215}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": "FORK_DETECTED source=operator_checkpoint seq=4", "seq": null, "status": "WITNESS_FAILED", "t": 1794941033.6283019}
+{"body_ns": "ns-t", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": "FORK_DETECTED source=operator_checkpoint seq=4", "seq": null, "status": "WITNESS_FAILED", "t": 1794941033.6302981}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": "FORK_DETECTED source=operator_checkpoint seq=4", "seq": null, "status": "WITNESS_FAILED", "t": 1794941033.723263}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941033.896935}
+{"event": "stopped", "t": 1794941033.896935}

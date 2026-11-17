@@ -1,0 +1,7 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "63a2e8f8-ead9-4b76-8bac-325bf121cba2", "mode": "issue", "mono": 0.0, "ns": "ns-cw5", "payload_hash": "5ff0eafa9b2b2ba916006184b90ba6a03752aa0ef73ed69e8a99beaa9522284e", "principal": "issuer_a", "request_id": "k1", "t": 1794941068.8021173}
+EVENT {"durability": null, "event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794941068.8031406}
+EVENT {"complete": true, "event": "history_check", "high_water_seq": 2, "journal_len": 2, "mono": 0.0, "problem": null, "t": 1794941068.804355}
+EVENT {"event": "pg_read_rows", "exit": 0, "mono": 0.188, "sqlstates": [], "t": 1794941068.9831085}
+EVENT {"event": "gate", "mono": 0.188, "open": true, "reasons": [], "t": 1794941068.9831085}
+EVENT {"error": "io:EOFError", "event": "witness_unavailable", "mono": 0.203, "op": "reserve", "t": 1794941068.9959946}
+RESULT {"error": "io:EOFError", "result": "ISSUE_WITNESS_OUTCOME_UNKNOWN", "stage": "reserve"}

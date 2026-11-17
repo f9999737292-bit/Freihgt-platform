@@ -1,0 +1,11 @@
+{"event": "hw_initialized", "journal_incarnation": "cf3e6177-7452-45bc-acad-85c5c1ef4cb6", "t": 1794941066.2121546}
+{"event": "genesis_written", "journal_incarnation": "cf3e6177-7452-45bc-acad-85c5c1ef4cb6", "t": 1794941066.2192118}
+{"event": "roll_forward", "seq": 1, "t": 1794941066.2241132, "type": "GENESIS"}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "high_water": {"digest": "aa6af0b3af92e3acf748ccbccf5817f701473387894ec696560a0fa759a702da", "journal_incarnation": "cf3e6177-7452-45bc-acad-85c5c1ef4cb6", "seq": 1}, "hw_reason": null, "hw_state": "CONSISTENT", "order": "hw_first", "pid": 37056, "records": 1, "t": 1794941066.2241132}
+{"body_ns": "ns-cw4", "body_request_id": null, "body_seq": null, "event": "request", "op": "epoch_set", "principal": "operator", "reason": null, "seq": 2, "status": "EPOCH_SET", "t": 1794941066.336216}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941066.4270756}
+{"body_ns": "ns-cw4", "body_request_id": "k0", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": 3, "status": "RESERVED", "t": 1794941066.6295702}
+{"body_ns": "ns-cw4", "body_request_id": "k0", "body_seq": null, "event": "request", "op": "outcome", "principal": "issuer_a", "reason": null, "seq": 4, "status": "APPENDED", "t": 1794941066.841562}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "fault", "principal": "harness", "reason": null, "seq": null, "status": "FAULT_ARMED", "t": 1794941066.8592584}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941066.9531465}
+{"event": "fault_crash", "hw_seq": 5, "journal_len": 4, "point": "crash_after_hw_before_append", "t": 1794941067.141919, "type": "RESERVE"}

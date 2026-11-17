@@ -1,0 +1,6 @@
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "high_water": {"digest": "1391fc6237e80136ba661bde30b61f8433817b0e96e09be02a2e2e1d4731aecc", "journal_incarnation": "e829fa65-ef0a-4906-af35-e89cb3b62b93", "seq": 4}, "hw_reason": null, "hw_state": "CONSISTENT", "order": "append_first", "pid": 35052, "records": 4, "t": 1794941590.6144936}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941590.8076618}
+{"body_ns": "ns-p3b", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "reserve", "principal": "issuer_a", "reason": null, "seq": 5, "status": "RESERVED", "t": 1794941591.0187776}
+{"body_ns": "ns-p3b", "body_request_id": "k2", "body_seq": null, "event": "request", "op": "outcome", "principal": "issuer_a", "reason": null, "seq": 6, "status": "APPENDED", "t": 1794941591.2258089}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941591.244298}
+{"event": "stopped", "t": 1794941591.2454598}

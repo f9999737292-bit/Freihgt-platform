@@ -1,0 +1,8 @@
+{
+  "checkpoint_seq": 4,
+  "description": "Journal truncated exactly to the old operator checkpoint (seq 4)",
+  "lines_after": 4,
+  "lines_before": 6,
+  "local_chain_check_on_tampered_journal": "VALID",
+  "operator_checkpoint_deleted": false
+}
