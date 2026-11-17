@@ -70,13 +70,25 @@ def verify(rev: str) -> int:
         digest, path = line.split("  ", 1)
         listed[path] = digest
     ok = 0
-    for path, digest in sorted(listed.items()):
-        blob = git("cat-file", "blob", f"{rev}:{prefix}{path}")
-        if hashlib.sha256(blob).hexdigest() == digest:
+    paths = sorted(listed)
+    batch = subprocess.run(["git", "-C", str(HERE), "cat-file", "--batch"], check=True, capture_output=True,
+                           input="".join(f"{rev}:{prefix}{p}\n" for p in paths).encode()).stdout
+    pos = 0
+    for path in paths:
+        end = batch.index(b"\n", pos)
+        header = batch[pos:end].decode().split()
+        if len(header) != 3 or header[1] != "blob":
+            errors.append(f"MISSING_BLOB {path}")
+            pos = end + 1
+            continue
+        size = int(header[2])
+        blob = batch[end + 1:end + 1 + size]
+        pos = end + 1 + size + 1
+        if hashlib.sha256(blob).hexdigest() == listed[path]:
             ok += 1
         else:
             errors.append(f"MISMATCH {path}")
-    names = git("ls-tree", "-r", "--name-only", rev, "--", prefix.rstrip("/")).decode().splitlines()
+    names = git("ls-tree", "-r", "--name-only", "--full-tree", rev, "--", prefix.rstrip("/")).decode().splitlines()
     in_tree = {n[len(prefix):] for n in names}
     for p in sorted(in_tree - {"SHA256SUMS"} - set(listed)):
         errors.append(f"UNLISTED {p}")
