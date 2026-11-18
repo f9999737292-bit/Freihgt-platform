@@ -38,9 +38,9 @@ Read 2026-11-18. Values are `DOCUMENTED`, `PARTIAL`, `NOT_VERIFIED`, or `UNSUPPO
 | --- | --- | --- | --- |
 | A1 | Independent failure domain | `NOT_VERIFIED` | The cluster is another Selectel service. Isolation of backup files from other customers is not isolation from Selectel. https://docs.selectel.ru/managed-databases/postgresql/backups/ |
 | A2 | Independent administration | `PARTIAL` | Superuser is not granted. The panel owner creates users, deletes the cluster, and restores it. Superuser work is requested by ticket. https://docs.selectel.ru/managed-databases/postgresql/configure-roles-and-privileges/ |
-| A3 | Atomic exact-successor | `UNSUPPORTED` | No anchor sequence service is published. A customer can write SQL. That SQL is not a Selectel guarantee of exact succession. |
-| A4 | Rollback-resistant history | `UNSUPPORTED` | Point-in-time recovery creates a new cluster at any moment in the last 7 days. |
-| A5 | Synchronous durable ACK | `PARTIAL` | A committed transaction is acknowledged by that cluster. The same history can later be replaced by a restore. |
+| A3 | Atomic exact-successor | `POSSIBLE` | A customer can implement an atomic conditional sequence write in transactional SQL. Selectel does not publish a recovery-anchor API that performs that check. `MANAGED_POSTGRES_SQL_CAS=POSSIBLE`. `MANAGED_POSTGRES_SERVICE_CAS=CUSTOMER_SQL_AVAILABLE`. |
+| A4 | Rollback-resistant history | `NOT_PROVEN` | ACID and `COMMIT` acknowledge one transaction. They do not keep that history when the panel owner restores the cluster to an earlier point in the 7-day window. `ROLLBACK_RESISTANT_ANCHOR=NOT_PROVEN`. |
+| A5 | Synchronous durable ACK | `PARTIAL` | `COMMIT` is the acknowledgement of that transaction. A later point-in-time restore can replace the committed history. |
 | A6 | Namespace, incarnation, seq, digest | `UNSUPPORTED` | Not a published record type. |
 | A7 | Predecessor check | `UNSUPPORTED` | Not a published anchor operation. |
 | A8 | Fail-closed | `NOT_VERIFIED` | Not described for an issuer gate. |
@@ -49,4 +49,11 @@ Read 2026-11-18. Values are `DOCUMENTED`, `PARTIAL`, `NOT_VERIFIED`, or `UNSUPPO
 
 ## Reading
 
-No row is `DOCUMENTED` for A3, A5, A6, or A8 together. Object Lock Compliance is the strongest published restriction on deleting one object version, and it does not implement the anchor contract.
+```text
+MANAGED_POSTGRES_SQL_CAS=POSSIBLE
+MANAGED_POSTGRES_SERVICE_CAS=CUSTOMER_SQL_AVAILABLE
+MANAGED_POSTGRES_ROLLBACK_RESISTANCE=NOT_PROVEN
+MANAGED_POSTGRES_AS_INDEPENDENT_ANCHOR=NOT_SUITABLE_FOR_ANCHOR
+```
+
+The SQL compare-and-set is customer SQL inside the same cluster. It is not a documented Selectel recovery-anchor service, and the 7-day restore path means the committed history is not shown to survive an administrative rollback. Object Lock Compliance remains the strongest published restriction on deleting one object version, and it does not implement the anchor contract.

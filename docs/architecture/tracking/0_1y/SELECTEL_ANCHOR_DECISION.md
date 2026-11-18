@@ -11,7 +11,7 @@ Baseline used for the reading: `origin/main` `3f306fc407aeda4bdc652d825954292f4a
 | S3 Vault as backup | `SUITABLE_FOR_BACKUP_ONLY` | Scheduled copy, a service account, an integrity check of the copied files, and a documented restore read after an official request. |
 | S3 Vault as an online anchor | `NOT_SUITABLE_FOR_ANCHOR` | Synchronous per-record acknowledgement is not documented. A backup copy is not the monotonic log. |
 | S3 Object Lock as an anchor component | `NOT_SUITABLE_FOR_ANCHOR` | Compliance retains one object version. It does not provide exact succession, the anchor tuple, or a receipt. Governance and legal hold remain movable by the customer. |
-| Managed PostgreSQL as an anchor component | `NOT_SUITABLE_FOR_ANCHOR` | ACID and the absence of superuser do not stop a 7-day point-in-time restore by the panel owner. |
+| Managed PostgreSQL as an anchor component | `NOT_SUITABLE_FOR_ANCHOR` | Customer SQL can implement an atomic conditional sequence write. Selectel publishes no recovery-anchor API for that write, and a 7-day point-in-time restore can replace a committed history. `MANAGED_POSTGRES_AS_INDEPENDENT_ANCHOR=NOT_SUITABLE_FOR_ANCHOR`. |
 | A composite of these Selectel services | `NOT_SUITABLE_FOR_ANCHOR` | None of the three puts a synchronous exact-successor acknowledgement in front of PostgreSQL `BEGIN`, and all three remain under the Selectel control plane. |
 | A second independent provider | Still required, not selected | A separate login at the same provider does not meet the 0.1T split of administrative domains. |
 

@@ -52,7 +52,7 @@ Backups are automatic and cannot be disabled or downloaded. WAL-G writes a full 
 
 Roles, https://docs.selectel.ru/managed-databases/postgresql/configure-roles-and-privileges/ : custom roles cannot be created, and the superuser role is not granted. The preset roles are `dbaas_admin`, `dbaas_replication`, `pg_read_all_stats`, and `pg_signal_backend`. The product page states that superuser actions, if required, go through a support ticket: https://selectel.ru/services/cloud/managed-databases/postgresql/
 
-The panel user who owns the cluster can create users, restore a cluster, and delete a cluster. Absence of superuser does not remove that restore path. ACID of a customer transaction is not an independent anchor.
+The panel user who owns the cluster can create users, restore a cluster, and delete a cluster. Absence of superuser does not remove that restore path. Transactional SQL can implement an atomic conditional sequence write. That is customer SQL, not a Selectel recovery-anchor API. `COMMIT` acknowledges the transaction. A point-in-time restore can replace that committed history, so `ROLLBACK_RESISTANT_ANCHOR=NOT_PROVEN`.
 
 ## Contract terms that apply across the products
 
