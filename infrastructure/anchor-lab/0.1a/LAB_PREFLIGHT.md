@@ -18,7 +18,7 @@ Before a future first start, run the read-only preflight:
 bash resource-ownership-preflight.sh
 ```
 
-The preflight and `lab-down.sh` need a working `jq` on the host. They read each resource as one JSON object from `docker inspect --format '{{json .}}'` and read each label separately, so an empty label cannot take the value of the next field. Malformed JSON, more than one object, duplicate keys, or a label of the wrong type stops the check. Without `jq` they stop before inspecting Docker. Host availability of `jq` is not checked in this stage.
+The preflight and `lab-down.sh` need a working `jq` on the host. They read each resource as one JSON object from `docker inspect --format '{{json .}}'`. Every ownership comparison runs inside `jq -e` against the raw JSON value, with the expected value passed by `--arg`, so a trailing newline, carriage return, space, or tab is not normalised away by the shell. An empty label cannot take the value of the next field. Malformed JSON, more than one object, a duplicate key at any depth, or a value of the wrong type stops the check. Without `jq` they stop before inspecting Docker. Host availability of `jq` is not checked in this stage.
 
 If `bintrans-anchor-lab-internal` or `bintrans-anchor-lab-postgres` already exists, the preflight stops. It does not adopt the resource and does not delete it. This is not a model for a later start. `bash lab-up.sh --env-file .env` is the future first-start wrapper and is not run in this stage.
 

@@ -1106,6 +1106,126 @@ test_parser_unavailable_fails_closed() {
   rm -rf "$work"
 }
 
+# Each variant is a jq expression over $v, the correct value of the field.
+exact_variants=(
+  '$v + "\n"'
+  '$v + "\r\n"'
+  '" " + $v'
+  '$v + " "'
+  '$v + "\t"'
+  '""'
+  'null'
+  '7'
+)
+
+mutate_json() {
+  MSYS2_ARG_CONV_EXCL='*' jq -c --arg v "$3" "$2 = ($4)" <<EOF
+$1
+EOF
+}
+
+# $1 resource (network, volume, container), $2 jq path, $3 correct value.
+run_exact_variants() {
+  target=$1
+  path=$2
+  correct=$3
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  compose="$(cd "$work/lab" && pwd)/compose.yaml"
+  [ "$correct" != "@compose" ] || correct=$compose
+  net=$(owned_network_record)
+  vol=$(owned_volume_record)
+  ctr=$(container_json bintrans-anchor-lab-postgres-1 com.docker.compose.project=bintrans-anchor-lab com.docker.compose.service=postgres "com.docker.compose.project.config_files=$compose")
+  for variant in "${exact_variants[@]}"; do
+    rm -f "$work/containers/"*.json
+    case "$target" in
+      network) n=$(mutate_json "$net" "$path" "$correct" "$variant"); v=$vol; c=$ctr ;;
+      volume) n=$net; v=$(mutate_json "$vol" "$path" "$correct" "$variant"); c=$ctr ;;
+      container) n=$net; v=$vol; c=$(mutate_json "$ctr" "$path" "$correct" "$variant") ;;
+    esac
+    [ -n "$n" ] && [ -n "$v" ] && [ -n "$c" ] || return 1
+    add_container "$work" a1 "$c"
+    run_down "$work" MOCK_NETWORK_STATE="$n" MOCK_VOLUME_STATE="$v"
+    if ! expect_down_refused "$work" "LAB_DOWN=FAIL"; then
+      say "  variant not refused: $target $path $variant"
+      return 1
+    fi
+  done
+  rm -rf "$work"
+}
+
+test_exact_resource_names() {
+  run_exact_variants network '.Name' bintrans-anchor-lab-internal
+  run_exact_variants volume '.Name' bintrans-anchor-lab-postgres
+  run_exact_variants container '.Name' /bintrans-anchor-lab-postgres-1
+}
+
+test_exact_project_label() {
+  run_exact_variants network '.Labels["com.docker.compose.project"]' bintrans-anchor-lab
+}
+
+test_exact_network_label() {
+  run_exact_variants network '.Labels["com.docker.compose.network"]' anchor-lab
+}
+
+test_exact_volume_label() {
+  run_exact_variants volume '.Labels["com.docker.compose.volume"]' anchor-lab-postgres
+}
+
+test_exact_service_label() {
+  run_exact_variants container '.Config.Labels["com.docker.compose.service"]' postgres
+}
+
+test_exact_config_files_label() {
+  run_exact_variants container '.Config.Labels["com.docker.compose.project.config_files"]' @compose
+  run_exact_variants network '.Labels["com.docker.compose.project.config_files"]' @compose
+}
+
+test_nested_duplicate_keys() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  compose="$(cd "$work/lab" && pwd)/compose.yaml"
+  # The duplicated objects use different inner keys, so their leaf paths differ.
+  run_down "$work" \
+    MOCK_NETWORK_STATE='{"Name":"bintrans-anchor-lab-internal","Labels":{"com.docker.compose.project.working_dir":"/opt/bintrans/e2e-stand"},"Labels":{"com.docker.compose.project":"bintrans-anchor-lab","com.docker.compose.network":"anchor-lab"}}' \
+    MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "unrecognized metadata"
+  run_down "$work" \
+    MOCK_NETWORK_STATE='{"Name":"bintrans-anchor-lab-internal","IPAM":{"Driver":"default"},"IPAM":{"Config":[{"Subnet":"a"}]},"Labels":{"com.docker.compose.project":"bintrans-anchor-lab","com.docker.compose.network":"anchor-lab"}}' \
+    MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "unrecognized metadata"
+  run_down "$work" \
+    MOCK_NETWORK_STATE='{"Name":"bintrans-anchor-lab-internal","IPAM":{"Config":[{"Subnet":"a","Subnet":"b"}]},"Labels":{"com.docker.compose.project":"bintrans-anchor-lab","com.docker.compose.network":"anchor-lab"}}' \
+    MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "unrecognized metadata"
+  printf '%s\n' "{\"Id\":\"x\",\"Name\":\"/bintrans-anchor-lab-postgres-1\",\"Config\":{\"Image\":\"bintrans-e2e-stand\"},\"Config\":{\"Labels\":{\"com.docker.compose.project\":\"bintrans-anchor-lab\",\"com.docker.compose.service\":\"postgres\",\"com.docker.compose.project.config_files\":\"$compose\"}}}" > "$work/containers/a1.json"
+  run_down "$work" MOCK_NETWORK_STATE="$(owned_network_record)" MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "unrecognized metadata"
+  rm -rf "$work"
+}
+
+test_nested_unique_keys_accepted() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  compose="$(cd "$work/lab" && pwd)/compose.yaml"
+  net=$(owned_network_record | jq -c '. + {IPAM: {Driver: "default", Config: [{Subnet: "172.30.0.0/16"}, {Subnet: "172.31.0.0/16"}]}, Containers: {}, Options: {}}')
+  ctr=$(container_json bintrans-anchor-lab-postgres-1 com.docker.compose.project=bintrans-anchor-lab com.docker.compose.service=postgres "com.docker.compose.project.config_files=$compose" \
+    | jq -c '. + {Mounts: [{Name: "bintrans-anchor-lab-postgres", Type: "volume"}, {Name: "other", Type: "volume"}], Config: (.Config + {Env: [], Image: "x"})}')
+  add_container "$work" a1 "$ctr"
+  run_down "$work" MOCK_NETWORK_STATE="$net" MOCK_VOLUME_STATE="$(owned_volume_record)"
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$out" | grep -q "NETWORK_OWNERSHIP=OWNED"
+  printf '%s\n' "$out" | grep -q "CONTAINER_OWNERSHIP=OWNED"
+  grep -q " down -v" "$work/docker.log"
+  if grep -E 'remove-orphans|prune|bintrans-e2e-stand' "$work/docker.log" >/dev/null; then
+    return 1
+  fi
+  rm -rf "$work"
+}
+
 test_scripts_do_not_prune() {
   if grep -E '^[^#]*docker .*(system prune|volume prune|network prune|remove-orphans)' \
     "$lab/project-guard.sh" "$lab/env-file-guard.sh" "$lab/resource-ownership-preflight.sh" \
@@ -1167,6 +1287,14 @@ run_one "env symlink rejected" test_env_symlink_rejected
 run_one "env untrusted owner" test_env_untrusted_owner
 run_one "env wrong mode standalone" test_env_wrong_mode_standalone
 run_one "parser unavailable fails closed" test_parser_unavailable_fails_closed
+run_one "exact resource names" test_exact_resource_names
+run_one "exact project label" test_exact_project_label
+run_one "exact network label" test_exact_network_label
+run_one "exact volume label" test_exact_volume_label
+run_one "exact service label" test_exact_service_label
+run_one "exact config-files label" test_exact_config_files_label
+run_one "nested duplicate keys" test_nested_duplicate_keys
+run_one "nested unique keys accepted" test_nested_unique_keys_accepted
 
 say "STATIC_TESTS_PASSED=$pass"
 say "STATIC_TESTS_FAILED=$fail_count"

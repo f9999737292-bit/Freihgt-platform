@@ -26,7 +26,6 @@ fi
 anchor_lab_require_json_parser || fail "docker metadata parser is unavailable"
 endpoint=$(anchor_lab_prepare_docker) || fail "docker endpoint is not an allowed local daemon"
 
-# Values below are S:<value> or MISSING from a single JSON snapshot.
 reject_existing() {
   kind=$1
   name=$2
@@ -36,18 +35,14 @@ reject_existing() {
     return 0
   fi
   anchor_lab_json_is_object "$record" || fail "$kind inspection returned unrecognized metadata"
-  type_label=$(anchor_lab_type_label "$kind") || fail "$kind kind is unknown"
-  got_name=$(anchor_lab_json_get "$record" '.Name') || fail "$kind inspection returned unrecognized metadata"
-  got_project=$(anchor_lab_json_get "$record" '.Labels[$k]' com.docker.compose.project) || fail "$kind inspection returned unrecognized metadata"
-  got_type=$(anchor_lab_json_get "$record" '.Labels[$k]' "$type_label") || fail "$kind inspection returned unrecognized metadata"
-  got_config=$(anchor_lab_json_get "$record" '.Labels[$k]' com.docker.compose.project.config_files) || fail "$kind inspection returned unrecognized metadata"
-  if [ "$got_project" != "S:$expected_project" ] || [ "$got_name" != "S:$name" ]; then
+  anchor_lab_resource_is shape "$kind" "$record" "$name" "$expected_type" "$compose_file" || fail "$kind inspection returned unrecognized metadata"
+  if ! anchor_lab_resource_is identity "$kind" "$record" "$name" "$expected_type" "$compose_file"; then
     fail "$kind $name already exists under another owner; not adopting or deleting it"
   fi
-  if [ "$got_config" != "MISSING" ] && [ "$got_config" != "S:$compose_file" ]; then
+  if ! anchor_lab_resource_is config "$kind" "$record" "$name" "$expected_type" "$compose_file"; then
     fail "$kind $name has contradictory metadata; not adopting or deleting it"
   fi
-  if [ "$got_type" != "S:$expected_type" ]; then
+  if ! anchor_lab_resource_is type "$kind" "$record" "$name" "$expected_type" "$compose_file"; then
     fail "$kind $name already exists with unexpected or incomplete metadata; not adopting or deleting it"
   fi
   fail "$kind $name already exists; first-start preflight does not adopt it"
@@ -64,23 +59,10 @@ while IFS= read -r id || [ -n "$id" ]; do
   [ -n "$id" ] || continue
   record=$(anchor_lab_inspect_json "$endpoint" container "$id") || fail "container inspection failed"
   [ "$record" != "ABSENT" ] || continue
-  got_name=$(anchor_lab_json_get "$record" '.Name') || fail "container inspection returned unrecognized metadata"
-  got_project=$(anchor_lab_json_get "$record" '.Config.Labels[$k]' com.docker.compose.project) || fail "container inspection returned unrecognized metadata"
-  got_config=$(anchor_lab_json_get "$record" '.Config.Labels[$k]' com.docker.compose.project.config_files) || fail "container inspection returned unrecognized metadata"
-  got_name=${got_name#S:/}
-  claims=0
-  case "$got_name" in
-    bintrans-anchor-lab-postgres|bintrans-anchor-lab-postgres-*)
-      claims=1
-      ;;
-  esac
-  if [ "$got_project" = "S:$expected_project" ] || [ "$got_config" = "S:$compose_file" ]; then
-    claims=1
-  fi
-  if [ "$claims" -eq 0 ]; then
-    continue
-  fi
-  if [ "$got_project" != "S:$expected_project" ]; then
+  anchor_lab_json_is_object "$record" || fail "container inspection returned unrecognized metadata"
+  anchor_lab_container_is shape "$record" "$compose_file" || fail "container inspection returned unrecognized metadata"
+  anchor_lab_container_is claims "$record" "$compose_file" || continue
+  if ! anchor_lab_container_is ours "$record" "$compose_file"; then
     fail "container already exists under another owner; not adopting or deleting it"
   fi
   fail "a container already carries project $expected_project; first-start preflight does not adopt it"
