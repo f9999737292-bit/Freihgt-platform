@@ -8,9 +8,11 @@ Run the wrapper from the lab directory that contains this `compose.yaml`. On the
 bash lab-down.sh --env-file .env
 ```
 
-`lab-down.sh` accepts no project override and no other Compose file. It runs `env-file-guard.sh` and `project-guard.sh`, then inspects the network, the volume, and container labels. A resource is eligible only when its Compose project label is `bintrans-anchor-lab` and its config-file label is this `compose.yaml`. A missing label, a foreign label, or a contradictory label stops the script before deletion.
+`lab-down.sh` accepts no project override and no other Compose file. It runs `env-file-guard.sh` and `project-guard.sh`, then inspects resources separately. A network is eligible only when its name is `bintrans-anchor-lab-internal`, `com.docker.compose.project` is `bintrans-anchor-lab`, and `com.docker.compose.network` is `anchor-lab`. A volume is eligible only when its name is `bintrans-anchor-lab-postgres`, the project label is `bintrans-anchor-lab`, and `com.docker.compose.volume` is `anchor-lab-postgres`. Compose v5.1.4 and v5.7.0 do not put `com.docker.compose.project.config_files` on those two resources, so that label is not required for them. If it is present and names another file, the resource is rejected. A container is eligible only when its project label is `bintrans-anchor-lab`, its service label is `postgres`, its config-files label is this `compose.yaml`, and its name is the lab postgres container name. A missing label, a foreign label, or a contradictory label stops the script before any deletion. A partial set is not cleaned up piece by piece: one unknown resource rejects the whole cleanup.
 
-The wrapper's own deletion command is `docker compose -p bintrans-anchor-lab -f compose.yaml down -v` for those owned resources. `-v` deletes the lab test volume `bintrans-anchor-lab-postgres` and the test data in it. The wrapper does not pass `--remove-orphans`.
+The wrapper's own deletion command is `docker compose -p bintrans-anchor-lab -f compose.yaml down -v` after those checks. `-v` deletes the lab test volume `bintrans-anchor-lab-postgres` and the test data in it. The wrapper does not pass `--remove-orphans`. The first-start preflight still rejects a network or volume that already has the lab name, including one whose labels match. Cleanup and first start are different checks.
+
+The inspect and the later `down -v` are separate calls. A mock test does not prove that another process cannot change the resources between them. Before a future deployment, the operator must choose a lock or another daemon-side precondition. This stage does not implement that mechanism. `CLEANUP_TOCTOU=NOT_PROVEN_RUNTIME`.
 
 These commands are forbidden:
 

@@ -46,45 +46,73 @@ endpoint=$(anchor_lab_prepare_docker) || fail "docker endpoint is not an allowed
 owned_or_absent() {
   kind=$1
   name=$2
-  record=$3
-  if [ "$record" = "absent" ]; then
+  expected_type=$3
+  record=$4
+  if [ "$record" = "ABSENT" ]; then
     printf '%s\n' "absent"
     return 0
   fi
-  project=${record%%|*}
-  config=${record#*|}
-  if [ "$project" != "$expected_project" ] || [ "$config" != "$compose_file" ]; then
-    fail "$kind $name is not owned by the lab compose file; not deleting it"
+  case "$record" in
+    PRESENT$'\t'*) ;;
+    *)
+      fail "$kind inspection returned unrecognized metadata; not deleting it"
+      ;;
+  esac
+  rest=${record#PRESENT$'\t'}
+  IFS=$'\t' read -r got_name got_project got_type got_config <<EOF
+$rest
+EOF
+  if [ -z "$got_project" ] || [ -z "$got_type" ] || [ "$got_name" != "$name" ] || [ "$got_project" != "$expected_project" ] || [ "$got_type" != "$expected_type" ]; then
+    fail "$kind $name is not owned by the lab; not deleting it"
+  fi
+  if [ -n "$got_config" ] && [ "$got_config" != "$compose_file" ]; then
+    fail "$kind $name has contradictory metadata; not deleting it"
   fi
   printf '%s\n' "owned"
 }
 
 network_record=$(anchor_lab_inspect_resource "$endpoint" network "$expected_network") || fail "network inspection failed"
-network_state=$(owned_or_absent network "$expected_network" "$network_record") || exit 1
+network_state=$(owned_or_absent network "$expected_network" "$anchor_lab_network_key" "$network_record") || exit 1
 volume_record=$(anchor_lab_inspect_resource "$endpoint" volume "$expected_volume") || fail "volume inspection failed"
-volume_state=$(owned_or_absent volume "$expected_volume" "$volume_record") || exit 1
+volume_state=$(owned_or_absent volume "$expected_volume" "$anchor_lab_volume_key" "$volume_record") || exit 1
 
-ps_rows=$(docker --host "$endpoint" ps -a --format '{{.Label "com.docker.compose.project"}}|{{.Label "com.docker.compose.project.config_files"}}') || fail "container label inspection failed"
+ps_rows=$(anchor_lab_list_containers "$endpoint") || fail "container label inspection failed"
 project_containers=0
 while IFS= read -r row || [ -n "$row" ]; do
   row=${row%$'\r'}
   [ -n "$row" ] || continue
-  project=${row%%|*}
-  config=${row#*|}
-  [ -n "$project" ] || [ -n "$config" ] || continue
-  case "$config" in
-    "$compose_file")
-      if [ "$project" != "$expected_project" ]; then
-        fail "container labels contradict the lab project; not deleting resources"
-      fi
-      project_containers=1
-      ;;
-    *)
-      if [ "$project" = "$expected_project" ]; then
-        fail "container labels contradict the lab compose file; not deleting resources"
-      fi
+  IFS=$'\t' read -r got_name got_project got_service got_config <<EOF
+$row
+EOF
+  [ -n "$got_name" ] || [ -n "$got_project" ] || [ -n "$got_service" ] || [ -n "$got_config" ] || continue
+  claims=0
+  case "$got_name" in
+    bintrans-anchor-lab-postgres|bintrans-anchor-lab-postgres-*)
+      claims=1
       ;;
   esac
+  if [ "$got_project" = "$expected_project" ] || [ "$got_config" = "$compose_file" ]; then
+    claims=1
+  fi
+  if [ "$claims" -eq 0 ]; then
+    continue
+  fi
+  case "$got_name" in
+    bintrans-anchor-lab-postgres|bintrans-anchor-lab-postgres-*)
+      name_ok=1
+      ;;
+    *)
+      name_ok=0
+      ;;
+  esac
+  if [ "$got_project" = "$expected_project" ] && [ "$got_service" = "$anchor_lab_service" ] && [ "$got_config" = "$compose_file" ] && [ "$name_ok" -eq 1 ]; then
+    project_containers=1
+    continue
+  fi
+  if [ "$got_project" = "$expected_project" ] || [ "$got_config" = "$compose_file" ]; then
+    fail "container labels contradict the lab service or compose file; not deleting resources"
+  fi
+  fail "container ${got_name:-unknown} is not owned by the lab; not deleting resources"
 done <<EOF
 $ps_rows
 EOF
@@ -92,6 +120,16 @@ EOF
 if [ "$network_state" = "absent" ] && [ "$volume_state" = "absent" ] && [ "$project_containers" -eq 0 ]; then
   echo "LAB_DOWN=NOTHING_TO_REMOVE"
   exit 0
+fi
+
+if [ "$network_state" = "owned" ]; then
+  echo "NETWORK_OWNERSHIP=OWNED"
+fi
+if [ "$volume_state" = "owned" ]; then
+  echo "VOLUME_OWNERSHIP=OWNED"
+fi
+if [ "$project_containers" -eq 1 ]; then
+  echo "CONTAINER_OWNERSHIP=OWNED"
 fi
 
 echo "LAB_DOWN_WARNING=-v deletes the lab test volume $expected_volume" >&2

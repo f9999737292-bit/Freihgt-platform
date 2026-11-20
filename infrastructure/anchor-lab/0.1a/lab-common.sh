@@ -6,6 +6,16 @@ set -euo pipefail
 anchor_lab_project="bintrans-anchor-lab"
 anchor_lab_network="bintrans-anchor-lab-internal"
 anchor_lab_volume="bintrans-anchor-lab-postgres"
+anchor_lab_network_key="anchor-lab"
+anchor_lab_volume_key="anchor-lab-postgres"
+anchor_lab_service="postgres"
+
+# Compose v5.1.4 and v5.7.0 stamp networks with the project label and
+# com.docker.compose.network set to the compose key. Volumes receive the
+# project label and com.docker.compose.volume. Those versions do not stamp
+# com.docker.compose.project.config_files on networks or volumes.
+# Containers carry the project label, com.docker.compose.service, and
+# com.docker.compose.project.config_files. Those rules stay separate.
 
 anchor_lab_root() {
   cd "$(dirname "${BASH_SOURCE[0]}")" && pwd
@@ -83,27 +93,53 @@ anchor_lab_prepare_docker() {
   printf '%s\n' "$endpoint"
 }
 
-# Inspect one named network or volume.
-# Prints "absent" or "project|config_files". The caller decides ownership.
-# A missing resource is not created. An existing resource is not deleted.
+# Inspect one named network or volume without changing it.
+# Prints ABSENT, or one tab-separated line:
+# PRESENT, resource name, project label, type label, optional config-files label.
+# A not-found error is ABSENT. Any other inspect failure returns 1 and prints
+# nothing that can be read as an empty label set.
 anchor_lab_inspect_resource() {
   endpoint=$1
   kind=$2
   name=$3
+  case "$kind" in
+    network)
+      type_label="com.docker.compose.network"
+      ;;
+    volume)
+      type_label="com.docker.compose.volume"
+      ;;
+    *)
+      echo "inspect kind is not network or volume" >&2
+      return 1
+      ;;
+  esac
+
   err_file=$(mktemp)
-  if output=$(docker --host "$endpoint" "$kind" inspect "$name" --format '{{index .Labels "com.docker.compose.project"}}|{{index .Labels "com.docker.compose.project.config_files"}}' 2>"$err_file"); then
+  if output=$(docker --host "$endpoint" "$kind" inspect "$name" --format "{{.Name}}{{\"\t\"}}{{index .Labels \"com.docker.compose.project\"}}{{\"\t\"}}{{index .Labels \"$type_label\"}}{{\"\t\"}}{{index .Labels \"com.docker.compose.project.config_files\"}}" 2>"$err_file"); then
     rm -f "$err_file"
-    printf '%s\n' "$output"
+    output=${output%$'\r'}
+    if [ -z "$output" ]; then
+      echo "$kind inspect returned no metadata for $name" >&2
+      return 1
+    fi
+    printf 'PRESENT\t%s\n' "$output"
     return 0
   fi
   err=$(cat "$err_file" 2>/dev/null || true)
   rm -f "$err_file"
   case "$err" in
     *[Nn]o\ such*|*[Nn]ot\ found*)
-      printf '%s\n' "absent"
+      printf '%s\n' "ABSENT"
       return 0
       ;;
   esac
   echo "$kind inspect failed for $name" >&2
   return 1
+}
+
+# List containers as name, project, service, config-files. Does not change them.
+anchor_lab_list_containers() {
+  endpoint=$1
+  docker --host "$endpoint" ps -a --format '{{.Names}}{{"\t"}}{{.Label "com.docker.compose.project"}}{{"\t"}}{{.Label "com.docker.compose.service"}}{{"\t"}}{{.Label "com.docker.compose.project.config_files"}}'
 }

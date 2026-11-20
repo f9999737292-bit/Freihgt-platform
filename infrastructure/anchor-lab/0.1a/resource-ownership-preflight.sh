@@ -29,45 +29,61 @@ reject_existing() {
   kind=$1
   name=$2
   record=$3
-  project=${record%%|*}
-  config=${record#*|}
-  if [ "$project" != "$expected_project" ] || [ -z "$project" ]; then
-    fail "$kind $name already exists under another owner; not adopting or deleting it"
+  if [ "$record" = "ABSENT" ]; then
+    return 0
   fi
-  case "$config" in
-    "$compose_file") ;;
+  case "$record" in
+    PRESENT$'\t'*) ;;
     *)
-      fail "$kind $name has a conflicting compose label; not adopting or deleting it"
+      fail "$kind inspection returned unrecognized metadata"
       ;;
   esac
+  rest=${record#PRESENT$'\t'}
+  IFS=$'\t' read -r got_name got_project got_type got_config <<EOF
+$rest
+EOF
+  if [ "$got_project" != "$expected_project" ] || [ -z "$got_project" ] || [ "$got_name" != "$name" ]; then
+    fail "$kind $name already exists under another owner; not adopting or deleting it"
+  fi
+  if [ -n "$got_config" ] && [ "$got_config" != "$compose_file" ]; then
+    fail "$kind $name has contradictory metadata; not adopting or deleting it"
+  fi
+  if [ -z "$got_type" ]; then
+    fail "$kind $name already exists with incomplete metadata; not adopting or deleting it"
+  fi
   fail "$kind $name already exists; first-start preflight does not adopt it"
 }
 
 network_record=$(anchor_lab_inspect_resource "$endpoint" network "$expected_network") || fail "network inspection failed"
-if [ "$network_record" != "absent" ]; then
-  reject_existing network "$expected_network" "$network_record"
-fi
+reject_existing network "$expected_network" "$network_record"
 
 volume_record=$(anchor_lab_inspect_resource "$endpoint" volume "$expected_volume") || fail "volume inspection failed"
-if [ "$volume_record" != "absent" ]; then
-  reject_existing volume "$expected_volume" "$volume_record"
-fi
+reject_existing volume "$expected_volume" "$volume_record"
 
-ps_rows=$(docker --host "$endpoint" ps -a --format '{{.Label "com.docker.compose.project"}}|{{.Label "com.docker.compose.project.config_files"}}') || fail "container label inspection failed"
+ps_rows=$(anchor_lab_list_containers "$endpoint") || fail "container label inspection failed"
 while IFS= read -r row || [ -n "$row" ]; do
   row=${row%$'\r'}
   [ -n "$row" ] || continue
-  project=${row%%|*}
-  config=${row#*|}
-  [ -n "$project" ] || [ -n "$config" ] || continue
-  if [ "$project" = "$expected_project" ]; then
-    fail "a container already carries project $expected_project; first-start preflight does not adopt it"
-  fi
-  case "$config" in
-    "$compose_file"|*"/anchor-lab/"*)
-      fail "container labels conflict with the lab compose file; not adopting or deleting them"
+  IFS=$'\t' read -r got_name got_project got_service got_config <<EOF
+$row
+EOF
+  [ -n "$got_name" ] || [ -n "$got_project" ] || [ -n "$got_service" ] || [ -n "$got_config" ] || continue
+  claims=0
+  case "$got_name" in
+    bintrans-anchor-lab-postgres|bintrans-anchor-lab-postgres-*)
+      claims=1
       ;;
   esac
+  if [ "$got_project" = "$expected_project" ] || [ "$got_config" = "$compose_file" ]; then
+    claims=1
+  fi
+  if [ "$claims" -eq 0 ]; then
+    continue
+  fi
+  if [ "$got_project" != "$expected_project" ] || [ -z "$got_project" ]; then
+    fail "container ${got_name:-unknown} already exists under another owner; not adopting or deleting it"
+  fi
+  fail "a container already carries project $expected_project; first-start preflight does not adopt it"
 done <<EOF
 $ps_rows
 EOF

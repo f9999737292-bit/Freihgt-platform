@@ -69,19 +69,35 @@ case "$op" in
     ;;
   network)
     [ "${2:-}" = "inspect" ]
-    if [ "${MOCK_NETWORK_STATE:-absent}" = "absent" ]; then
-      echo "Error: No such network" >&2
-      exit 1
-    fi
-    printf '%s\n' "$MOCK_NETWORK_STATE"
+    case "${MOCK_NETWORK_STATE:-absent}" in
+      absent)
+        echo "Error: No such network" >&2
+        exit 1
+        ;;
+      error)
+        echo "Error: permission denied" >&2
+        exit 1
+        ;;
+      *)
+        printf '%s\n' "$MOCK_NETWORK_STATE"
+        ;;
+    esac
     ;;
   volume)
     [ "${2:-}" = "inspect" ]
-    if [ "${MOCK_VOLUME_STATE:-absent}" = "absent" ]; then
-      echo "Error: No such volume" >&2
-      exit 1
-    fi
-    printf '%s\n' "$MOCK_VOLUME_STATE"
+    case "${MOCK_VOLUME_STATE:-absent}" in
+      absent)
+        echo "Error: No such volume" >&2
+        exit 1
+        ;;
+      error)
+        echo "Error: permission denied" >&2
+        exit 1
+        ;;
+      *)
+        printf '%s\n' "$MOCK_VOLUME_STATE"
+        ;;
+    esac
     ;;
   ps)
     printf '%s\n' "${MOCK_PS:-}"
@@ -400,13 +416,29 @@ prepare_owned_env() {
   write_env "$work/lab/.env" "static-secret-value"
 }
 
+owned_network_record() {
+  printf '%s\t%s\t%s\t' bintrans-anchor-lab-internal bintrans-anchor-lab anchor-lab
+}
+
+owned_volume_record() {
+  printf '%s\t%s\t%s\t' bintrans-anchor-lab-postgres bintrans-anchor-lab anchor-lab-postgres
+}
+
+foreign_network_record() {
+  printf '%s\t%s\t%s\t%s' bintrans-anchor-lab-internal bintrans-e2e-stand-v01a bintrans-e2e-stand /opt/bintrans/e2e-stand/compose.yaml
+}
+
+foreign_volume_record() {
+  printf '%s\t%s\t%s\t%s' bintrans-anchor-lab-postgres bintrans-e2e-stand-v01a bintrans-e2e-stand-postgres /opt/bintrans/e2e-stand/compose.yaml
+}
+
 test_foreign_network() {
   work=$(new_workspace)
   log="$work/docker.log"
   : > "$log"
   set +e
   out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" \
-    MOCK_NETWORK_STATE="bintrans-e2e-stand-v01a|/opt/bintrans/e2e-stand/compose.yaml" \
+    MOCK_NETWORK_STATE="$(foreign_network_record)" \
     bash "$work/lab/resource-ownership-preflight.sh" 2>&1)
   status=$?
   set -e
@@ -422,7 +454,7 @@ test_foreign_volume() {
   : > "$log"
   set +e
   out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" \
-    MOCK_VOLUME_STATE="bintrans-e2e-stand-v01a|bintrans-e2e-stand-postgres" \
+    MOCK_VOLUME_STATE="$(foreign_volume_record)" \
     bash "$work/lab/resource-ownership-preflight.sh" 2>&1)
   status=$?
   set -e
@@ -472,7 +504,7 @@ test_cleanup_foreign_resources() {
   prepare_owned_env "$work"
   set +e
   out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
-    MOCK_NETWORK_STATE="bintrans-e2e-stand-v01a|/opt/bintrans/e2e-stand/compose.yaml" \
+    MOCK_NETWORK_STATE="$(foreign_network_record)" \
     bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
   status=$?
   set -e
@@ -493,9 +525,9 @@ test_cleanup_contradictory_labels() {
   compose="$(cd "$work/lab" && pwd)/compose.yaml"
   set +e
   out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
-    MOCK_NETWORK_STATE="bintrans-anchor-lab|$compose" \
-    MOCK_VOLUME_STATE="bintrans-anchor-lab|$compose" \
-    MOCK_PS="bintrans-anchor-lab|/opt/bintrans/e2e-stand/compose.yaml" \
+    MOCK_NETWORK_STATE="$(owned_network_record)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)" \
+    MOCK_PS="$(printf '%s\t%s\t%s\t%s' bintrans-anchor-lab-postgres-1 bintrans-anchor-lab postgres /opt/bintrans/e2e-stand/compose.yaml)" \
     bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
   status=$?
   set -e
@@ -530,8 +562,8 @@ test_cleanup_owned_is_explicit_and_mocked() {
   compose="$(cd "$work/lab" && pwd)/compose.yaml"
   set +e
   out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
-    MOCK_NETWORK_STATE="bintrans-anchor-lab|$compose" \
-    MOCK_VOLUME_STATE="bintrans-anchor-lab|$compose" \
+    MOCK_NETWORK_STATE="$(owned_network_record)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)" \
     bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
   status=$?
   set -e
@@ -559,6 +591,213 @@ test_down_rejects_override_flags() {
   [ "$status" -ne 0 ]
   printf '%s\n' "$out" | grep -q "does not accept"
   [ ! -s "$log" ]
+  rm -rf "$work"
+}
+
+test_owned_network_and_volume_recognized() {
+  work=$(new_workspace)
+  log="$work/docker.log"
+  : > "$log"
+  prepare_owned_env "$work"
+  compose="$(cd "$work/lab" && pwd)/compose.yaml"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
+    MOCK_NETWORK_STATE="$(owned_network_record)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)" \
+    bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$out" | grep -q "NETWORK_OWNERSHIP=OWNED"
+  printf '%s\n' "$out" | grep -q "VOLUME_OWNERSHIP=OWNED"
+  printf '%s\n' "$out" | grep -q " down -v" || grep -q " down -v" "$log"
+  rm -rf "$work"
+}
+
+test_owned_container_recognized() {
+  work=$(new_workspace)
+  log="$work/docker.log"
+  : > "$log"
+  prepare_owned_env "$work"
+  compose="$(cd "$work/lab" && pwd)/compose.yaml"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
+    MOCK_NETWORK_STATE="$(owned_network_record)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)" \
+    MOCK_PS="$(printf '%s\t%s\t%s\t%s' bintrans-anchor-lab-postgres-1 bintrans-anchor-lab postgres "$compose")" \
+    bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$out" | grep -q "CONTAINER_OWNERSHIP=OWNED"
+  grep -q " down -v" "$log"
+  if grep -E 'remove-orphans|prune|bintrans-e2e-stand' "$log" >/dev/null; then
+    return 1
+  fi
+  rm -rf "$work"
+}
+
+test_cleanup_absent_does_nothing() {
+  work=$(new_workspace)
+  log="$work/docker.log"
+  : > "$log"
+  prepare_owned_env "$work"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
+    bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$out" | grep -q "LAB_DOWN=NOTHING_TO_REMOVE"
+  assert_no_mutation "$log"
+  rm -rf "$work"
+}
+
+test_wrong_network_label() {
+  work=$(new_workspace)
+  log="$work/docker.log"
+  : > "$log"
+  prepare_owned_env "$work"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
+    MOCK_NETWORK_STATE="$(printf '%s\t%s\t%s\t' bintrans-anchor-lab-internal bintrans-anchor-lab bintrans-e2e-stand)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)" \
+    bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$out" | grep -q "not owned"
+  assert_no_mutation "$log"
+  echo "DOCKER_MUTATION=NO" >/dev/null
+  rm -rf "$work"
+}
+
+test_wrong_volume_label() {
+  work=$(new_workspace)
+  log="$work/docker.log"
+  : > "$log"
+  prepare_owned_env "$work"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
+    MOCK_NETWORK_STATE="$(owned_network_record)" \
+    MOCK_VOLUME_STATE="$(printf '%s\t%s\t%s\t' bintrans-anchor-lab-postgres bintrans-anchor-lab bintrans-e2e-stand-postgres)" \
+    bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$out" | grep -q "not owned"
+  assert_no_mutation "$log"
+  rm -rf "$work"
+}
+
+test_missing_labels() {
+  work=$(new_workspace)
+  log="$work/docker.log"
+  : > "$log"
+  prepare_owned_env "$work"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
+    MOCK_NETWORK_STATE="$(printf '%s\t%s\t%s\t' bintrans-anchor-lab-internal '' '')" \
+    bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$out" | grep -q "not owned"
+  assert_no_mutation "$log"
+  rm -rf "$work"
+}
+
+test_inspect_error_is_not_absence() {
+  work=$(new_workspace)
+  log="$work/docker.log"
+  : > "$log"
+  prepare_owned_env "$work"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
+    MOCK_NETWORK_STATE=error \
+    bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$out" | grep -q "inspection failed"
+  if printf '%s\n' "$out" | grep -q "NOTHING_TO_REMOVE"; then
+    return 1
+  fi
+  assert_no_mutation "$log"
+  rm -rf "$work"
+}
+
+test_foreign_container_under_lab_name() {
+  work=$(new_workspace)
+  log="$work/docker.log"
+  : > "$log"
+  prepare_owned_env "$work"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
+    MOCK_NETWORK_STATE="$(owned_network_record)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)" \
+    MOCK_PS="$(printf '%s\t%s\t%s\t%s' bintrans-anchor-lab-postgres-1 bintrans-e2e-stand-v01a postgres /opt/bintrans/e2e-stand/compose.yaml)" \
+    bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$out" | grep -q "not owned"
+  assert_no_mutation "$log"
+  rm -rf "$work"
+}
+
+test_cleanup_remote_endpoint() {
+  work=$(new_workspace)
+  log="$work/docker.log"
+  : > "$log"
+  prepare_owned_env "$work"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
+    DOCKER_HOST=tcp://203.0.113.9:2375 \
+    bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$out" | grep -q "not an allowed local docker endpoint"
+  [ ! -s "$log" ]
+  rm -rf "$work"
+}
+
+test_partial_unknown_owner() {
+  work=$(new_workspace)
+  log="$work/docker.log"
+  : > "$log"
+  prepare_owned_env "$work"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
+    MOCK_NETWORK_STATE="$(owned_network_record)" \
+    MOCK_VOLUME_STATE="$(foreign_volume_record)" \
+    bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$out" | grep -q "not owned"
+  assert_no_mutation "$log"
+  if printf '%s\n' "$out" | grep -q "NETWORK_OWNERSHIP=OWNED"; then
+    return 1
+  fi
+  rm -rf "$work"
+}
+
+test_first_start_rejects_labeled_resources() {
+  work=$(new_workspace)
+  log="$work/docker.log"
+  : > "$log"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" \
+    MOCK_NETWORK_STATE="$(owned_network_record)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)" \
+    bash "$work/lab/resource-ownership-preflight.sh" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$out" | grep -q "does not adopt"
+  assert_no_mutation "$log"
   rm -rf "$work"
 }
 
@@ -595,6 +834,17 @@ run_one "cleanup wrong project" test_cleanup_wrong_project_before_docker
 run_one "mocked owned cleanup" test_cleanup_owned_is_explicit_and_mocked
 run_one "cleanup rejects orphan override" test_down_rejects_override_flags
 run_one "scripts do not prune" test_scripts_do_not_prune
+run_one "owned network and volume recognized" test_owned_network_and_volume_recognized
+run_one "owned container recognized" test_owned_container_recognized
+run_one "cleanup absent does nothing" test_cleanup_absent_does_nothing
+run_one "wrong network label" test_wrong_network_label
+run_one "wrong volume label" test_wrong_volume_label
+run_one "missing labels" test_missing_labels
+run_one "inspect error is not absence" test_inspect_error_is_not_absence
+run_one "foreign container under lab name" test_foreign_container_under_lab_name
+run_one "cleanup remote endpoint" test_cleanup_remote_endpoint
+run_one "partial unknown owner" test_partial_unknown_owner
+run_one "first start rejects labeled resources" test_first_start_rejects_labeled_resources
 
 say "STATIC_TESTS_PASSED=$pass"
 say "STATIC_TESTS_FAILED=$fail_count"
