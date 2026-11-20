@@ -145,6 +145,24 @@ jobs:
         working-directory: ${{ matrix.module }}
         run: go test ./...
 
+      - name: NLO tracking and ETA real handler proof
+        if: matrix.module == 'services/network-optimizer-service'
+        working-directory: services/network-optimizer-service
+        run: |
+          set -o pipefail
+          log="${RUNNER_TEMP}/nlo10d-proof.log"
+          go test -count=1 -timeout 240s -v \
+            -run '^TestNLO10D_TrackingAndETARealHandlers$' \
+            ./internal/sourceclient | tee "$log"
+          if ! grep -E -q -- '^--- PASS: TestNLO10D_TrackingAndETARealHandlers( |$)' "$log"; then
+            echo "missing named PASS: --- PASS: TestNLO10D_TrackingAndETARealHandlers"
+            exit 1
+          fi
+          if grep -E -q -- '^--- SKIP:' "$log"; then
+            echo "SKIP is not accepted as PASS for TestNLO10D_TrackingAndETARealHandlers"
+            exit 1
+          fi
+
   company-relationship-foundation-postgres:
     name: company-relationship-foundation-postgres
     runs-on: ubuntu-latest
