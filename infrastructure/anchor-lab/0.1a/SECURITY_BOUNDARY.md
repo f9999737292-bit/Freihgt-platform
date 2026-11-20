@@ -8,13 +8,15 @@ This boundary describes the Compose file in this directory. Stage 0.1A does not 
 - The only network is `bintrans-anchor-lab-internal` with `internal: true` and driver `bridge`.
 - The file has no `ports` key and no `network_mode: host`.
 - No service mounts `/var/run/docker.sock` or another Docker socket.
-- A process outside this network cannot reach the database through a published port. A process on this network cannot open a connection to production, staging, or the E2E stand.
+- The file requests an internal network and publishes no host port. This stage did not start a container, so it did not prove that a running process is unable to reach another network.
+- `project-guard.sh` and `resource-ownership-preflight.sh` reject a remote `DOCKER_HOST` or a remote Docker context before using the daemon. They do not contact staging or production. A direct `docker compose` command does not pass through those checks.
 
 ## Database
 
 - Image reference: `mirror.gcr.io/library/postgres:16`. This stage does not pull the image.
 - Database name, user, and password come from `ANCHOR_LAB_POSTGRES_DB`, `ANCHOR_LAB_POSTGRES_USER`, and `ANCHOR_LAB_POSTGRES_PASSWORD`.
-- `.env.example` contains the placeholder password `change-me`. It is not a production, staging, or E2E credential. Stage 0.1A does not create a `.env` file and does not copy the example to a host.
+- `.env.example` contains the placeholder password `change-me`. It is not a production, staging, or E2E credential, and it is not a usable lab password.
+- A future `.env` must sit beside this file, stay untracked, use mode `0600`, and contain a lab password other than `change-me` or an empty value. `env-file-guard.sh` checks those conditions and does not print the password. It does not read a staging or production environment file. This stage does not create that `.env` and does not store a real password.
 - The file contains no production DSN and no connection string to another Compose project.
 - The volume `bintrans-anchor-lab-postgres` is the only data location. It is not marked `external`.
 

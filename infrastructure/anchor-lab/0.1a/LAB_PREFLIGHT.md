@@ -4,13 +4,21 @@ Stage 0.1A runs the static checks below on the workstation copy. It does not cop
 
 ## Render the project
 
-From this directory:
+A direct `docker compose` command does not run the lab guard. The guarded render is:
 
 ```text
-docker compose --env-file .env.example -p bintrans-anchor-lab -f compose.yaml config
+bash project-guard.sh --env-file .env -p bintrans-anchor-lab -f compose.yaml
 ```
 
-`docker compose config` renders the file. It does not create a network, volume, or container, and it does not pull `mirror.gcr.io/library/postgres:16`.
+The guard reads `name:`, `COMPOSE_PROJECT_NAME`, and the env file, rejects any other project selector, and only then runs `docker compose config`. It does not print the rendered document. `docker compose config` does not create a network, volume, or container, and it does not pull `mirror.gcr.io/library/postgres:16`.
+
+Before a future first start, run the read-only preflight:
+
+```text
+bash resource-ownership-preflight.sh
+```
+
+If `bintrans-anchor-lab-internal` or `bintrans-anchor-lab-postgres` already exists, the preflight stops. It does not adopt the resource and does not delete it. This is not a model for a later start. `bash lab-up.sh --env-file .env` is the future first-start wrapper and is not run in this stage.
 
 Accept the render only when all of the following are true:
 
@@ -31,4 +39,4 @@ The directory name `0.1a` is not a valid Compose project name. A render whose `n
 
 ## Explicitly out of this stage
 
-Do not run `docker compose up`, `docker compose create`, `docker compose pull`, or `docker compose down`. Do not SSH to the lab host. A future stage repeats this render on the host before any start, with the working directory `/opt/bintrans/anchor-lab` and with a lab `.env` that replaces `change-me`.
+Do not run `docker compose up`, `docker compose create`, `docker compose pull`, `docker compose down`, or `lab-up.sh`. Do not SSH to the lab host. A future stage uses the wrappers from `/opt/bintrans/anchor-lab` with a lab `.env` that is untracked, mode `0600`, and does not contain `change-me`. The placeholder in `.env.example` is rejected for that file.

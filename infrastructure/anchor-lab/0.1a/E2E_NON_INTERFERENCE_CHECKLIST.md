@@ -17,7 +17,9 @@ The existing stand Compose project is `bintrans-e2e-stand-v01a`, defined by `inf
 | No `container_name`, including any `freight_*` or `bintrans_e2e_*` name | PASS |
 | Platform migrations are not mounted | PASS |
 | Cleanup text names this project and this `compose.yaml` | PASS |
-| `docker system prune` and `docker volume prune` are absent | PASS |
-| Existing E2E Compose file was not modified | PASS |
+| `lab-down.sh` refuses a foreign project, network, volume, or label before deletion | PASS |
+| A direct `docker compose` command is outside the lab guard | DOCUMENTED |
+| `docker system prune` and `docker volume prune` are absent from the lab scripts | PASS |
+| Existing E2E Compose file and E2E scripts were not modified | PASS |
 
 Server-side confirmation that the live Docker daemon has no shared resource is `NOT_RUN`. This stage has no SSH access and creates no Docker resource.
