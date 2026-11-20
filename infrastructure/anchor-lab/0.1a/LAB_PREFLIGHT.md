@@ -18,6 +18,8 @@ Before a future first start, run the read-only preflight:
 bash resource-ownership-preflight.sh
 ```
 
+The preflight and `lab-down.sh` need a working `jq` on the host. They read each resource as one JSON object from `docker inspect --format '{{json .}}'` and read each label separately, so an empty label cannot take the value of the next field. Malformed JSON, more than one object, duplicate keys, or a label of the wrong type stops the check. Without `jq` they stop before inspecting Docker. Host availability of `jq` is not checked in this stage.
+
 If `bintrans-anchor-lab-internal` or `bintrans-anchor-lab-postgres` already exists, the preflight stops. It does not adopt the resource and does not delete it. This is not a model for a later start. `bash lab-up.sh --env-file .env` is the future first-start wrapper and is not run in this stage.
 
 Accept the render only when all of the following are true:
@@ -39,4 +41,4 @@ The directory name `0.1a` is not a valid Compose project name. A render whose `n
 
 ## Explicitly out of this stage
 
-Do not run `docker compose up`, `docker compose create`, `docker compose pull`, `docker compose down`, or `lab-up.sh`. Do not SSH to the lab host. A future stage uses the wrappers from `/opt/bintrans/anchor-lab` with a lab `.env` that is untracked, mode `0600`, and does not contain `change-me`. The placeholder in `.env.example` is rejected for that file.
+Do not run `docker compose up`, `docker compose create`, `docker compose pull`, `docker compose down`, or `lab-up.sh`. Do not SSH to the lab host. A future stage uses the wrappers from `/opt/bintrans/anchor-lab` with a lab `.env` that is a regular file, not a symlink, mode `0600`, owned by the account that runs the wrapper, untracked when the directory is a git work tree, and does not contain `change-me`. The placeholder in `.env.example` is rejected for that file. That directory may have no `.git`. Before any wrapper runs there, the received files need an integrity check against the reviewed commit; this stage does not define one.

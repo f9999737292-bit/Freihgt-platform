@@ -41,8 +41,11 @@ done
 bash "$script_dir/env-file-guard.sh" --env-file "$env_file"
 bash "$script_dir/project-guard.sh" --env-file "$env_file" -p "$expected_project" -f "$compose_file"
 
+anchor_lab_require_json_parser || fail "docker metadata parser is unavailable"
 endpoint=$(anchor_lab_prepare_docker) || fail "docker endpoint is not an allowed local daemon"
 
+# Values below are S:<value> or MISSING, read one field at a time from a
+# single JSON snapshot, so an empty label cannot take a neighbour's value.
 owned_or_absent() {
   kind=$1
   name=$2
@@ -52,20 +55,16 @@ owned_or_absent() {
     printf '%s\n' "absent"
     return 0
   fi
-  case "$record" in
-    PRESENT$'\t'*) ;;
-    *)
-      fail "$kind inspection returned unrecognized metadata; not deleting it"
-      ;;
-  esac
-  rest=${record#PRESENT$'\t'}
-  IFS=$'\t' read -r got_name got_project got_type got_config <<EOF
-$rest
-EOF
-  if [ -z "$got_project" ] || [ -z "$got_type" ] || [ "$got_name" != "$name" ] || [ "$got_project" != "$expected_project" ] || [ "$got_type" != "$expected_type" ]; then
+  anchor_lab_json_is_object "$record" || fail "$kind inspection returned unrecognized metadata; not deleting it"
+  type_label=$(anchor_lab_type_label "$kind") || fail "$kind kind is unknown"
+  got_name=$(anchor_lab_json_get "$record" '.Name') || fail "$kind inspection returned unrecognized metadata; not deleting it"
+  got_project=$(anchor_lab_json_get "$record" '.Labels[$k]' com.docker.compose.project) || fail "$kind inspection returned unrecognized metadata; not deleting it"
+  got_type=$(anchor_lab_json_get "$record" '.Labels[$k]' "$type_label") || fail "$kind inspection returned unrecognized metadata; not deleting it"
+  got_config=$(anchor_lab_json_get "$record" '.Labels[$k]' com.docker.compose.project.config_files) || fail "$kind inspection returned unrecognized metadata; not deleting it"
+  if [ "$got_name" != "S:$name" ] || [ "$got_project" != "S:$expected_project" ] || [ "$got_type" != "S:$expected_type" ]; then
     fail "$kind $name is not owned by the lab; not deleting it"
   fi
-  if [ -n "$got_config" ] && [ "$got_config" != "$compose_file" ]; then
+  if [ "$got_config" != "MISSING" ] && [ "$got_config" != "S:$compose_file" ]; then
     fail "$kind $name has contradictory metadata; not deleting it"
   fi
   printf '%s\n' "owned"
@@ -76,45 +75,41 @@ network_state=$(owned_or_absent network "$expected_network" "$anchor_lab_network
 volume_record=$(anchor_lab_inspect_resource "$endpoint" volume "$expected_volume") || fail "volume inspection failed"
 volume_state=$(owned_or_absent volume "$expected_volume" "$anchor_lab_volume_key" "$volume_record") || exit 1
 
-ps_rows=$(anchor_lab_list_containers "$endpoint") || fail "container label inspection failed"
+container_ids=$(anchor_lab_list_container_ids "$endpoint") || fail "container list failed"
 project_containers=0
-while IFS= read -r row || [ -n "$row" ]; do
-  row=${row%$'\r'}
-  [ -n "$row" ] || continue
-  IFS=$'\t' read -r got_name got_project got_service got_config <<EOF
-$row
-EOF
-  [ -n "$got_name" ] || [ -n "$got_project" ] || [ -n "$got_service" ] || [ -n "$got_config" ] || continue
+while IFS= read -r id || [ -n "$id" ]; do
+  [ -n "$id" ] || continue
+  record=$(anchor_lab_inspect_json "$endpoint" container "$id") || fail "container inspection failed"
+  [ "$record" != "ABSENT" ] || continue
+  got_name=$(anchor_lab_json_get "$record" '.Name') || fail "container inspection returned unrecognized metadata"
+  got_project=$(anchor_lab_json_get "$record" '.Config.Labels[$k]' com.docker.compose.project) || fail "container inspection returned unrecognized metadata"
+  got_service=$(anchor_lab_json_get "$record" '.Config.Labels[$k]' com.docker.compose.service) || fail "container inspection returned unrecognized metadata"
+  got_config=$(anchor_lab_json_get "$record" '.Config.Labels[$k]' com.docker.compose.project.config_files) || fail "container inspection returned unrecognized metadata"
+  got_name=${got_name#S:/}
   claims=0
+  name_ok=0
   case "$got_name" in
     bintrans-anchor-lab-postgres|bintrans-anchor-lab-postgres-*)
       claims=1
+      name_ok=1
       ;;
   esac
-  if [ "$got_project" = "$expected_project" ] || [ "$got_config" = "$compose_file" ]; then
+  if [ "$got_project" = "S:$expected_project" ] || [ "$got_config" = "S:$compose_file" ]; then
     claims=1
   fi
   if [ "$claims" -eq 0 ]; then
     continue
   fi
-  case "$got_name" in
-    bintrans-anchor-lab-postgres|bintrans-anchor-lab-postgres-*)
-      name_ok=1
-      ;;
-    *)
-      name_ok=0
-      ;;
-  esac
-  if [ "$got_project" = "$expected_project" ] && [ "$got_service" = "$anchor_lab_service" ] && [ "$got_config" = "$compose_file" ] && [ "$name_ok" -eq 1 ]; then
+  if [ "$got_project" = "S:$expected_project" ] && [ "$got_service" = "S:$anchor_lab_service" ] && [ "$got_config" = "S:$compose_file" ] && [ "$name_ok" -eq 1 ]; then
     project_containers=1
     continue
   fi
-  if [ "$got_project" = "$expected_project" ] || [ "$got_config" = "$compose_file" ]; then
+  if [ "$got_project" = "S:$expected_project" ] || [ "$got_config" = "S:$compose_file" ]; then
     fail "container labels contradict the lab service or compose file; not deleting resources"
   fi
-  fail "container ${got_name:-unknown} is not owned by the lab; not deleting resources"
+  fail "container is not owned by the lab; not deleting resources"
 done <<EOF
-$ps_rows
+$container_ids
 EOF
 
 if [ "$network_state" = "absent" ] && [ "$volume_state" = "absent" ] && [ "$project_containers" -eq 0 ]; then

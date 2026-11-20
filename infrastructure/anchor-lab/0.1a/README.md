@@ -24,6 +24,12 @@ A direct `docker compose` command does not run this guard. Future start and stop
 
 `resource-ownership-preflight.sh` is a read-only check for a future first start. If the lab network or volume already exists, it stops without adopting or deleting that resource. A model for a later start is not implemented. `lab-up.sh` therefore cannot be used for a second start until that model exists.
 
+## Host placement
+
+The directory may be placed on the host as plain files, without `.git`. `env-file-guard.sh` then checks the `.env` without a tracked-status check. Inside a git work tree it still requires the `.env` to be untracked. Neither mode proves that the received files are the reviewed ones. A standalone copy needs its own integrity check of every file against the reviewed commit before any wrapper runs. This stage defines no such check and does not copy files to the host.
+
+The ownership wrappers parse Docker metadata as JSON with `jq`. Without a working `jq` they stop before inspecting Docker. Runtime behaviour on the host has not been checked.
+
 ## Files
 
 | File | Purpose |
@@ -31,7 +37,7 @@ A direct `docker compose` command does not run this guard. Future start and stop
 | `compose.yaml` | Lab project definition |
 | `.env.example` | Placeholder variable names and non-production values |
 | `project-guard.sh` | Rejects every project source other than `bintrans-anchor-lab` |
-| `env-file-guard.sh` | Rejects a missing, tracked, world-readable, empty, or placeholder lab password |
+| `env-file-guard.sh` | Rejects a misplaced, symlinked, non-0600, foreign-owned, tracked, empty, or placeholder lab `.env` |
 | `resource-ownership-preflight.sh` | Read-only first-start check; does not adopt or delete resources |
 | `lab-up.sh` | Future first start through the guards; not run in this stage |
 | `lab-down.sh` | Future cleanup of labeled lab resources only; not run in this stage |

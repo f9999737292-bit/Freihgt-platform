@@ -93,37 +93,64 @@ anchor_lab_prepare_docker() {
   printf '%s\n' "$endpoint"
 }
 
-# Inspect one named network or volume without changing it.
-# Prints ABSENT, or one tab-separated line:
-# PRESENT, resource name, project label, type label, optional config-files label.
-# A not-found error is ABSENT. Any other inspect failure returns 1 and prints
-# nothing that can be read as an empty label set.
-anchor_lab_inspect_resource() {
-  endpoint=$1
-  kind=$2
-  name=$3
-  case "$kind" in
-    network)
-      type_label="com.docker.compose.network"
-      ;;
-    volume)
-      type_label="com.docker.compose.volume"
-      ;;
+# Docker metadata is parsed as JSON with jq. Tab-separated templates are not
+# used because bash read collapses empty fields and shifts later labels.
+# Without a working jq the wrappers stop before any Docker call.
+anchor_lab_require_json_parser() {
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "jq is required to parse Docker metadata" >&2
+    return 1
+  fi
+  probe=$(printf '%s' '{"k":"v"}' | jq -r '.k' 2>/dev/null) || probe=""
+  if [ "$probe" != "v" ]; then
+    echo "jq is not working; Docker metadata cannot be parsed" >&2
+    return 1
+  fi
+}
+
+# Succeeds only when the input is exactly one JSON object without duplicate
+# keys. jq keeps the last duplicate silently, so duplicates are ambiguous.
+anchor_lab_json_is_object() {
+  printf '%s' "$1" | jq -s -e 'length == 1 and (.[0] | type) == "object"' >/dev/null 2>&1 || return 1
+  printf '%s' "$1" | jq -n -e --stream '[inputs | select(length == 2) | .[0]] | length == (unique | length)' >/dev/null 2>&1
+}
+
+# Read one value from a single JSON object snapshot.
+# $2 is a jq path. $3 is available to that path as $k.
+# Prints S:<value> for a string and MISSING for an absent key or null.
+# Any other type, or a parse error, returns non-zero.
+anchor_lab_json_get() {
+  printf '%s' "$1" | jq -r --arg k "${3-}" \
+    "($2) as \$v | if \$v == null then \"MISSING\" elif (\$v | type) == \"string\" then \"S:\" + \$v else error(\"unexpected type\") end" 2>/dev/null
+}
+
+anchor_lab_type_label() {
+  case "$1" in
+    network) printf '%s\n' "com.docker.compose.network" ;;
+    volume) printf '%s\n' "com.docker.compose.volume" ;;
     *)
       echo "inspect kind is not network or volume" >&2
       return 1
       ;;
   esac
+}
 
+# Run one read-only inspect and return its JSON object snapshot.
+# Prints ABSENT for a not-found error. Any other failure, an empty answer,
+# or an answer that is not exactly one JSON object returns 1.
+anchor_lab_inspect_json() {
+  endpoint=$1
+  kind=$2
+  name=$3
   err_file=$(mktemp)
-  if output=$(docker --host "$endpoint" "$kind" inspect "$name" --format "{{.Name}}{{\"\t\"}}{{index .Labels \"com.docker.compose.project\"}}{{\"\t\"}}{{index .Labels \"$type_label\"}}{{\"\t\"}}{{index .Labels \"com.docker.compose.project.config_files\"}}" 2>"$err_file"); then
+  if output=$(docker --host "$endpoint" "$kind" inspect --format '{{json .}}' "$name" 2>"$err_file"); then
     rm -f "$err_file"
     output=${output%$'\r'}
-    if [ -z "$output" ]; then
-      echo "$kind inspect returned no metadata for $name" >&2
+    if [ -z "$output" ] || ! anchor_lab_json_is_object "$output"; then
+      echo "$kind inspect returned unrecognized metadata for $name" >&2
       return 1
     fi
-    printf 'PRESENT\t%s\n' "$output"
+    printf '%s\n' "$output"
     return 0
   fi
   err=$(cat "$err_file" 2>/dev/null || true)
@@ -138,8 +165,27 @@ anchor_lab_inspect_resource() {
   return 1
 }
 
-# List containers as name, project, service, config-files. Does not change them.
-anchor_lab_list_containers() {
+# Inspect one named network or volume without changing it.
+anchor_lab_inspect_resource() {
+  anchor_lab_type_label "$2" >/dev/null || return 1
+  anchor_lab_inspect_json "$1" "$2" "$3"
+}
+
+# Print full container IDs, one per line. Does not change containers.
+anchor_lab_list_container_ids() {
   endpoint=$1
-  docker --host "$endpoint" ps -a --format '{{.Names}}{{"\t"}}{{.Label "com.docker.compose.project"}}{{"\t"}}{{.Label "com.docker.compose.service"}}{{"\t"}}{{.Label "com.docker.compose.project.config_files"}}'
+  ids=$(docker --host "$endpoint" ps -a --no-trunc --format '{{.ID}}') || return 1
+  while IFS= read -r id || [ -n "$id" ]; do
+    id=${id%$'\r'}
+    [ -n "$id" ] || continue
+    case "$id" in
+      *[!0-9a-f]*)
+        echo "container list returned an unrecognized id" >&2
+        return 1
+        ;;
+    esac
+    printf '%s\n' "$id"
+  done <<EOF
+$ids
+EOF
 }

@@ -18,6 +18,8 @@ The existing stand Compose project is `bintrans-e2e-stand-v01a`, defined by `inf
 | Platform migrations are not mounted | PASS |
 | Cleanup text names this project and this `compose.yaml` | PASS |
 | `lab-down.sh` refuses a foreign project, network, volume, or label before deletion | PASS |
+| Empty, shifted, malformed, or duplicate label metadata is refused before deletion | PASS (mock Docker only) |
+| Standalone host copy is checked for integrity against the reviewed commit | NOT_DEFINED |
 | A direct `docker compose` command is outside the lab guard | DOCUMENTED |
 | `docker system prune` and `docker volume prune` are absent from the lab scripts | PASS |
 | Existing E2E Compose file and E2E scripts were not modified | PASS |

@@ -25,7 +25,7 @@ record() {
 
 new_workspace() {
   work=$(mktemp -d)
-  mkdir -p "$work/bin" "$work/lab"
+  mkdir -p "$work/bin" "$work/lab" "$work/containers"
   cp "$lab/lab-common.sh" "$lab/project-guard.sh" "$lab/env-file-guard.sh" \
     "$lab/resource-ownership-preflight.sh" "$lab/lab-down.sh" "$lab/lab-up.sh" \
     "$lab/compose.yaml" "$work/lab/"
@@ -67,27 +67,28 @@ case "$op" in
   info)
     exit "${MOCK_INFO_STATUS:-0}"
     ;;
-  network)
-    [ "${2:-}" = "inspect" ]
-    case "${MOCK_NETWORK_STATE:-absent}" in
-      absent)
-        echo "Error: No such network" >&2
-        exit 1
-        ;;
-      error)
-        echo "Error: permission denied" >&2
-        exit 1
-        ;;
-      *)
-        printf '%s\n' "$MOCK_NETWORK_STATE"
+  network|volume|container)
+    if [ "${2:-}" != "inspect" ] || [ "${3:-}" != "--format" ] || [ "${4:-}" != '{{json .}}' ] || [ $# -ne 5 ]; then
+      echo "unexpected $op command or format" >&2
+      exit 2
+    fi
+    case "$op" in
+      network) state=${MOCK_NETWORK_STATE:-absent} ;;
+      volume) state=${MOCK_VOLUME_STATE:-absent} ;;
+      container)
+        state=${MOCK_CONTAINER_INSPECT_STATE:-file}
+        if [ "$state" = "file" ]; then
+          if [ -f "$(dirname "$log")/containers/$5.json" ]; then
+            state=$(cat "$(dirname "$log")/containers/$5.json")
+          else
+            state=absent
+          fi
+        fi
         ;;
     esac
-    ;;
-  volume)
-    [ "${2:-}" = "inspect" ]
-    case "${MOCK_VOLUME_STATE:-absent}" in
+    case "$state" in
       absent)
-        echo "Error: No such volume" >&2
+        echo "Error: No such $op: $5" >&2
         exit 1
         ;;
       error)
@@ -95,13 +96,23 @@ case "$op" in
         exit 1
         ;;
       *)
-        printf '%s\n' "$MOCK_VOLUME_STATE"
+        printf '%s\n' "$state"
         ;;
     esac
     ;;
   ps)
-    printf '%s\n' "${MOCK_PS:-}"
-    exit "${MOCK_PS_STATUS:-0}"
+    if [ "$*" != "ps -a --no-trunc --format {{.ID}}" ]; then
+      echo "unexpected ps format" >&2
+      exit 2
+    fi
+    if [ "${MOCK_PS_STATUS:-0}" -ne 0 ]; then
+      echo "Error: permission denied" >&2
+      exit "$MOCK_PS_STATUS"
+    fi
+    for f in "$(dirname "$log")"/containers/*.json; do
+      [ -f "$f" ] || continue
+      basename "$f" .json
+    done
     ;;
   compose)
     action=""
@@ -131,8 +142,8 @@ esac
 EOF
   cat > "$work/bin/stat" <<'EOF'
 #!/usr/bin/env bash
-if [ "${1:-}" = "-c" ] && [ "${2:-}" = "%a" ]; then
-  printf '%s\n' "${MOCK_STAT_MODE:-600}"
+if [ "${1:-}" = "-c" ] && [ "${2:-}" = "%a %u" ]; then
+  printf '%s %s\n' "${MOCK_STAT_MODE:-600}" "${MOCK_STAT_UID:-$(id -u)}"
   exit 0
 fi
 echo "unexpected stat command" >&2
@@ -166,7 +177,8 @@ run_one() {
   name=$1
   shift
   set +e
-  ( "$@" )
+  # errexit must be on inside the test so every assertion line counts.
+  ( set -e; "$@" )
   status=$?
   set -e
   record "$name" "$status"
@@ -416,20 +428,42 @@ prepare_owned_env() {
   write_env "$work/lab/.env" "static-secret-value"
 }
 
+# Build Docker-shaped JSON. Each label argument is key=value; omitted keys are missing.
+# MSYS2_ARG_CONV_EXCL keeps Git Bash from rewriting /paths passed to a native jq.
+labels_json() {
+  MSYS2_ARG_CONV_EXCL='*' jq -cn '$ARGS.positional | map(capture("^(?<key>[^=]*)=(?<value>[\\s\\S]*)$")) | from_entries' --args "$@"
+}
+
+resource_json() {
+  name=$1
+  shift
+  MSYS2_ARG_CONV_EXCL='*' jq -cn --arg n "$name" --argjson l "$(labels_json "$@")" '{Name: $n, Driver: "local", Labels: $l}'
+}
+
+container_json() {
+  name=$1
+  shift
+  MSYS2_ARG_CONV_EXCL='*' jq -cn --arg n "/$name" --argjson l "$(labels_json "$@")" '{Id: "x", Name: $n, Config: {Labels: $l}}'
+}
+
+add_container() {
+  printf '%s\n' "$3" > "$1/containers/$2.json"
+}
+
 owned_network_record() {
-  printf '%s\t%s\t%s\t' bintrans-anchor-lab-internal bintrans-anchor-lab anchor-lab
+  resource_json bintrans-anchor-lab-internal com.docker.compose.project=bintrans-anchor-lab com.docker.compose.network=anchor-lab
 }
 
 owned_volume_record() {
-  printf '%s\t%s\t%s\t' bintrans-anchor-lab-postgres bintrans-anchor-lab anchor-lab-postgres
+  resource_json bintrans-anchor-lab-postgres com.docker.compose.project=bintrans-anchor-lab com.docker.compose.volume=anchor-lab-postgres
 }
 
 foreign_network_record() {
-  printf '%s\t%s\t%s\t%s' bintrans-anchor-lab-internal bintrans-e2e-stand-v01a bintrans-e2e-stand /opt/bintrans/e2e-stand/compose.yaml
+  resource_json bintrans-anchor-lab-internal com.docker.compose.project=bintrans-e2e-stand-v01a com.docker.compose.network=bintrans-e2e-stand com.docker.compose.project.config_files=/opt/bintrans/e2e-stand/compose.yaml
 }
 
 foreign_volume_record() {
-  printf '%s\t%s\t%s\t%s' bintrans-anchor-lab-postgres bintrans-e2e-stand-v01a bintrans-e2e-stand-postgres /opt/bintrans/e2e-stand/compose.yaml
+  resource_json bintrans-anchor-lab-postgres com.docker.compose.project=bintrans-e2e-stand-v01a com.docker.compose.volume=bintrans-e2e-stand-postgres com.docker.compose.project.config_files=/opt/bintrans/e2e-stand/compose.yaml
 }
 
 test_foreign_network() {
@@ -523,11 +557,11 @@ test_cleanup_contradictory_labels() {
   : > "$log"
   prepare_owned_env "$work"
   compose="$(cd "$work/lab" && pwd)/compose.yaml"
+  add_container "$work" a1 "$(container_json bintrans-anchor-lab-postgres-1 com.docker.compose.project=bintrans-anchor-lab com.docker.compose.service=postgres com.docker.compose.project.config_files=/opt/bintrans/e2e-stand/compose.yaml)"
   set +e
   out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
     MOCK_NETWORK_STATE="$(owned_network_record)" \
     MOCK_VOLUME_STATE="$(owned_volume_record)" \
-    MOCK_PS="$(printf '%s\t%s\t%s\t%s' bintrans-anchor-lab-postgres-1 bintrans-anchor-lab postgres /opt/bintrans/e2e-stand/compose.yaml)" \
     bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
   status=$?
   set -e
@@ -620,11 +654,11 @@ test_owned_container_recognized() {
   : > "$log"
   prepare_owned_env "$work"
   compose="$(cd "$work/lab" && pwd)/compose.yaml"
+  add_container "$work" a1 "$(container_json bintrans-anchor-lab-postgres-1 com.docker.compose.project=bintrans-anchor-lab com.docker.compose.service=postgres "com.docker.compose.project.config_files=$compose")"
   set +e
   out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
     MOCK_NETWORK_STATE="$(owned_network_record)" \
     MOCK_VOLUME_STATE="$(owned_volume_record)" \
-    MOCK_PS="$(printf '%s\t%s\t%s\t%s' bintrans-anchor-lab-postgres-1 bintrans-anchor-lab postgres "$compose")" \
     bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
   status=$?
   set -e
@@ -660,7 +694,7 @@ test_wrong_network_label() {
   prepare_owned_env "$work"
   set +e
   out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
-    MOCK_NETWORK_STATE="$(printf '%s\t%s\t%s\t' bintrans-anchor-lab-internal bintrans-anchor-lab bintrans-e2e-stand)" \
+    MOCK_NETWORK_STATE="$(resource_json bintrans-anchor-lab-internal com.docker.compose.project=bintrans-anchor-lab com.docker.compose.network=bintrans-e2e-stand)" \
     MOCK_VOLUME_STATE="$(owned_volume_record)" \
     bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
   status=$?
@@ -680,7 +714,7 @@ test_wrong_volume_label() {
   set +e
   out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
     MOCK_NETWORK_STATE="$(owned_network_record)" \
-    MOCK_VOLUME_STATE="$(printf '%s\t%s\t%s\t' bintrans-anchor-lab-postgres bintrans-anchor-lab bintrans-e2e-stand-postgres)" \
+    MOCK_VOLUME_STATE="$(resource_json bintrans-anchor-lab-postgres com.docker.compose.project=bintrans-anchor-lab com.docker.compose.volume=bintrans-e2e-stand-postgres)" \
     bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
   status=$?
   set -e
@@ -697,7 +731,7 @@ test_missing_labels() {
   prepare_owned_env "$work"
   set +e
   out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
-    MOCK_NETWORK_STATE="$(printf '%s\t%s\t%s\t' bintrans-anchor-lab-internal '' '')" \
+    MOCK_NETWORK_STATE="$(resource_json bintrans-anchor-lab-internal)" \
     bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
   status=$?
   set -e
@@ -732,11 +766,11 @@ test_foreign_container_under_lab_name() {
   log="$work/docker.log"
   : > "$log"
   prepare_owned_env "$work"
+  add_container "$work" a1 "$(container_json bintrans-anchor-lab-postgres-1 com.docker.compose.project=bintrans-e2e-stand-v01a com.docker.compose.service=postgres com.docker.compose.project.config_files=/opt/bintrans/e2e-stand/compose.yaml)"
   set +e
   out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$log" MOCK_STAT_MODE=600 \
     MOCK_NETWORK_STATE="$(owned_network_record)" \
     MOCK_VOLUME_STATE="$(owned_volume_record)" \
-    MOCK_PS="$(printf '%s\t%s\t%s\t%s' bintrans-anchor-lab-postgres-1 bintrans-e2e-stand-v01a postgres /opt/bintrans/e2e-stand/compose.yaml)" \
     bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
   status=$?
   set -e
@@ -801,6 +835,277 @@ test_first_start_rejects_labeled_resources() {
   rm -rf "$work"
 }
 
+run_down() {
+  work=$1
+  shift
+  set +e
+  out=$(env PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$work/docker.log" MOCK_STAT_MODE=600 "$@" \
+    bash "$work/lab/lab-down.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+}
+
+expect_down_refused() {
+  work=$1
+  message=$2
+  [ "$status" -ne 0 ] || return 1
+  printf '%s\n' "$out" | grep -q -- "$message" || return 1
+  assert_no_mutation "$work/docker.log" || return 1
+  if printf '%s\n' "$out" | grep -E "_OWNERSHIP=OWNED|static-secret-value" >/dev/null; then
+    return 1
+  fi
+}
+
+run_env_guard() {
+  work=$1
+  shift
+  set +e
+  out=$(env PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$work/docker.log" MOCK_STAT_MODE=600 "$@" \
+    bash "$work/lab/env-file-guard.sh" --env-file "$work/lab/.env" 2>&1)
+  status=$?
+  set -e
+}
+
+expect_env_refused() {
+  work=$1
+  message=$2
+  [ "$status" -ne 0 ] || return 1
+  printf '%s\n' "$out" | grep -q -- "$message" || return 1
+  if printf '%s\n' "$out" | grep -E "ENV_FILE_GUARD=PASS|static-secret-value|change-me" >/dev/null; then
+    return 1
+  fi
+  assert_no_mutation "$work/docker.log" || return 1
+  [ ! -s "$work/docker.log" ]
+}
+
+test_empty_project_label_shift() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  # A tab template read with IFS would shift these into an owned-looking record.
+  run_down "$work" \
+    MOCK_NETWORK_STATE="$(resource_json bintrans-anchor-lab-internal com.docker.compose.project= com.docker.compose.network=bintrans-anchor-lab com.docker.compose.project.config_files=anchor-lab)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "not owned"
+  rm -rf "$work"
+}
+
+test_empty_network_label() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  run_down "$work" \
+    MOCK_NETWORK_STATE="$(resource_json bintrans-anchor-lab-internal com.docker.compose.project=bintrans-anchor-lab com.docker.compose.network=)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "not owned"
+  rm -rf "$work"
+}
+
+test_empty_volume_label() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  run_down "$work" \
+    MOCK_NETWORK_STATE="$(owned_network_record)" \
+    MOCK_VOLUME_STATE="$(resource_json bintrans-anchor-lab-postgres com.docker.compose.project=bintrans-anchor-lab com.docker.compose.volume=)"
+  expect_down_refused "$work" "not owned"
+  rm -rf "$work"
+}
+
+test_container_missing_service_label() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  compose="$(cd "$work/lab" && pwd)/compose.yaml"
+  add_container "$work" a1 "$(container_json bintrans-anchor-lab-postgres-1 com.docker.compose.project=bintrans-anchor-lab "com.docker.compose.project.config_files=$compose")"
+  run_down "$work" MOCK_NETWORK_STATE="$(owned_network_record)" MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "contradict"
+  rm -rf "$work"
+}
+
+test_container_missing_config_label() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  add_container "$work" a1 "$(container_json bintrans-anchor-lab-postgres-1 com.docker.compose.project=bintrans-anchor-lab com.docker.compose.service=postgres)"
+  run_down "$work" MOCK_NETWORK_STATE="$(owned_network_record)" MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "contradict"
+  rm -rf "$work"
+}
+
+test_shifted_metadata_fields() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  run_down "$work" \
+    MOCK_NETWORK_STATE="$(resource_json bintrans-anchor-lab-internal com.docker.compose.project=anchor-lab com.docker.compose.network=bintrans-anchor-lab)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "not owned"
+  run_down "$work" \
+    MOCK_NETWORK_STATE="$(resource_json bintrans-anchor-lab-internal "com.docker.compose.project=$(printf '\t')bintrans-anchor-lab" com.docker.compose.network=anchor-lab)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "not owned"
+  rm -rf "$work"
+}
+
+test_malformed_metadata() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  owned=$(owned_network_record)
+  for payload in \
+    '{"Name": "bintrans-anchor-lab-internal", "Labels": ' \
+    "[$owned]" \
+    "$owned$owned" \
+    "$(printf '%s\t%s\t%s\t' bintrans-anchor-lab-internal bintrans-anchor-lab anchor-lab)" \
+    '{"Name":"bintrans-anchor-lab-internal","Labels":"com.docker.compose.project=bintrans-anchor-lab"}' \
+    '{"Name":7,"Labels":{"com.docker.compose.project":"bintrans-anchor-lab","com.docker.compose.network":"anchor-lab"}}' \
+    '{"Name":"bintrans-anchor-lab-internal","Labels":{"com.docker.compose.project":"bintrans-e2e-stand-v01a","com.docker.compose.project":"bintrans-anchor-lab","com.docker.compose.network":"anchor-lab"}}'; do
+    run_down "$work" MOCK_NETWORK_STATE="$payload" MOCK_VOLUME_STATE="$(owned_volume_record)"
+    expect_down_refused "$work" "unrecognized metadata" || return 1
+  done
+  rm -rf "$work"
+}
+
+test_extra_fields_keep_required_values() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  net=$(owned_network_record | jq -c '. + {Project: "bintrans-e2e-stand-v01a", Scope: "local"} | .Labels += {"com.docker.compose.version": "5.7.0", "com.docker.compose.project.extra": "bintrans-e2e-stand-v01a"}')
+  run_down "$work" MOCK_NETWORK_STATE="$net" MOCK_VOLUME_STATE="$(owned_volume_record)"
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$out" | grep -q "NETWORK_OWNERSHIP=OWNED"
+  grep -q " down -v" "$work/docker.log"
+  if grep -E 'remove-orphans|prune|bintrans-e2e-stand' "$work/docker.log" >/dev/null; then
+    return 1
+  fi
+  rm -rf "$work"
+}
+
+test_similar_name_foreign_resource() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  run_down "$work" \
+    MOCK_NETWORK_STATE="$(resource_json bintrans-anchor-lab-internal-e2e com.docker.compose.project=bintrans-anchor-lab com.docker.compose.network=anchor-lab)" \
+    MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "not owned"
+  add_container "$work" b2 "$(container_json bintrans-anchor-lab-postgres-old com.docker.compose.project=bintrans-e2e-stand-v01a com.docker.compose.service=postgres)"
+  run_down "$work" MOCK_NETWORK_STATE="$(owned_network_record)" MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "not owned"
+  rm -rf "$work"
+}
+
+test_inspect_errors_fail_closed() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  run_down "$work" MOCK_NETWORK_STATE="$(owned_network_record)" MOCK_VOLUME_STATE=error
+  expect_down_refused "$work" "volume inspection failed"
+  add_container "$work" c3 "$(container_json bintrans-anchor-lab-postgres-1 com.docker.compose.project=bintrans-anchor-lab)"
+  run_down "$work" MOCK_NETWORK_STATE="$(owned_network_record)" MOCK_VOLUME_STATE="$(owned_volume_record)" MOCK_CONTAINER_INSPECT_STATE=error
+  expect_down_refused "$work" "container inspection failed"
+  run_down "$work" MOCK_NETWORK_STATE="$(owned_network_record)" MOCK_VOLUME_STATE="$(owned_volume_record)" MOCK_PS_STATUS=1
+  expect_down_refused "$work" "container list failed"
+  if printf '%s\n' "$out" | grep -q "NOTHING_TO_REMOVE"; then
+    return 1
+  fi
+  rm -rf "$work"
+}
+
+test_standalone_safe_env() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  write_env "$work/lab/.env" "static-secret-value"
+  [ ! -e "$work/lab/.git" ]
+  run_env_guard "$work"
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$out" | grep -q "ENV_FILE_GUARD_PLACEMENT=STANDALONE"
+  printf '%s\n' "$out" | grep -q "ENV_FILE_GUARD=PASS"
+  if printf '%s\n' "$out" | grep -q "static-secret-value"; then
+    return 1
+  fi
+  [ ! -s "$work/docker.log" ]
+  rm -rf "$work"
+}
+
+test_standalone_owned_cleanup() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  write_env "$work/lab/.env" "static-secret-value"
+  run_down "$work" MOCK_NETWORK_STATE="$(owned_network_record)" MOCK_VOLUME_STATE="$(owned_volume_record)"
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$out" | grep -q "ENV_FILE_GUARD_PLACEMENT=STANDALONE"
+  grep -q -- "-p bintrans-anchor-lab" "$work/docker.log"
+  grep -q " down -v" "$work/docker.log"
+  if grep -E 'remove-orphans|prune|bintrans-e2e-stand' "$work/docker.log" >/dev/null; then
+    return 1
+  fi
+  rm -rf "$work"
+}
+
+test_standalone_unsafe_env() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  write_env "$work/lab/.env" "change-me"
+  run_env_guard "$work"
+  expect_env_refused "$work" "placeholder password is forbidden"
+  rm -rf "$work"
+}
+
+test_env_symlink_rejected() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  write_env "$work/real.env" "static-secret-value"
+  MSYS=winsymlinks:nativestrict ln -s "$work/real.env" "$work/lab/.env"
+  [ -L "$work/lab/.env" ]
+  run_env_guard "$work"
+  expect_env_refused "$work" "symlink"
+  rm -rf "$work"
+}
+
+test_env_untrusted_owner() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  git -C "$work/lab" init -q
+  write_env "$work/lab/.env" "static-secret-value"
+  run_env_guard "$work" MOCK_STAT_UID=4242
+  expect_env_refused "$work" "owner is not the trusted lab user"
+  rm -rf "$work"
+}
+
+test_env_wrong_mode_standalone() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  write_env "$work/lab/.env" "static-secret-value"
+  run_env_guard "$work" MOCK_STAT_MODE=640
+  expect_env_refused "$work" "mode is not 0600"
+  rm -rf "$work"
+}
+
+test_parser_unavailable_fails_closed() {
+  work=$(new_workspace)
+  : > "$work/docker.log"
+  prepare_owned_env "$work"
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$work/bin/jq"
+  chmod +x "$work/bin/jq"
+  run_down "$work" MOCK_NETWORK_STATE="$(owned_network_record)" MOCK_VOLUME_STATE="$(owned_volume_record)"
+  expect_down_refused "$work" "parser is unavailable"
+  if grep -E 'network inspect|volume inspect|container inspect| ps ' "$work/docker.log" >/dev/null; then
+    return 1
+  fi
+  : > "$work/docker.log"
+  set +e
+  out=$(PATH="$work/bin:$PATH" ANCHOR_LAB_MOCK_LOG="$work/docker.log" \
+    bash "$work/lab/resource-ownership-preflight.sh" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$out" | grep -q "parser is unavailable"
+  [ ! -s "$work/docker.log" ]
+  rm -rf "$work"
+}
+
 test_scripts_do_not_prune() {
   if grep -E '^[^#]*docker .*(system prune|volume prune|network prune|remove-orphans)' \
     "$lab/project-guard.sh" "$lab/env-file-guard.sh" "$lab/resource-ownership-preflight.sh" \
@@ -845,6 +1150,23 @@ run_one "foreign container under lab name" test_foreign_container_under_lab_name
 run_one "cleanup remote endpoint" test_cleanup_remote_endpoint
 run_one "partial unknown owner" test_partial_unknown_owner
 run_one "first start rejects labeled resources" test_first_start_rejects_labeled_resources
+run_one "empty project label does not shift" test_empty_project_label_shift
+run_one "empty network label" test_empty_network_label
+run_one "empty volume label" test_empty_volume_label
+run_one "container missing service label" test_container_missing_service_label
+run_one "container missing config-files label" test_container_missing_config_label
+run_one "shifted metadata fields" test_shifted_metadata_fields
+run_one "malformed metadata" test_malformed_metadata
+run_one "extra fields keep required values" test_extra_fields_keep_required_values
+run_one "similar-name foreign resource" test_similar_name_foreign_resource
+run_one "inspect errors fail closed" test_inspect_errors_fail_closed
+run_one "standalone safe env" test_standalone_safe_env
+run_one "standalone owned cleanup" test_standalone_owned_cleanup
+run_one "standalone unsafe env" test_standalone_unsafe_env
+run_one "env symlink rejected" test_env_symlink_rejected
+run_one "env untrusted owner" test_env_untrusted_owner
+run_one "env wrong mode standalone" test_env_wrong_mode_standalone
+run_one "parser unavailable fails closed" test_parser_unavailable_fails_closed
 
 say "STATIC_TESTS_PASSED=$pass"
 say "STATIC_TESTS_FAILED=$fail_count"

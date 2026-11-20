@@ -16,7 +16,8 @@ This boundary describes the Compose file in this directory. Stage 0.1A does not 
 - Image reference: `mirror.gcr.io/library/postgres:16`. This stage does not pull the image.
 - Database name, user, and password come from `ANCHOR_LAB_POSTGRES_DB`, `ANCHOR_LAB_POSTGRES_USER`, and `ANCHOR_LAB_POSTGRES_PASSWORD`.
 - `.env.example` contains the placeholder password `change-me`. It is not a production, staging, or E2E credential, and it is not a usable lab password.
-- A future `.env` must sit beside this file, stay untracked, use mode `0600`, and contain a lab password other than `change-me` or an empty value. `env-file-guard.sh` checks those conditions and does not print the password. It does not read a staging or production environment file. This stage does not create that `.env` and does not store a real password.
+- A future `.env` must be the regular file beside this file, not a symlink, use mode `0600`, be owned by the account that runs the wrapper, and contain a lab password other than `change-me` or an empty value. Inside a git work tree it must also be untracked. Without `.git`, as in a standalone `/opt/bintrans/anchor-lab`, the tracked check is skipped and the other checks still apply. A git work tree is not treated as proof that the directory is trusted. `env-file-guard.sh` checks those conditions and does not print the password.
+- A standalone copy needs its own integrity check of the received files against the reviewed commit. The `.env` check does not provide that. It does not read a staging or production environment file. This stage does not create that `.env` and does not store a real password.
 - The file contains no production DSN and no connection string to another Compose project.
 - The volume `bintrans-anchor-lab-postgres` is the only data location. It is not marked `external`.
 

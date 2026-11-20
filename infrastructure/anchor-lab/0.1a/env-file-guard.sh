@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Check the future lab .env without printing its values.
-# The file must be the untracked .env beside this script, mode 0600.
+# The file must be the regular .env beside this script, not a symlink,
+# mode 0600, owned by the account running the wrapper, and untracked when
+# the directory is a git work tree.
 # This script does not read staging or production environment files.
 set -euo pipefail
 
@@ -31,6 +33,9 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$env_file" ] || fail "env file is required"
+if [ -L "$env_file" ]; then
+  fail "env file is a symlink"
+fi
 if [ ! -f "$env_file" ] || [ ! -r "$env_file" ]; then
   fail "env file is missing or unreadable"
 fi
@@ -38,27 +43,77 @@ requested="$(cd "$(dirname "$env_file")" && pwd)/$(basename "$env_file")"
 if [ "$requested" != "$expected_env" ]; then
   fail "env file must be the lab .env"
 fi
+if [ -L "$expected_env" ] || [ ! -f "$expected_env" ]; then
+  fail "env file is not a regular file"
+fi
 
-mode=""
-if mode=$(stat -c %a "$expected_env" 2>/dev/null); then
+# The trusted owner is the account running the wrapper. A git work tree is
+# not evidence that the directory is trusted.
+mode_owner=""
+if mode_owner=$(stat -c '%a %u' "$expected_env" 2>/dev/null); then
   :
-elif mode=$(stat -f %OLp "$expected_env" 2>/dev/null); then
+elif mode_owner=$(stat -f '%OLp %u' "$expected_env" 2>/dev/null); then
   :
 else
   fail "env file mode is unreadable"
 fi
-mode=${mode%$'\r'}
+mode_owner=${mode_owner%$'\r'}
+mode=${mode_owner%% *}
+owner=${mode_owner#* }
 case "$mode" in
   600|0600) ;;
   *) fail "env file mode is not 0600" ;;
 esac
-
-if ! git -C "$script_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  fail "lab directory is not in a git work tree"
+trusted_uid=$(id -u) || fail "current user id is unreadable"
+if [ -z "$owner" ] || [ "$owner" = "$mode_owner" ] || [ "$owner" != "$trusted_uid" ]; then
+  fail "env file owner is not the trusted lab user"
 fi
-tracked=$(git -C "$script_dir" ls-files -- ".env")
-if [ -n "$tracked" ]; then
-  fail "lab .env is tracked by git"
+
+# Standalone placement, such as /opt/bintrans/anchor-lab without .git, is
+# allowed. Inside a git work tree the .env must stay untracked. Any other
+# git failure, or a .git without a git binary, stops the guard.
+has_dot_git=0
+probe_dir=$script_dir
+while :; do
+  if [ -e "$probe_dir/.git" ]; then
+    has_dot_git=1
+    break
+  fi
+  parent=$(dirname "$probe_dir")
+  [ "$parent" != "$probe_dir" ] || break
+  probe_dir=$parent
+done
+
+placement=""
+if command -v git >/dev/null 2>&1; then
+  git_err=$(mktemp)
+  if inside=$(git -C "$script_dir" rev-parse --is-inside-work-tree 2>"$git_err"); then
+    rm -f "$git_err"
+    [ "$inside" = "true" ] || fail "lab directory git state is unrecognized"
+    placement="GIT_WORK_TREE"
+  else
+    err=$(cat "$git_err" 2>/dev/null || true)
+    rm -f "$git_err"
+    case "$err" in
+      *"not a git repository"*)
+        [ "$has_dot_git" -eq 0 ] || fail "lab directory git state is unrecognized"
+        placement="STANDALONE"
+        ;;
+      *)
+        fail "lab directory git state is unrecognized"
+        ;;
+    esac
+  fi
+else
+  [ "$has_dot_git" -eq 0 ] || fail "lab directory has .git but git is unavailable"
+  placement="STANDALONE"
+fi
+
+if [ "$placement" = "GIT_WORK_TREE" ]; then
+  tracked=$(git -C "$script_dir" ls-files -- ".env") || fail "git tracked status is unreadable"
+  if [ -n "$tracked" ]; then
+    fail "lab .env is tracked by git"
+  fi
 fi
 
 read_value() {
@@ -88,4 +143,5 @@ if [ "$password_value" = "change-me" ]; then
 fi
 unset password_value user_value db_value
 
+echo "ENV_FILE_GUARD_PLACEMENT=$placement"
 echo "ENV_FILE_GUARD=PASS"
