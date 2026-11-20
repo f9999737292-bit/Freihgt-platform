@@ -158,10 +158,29 @@ jobs:
             echo "missing named PASS: --- PASS: TestNLO10D_TrackingAndETARealHandlers"
             exit 1
           fi
-          if grep -E -q -- '^--- SKIP:' "$log"; then
-            echo "SKIP is not accepted as PASS for TestNLO10D_TrackingAndETARealHandlers"
+          if grep -Eq -- '^[[:space:]]*--- (SKIP|FAIL):' "$log"; then
+            echo "NLO proof contains SKIP or FAIL"
             exit 1
           fi
+          required='
+          fresh_coordinates
+          zero_latitude
+          null_coordinates
+          missing_shipment
+          eta_arrival
+          eta_null_arrival
+          eta_missing_unavailable
+          cross_tenant_tracking
+          cross_tenant_eta
+          wrong_token
+          missing_tenant
+          '
+          for name in $required; do
+            if ! grep -E -q -- "^[[:space:]]*--- PASS: TestNLO10D_TrackingAndETARealHandlers/${name}( |$)" "$log"; then
+              echo "missing named PASS for ${name}"
+              exit 1
+            fi
+          done
 
   company-relationship-foundation-postgres:
     name: company-relationship-foundation-postgres
