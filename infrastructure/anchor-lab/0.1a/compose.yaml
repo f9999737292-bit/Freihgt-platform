@@ -1,0 +1,55 @@
+name: bintrans-anchor-lab
+
+# BINTRANS anchor lab 0.1A. One disposable PostgreSQL 16 database.
+# Witness, high-water, and anchor are not services in this file.
+
+services:
+  postgres:
+    image: mirror.gcr.io/library/postgres:16
+    restart: "no"
+    environment:
+      POSTGRES_USER: ${ANCHOR_LAB_POSTGRES_USER:?anchor lab user required}
+      POSTGRES_PASSWORD: ${ANCHOR_LAB_POSTGRES_PASSWORD:?anchor lab password required}
+      POSTGRES_DB: ${ANCHOR_LAB_POSTGRES_DB:?anchor lab database required}
+    volumes:
+      - anchor-lab-postgres:/var/lib/postgresql/data
+    networks:
+      - anchor-lab
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+          pids: 128
+    shm_size: 64mb
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+
+networks:
+  anchor-lab:
+    name: bintrans-anchor-lab-internal
+    driver: bridge
+    internal: true
+
+volumes:
+  anchor-lab-postgres:
+    name: bintrans-anchor-lab-postgres
