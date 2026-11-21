@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +29,9 @@ const (
 	listHandoffsPath     = "/internal/v1/control-tower/handoffs"
 	handoffPath          = "/internal/v1/control-tower/handoffs/%s"
 )
+
+var errWorkspaceEndpointRejected = errors.New("workspace endpoint rejected")
+var errWorkspaceRedirectRejected = errors.New("workspace redirect rejected")
 
 type WorkItemsFilter struct {
 	ItemType          string
@@ -420,13 +424,19 @@ func (c *Client) doWorkspaceJSON(
 	if c == nil {
 		return &DependencyError{Reason: ReasonUnknown, Err: fmt.Errorf("read model client is nil")}
 	}
-	endpoint = c.resolveWorkspaceEndpoint(endpoint)
+	resolved, err := c.resolveWorkspaceEndpoint(endpoint)
 	start := time.Now()
 	result := "SUCCESS"
 	var reason FailureReason
 	defer func() {
 		c.metrics.ObserveRequest("WORKSPACE", result, string(reason), time.Since(start))
 	}()
+	if err != nil {
+		reason = ReasonUnknown
+		result = "ERROR"
+		return &DependencyError{Reason: reason, Err: errWorkspaceEndpointRejected}
+	}
+	endpoint = resolved
 
 	var reader io.Reader
 	if len(body) > 0 {
@@ -436,7 +446,7 @@ func (c *Client) doWorkspaceJSON(
 	if err != nil {
 		reason = ReasonUnknown
 		result = "ERROR"
-		return &DependencyError{Reason: reason, Err: err}
+		return &DependencyError{Reason: reason, Err: errWorkspaceEndpointRejected}
 	}
 	if len(body) > 0 {
 		req.Header.Set("Content-Type", "application/json")
@@ -449,8 +459,22 @@ func (c *Client) doWorkspaceJSON(
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	httpClient := c.workspaceHTTPClient()
+	if httpClient == nil {
+		reason = ReasonUnknown
+		result = "ERROR"
+		return &DependencyError{Reason: reason, Err: errWorkspaceEndpointRejected}
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
+		if errors.Is(err, errWorkspaceRedirectRejected) || workspaceLocationError(err) {
+			if resp != nil && resp.Body != nil {
+				_ = resp.Body.Close()
+			}
+			reason = ReasonUnknown
+			result = "ERROR"
+			return &DependencyError{Reason: reason, Err: errWorkspaceRedirectRejected}
+		}
 		reason = classifyRequestError(ctx, err)
 		result = "ERROR"
 		return &DependencyError{Reason: reason, Err: err}
@@ -486,17 +510,117 @@ func (c *Client) doWorkspaceJSON(
 	return nil
 }
 
-func (c *Client) resolveWorkspaceEndpoint(endpoint string) string {
-	if c == nil || strings.Contains(endpoint, "://") {
-		return endpoint
+func (c *Client) resolveWorkspaceEndpoint(endpoint string) (string, error) {
+	if c == nil {
+		return "", errWorkspaceEndpointRejected
+	}
+	base, err := workspaceOrigin(c.baseURL)
+	if err != nil {
+		return "", errWorkspaceEndpointRejected
 	}
 	if endpoint == "" {
-		return c.baseURL
+		return c.baseURL, nil
 	}
-	if !strings.HasPrefix(endpoint, "/") {
-		endpoint = "/" + endpoint
+	if strings.ContainsAny(endpoint, " \t\r\n\\") || strings.Contains(endpoint, "\x00") {
+		return "", errWorkspaceEndpointRejected
 	}
-	return c.baseURL + endpoint
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed == nil {
+		return "", errWorkspaceEndpointRejected
+	}
+	if parsed.User != nil || parsed.Fragment != "" || parsed.Opaque != "" {
+		return "", errWorkspaceEndpointRejected
+	}
+	if parsed.Scheme == "" && parsed.Host == "" {
+		if strings.HasPrefix(endpoint, "//") {
+			return "", errWorkspaceEndpointRejected
+		}
+		joined := endpoint
+		if !strings.HasPrefix(joined, "/") {
+			joined = "/" + joined
+		}
+		return c.baseURL + joined, nil
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", errWorkspaceEndpointRejected
+	}
+	if parsed.Hostname() == "" || !sameWorkspaceOrigin(base, parsed) {
+		return "", errWorkspaceEndpointRejected
+	}
+	return endpoint, nil
+}
+
+func (c *Client) workspaceHTTPClient() *http.Client {
+	if c == nil || c.httpClient == nil {
+		return nil
+	}
+	clone := *c.httpClient
+	inherited := clone.CheckRedirect
+	clone.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if !workspaceRedirectAllowed(c.baseURL, req) {
+			return errWorkspaceRedirectRejected
+		}
+		if inherited != nil {
+			return inherited(req, via)
+		}
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		return nil
+	}
+	return &clone
+}
+
+func workspaceRedirectAllowed(baseURL string, req *http.Request) bool {
+	if req == nil || req.URL == nil {
+		return false
+	}
+	base, err := workspaceOrigin(baseURL)
+	if err != nil {
+		return false
+	}
+	if req.URL.User != nil || req.URL.Fragment != "" || req.URL.Opaque != "" {
+		return false
+	}
+	if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
+		return false
+	}
+	return req.URL.Hostname() != "" && sameWorkspaceOrigin(base, req.URL)
+}
+
+func workspaceOrigin(raw string) (*url.URL, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed == nil {
+		return nil, errWorkspaceEndpointRejected
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return nil, errWorkspaceEndpointRejected
+	}
+	if parsed.User != nil || parsed.Hostname() == "" || parsed.Opaque != "" {
+		return nil, errWorkspaceEndpointRejected
+	}
+	return parsed, nil
+}
+
+func sameWorkspaceOrigin(base, target *url.URL) bool {
+	if base == nil || target == nil {
+		return false
+	}
+	if !strings.EqualFold(base.Scheme, target.Scheme) {
+		return false
+	}
+	if !strings.EqualFold(base.Hostname(), target.Hostname()) {
+		return false
+	}
+	return base.Port() == target.Port()
+}
+
+func workspaceLocationError(err error) bool {
+	var urlErr *url.Error
+	if !errors.As(err, &urlErr) || urlErr == nil || urlErr.Err == nil {
+		return false
+	}
+	return strings.Contains(urlErr.Err.Error(), "Location header")
 }
 
 func setIf(q url.Values, key, value string) {
