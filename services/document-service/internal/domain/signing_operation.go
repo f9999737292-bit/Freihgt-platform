@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"strings"
+
 	"github.com/google/uuid"
 
 	apperrors "github.com/freight-platform/document-service/internal/platform/errors"
@@ -21,8 +23,19 @@ const (
 	SigningOperationEvidenceProviderRejectionConfirmed = "PROVIDER_REJECTION_CONFIRMED"
 	SigningOperationEvidenceContradiction              = "CONTRADICTION"
 
+	SigningOperationEvidenceSourceServer                = "SERVER"
+	SigningOperationEvidenceSourceAuthenticatedProvider = "AUTHENTICATED_PROVIDER"
+
 	signingOperationNotFoundMessage = "signing operation not found"
 )
+
+// J-EDO02A-003 remains BLOCKED_POLICY_DECISION.
+// This package does not add a state that cancels PREPARED, closes
+// MANUAL_REVIEW_REQUIRED, records provider acceptance, or changes the
+// tenant-document lock for several signers. EXTERNAL_RESPONSE_ABSENT is not
+// cancellation proof. FAILED_RETRYABLE and FAILED_FINAL stay distinct
+// terminal states. Whether FAILED_FINAL should hold the document scope is
+// part of that policy decision and is not changed here.
 
 // Signing operation lock scope is the pair (tenant_id, document_id).
 // PREPARED, RESULT_UNKNOWN, and MANUAL_REVIEW_REQUIRED hold that scope.
@@ -50,8 +63,10 @@ type SigningOperationIdentity struct {
 	SignerCompanyID uuid.UUID
 }
 
-// DocumentObservation is the document fact a caller presents before a write.
-// It is not loaded from PostgreSQL by this package.
+// DocumentObservation is a server-owned snapshot of the document row.
+// A future caller must load it from trusted storage. A client request body
+// is not this snapshot. This package does not query PostgreSQL, and a check
+// here does not replace a later check under the document row lock.
 type DocumentObservation struct {
 	TenantID    uuid.UUID
 	DocumentID  uuid.UUID
@@ -67,12 +82,22 @@ type LocalSignatureRecord struct {
 	Attempt  int
 }
 
-// SigningOperation is an in-memory operation. This package does not persist it
-// and does not call a provider.
+// SigningOperationEvidenceClaim is the classification supplied with a failure
+// decision. Kind by itself is not authenticated provider proof.
+type SigningOperationEvidenceClaim struct {
+	Kind      string
+	Source    string
+	Reference string
+}
+
+// SigningOperation is an in-memory operation. This package does not persist it,
+// does not insert a signature, and does not call a provider.
 type SigningOperation struct {
 	Identity             SigningOperationIdentity
 	State                string
 	EvidenceKind         string
+	EvidenceSource       string
+	EvidenceReference    string
 	LocalSignatureRecord LocalSignatureRecord
 }
 
@@ -157,29 +182,30 @@ func ReadSigningOperation(callerTenant, operationID uuid.UUID, stored *SigningOp
 	return stored.clone(), nil
 }
 
-// PlanPrepare inserts one PREPARED operation when the observation matches the
-// identity and the tenant-document lock is free.
-// Replay of the same operation id and the same identity returns the stored
-// operation and asks for no write. A different identity for that id does not
-// return the stored operation.
+// PlanPrepare resolves one operation for the caller's tenant.
+// A stored operation with the same identity is returned with no write, including
+// when the live document version or content hash has changed. That replay does
+// not create a signature, call a provider, or update the stored operation.
+// Observation is checked only when this tenant has no stored operation.
 func PlanPrepare(obs DocumentObservation, in SigningOperationIdentity, existing []SigningOperation) (SigningOperation, bool, error) {
 	if err := ValidateSigningOperationIdentity(in); err != nil {
 		return SigningOperation{}, false, err
+	}
+	found, ok, err := lookupTenantScopedOperation(existing, in)
+	if err != nil {
+		return SigningOperation{}, false, err
+	}
+	if ok {
+		if err := matchSigningOperationIdentity(found.Identity, in); err != nil {
+			return SigningOperation{}, false, err
+		}
+		return found.clone(), false, nil
 	}
 	if err := validateDocumentObservation(obs); err != nil {
 		return SigningOperation{}, false, err
 	}
 	if err := observationMatches(obs, in); err != nil {
 		return SigningOperation{}, false, err
-	}
-	for i := range existing {
-		if existing[i].Identity.OperationID != in.OperationID {
-			continue
-		}
-		if err := matchSigningOperationIdentity(existing[i].Identity, in); err != nil {
-			return SigningOperation{}, false, err
-		}
-		return existing[i].clone(), false, nil
 	}
 	for i := range existing {
 		held := existing[i]
@@ -192,10 +218,13 @@ func PlanPrepare(obs DocumentObservation, in SigningOperationIdentity, existing 
 	return SigningOperation{Identity: in, State: SigningOperationStatePrepared}, true, nil
 }
 
-// PlanLocalSignatureRecord stores the single local attempt marker on PREPARED.
-// A recorded marker is replayed with no write. This is not a provider call and
-// it does not set a document status.
-func PlanLocalSignatureRecord(stored SigningOperation, presented SigningOperationIdentity) (SigningOperation, bool, error) {
+// PlanLocalSignatureRecord stores one local attempt marker on PREPARED.
+// obs must already be the trusted server-owned document snapshot. A mismatch
+// of tenant, document, version, or content hash returns the unchanged operation
+// and asks for no write. A marker that is already recorded is read-only when
+// that snapshot still matches the operation identity. This is not a signature
+// insert, not verification_status VALID, and not document status SIGNED.
+func PlanLocalSignatureRecord(stored SigningOperation, presented SigningOperationIdentity, obs DocumentObservation) (SigningOperation, bool, error) {
 	if err := matchSigningOperationIdentity(stored.Identity, presented); err != nil {
 		return SigningOperation{}, false, err
 	}
@@ -205,12 +234,16 @@ func PlanLocalSignatureRecord(stored SigningOperation, presented SigningOperatio
 			"state": stored.State,
 		})
 	}
+	if err := observationMatches(obs, stored.Identity); err != nil {
+		return stored.clone(), false, err
+	}
 	if stored.LocalSignatureRecord.Recorded {
 		return stored.clone(), false, nil
 	}
 	next := stored.clone()
 	next.LocalSignatureRecord = LocalSignatureRecord{Recorded: true, Attempt: 1}
 	next.EvidenceKind = SigningOperationEvidenceLocalAttempt
+	next.EvidenceSource = SigningOperationEvidenceSourceServer
 	return next, true, nil
 }
 
@@ -221,7 +254,13 @@ func PlanExternalResultUnknown(stored SigningOperation, presented SigningOperati
 	if err := matchSigningOperationIdentity(stored.Identity, presented); err != nil {
 		return SigningOperation{}, false, err
 	}
-	return applySigningOperationTransition(stored, SigningOperationStateResultUnknown, SigningOperationEvidenceExternalResponseAbsent)
+	next, write, err := applySigningOperationTransition(stored, SigningOperationStateResultUnknown, SigningOperationEvidenceExternalResponseAbsent)
+	if err != nil || !write {
+		return next, write, err
+	}
+	next.EvidenceSource = SigningOperationEvidenceSourceServer
+	next.EvidenceReference = ""
+	return next, true, nil
 }
 
 // PlanManualReview moves RESULT_UNKNOWN to MANUAL_REVIEW_REQUIRED only for
@@ -233,10 +272,12 @@ func PlanManualReview(stored SigningOperation, presented SigningOperationIdentit
 	return applySigningOperationTransition(stored, SigningOperationStateManualReviewRequired, evidence)
 }
 
-// PlanFailure moves RESULT_UNKNOWN to a failure state only when the evidence
-// is a confirmed provider rejection. EXTERNAL_RESPONSE_ABSENT and an empty
-// evidence value leave the state unchanged and ask for no write.
-func PlanFailure(stored SigningOperation, presented SigningOperationIdentity, target, evidence string) (SigningOperation, bool, error) {
+// PlanFailure moves RESULT_UNKNOWN to FAILED_RETRYABLE or FAILED_FINAL only
+// for an authenticated provider rejection. The evidence kind string is not
+// that proof. EXTERNAL_RESPONSE_ABSENT does not cancel PREPARED and does not
+// select either failure state. FAILED_RETRYABLE and FAILED_FINAL are not
+// interchangeable: a row already in one of them does not move to the other.
+func PlanFailure(stored SigningOperation, presented SigningOperationIdentity, target string, claim SigningOperationEvidenceClaim) (SigningOperation, bool, error) {
 	if target != SigningOperationStateFailedRetryable && target != SigningOperationStateFailedFinal {
 		return SigningOperation{}, false, apperrors.Validation("failure target is not a signing operation failure state", map[string]any{
 			"field": "state",
@@ -246,7 +287,45 @@ func PlanFailure(stored SigningOperation, presented SigningOperationIdentity, ta
 	if err := matchSigningOperationIdentity(stored.Identity, presented); err != nil {
 		return SigningOperation{}, false, err
 	}
-	return applySigningOperationTransition(stored, target, evidence)
+	if stored.State == target && failureClaimMatches(stored, claim) {
+		return stored.clone(), false, nil
+	}
+	if claim.Kind == "" || claim.Kind == SigningOperationEvidenceExternalResponseAbsent {
+		return stored.clone(), false, apperrors.Conflict("external response absence is not a provider rejection", map[string]any{
+			"field": "evidence",
+		})
+	}
+	if !authenticatedProviderRejection(claim) {
+		return stored.clone(), false, apperrors.Conflict("provider rejection evidence is not authenticated", map[string]any{
+			"field": "evidence",
+		})
+	}
+	if !signingOperationTransitionAllowed(stored.State, target, claim.Kind) {
+		return stored.clone(), false, apperrors.Conflict("signing operation transition is not allowed", map[string]any{
+			"field": "state",
+			"from":  stored.State,
+			"to":    target,
+		})
+	}
+	next := stored.clone()
+	next.State = target
+	next.EvidenceKind = claim.Kind
+	next.EvidenceSource = claim.Source
+	next.EvidenceReference = strings.TrimSpace(claim.Reference)
+	return next, true, nil
+}
+
+func authenticatedProviderRejection(claim SigningOperationEvidenceClaim) bool {
+	return claim.Kind == SigningOperationEvidenceProviderRejectionConfirmed &&
+		claim.Source == SigningOperationEvidenceSourceAuthenticatedProvider &&
+		strings.TrimSpace(claim.Reference) != ""
+}
+
+func failureClaimMatches(stored SigningOperation, claim SigningOperationEvidenceClaim) bool {
+	return authenticatedProviderRejection(claim) &&
+		stored.EvidenceKind == claim.Kind &&
+		stored.EvidenceSource == claim.Source &&
+		stored.EvidenceReference == strings.TrimSpace(claim.Reference)
 }
 
 func applySigningOperationTransition(stored SigningOperation, to, evidence string) (SigningOperation, bool, error) {
@@ -299,6 +378,29 @@ func observationMatches(obs DocumentObservation, in SigningOperationIdentity) er
 		return nil
 	}
 	return apperrors.Conflict("document observation does not match the signing operation", map[string]any{"field": field})
+}
+
+func lookupTenantScopedOperation(existing []SigningOperation, in SigningOperationIdentity) (SigningOperation, bool, error) {
+	var found *SigningOperation
+	sawOtherTenant := false
+	for i := range existing {
+		if existing[i].Identity.OperationID != in.OperationID {
+			continue
+		}
+		if existing[i].Identity.TenantID != in.TenantID {
+			sawOtherTenant = true
+			continue
+		}
+		copy := existing[i]
+		found = &copy
+	}
+	if found != nil {
+		return *found, true, nil
+	}
+	if sawOtherTenant {
+		return SigningOperation{}, false, apperrors.NotFound(signingOperationNotFoundMessage)
+	}
+	return SigningOperation{}, false, nil
 }
 
 func matchSigningOperationIdentity(stored, presented SigningOperationIdentity) error {

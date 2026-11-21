@@ -112,7 +112,7 @@ func TestSigningOperationF02LocalAttemptRetry(t *testing.T) {
 	}
 
 	stored, _ := store.get(in.OperationID)
-	recorded, write, err := PlanLocalSignatureRecord(stored, in)
+	recorded, write, err := PlanLocalSignatureRecord(stored, in, obs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestSigningOperationF02LocalAttemptRetry(t *testing.T) {
 	}
 	store.commit(recorded, write, false)
 
-	replayed, write, err := PlanLocalSignatureRecord(recorded, in)
+	replayed, write, err := PlanLocalSignatureRecord(recorded, in, obs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestSigningOperationF06DuplicateOperationID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			presented := in
 			tc.edit(&presented)
-			got, write, err := PlanLocalSignatureRecord(unknown, presented)
+			got, write, err := PlanLocalSignatureRecord(unknown, presented, obs)
 			if signingOperationCode(err) != tc.code {
 				t.Fatalf("code=%s err=%v", signingOperationCode(err), err)
 			}
@@ -246,7 +246,7 @@ func TestSigningOperationF08VersionOrHashMismatch(t *testing.T) {
 	prepared := SigningOperation{Identity: in, State: SigningOperationStatePrepared}
 	presented := in
 	presented.ExpectedVersion = 8
-	got, write, err := PlanLocalSignatureRecord(prepared, presented)
+	got, write, err := PlanLocalSignatureRecord(prepared, presented, obs)
 	if signingOperationCode(err) != apperrors.CodeConflict || write || got.Identity.OperationID != uuid.Nil {
 		t.Fatalf("got=%+v write=%v err=%v", got, write, err)
 	}
@@ -300,29 +300,169 @@ func TestSigningOperationUnknownExternalResult(t *testing.T) {
 	}
 	store.commit(replayed, write, false)
 
+	absent := SigningOperationEvidenceClaim{Kind: SigningOperationEvidenceExternalResponseAbsent}
+	kindOnly := SigningOperationEvidenceClaim{Kind: SigningOperationEvidenceProviderRejectionConfirmed}
 	for _, target := range []string{SigningOperationStateFailedRetryable, SigningOperationStateFailedFinal} {
-		kept, write, err := PlanFailure(unknown, in, target, SigningOperationEvidenceExternalResponseAbsent)
+		kept, write, err := PlanFailure(unknown, in, target, absent)
 		if signingOperationCode(err) != apperrors.CodeConflict || write || kept.State != SigningOperationStateResultUnknown {
 			t.Fatalf("target=%s kept=%s write=%v err=%v", target, kept.State, write, err)
 		}
 		store.commit(kept, write, false)
-		kept, write, err = PlanFailure(unknown, in, target, "")
+		kept, write, err = PlanFailure(unknown, in, target, SigningOperationEvidenceClaim{})
 		if signingOperationCode(err) != apperrors.CodeConflict || write || kept.State != SigningOperationStateResultUnknown {
 			t.Fatalf("empty evidence target=%s kept=%s write=%v err=%v", target, kept.State, write, err)
 		}
 		store.commit(kept, write, false)
+		kept, write, err = PlanFailure(unknown, in, target, kindOnly)
+		if signingOperationCode(err) != apperrors.CodeConflict || write || kept.State != SigningOperationStateResultUnknown {
+			t.Fatalf("kind-only target=%s kept=%s write=%v err=%v", target, kept.State, write, err)
+		}
+		store.commit(kept, write, false)
+	}
+	preparedAbsent, write, err := PlanFailure(prepared, in, SigningOperationStateFailedRetryable, absent)
+	if signingOperationCode(err) != apperrors.CodeConflict || write || preparedAbsent.State != SigningOperationStatePrepared {
+		t.Fatalf("prepared cancel state=%s write=%v err=%v", preparedAbsent.State, write, err)
 	}
 	if store.writes != 1 {
 		t.Fatalf("STORE_WRITES=%d, want 1", store.writes)
 	}
 
-	confirmed, write, err := PlanFailure(unknown, in, SigningOperationStateFailedRetryable, SigningOperationEvidenceProviderRejectionConfirmed)
+	proof := authenticatedRejection("provider-msg-1")
+	confirmed, write, err := PlanFailure(unknown, in, SigningOperationStateFailedRetryable, proof)
 	if err != nil || !write || confirmed.State != SigningOperationStateFailedRetryable {
 		t.Fatalf("confirmed=%s write=%v err=%v", confirmed.State, write, err)
 	}
-	again, write, err := PlanFailure(confirmed, in, SigningOperationStateFailedRetryable, SigningOperationEvidenceProviderRejectionConfirmed)
+	again, write, err := PlanFailure(confirmed, in, SigningOperationStateFailedRetryable, proof)
 	if err != nil || write || again.State != SigningOperationStateFailedRetryable {
 		t.Fatalf("failure replay state=%s write=%v err=%v", again.State, write, err)
+	}
+	swapped, write, err := PlanFailure(confirmed, in, SigningOperationStateFailedFinal, authenticatedRejection("provider-msg-2"))
+	if signingOperationCode(err) != apperrors.CodeConflict || write || swapped.State != SigningOperationStateFailedRetryable {
+		t.Fatalf("swap state=%s write=%v err=%v", swapped.State, write, err)
+	}
+}
+
+func authenticatedRejection(reference string) SigningOperationEvidenceClaim {
+	return SigningOperationEvidenceClaim{
+		Kind:      SigningOperationEvidenceProviderRejectionConfirmed,
+		Source:    SigningOperationEvidenceSourceAuthenticatedProvider,
+		Reference: reference,
+	}
+}
+
+func TestSigningOperationReplayBeforeObservation(t *testing.T) {
+	in, obs := testSigningOperationIdentity()
+	prepared, write, err := PlanPrepare(obs, in, nil)
+	if err != nil || !write {
+		t.Fatal(err)
+	}
+	same, write, err := PlanPrepare(obs, in, []SigningOperation{prepared})
+	if err != nil || write || same.State != SigningOperationStatePrepared {
+		t.Fatalf("unchanged replay state=%s write=%v err=%v", same.State, write, err)
+	}
+
+	versionMoved := obs
+	versionMoved.Version = obs.Version + 1
+	replayed, write, err := PlanPrepare(versionMoved, in, []SigningOperation{prepared})
+	if err != nil || write || replayed.State != SigningOperationStatePrepared || replayed.Identity.ExpectedVersion != in.ExpectedVersion {
+		t.Fatalf("version replay state=%s version=%d write=%v err=%v", replayed.State, replayed.Identity.ExpectedVersion, write, err)
+	}
+
+	hashMoved := obs
+	hashMoved.ContentHash = strings.Repeat("cd", 32)
+	replayed, write, err = PlanPrepare(hashMoved, in, []SigningOperation{prepared})
+	if err != nil || write || replayed.Identity.ContentHash != in.ContentHash {
+		t.Fatalf("hash replay write=%v err=%v", write, err)
+	}
+
+	unknown, write, err := PlanExternalResultUnknown(prepared, in)
+	if err != nil || !write {
+		t.Fatal(err)
+	}
+	replayed, write, err = PlanPrepare(versionMoved, in, []SigningOperation{unknown})
+	if err != nil || write || replayed.State != SigningOperationStateResultUnknown {
+		t.Fatalf("unknown replay state=%s write=%v err=%v", replayed.State, write, err)
+	}
+
+	other := in
+	other.SignerUserID = uuid.New()
+	got, write, err := PlanPrepare(obs, other, []SigningOperation{prepared})
+	if signingOperationCode(err) != apperrors.CodeConflict || write || got.State != "" {
+		t.Fatalf("identity conflict got=%+v write=%v err=%v", got, write, err)
+	}
+}
+
+func TestSigningOperationEffectTimeObservation(t *testing.T) {
+	in, obs := testSigningOperationIdentity()
+	prepared := SigningOperation{Identity: in, State: SigningOperationStatePrepared}
+	movedVersion := obs
+	movedVersion.Version = obs.Version + 1
+	kept, write, err := PlanLocalSignatureRecord(prepared, in, movedVersion)
+	if signingOperationCode(err) != apperrors.CodeConflict || write || kept.LocalSignatureRecord.Recorded || kept.State != SigningOperationStatePrepared {
+		t.Fatalf("version kept=%+v write=%v err=%v", kept.LocalSignatureRecord, write, err)
+	}
+
+	movedHash := obs
+	movedHash.ContentHash = strings.Repeat("cd", 32)
+	kept, write, err = PlanLocalSignatureRecord(prepared, in, movedHash)
+	if signingOperationCode(err) != apperrors.CodeConflict || write || kept.LocalSignatureRecord.Recorded {
+		t.Fatalf("hash kept=%+v write=%v err=%v", kept.LocalSignatureRecord, write, err)
+	}
+
+	recorded, write, err := PlanLocalSignatureRecord(prepared, in, obs)
+	if err != nil || !write || recorded.LocalSignatureRecord.Attempt != 1 {
+		t.Fatalf("record write=%v err=%v", write, err)
+	}
+	again, write, err := PlanLocalSignatureRecord(recorded, in, obs)
+	if err != nil || write || again.LocalSignatureRecord.Attempt != 1 {
+		t.Fatalf("duplicate write=%v attempt=%d err=%v", write, again.LocalSignatureRecord.Attempt, err)
+	}
+}
+
+func TestSigningOperationCrossTenantPlan(t *testing.T) {
+	in, obs := testSigningOperationIdentity()
+	stored := SigningOperation{Identity: in, State: SigningOperationStatePrepared}
+	foreignIdentity := in
+	foreignIdentity.TenantID = uuid.New()
+	foreignObs := obs
+	foreignObs.TenantID = foreignIdentity.TenantID
+
+	missing, missingErr := ReadSigningOperation(in.TenantID, uuid.New(), nil)
+	foreign, foreignErr := ReadSigningOperation(foreignIdentity.TenantID, in.OperationID, &stored)
+	if missingErr.Error() != foreignErr.Error() || signingOperationCode(foreignErr) != apperrors.CodeNotFound {
+		t.Fatalf("missing=%v foreign=%v", missingErr, foreignErr)
+	}
+	if missing.State != "" || foreign.State != "" {
+		t.Fatalf("leaked missing=%+v foreign=%+v", missing, foreign)
+	}
+
+	got, write, err := PlanPrepare(foreignObs, foreignIdentity, []SigningOperation{stored})
+	if signingOperationCode(err) != apperrors.CodeNotFound || write || got.State != "" || err.Error() != missingErr.Error() {
+		t.Fatalf("plan got=%+v write=%v err=%v", got, write, err)
+	}
+}
+
+func TestSigningOperationFailureStatesStayDistinct(t *testing.T) {
+	in, _ := testSigningOperationIdentity()
+	unknown := SigningOperation{
+		Identity:       in,
+		State:          SigningOperationStateResultUnknown,
+		EvidenceKind:   SigningOperationEvidenceExternalResponseAbsent,
+		EvidenceSource: SigningOperationEvidenceSourceServer,
+	}
+	finalState, write, err := PlanFailure(unknown, in, SigningOperationStateFailedFinal, authenticatedRejection("provider-final"))
+	if err != nil || !write || finalState.State != SigningOperationStateFailedFinal {
+		t.Fatalf("final=%s write=%v err=%v", finalState.State, write, err)
+	}
+	retryable, write, err := PlanFailure(unknown, in, SigningOperationStateFailedRetryable, authenticatedRejection("provider-retry"))
+	if err != nil || !write || retryable.State != SigningOperationStateFailedRetryable {
+		t.Fatalf("retryable=%s write=%v err=%v", retryable.State, write, err)
+	}
+	if finalState.State == retryable.State {
+		t.Fatal("failure states are not distinct")
+	}
+	if SigningOperationStateBlocksDocument(finalState.State) || SigningOperationStateBlocksDocument(retryable.State) {
+		t.Fatal("failure scope change requires the blocked policy decision")
 	}
 }
 
