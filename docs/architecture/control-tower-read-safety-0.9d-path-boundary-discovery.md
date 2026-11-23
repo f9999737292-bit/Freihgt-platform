@@ -1,12 +1,12 @@
 # Control Tower read safety 0.9D — path boundary discovery
 
-Status: documentation only. Revision R3 after independent review. No product code, migration, staging change, or merge. CT-L2 is not authorized by this revision.
+Status: documentation only. Revision R4 after independent review. No product code, migration, staging change, or merge. CT-L2 is not authorized by this revision.
 
 ```text
 AGENT=C
-STAGE=CONTROL-TOWER-READ-SAFETY-0.9D-R3
+STAGE=CONTROL-TOWER-READ-SAFETY-0.9D-R4
 BASE_SHA=a9ef8f40bf0e7f75cb4aee3794e7841723347e4c
-PREVIOUS_HEAD=31bfd8cc89090ddab7814a532fa0d1d7bfa0d871
+PREVIOUS_HEAD=d54af4e1d94cbe8c5bbe7889a08b9809739490aa
 RELATED_PR=398
 RELATED_HEAD=b1f8e4749f2b8160e8a0d57061eaebe0361ad51f
 PR398_CHANGED=NO
@@ -23,7 +23,7 @@ PRODUCT_CODE_CHANGED=NO
 
 The previous revision of this file is withdrawn where it conflicts with the sections below. In particular, this revision does not claim 33 endpoint groups, does not claim that `%252F` stays one segment for the whole decode chain, and does not claim `CONFIRMED_CROSS_ROUTE_ACCESS=NO`.
 
-PR #400 has no review body and no issue comments. The finding numbers and the previous statuses in section 11 are the numbers the controller supplied for this revision. This document does not add a finding id. Where a per-id sentence was not attached, the cell says `DETAILS_NOT_AVAILABLE`.
+Section 11 uses Agent J's finding numbers, including the R2 mapping for `J-CT09D-007` through `J-CT09D-010`. This revision does not add a finding id.
 
 ## 1. How the routes were counted
 
@@ -137,7 +137,7 @@ One decode and a second decode are different steps.
 | --- | --- |
 | `%2F` | Chi can still match `{param}` and return the characters `%2F`. `URL.Path` contains a real `/`. |
 | `%252F` | First decode yields the text `%2F`. The second decode, inside `http.NewRequest`, puts `/` in `URL.Path`. This is not one segment for the whole chain. |
-| `%25zz` | First decode yields `%zz`. `http.NewRequest` does not fail. The path keeps the characters `%zz`. An invalid escape is not a closed reject. |
+| `%25zz` | First decode of the public segment `a%25zz` yields `a%zz`. The next step depends on the builder, as the paragraphs after this table record. |
 | `%3F` | The parameter contains `?`. `http.NewRequest` starts the query there and shortens the path. The rows in section 4 are this case. |
 | `%23` | The parameter contains `#`. On this main tree the fragment is not sent and the path stops before it. On the PR #398 client the fragment rejects the call before `Do`. |
 | `%5C` | The parameter contains `\`. On this main tree `EscapedPath` emits `%5C` and the segment stays one. On the PR #398 client a backslash rejects the call before `Do`. |
@@ -145,6 +145,14 @@ One decode and a second decode are different steps.
 | Unicode, including U+FF0F and U+2215 | One segment. These are not an ASCII `/`. UUID parse rejects them. `itemType` would currently forward them. |
 | Empty segment | `GET /api/v1/control-tower/cases//timeline` matched `{caseId}` with an empty parameter on chi v5.2.1. CT-L2 still rejects an empty identifier before the downstream URL is built. |
 | `.` and `..` | `url.PathEscape(".")` is `.` and `url.PathEscape("..")` is `..`. Chi matches both as `{param}`. `PathEscape` is not the control. |
+
+`http.NewRequest` does not treat `%25zz` the same way on every route. The public segment `a%25zz` is one chi parameter whose value is `a%zz`.
+
+Concat and `fmt.Sprintf` builders place that value in the URL string unchanged. Timeline (`GetCaseTimeline`), link removal (`RemoveCaseLink`), note update (the raw `noteId` suffix), and the work-item sprintf paths all do this. `http.NewRequest` then returns `invalid URL escape "%zz"`. `Do` is not called. The gateway maps that error through `mapWorkspaceDependencyError` to HTTP 503. Downstream request count is 0.
+
+`GetCase` is the other builder. It calls `url.PathEscape` on `caseId` before `http.NewRequest`. `PathEscape("a%zz")` is `a%25zz`, so `NewRequest` succeeds and the request is sent. `URL.Path` contains `/internal/v1/control-tower/cases/a%zz`. The recorded probe response for that delivered request was HTTP 200. That 200 is the probe observation for this builder. It is not a claim that every route returns 200, and it is not a change to the public status policy in section 7.
+
+A parse error on the concat builders is not the validation rule. CT-L2 still rejects `%` before either builder runs, so `GetCase` cannot remain a probe that sends the request while the concat builders fail closed.
 
 CT-L2 rejects `%` in every dynamic identifier before the downstream URL is built. UUID text and the `itemType` token contain no `%`. The same pre-check rejects `.`, `..`, an empty string, `/`, `\`, `?`, `#`, and control characters. `PathEscape` runs only after that check.
 
@@ -385,7 +393,8 @@ Future tests use `httptest` only. Each row records the gateway status, the downs
 | `itemId` as an opaque string | `exception` and a non-UUID source id keep one segment. `%` is rejected with count 0. |
 | `stepId` as a UUID | A valid UUID keeps the step path. A non-UUID has count 0. |
 | `%252F` with `RawPath` set | The assertion reads both `URL.Path` and `URLParam`. The forbidden form is rejected with count 0. |
-| `%25zz` | Rejected with count 0. The probe showed `NewRequest` accepting this text. |
+| `%25zz` on `GetCase` | Current probe: the request is sent, `URL.Path` contains `a%zz`, and the probe response was HTTP 200. Required CT-L2 behavior: `REQUEST_REJECTED=YES` and `DOWNSTREAM_REQUEST_COUNT=0`, so this route is not an oracle. |
+| `%25zz` on timeline, link, note, and work-item builders | Current behavior: `http.NewRequest` returns `invalid URL escape "%zz"`, public status 503, downstream count 0. Required CT-L2 behavior is the same count with a local reject before `NewRequest`, not an accidental parse error. |
 | Empty segment, as in `/cases//timeline` | Rejected with count 0. |
 | `.` and `..` | Rejected with count 0. |
 | `limit=&limit=5` | The recorded query has no `limit`. It is not `limit=5`. |
@@ -400,7 +409,7 @@ Future tests use `httptest` only. Each row records the gateway status, the downs
 
 J's previous status is the status the controller supplied. This revision does not mark a finding closed.
 
-| Finding | Previous status | R3 correction | Status awaiting J |
+| Finding | Previous status | Correction | Status awaiting J |
 | --- | --- | --- | --- |
 | `J-CT09D-001` | `CLOSED_WITH_NIT` | Inventory in sections 1 and 2 is unchanged. No new evidence reopens it. | `CLOSED_WITH_NIT` |
 | `J-CT09D-002` | `CLOSED` | Not reopened. The extra decode rows in section 3 are the new LOW items, not a new claim against this id. | `CLOSED` |
@@ -408,19 +417,21 @@ J's previous status is the status the controller supplied. This revision does no
 | `J-CT09D-004` | `PARTIAL` | Section 5 takes the first value and drops the key when that first value is empty. `limit=&limit=5` does not become `limit=5`. | `DOCUMENT_REMEDIATED_PENDING_J` |
 | `J-CT09D-005` | `PARTIAL` | Section 6 adds `linkId` as a UUID from `RemoveLink`. Section 7 replaces the public-400 claim with the checked 503 path. | `DOCUMENT_REMEDIATED_PENDING_J` |
 | `J-CT09D-006` | `PARTIAL` | Section 8 separates main from the `b1f8e474` resolver for `#`, `\`, `?`, origin, and redirect, and leaves `J-CT09C-001` open. | `DOCUMENT_REMEDIATED_PENDING_J` |
-| `J-CT09D-007` | `NEW_LOW` | `DETAILS_NOT_AVAILABLE`. The review body is not on PR #400. Section 7 records the public 503 contract and both status options. | `DOCUMENT_REMEDIATED_PENDING_J` |
-| `J-CT09D-008` | `NEW_LOW` | `DETAILS_NOT_AVAILABLE`. Section 6 records the `linkId` contract and the DELETE query row. | `DOCUMENT_REMEDIATED_PENDING_J` |
-| `J-CT09D-009` | `NEW_LOW` | `DETAILS_NOT_AVAILABLE`. Section 3 records `%25zz`, an explicit `RawPath`, and the two-step `%252F` decode. | `DOCUMENT_REMEDIATED_PENDING_J` |
-| `J-CT09D-010` | `NEW_LOW` | `DETAILS_NOT_AVAILABLE`. Section 9 keeps `workspace_handler.go` as `PENDING_CONTROLLER_APPROVAL` and leaves `workspace.go` out. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-007` | `NEW_LOW` | `linkId` policy. Section 6: UUID from `RemoveLink`, rejected before `PathEscape`, and the DELETE query row in section 4. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-008` | `NEW_LOW` | Current public HTTP 503. Section 7: a read-model validation error is mapped to 503. The proposed local 400 stays unapproved. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-009` | `NEW_LOW` | File list and downstream oracle. Section 9 lists the CT-L2 files. Section 10 requires `REQUEST_REJECTED=YES` and `DOWNSTREAM_REQUEST_COUNT=0`. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-010` | `NEW_LOW` | `RawPath`, `%252F`, and `%25zz`. Section 3 records `RawPath` against `URLParam`, the two-step `%252F` decode, and the builder split for `%25zz`. Section 10 repeats that split. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-011` | `LOW` | R4 corrects this table so 007 is `linkId`, 008 is public 503, 009 is the file list and downstream oracle, and 010 is `RawPath`, `%252F`, and `%25zz`. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-012` | `LOW` | R4 corrects `%25zz` in sections 3 and 10. Concat builders fail `http.NewRequest` with public 503 and no downstream call. `GetCase` sends the request, `URL.Path` contains `a%zz`, and the probe response was 200. The local-reject rule is unchanged. | `DOCUMENT_REMEDIATED_PENDING_J` |
 
-The one-line assignment of 007 through 010 is not a quote from Agent J. Those four ids were named as new LOW findings without separate prose. The four sections above are the new defects this revision was told to correct. J confirms the id-to-section match on re-review.
+`J-CT09D-007` through `J-CT09D-010` keep the requirements already written for those subjects. R4 changes only which finding id points at which requirement, and the `%25zz` builder split. It does not close a finding.
 
 ## 12. Implementation gate
 
 CT-L2 implementation does not start from this revision.
 
 ```text
-GO_FOR_J_R3_ARCHITECTURE_REVIEW=YES
+GO_FOR_J_R4_VERIFICATION=YES
 CT_L2_IMPLEMENTATION_READY=NO
 CT_L1_INTEGRATION=NOT_COMPLETE
 J_CT09C_001=OPEN
@@ -429,7 +440,7 @@ CONFIRMED_CROSS_ROUTE_ACCESS=YES
 CONFIRMED_PRIVILEGE_ESCALATION=NO
 PRIVILEGE_ESCALATION_IMPOSSIBLE=NOT_CLAIMED
 CONFIRMED_CROSS_TENANT_LEAK=NO
-FINAL_VERDICT=READY_FOR_J_R3_ARCHITECTURE_REVIEW
+FINAL_VERDICT=READY_FOR_J_R4_VERIFICATION
 ```
 
 Issue #334 stays open. Issue #344 stays open. Production consumer readiness stays blocked.
