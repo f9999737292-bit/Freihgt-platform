@@ -161,7 +161,7 @@ func (c *Client) SyncRisks(ctx context.Context, input SyncRisksInput) *Dependenc
 		req.Header.Set(sharedmiddleware.RequestIDHeader, input.RequestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		return &DependencyError{Reason: classifyRequestError(ctx, err), Err: err}
 	}
@@ -209,7 +209,7 @@ func (c *Client) ListRisks(ctx context.Context, tenantID, requestID string, filt
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		return nil, &DependencyError{Reason: classifyRequestError(ctx, err), Err: err}
 	}
@@ -243,7 +243,7 @@ func (c *Client) GetRisk(ctx context.Context, tenantID, requestID, riskKey strin
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		return nil, &DependencyError{Reason: classifyRequestError(ctx, err), Err: err}
 	}
@@ -278,7 +278,7 @@ func (c *Client) GetRiskKPI(ctx context.Context, tenantID, requestID string) (*R
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		return nil, &DependencyError{Reason: classifyRequestError(ctx, err), Err: err}
 	}
@@ -338,7 +338,7 @@ func (c *Client) postRiskMutation(
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		return nil, &DependencyError{Reason: classifyRequestError(ctx, err), Err: err}
 	}

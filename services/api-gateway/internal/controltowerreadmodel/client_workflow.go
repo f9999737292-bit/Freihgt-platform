@@ -85,7 +85,7 @@ func (c *Client) ListCriticalEventActions(
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		reason = classifyRequestError(ctx, err)
 		result = "ERROR"
@@ -150,7 +150,7 @@ func (c *Client) LookupWorkflows(
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		reason = classifyRequestError(ctx, err)
 		result = "ERROR"
@@ -237,7 +237,7 @@ func (c *Client) postWorkflowMutation(
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		reason = classifyRequestError(ctx, err)
 		result = "ERROR"
