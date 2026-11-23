@@ -64,7 +64,7 @@ func (c *Client) GetSlots(ctx context.Context, tenantID, requestID, shipmentID s
 	if requestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (c *Client) LookupSlots(ctx context.Context, tenantID, requestID string, sh
 	if requestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}
