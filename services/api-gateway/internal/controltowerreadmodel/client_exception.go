@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	ensureExceptionWorkflowsPath   = "/internal/v1/control-tower/critical-events/workflows/ensure"
-	listOpenWorkflowsBySourcePath  = "/internal/v1/control-tower/critical-events/workflows/list-open"
-	updateExceptionPath            = "/internal/v1/control-tower/critical-events/%s/exception"
+	ensureExceptionWorkflowsPath  = "/internal/v1/control-tower/critical-events/workflows/ensure"
+	listOpenWorkflowsBySourcePath = "/internal/v1/control-tower/critical-events/workflows/list-open"
+	updateExceptionPath           = "/internal/v1/control-tower/critical-events/%s/exception"
 )
 
 type EnsureExceptionSeed struct {
@@ -95,7 +95,7 @@ func (c *Client) EnsureExceptionWorkflows(
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		return nil, &DependencyError{Reason: classifyRequestError(ctx, err), Err: err}
 	}
@@ -137,7 +137,7 @@ func (c *Client) UpdateException(
 		req.Header.Set(sharedmiddleware.RequestIDHeader, input.RequestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		return nil, &DependencyError{Reason: classifyRequestError(ctx, err), Err: err}
 	}
@@ -200,7 +200,7 @@ func (c *Client) ListOpenWorkflowsBySource(
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		reason = classifyRequestError(ctx, err)
 		result = "ERROR"
