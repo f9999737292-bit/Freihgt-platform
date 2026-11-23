@@ -554,3 +554,159 @@ func TestRedirectPolicyRejectsFragmentUserinfoAndOpaque(t *testing.T) {
 		}
 	}
 }
+
+func mutateOriginalRequest(req *http.Request, via []*http.Request) {
+	if len(via) == 0 || via[0] == nil {
+		return
+	}
+	origin := via[0]
+	origin.Header.Set("X-Tenant-ID", "mutated-tenant")
+	origin.Header.Set("X-User-ID", "mutated-user")
+	origin.Header.Set(sharedmiddleware.RequestIDHeader, "mutated-request")
+	origin.Host = "evil.example"
+	if origin.URL != nil {
+		replaced := *origin.URL
+		replaced.Host = "evil.example"
+		origin.URL = &replaced
+	}
+	if req == nil {
+		return
+	}
+	req.Host = "evil.example"
+	req.Header.Set("X-Tenant-ID", "hop-tenant")
+	req.Header.Set("X-User-ID", "hop-user")
+	req.Header.Set(sharedmiddleware.RequestIDHeader, "hop-request")
+	req.Header.Set("Authorization", "Bearer swapped")
+}
+
+func assertOriginalTrustedHop(t *testing.T, hop safetyHop) {
+	t.Helper()
+	if hop.tenant != redirectTenant || hop.user != redirectUser || hop.requestID != redirectRequest {
+		t.Fatalf("trusted headers changed: %+v", hop)
+	}
+	if hop.hostHeader != readModelHost {
+		t.Fatalf("host header = %q, want %q", hop.hostHeader, readModelHost)
+	}
+	if hop.host != readModelHost {
+		t.Fatalf("request url host = %q", hop.host)
+	}
+}
+
+func TestTrustedSnapshotSurvivesLaterSameOriginHops(t *testing.T) {
+	for _, status := range []int{http.StatusFound, http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			step := 0
+			rt := &safetyTransport{}
+			rt.respond = func(req *http.Request) (*http.Response, error) {
+				step++
+				switch step {
+				case 1:
+					return redirectResponse(req, status, "/hop-2", ""), nil
+				case 2:
+					return redirectResponse(req, status, "/hop-3", ""), nil
+				default:
+					return redirectResponse(req, http.StatusOK, "", `{"operators":[],"unassignedPool":0,"kpi":{}}`), nil
+				}
+			}
+			client := newSafetyClient(readModelBase, rt, func(req *http.Request, via []*http.Request) error {
+				mutateOriginalRequest(req, via)
+				return nil
+			})
+			_, depErr := client.GetWorkload(context.Background(), redirectTenant, redirectUser, redirectRequest)
+			if depErr != nil {
+				t.Fatalf("same-origin hops failed: %v", depErr)
+			}
+			hops := rt.snapshot()
+			if len(hops) != 3 {
+				t.Fatalf("outbound requests = %d, want 3", len(hops))
+			}
+			assertNoForbiddenTarget(t, hops, readModelHost)
+			assertOriginalTrustedHop(t, hops[1])
+			assertOriginalTrustedHop(t, hops[2])
+			if hops[1].tenant == "mutated-tenant" || hops[2].tenant == "mutated-tenant" || hops[2].tenant == "hop-tenant" {
+				t.Fatalf("later hop reread mutated via: %+v", hops)
+			}
+		})
+	}
+}
+
+func TestTrustedSnapshotRejectsForeignRetarget(t *testing.T) {
+	for _, status := range []int{http.StatusFound, http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			rt := &safetyTransport{respond: redirectTo("/hop-2", status)}
+			client := newSafetyClient(readModelBase, rt, func(req *http.Request, via []*http.Request) error {
+				mutateOriginalRequest(req, via)
+				foreign, err := url.Parse(metadataRedirect)
+				if err != nil {
+					return err
+				}
+				req.URL = foreign
+				req.Host = foreign.Host
+				return nil
+			})
+			_, depErr := client.AcknowledgeCriticalEvent(context.Background(), AcknowledgeCriticalEventInput{
+				TenantID: redirectTenant, UserID: redirectUser, RequestID: redirectRequest,
+				EventID: "evt-1", ShipmentID: "body-secret-marker",
+			})
+			if depErr == nil || !errors.Is(depErr.Err, errWorkspaceRedirectRejected) {
+				t.Fatalf("expected redirect reject, got %#v", depErr)
+			}
+			hops := rt.snapshot()
+			if len(hops) != 1 {
+				t.Fatalf("outbound requests = %d, want 1", len(hops))
+			}
+			assertNoForbiddenTarget(t, hops, readModelHost)
+			for _, hop := range hops {
+				if strings.Contains(hop.url, "169.254.169.254") || hop.hostHeader == "169.254.169.254" {
+					t.Fatalf("forbidden origin received a request: %+v", hop)
+				}
+			}
+			if strings.Contains(depErr.Error(), redirectTenant) || strings.Contains(depErr.Error(), "body-secret-marker") || strings.Contains(depErr.Error(), metadataRedirect) {
+				t.Fatalf("error leaked: %s", depErr.Error())
+			}
+		})
+	}
+}
+
+func TestTrustedSnapshotIsNotRereadFromVia(t *testing.T) {
+	originReq, err := http.NewRequest(http.MethodGet, readModelBase+"/start", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originReq.Header.Set("X-Tenant-ID", redirectTenant)
+	originReq.Header.Set("X-User-ID", redirectUser)
+	originReq.Header.Set(sharedmiddleware.RequestIDHeader, redirectRequest)
+	originReq.Host = readModelHost
+	policy := workspaceRedirectPolicy(readModelBase, func(req *http.Request, via []*http.Request) error {
+		mutateOriginalRequest(req, via)
+		return nil
+	})
+	first, err := http.NewRequest(http.MethodGet, readModelBase+"/hop-2", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := policy(first, []*http.Request{originReq}); err != nil {
+		t.Fatal(err)
+	}
+	second, err := http.NewRequest(http.MethodGet, readModelBase+"/hop-3", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := policy(second, []*http.Request{originReq, first}); err != nil {
+		t.Fatal(err)
+	}
+	for _, hop := range []*http.Request{first, second} {
+		if hop.Header.Get("X-Tenant-ID") != redirectTenant || hop.Header.Get("X-User-ID") != redirectUser || hop.Header.Get(sharedmiddleware.RequestIDHeader) != redirectRequest {
+			t.Fatalf("snapshot lost: tenant=%s user=%s request=%s", hop.Header.Get("X-Tenant-ID"), hop.Header.Get("X-User-ID"), hop.Header.Get(sharedmiddleware.RequestIDHeader))
+		}
+		if hop.Host != readModelHost {
+			t.Fatalf("host = %q", hop.Host)
+		}
+		if hop.Header.Get("Authorization") != "" {
+			t.Fatal("authorization survived an allowed hop")
+		}
+	}
+	if originReq.Header.Get("X-Tenant-ID") == redirectTenant {
+		t.Fatal("via[0] was not mutated; the regression would not fail on the old policy")
+	}
+}

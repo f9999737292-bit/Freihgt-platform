@@ -583,6 +583,8 @@ func (c *Client) workspaceHTTPClient() *http.Client {
 }
 
 func workspaceRedirectPolicy(baseURL string, inherited func(*http.Request, []*http.Request) error) func(*http.Request, []*http.Request) error {
+	var trusted trustedRedirect
+	captured := false
 	return func(req *http.Request, via []*http.Request) error {
 		if len(via) >= workspaceRedirectLimit {
 			scrubWorkspaceRedirectHeaders(req, true)
@@ -592,7 +594,10 @@ func workspaceRedirectPolicy(baseURL string, inherited func(*http.Request, []*ht
 			scrubWorkspaceRedirectHeaders(req, true)
 			return errWorkspaceRedirectRejected
 		}
-		trusted := captureTrustedRedirect(via)
+		if !captured {
+			trusted = captureTrustedRedirect(via)
+			captured = true
+		}
 		if inherited != nil {
 			if err := inherited(req, via); err != nil {
 				scrubWorkspaceRedirectHeaders(req, true)
@@ -627,10 +632,10 @@ func captureTrustedRedirect(via []*http.Request) trustedRedirect {
 		host = origin.URL.Host
 	}
 	return trustedRedirect{
-		tenant:    origin.Header.Get("X-Tenant-ID"),
-		user:      origin.Header.Get("X-User-ID"),
-		requestID: origin.Header.Get(sharedmiddleware.RequestIDHeader),
-		host:      host,
+		tenant:    strings.Clone(origin.Header.Get("X-Tenant-ID")),
+		user:      strings.Clone(origin.Header.Get("X-User-ID")),
+		requestID: strings.Clone(origin.Header.Get(sharedmiddleware.RequestIDHeader)),
+		host:      strings.Clone(host),
 		ok:        true,
 	}
 }
