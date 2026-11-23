@@ -24,14 +24,18 @@ def _window(now: datetime) -> tuple[int, int]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    command = args[0] if args else "dispatch"
+    if command == "readiness-check":
+        from bintrans_autopilot.readiness import readiness_check
+
+        return readiness_check()
     if os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true":
         trusted, untrusted_reason = evaluate_workflow_context(context_from_environ(os.environ))
         if not trusted:
             print(f"UNTRUSTED_WORKFLOW={untrusted_reason}")
             print("PAID_AGENTS_LAUNCHED=NO")
             return 2
-    args = list(sys.argv[1:] if argv is None else argv)
-    command = args[0] if args else "dispatch"
     if command == "queue-dry-run":
         from bintrans_autopilot.scheduler import dry_run_main
 

@@ -1,0 +1,36 @@
+# Example only. This file is not wired into the platform compose and this
+# stage does not start it. The service is behind a profile, so a plain
+# compose start does not create it. The image name is not a registry.
+name: bintrans-autopilot-readiness-disabled
+
+services:
+  autopilot-dry-run:
+    profiles: ["manual-approval-required"]
+    image: example.invalid/bintrans-autopilot-dry-run:disabled
+    restart: "no"
+    init: true
+    stop_grace_period: 20s
+    mem_limit: 256m
+    cpus: 0.50
+    pids_limit: 64
+    read_only: true
+    environment:
+      AUTOPILOT_ENABLED: "false"
+      PAID_AUTOMATION_ENABLED: "false"
+      EXTERNAL_TOOLS_ENABLED: "false"
+      AUTO_MERGE: "false"
+      AUTO_DEPLOY: "false"
+      WORKER_ENABLED: "false"
+      AUTOPILOT_EMERGENCY_STOP: "true"
+    command: ["python", "-m", "bintrans_autopilot", "readiness-check"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "bintrans_autopilot", "readiness-check"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
