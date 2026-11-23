@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 )
 
 // HTTPVerifier asks identity-service for the authenticated subject's
@@ -43,7 +45,7 @@ func (v *HTTPVerifier) IsPlatformAdmin(ctx context.Context, authorization, userI
 	req.Header.Set("Authorization", authorization)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := v.client.Do(req)
+	resp, err := httpredirect.Do(v.client, v.baseURL, req)
 	if err != nil {
 		return false, err
 	}

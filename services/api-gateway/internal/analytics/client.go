@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 )
 
 const gatewayCaller = "api-gateway"
@@ -34,6 +36,13 @@ func refuseAnalyticsRedirect(*http.Request, []*http.Request) error {
 	return errors.New("analytics service redirect is not followed")
 }
 
+func (c *Client) do(req *http.Request) (*http.Response, error) {
+	if c == nil || c.httpClient == nil || req == nil {
+		return nil, httpredirect.ErrRejected
+	}
+	return httpredirect.Do(c.httpClient, c.baseURL, req)
+}
+
 func (c *Client) GetKPI(ctx context.Context, kpiID, tenantID, rawQuery string) (int, []byte, error) {
 	if c == nil || c.baseURL == "" || strings.TrimSpace(c.token) == "" || strings.TrimSpace(tenantID) == "" {
 		return 0, nil, errUnavailable
@@ -50,7 +59,7 @@ func (c *Client) GetKPI(ctx context.Context, kpiID, tenantID, rawQuery string) (
 	req.Header.Set("X-Internal-Service-Name", gatewayCaller)
 	req.Header.Set("X-Tenant-ID", tenantID)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return 0, nil, err
 	}
