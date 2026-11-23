@@ -31,6 +31,7 @@ var pinnedHeaders = []string{
 	"Cookie",
 	"Cookie2",
 	"X-Internal-Service-Token",
+	"X-Upload-Token",
 	"X-Company-ID",
 	"X-Actor-Kind",
 	"X-Driver-ID",

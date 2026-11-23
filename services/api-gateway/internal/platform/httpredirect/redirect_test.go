@@ -28,6 +28,8 @@ func TestOriginRules(t *testing.T) {
 		{name: "different port", base: "http://shipment.internal", target: "http://shipment.internal:81/v1", allow: false},
 		{name: "scheme change", base: "http://shipment.internal", target: "https://shipment.internal/v1", allow: false},
 		{name: "foreign host", base: "http://shipment.internal", target: "http://evil.example/v1", allow: false},
+		{name: "metadata address", base: "http://shipment.internal", target: "http://169.254.169.254/latest/meta-data/", allow: false},
+		{name: "metadata hostname", base: "http://shipment.internal", target: "http://metadata.google.internal/computeMetadata/v1/", allow: false},
 		{name: "subdomain", base: "http://shipment.internal", target: "http://api.shipment.internal/v1", allow: false},
 		{name: "userinfo", base: "http://shipment.internal", target: "http://user:pass@shipment.internal/v1", allow: false},
 		{name: "fragment", base: "http://shipment.internal", target: "http://shipment.internal/v1#frag", allow: false},
@@ -402,6 +404,152 @@ func TestDefaultPortRedirectUsesTransportWithoutDial(t *testing.T) {
 	}
 	if len(trips) != 1 {
 		t.Fatalf("trips=%v", trips)
+	}
+}
+
+func TestProbeMetadataRedirectIsNotSent(t *testing.T) {
+	t.Parallel()
+	targets := []string{
+		"http://169.254.169.254/latest/meta-data/",
+		"http://metadata.google.internal/computeMetadata/v1/",
+		"http://[fd00:ec2::254]/latest/meta-data/",
+	}
+	for _, target := range targets {
+		t.Run(target, func(t *testing.T) {
+			var trips []string
+			transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				trips = append(trips, req.URL.String())
+				host := req.URL.Hostname()
+				if host == "169.254.169.254" || host == "metadata.google.internal" || host == "fd00:ec2::254" {
+					t.Errorf("metadata target was requested: %s", req.URL)
+				}
+				header := make(http.Header)
+				header.Set("Location", target)
+				return &http.Response{
+					StatusCode: http.StatusFound,
+					Header:     header,
+					Body:       io.NopCloser(strings.NewReader("")),
+					Request:    req,
+					Proto:      "HTTP/1.1",
+					ProtoMajor: 1,
+					ProtoMinor: 1,
+				}, nil
+			})
+			req, err := http.NewRequest(http.MethodGet, "http://shipment.internal/start", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("X-Tenant-ID", "tenant-a")
+			req.Header.Set("Authorization", "Bearer secret-token")
+			_, err = Do(&http.Client{Transport: transport}, "http://shipment.internal", req)
+			if err != ErrRejected {
+				t.Fatalf("error=%v", err)
+			}
+			if len(trips) != 1 {
+				t.Fatalf("trips=%v", trips)
+			}
+			assertNoSecret(t, err)
+		})
+	}
+}
+
+func TestProbeMultiHopStopsBeforeForeignOrigin(t *testing.T) {
+	t.Parallel()
+	var forbidden atomic.Int32
+	foreign := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		forbidden.Add(1)
+		_, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(foreign.Close)
+
+	var hops atomic.Int32
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := hops.Add(1)
+		if n == 1 {
+			http.Redirect(w, r, "http://"+r.Host+"/mid", http.StatusFound)
+			return
+		}
+		http.Redirect(w, r, foreign.URL+"/steal", http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	req, err := http.NewRequest(http.MethodGet, origin.URL+"/start", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("X-Tenant-ID", "tenant-a")
+	req.Header.Set("X-Internal-Service-Token", "internal-secret")
+	_, err = Do(&http.Client{}, origin.URL, req)
+	if err != ErrRejected {
+		t.Fatalf("error=%v", err)
+	}
+	if forbidden.Load() != 0 {
+		t.Fatalf("forbidden requests=%d", forbidden.Load())
+	}
+	if hops.Load() != 2 {
+		t.Fatalf("origin hops=%d", hops.Load())
+	}
+}
+
+func TestProbeRedirectLoopStaysOnOrigin(t *testing.T) {
+	t.Parallel()
+	var trips atomic.Int32
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		trips.Add(1)
+		http.Redirect(w, r, "http://"+r.Host+"/again", http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+
+	req, err := http.NewRequest(http.MethodGet, origin.URL+"/start", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("X-Tenant-ID", "tenant-a")
+	_, err = Do(&http.Client{}, origin.URL, req)
+	if err != ErrLimit {
+		t.Fatalf("error=%v", err)
+	}
+	if trips.Load() != redirectLimit {
+		t.Fatalf("trips=%d want %d", trips.Load(), redirectLimit)
+	}
+	assertNoSecret(t, err)
+}
+
+func TestProbeCrossOrigin307And308DoNotSendPOSTBody(t *testing.T) {
+	t.Parallel()
+	var forbidden atomic.Int32
+	foreign := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		forbidden.Add(1)
+		_, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(foreign.Close)
+
+	for _, status := range []int{http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			forbidden.Store(0)
+			origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, foreign.URL+"/steal", status)
+			}))
+			defer origin.Close()
+
+			req, err := http.NewRequest(http.MethodPost, origin.URL+"/start", bytes.NewReader([]byte(`{"secret":true}`)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("X-Tenant-ID", "tenant-a")
+			req.Header.Set("Idempotency-Key", "idem-a")
+			req.Header.Set("X-Upload-Token", "upload-secret")
+			_, err = Do(&http.Client{}, origin.URL, req)
+			if err != ErrRejected {
+				t.Fatalf("error=%v", err)
+			}
+			if forbidden.Load() != 0 {
+				t.Fatalf("forbidden requests=%d", forbidden.Load())
+			}
+			assertNoSecret(t, err)
+		})
 	}
 }
 

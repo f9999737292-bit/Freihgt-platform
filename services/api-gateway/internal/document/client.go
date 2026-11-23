@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 )
 
@@ -48,7 +49,7 @@ func (c *Client) UploadPODContent(ctx context.Context, tenantID, uploadID, token
 	if mimeType != "" {
 		httpReq.Header.Set("Content-Type", mimeType)
 	}
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c.roundTrip(httpReq)
 	if err != nil {
 		return 0, err
 	}
@@ -75,7 +76,7 @@ func (c *Client) do(ctx context.Context, method, path, tenantID string, body []b
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("X-Tenant-ID", tenantID)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.roundTrip(req)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -88,6 +89,13 @@ func (c *Client) do(ctx context.Context, method, path, tenantID string, body []b
 		return json.RawMessage("{}"), resp.StatusCode, nil
 	}
 	return json.RawMessage(raw), resp.StatusCode, nil
+}
+
+func (c *Client) roundTrip(req *http.Request) (*http.Response, error) {
+	if c == nil || c.httpClient == nil || req == nil {
+		return nil, httpredirect.ErrRejected
+	}
+	return httpredirect.Do(c.httpClient, c.baseURL, req)
 }
 
 func WithRequestID(ctx context.Context, requestID string) context.Context {
