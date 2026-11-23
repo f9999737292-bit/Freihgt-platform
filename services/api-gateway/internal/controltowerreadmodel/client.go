@@ -65,7 +65,7 @@ func (c *Client) FetchStatusSummary(ctx context.Context, mode Mode, tenantID, re
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		reason = classifyRequestError(ctx, err)
 		result = "ERROR"
