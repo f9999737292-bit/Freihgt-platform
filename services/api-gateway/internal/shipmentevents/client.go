@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 )
 
@@ -62,7 +63,7 @@ func (c *DownstreamClient) FetchUserRoles(ctx context.Context, reqCtx RequestCon
 	}
 	c.applyHeaders(req, reqCtx)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func (c *DownstreamClient) FetchShipment(ctx context.Context, reqCtx RequestCont
 	}
 	c.applyHeaders(req, reqCtx)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return shipmentFetchResult{}, err
 	}
@@ -134,7 +135,7 @@ func (c *DownstreamClient) FetchStatusHistory(ctx context.Context, reqCtx Reques
 	}
 	c.applyHeaders(req, reqCtx)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return statusHistoryFetchResult{Failed: true}, err
 	}
@@ -256,7 +257,7 @@ func (c *DownstreamClient) getJSON(ctx context.Context, endpoint string, reqCtx 
 	}
 	c.applyHeaders(req, reqCtx)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -266,6 +267,13 @@ func (c *DownstreamClient) getJSON(ctx context.Context, endpoint string, reqCtx 
 		return fmt.Errorf("downstream returned %d", resp.StatusCode)
 	}
 	return json.NewDecoder(resp.Body).Decode(dest)
+}
+
+func (c *DownstreamClient) do(req *http.Request) (*http.Response, error) {
+	if c == nil || c.httpClient == nil || req == nil || req.URL == nil {
+		return nil, httpredirect.ErrRejected
+	}
+	return httpredirect.Do(c.httpClient, req.URL.String(), req)
 }
 
 func (c *DownstreamClient) applyHeaders(req *http.Request, reqCtx RequestContext) {
