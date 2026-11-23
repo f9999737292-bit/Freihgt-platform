@@ -57,7 +57,7 @@ func (c *Client) GetETA(ctx context.Context, tenantID, requestID, shipmentID str
 	if requestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (c *Client) LookupDeliveryETA(ctx context.Context, tenantID, requestID stri
 	if requestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}

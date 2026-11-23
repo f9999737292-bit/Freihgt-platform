@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 )
 
@@ -33,19 +35,19 @@ func NewClient(httpClient *http.Client, baseURL, internalToken string) *Client {
 }
 
 type ForwardInput struct {
-	Method      string
+	Method       string
 	InternalPath string
-	Query       string
-	Body        []byte
-	TenantID    string
-	UserID      string
-	CompanyID   string
-	ActorKind   string
-	RequestID   string
+	Query        string
+	Body         []byte
+	TenantID     string
+	UserID       string
+	CompanyID    string
+	ActorKind    string
+	RequestID    string
 }
 
 var (
-	downstreamMetricsOnce sync.Once
+	downstreamMetricsOnce   sync.Once
 	downstreamRequestsTotal *prometheus.CounterVec
 )
 
@@ -97,7 +99,7 @@ func (c *Client) Forward(ctx context.Context, in ForwardInput) (status int, body
 		req.Header.Set("X-Internal-Service-Token", c.token)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		recordDownstream(operation, "transport_error")
 		return 0, nil, err
@@ -119,6 +121,13 @@ func (c *Client) Forward(ctx context.Context, in ForwardInput) (status int, body
 		recordDownstream(operation, result)
 	}
 	return resp.StatusCode, raw, nil
+}
+
+func (c *Client) do(req *http.Request) (*http.Response, error) {
+	if c == nil || c.httpClient == nil || req == nil {
+		return nil, httpredirect.ErrRejected
+	}
+	return httpredirect.Do(c.httpClient, c.baseURL, req)
 }
 
 func looksLikeInternalAuthFailure(body []byte) bool {
