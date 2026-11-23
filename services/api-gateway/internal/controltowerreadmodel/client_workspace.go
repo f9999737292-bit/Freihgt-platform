@@ -32,6 +32,9 @@ const (
 
 var errWorkspaceEndpointRejected = errors.New("workspace endpoint rejected")
 var errWorkspaceRedirectRejected = errors.New("workspace redirect rejected")
+var errWorkspaceRedirectLimit = errors.New("workspace redirect limit")
+
+const workspaceRedirectLimit = 10
 
 type WorkItemsFilter struct {
 	ItemType          string
@@ -467,13 +470,17 @@ func (c *Client) doWorkspaceJSON(
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		if errors.Is(err, errWorkspaceRedirectRejected) || workspaceLocationError(err) {
+		if errors.Is(err, errWorkspaceRedirectRejected) || errors.Is(err, errWorkspaceRedirectLimit) || workspaceLocationError(err) {
 			if resp != nil && resp.Body != nil {
 				_ = resp.Body.Close()
 			}
 			reason = ReasonUnknown
 			result = "ERROR"
-			return &DependencyError{Reason: reason, Err: errWorkspaceRedirectRejected}
+			sentinel := errWorkspaceRedirectRejected
+			if errors.Is(err, errWorkspaceRedirectLimit) {
+				sentinel = errWorkspaceRedirectLimit
+			}
+			return &DependencyError{Reason: reason, Err: sentinel}
 		}
 		reason = classifyRequestError(ctx, err)
 		result = "ERROR"
@@ -556,19 +563,48 @@ func (c *Client) workspaceHTTPClient() *http.Client {
 	}
 	clone := *c.httpClient
 	inherited := clone.CheckRedirect
-	clone.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if !workspaceRedirectAllowed(c.baseURL, req) {
+	clone.CheckRedirect = workspaceRedirectPolicy(c.baseURL, inherited)
+	return &clone
+}
+
+func workspaceRedirectPolicy(baseURL string, inherited func(*http.Request, []*http.Request) error) func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if len(via) >= workspaceRedirectLimit {
+			scrubWorkspaceRedirectHeaders(req, true)
+			return errWorkspaceRedirectLimit
+		}
+		if !workspaceRedirectAllowed(baseURL, req) {
+			scrubWorkspaceRedirectHeaders(req, true)
 			return errWorkspaceRedirectRejected
 		}
 		if inherited != nil {
-			return inherited(req, via)
+			if err := inherited(req, via); err != nil {
+				scrubWorkspaceRedirectHeaders(req, true)
+				return errWorkspaceRedirectRejected
+			}
 		}
-		if len(via) >= 10 {
-			return errors.New("stopped after 10 redirects")
+		if !workspaceRedirectAllowed(baseURL, req) {
+			scrubWorkspaceRedirectHeaders(req, true)
+			return errWorkspaceRedirectRejected
 		}
+		scrubWorkspaceRedirectHeaders(req, false)
 		return nil
 	}
-	return &clone
+}
+
+func scrubWorkspaceRedirectHeaders(req *http.Request, deny bool) {
+	if req == nil {
+		return
+	}
+	for _, header := range []string{"Authorization", "Proxy-Authorization", "Cookie", "Cookie2"} {
+		req.Header.Del(header)
+	}
+	if !deny {
+		return
+	}
+	req.Header.Del("X-Tenant-ID")
+	req.Header.Del("X-User-ID")
+	req.Header.Del(sharedmiddleware.RequestIDHeader)
 }
 
 func workspaceRedirectAllowed(baseURL string, req *http.Request) bool {
