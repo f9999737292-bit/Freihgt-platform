@@ -1,18 +1,19 @@
 # Control Tower read safety 0.9D — path boundary discovery
 
-Status: documentation only. Revision R2 after independent review. No product code, migration, staging change, or merge. CT-L2 is not authorized by this revision.
+Status: documentation only. Revision R3 after independent review. No product code, migration, staging change, or merge. CT-L2 is not authorized by this revision.
 
 ```text
 AGENT=C
-STAGE=CONTROL-TOWER-READ-SAFETY-0.9D-R2
+STAGE=CONTROL-TOWER-READ-SAFETY-0.9D-R3
 BASE_SHA=a9ef8f40bf0e7f75cb4aee3794e7841723347e4c
-PREVIOUS_HEAD=971309e13815244e8d6f7a298af5c4d95b6522df
+PREVIOUS_HEAD=31bfd8cc89090ddab7814a532fa0d1d7bfa0d871
 RELATED_PR=398
 RELATED_HEAD=b1f8e4749f2b8160e8a0d57061eaebe0361ad51f
 PR398_CHANGED=NO
 J_CT09C_001=OPEN
-CT_L2_IMPLEMENTATION_GATE=BLOCKED_UNTIL_CT_L1_SECURITY_REVIEW_AND_INTEGRATION
+CT_L1_INTEGRATION=NOT_COMPLETE
 CT_L2_IMPLEMENTATION_READY=NO
+PUBLIC_STATUS_CHANGE_APPROVED=NO
 ISSUE_334=OPEN
 ISSUE_344=OPEN
 PRODUCT_CODE_CHANGED=NO
@@ -22,7 +23,7 @@ PRODUCT_CODE_CHANGED=NO
 
 The previous revision of this file is withdrawn where it conflicts with the sections below. In particular, this revision does not claim 33 endpoint groups, does not claim that `%252F` stays one segment for the whole decode chain, and does not claim `CONFIRMED_CROSS_ROUTE_ACCESS=NO`.
 
-The per-finding text for `J-CT09D-001` through `J-CT09D-006` was not in the PR review, the issue comments, or the repository. This revision uses the controller summary and the code. It does not invent a severity or a quote for an individual finding id. Where the exact review bytes are missing, the cell says `DETAILS_NOT_AVAILABLE`.
+PR #400 has no review body and no issue comments. The finding numbers and the previous statuses in section 11 are the numbers the controller supplied for this revision. This document does not add a finding id. Where a per-id sentence was not attached, the cell says `DETAILS_NOT_AVAILABLE`.
 
 ## 1. How the routes were counted
 
@@ -121,31 +122,31 @@ Read-model targets are the handlers on `/internal/v1/control-tower/...`.
 
 The table has 64 rows, 46 of them dynamic, in 27 groups. Summary, critical events, and risks stay outside CT-L2. Their builders in `client_ack.go`, `client_workflow.go`, `client_risk.go`, and `client_exception.go` still interpolate `eventID` and `riskKey` without `PathEscape`. That remains an open adjacent gap. It is not added to the CT-L2 file list.
 
+
 ## 3. URL decoding model
 
-Checked with `net/http`, `net/url`, and chi v5.2.1 against `httptest`. The temporary probe was deleted and is not part of this change. No external host was called.
+Checked with `net/http`, `net/url`, and chi v5.2.1 against `httptest`, including requests whose `URL.RawPath` was set explicitly. The temporary probe was deleted and is not part of this change. No external host was called. These observations are on `a9ef8f40`. Section 8 says where PR #398 changes the result. A URL parse error is not a substitute for an explicit reject.
 
-A raw `/` is a segment boundary before chi. `{param}` does not capture it.
+One decode and a second decode are different steps.
 
-| Input in one public segment | Gateway chi `URLParam` | `URL.Path` at the gateway | After the builder string is passed to `http.NewRequest` | Read-model chi |
-| --- | --- | --- | --- | --- |
-| `%2F` | The characters `%2F`, and the route still matches | Contains a real `/` | `Path` contains a real `/`. `EscapedPath` keeps `%2F` | `URLParam` is again `%2F`. `Path` contains a real `/` |
-| `%252F` | The characters `%2F` | Still contains the characters `%2F` | Same as the `%2F` row: `Path` has a slash, `EscapedPath` keeps `%2F` | Same as the `%2F` row |
-| `%3F` | Contains `?` | Contains `?` | `?` starts the query. The path loses everything after it | The shortened path is what the router matches |
-| `%23` | Contains `#` | Contains `#` | `#` starts a fragment. The fragment is not sent. The path loses everything after it | The shortened path is what the router matches |
-| `%25` followed by hex | Contains `%` plus the following text | Contains `%` | `url.Parse` treats `%` plus two hex digits as one byte | Depends on the rebuilt request line |
-| `.` and `..` | The literal `.` or `..` | The same literal segment | `PathEscape(".")` is `.` and `PathEscape("..")` is `..`. Both survive | The literal segment still matches `{param}` |
-| `\` (`%5C`) | A backslash | A backslash | `EscapedPath` emits `%5C`. One segment | One segment |
-| CR or LF | The control character | The control character | `http.NewRequest` returns `invalid control character in URL` | The call is not sent when `NewRequest` fails |
-| Unicode, including U+FF0F and U+2215 | One segment. These are not an ASCII `/` | One segment | One segment, percent-encoded in `EscapedPath` | One segment |
+- `%252F` decoded once is the three characters `%2F`. It is not yet `/`.
+- Parsing that `%2F` text as a URL decodes it again. `URL.Path` then contains `/`. `EscapedPath` can still show `%2F`.
+- `URL.Path` and `URL.RawPath` are different fields. With `RawPath` set to `/api/v1/control-tower/work-items/exception/abc%252Fdef` and `Path` containing a slash, chi `URLParam` returned `abc%252Fdef`. With `RawPath` empty and `Path` containing the characters `%2F`, `URLParam` returned `abc%2Fdef`. `URLParam` follows the raw segment when `RawPath` is set. It does not guarantee that `Path` has one segment.
 
-`%252F` is not guaranteed to remain one segment after the whole chain. The gateway parameter is the text `%2F`. `http.NewRequest` then sets `URL.Path` to a path that contains a real slash. Chi’s `URLParam` can still report one parameter because it reads the raw request line, while `URL.Path` has already split. Any later stage that rebuilds from `Path`, or that cleans the path, sees the extra slash. The earlier sentence that `%252F` remains one segment after the read-model decode is withdrawn.
+| Input | What was observed |
+| --- | --- |
+| `%2F` | Chi can still match `{param}` and return the characters `%2F`. `URL.Path` contains a real `/`. |
+| `%252F` | First decode yields the text `%2F`. The second decode, inside `http.NewRequest`, puts `/` in `URL.Path`. This is not one segment for the whole chain. |
+| `%25zz` | First decode yields `%zz`. `http.NewRequest` does not fail. The path keeps the characters `%zz`. An invalid escape is not a closed reject. |
+| `%3F` | The parameter contains `?`. `http.NewRequest` starts the query there and shortens the path. The rows in section 4 are this case. |
+| `%23` | The parameter contains `#`. On this main tree the fragment is not sent and the path stops before it. On the PR #398 client the fragment rejects the call before `Do`. |
+| `%5C` | The parameter contains `\`. On this main tree `EscapedPath` emits `%5C` and the segment stays one. On the PR #398 client a backslash rejects the call before `Do`. |
+| `%0A` | The parameter contains a line feed. `http.NewRequest` returns `invalid control character in URL` when the builder concatenates that character. That error is not the validation rule. |
+| Unicode, including U+FF0F and U+2215 | One segment. These are not an ASCII `/`. UUID parse rejects them. `itemType` would currently forward them. |
+| Empty segment | `GET /api/v1/control-tower/cases//timeline` matched `{caseId}` with an empty parameter on chi v5.2.1. CT-L2 still rejects an empty identifier before the downstream URL is built. |
+| `.` and `..` | `url.PathEscape(".")` is `.` and `url.PathEscape("..")` is `..`. Chi matches both as `{param}`. `PathEscape` is not the control. |
 
-`url.PathEscape` is not a defense against `.` or `..`. It also does not reject `%`. `PathEscape("%2F")` is `%252F`, which is the input that becomes a slash in `URL.Path` on the next parse.
-
-CT-L2 boundary, for every dynamic identifier whose proven contract has no percent sign: reject `%` before the downstream URL is built. UUID text and the `itemType` token contain no `%`, so this reject does not remove a proven identifier. The same pre-check rejects `.`, `..`, an empty string, `/`, `\`, `?`, `#`, and control characters. `PathEscape` runs only after that check, so a surviving character cannot open a query, a fragment, or a second escape. This is a gateway reject. It does not add a read-model route.
-
-CT-L1 does not close this. The origin check and the redirect guard run on the URL after it has been built. They do not stop a query that was created by `?` inside a segment, and they do not restore a path that a `#` or a decoded slash already shortened.
+CT-L2 rejects `%` in every dynamic identifier before the downstream URL is built. UUID text and the `itemType` token contain no `%`. The same pre-check rejects `.`, `..`, an empty string, `/`, `\`, `?`, `#`, and control characters. `PathEscape` runs only after that check.
 
 ## 4. CONFIRMED_CROSS_ROUTE_ACCESS
 
@@ -153,155 +154,282 @@ CT-L1 does not close this. The origin check and the redirect guard run on the UR
 CONFIRMED_CROSS_ROUTE_ACCESS=YES
 CONFIRMED_PRIVILEGE_ESCALATION=NO
 CONFIRMED_CROSS_TENANT_LEAK=NO
+PRIVILEGE_ESCALATION_IMPOSSIBLE=NOT_CLAIMED
 ```
 
-Agent J’s review established a route transition. The checked case used the same role and the same tenant. It did not establish a privilege increase, and it did not establish a cross-tenant read or write. The request bytes from that review were not in the materials available for this revision (`DETAILS_NOT_AVAILABLE`). The scenario below is the one reproduced from the builders on `a9ef8f40`. It has those same outcome properties. It is the reproducible case this document can show. It is not labeled as a second, stronger finding.
+Four groups were reproduced on `a9ef8f40` with chi v5.2.1. `PRIVILEGE_ESCALATION_PROVEN=NO` means this input did not show a higher role or a second tenant. It does not mean a route change cannot become one under a different role split or a different body.
 
-| Field | Value |
-| --- | --- |
-| Public route | `GET /api/v1/control-tower/cases/{caseId}/timeline` |
-| Input | The `caseId` segment is `11111111-1111-1111-1111-111111111111%3F`. Chi’s `URLParam` is `11111111-1111-1111-1111-111111111111?`. The public route still matches, because `%3F` is not a slash. |
-| Downstream path | `GetCaseTimeline` concatenates `"/internal/v1/control-tower/cases/" + caseID + "/timeline?" + r.URL.RawQuery`. `http.NewRequest` stops the path at `?`. The path that is sent is `/internal/v1/control-tower/cases/11111111-1111-1111-1111-111111111111`. The characters `/timeline` become the query. |
-| Read-model handler | `GET /cases/{caseId}` selects `caseHandler.GetCase`, not `GetTimeline`. |
-| Authorization on the source route | `CanViewCase` when `authEnabled` is true. |
-| Authorization on the target route | `CanViewCase`. |
-| Tenant isolation | `X-Tenant-ID` and `X-User-ID` are still the gateway request context. The path does not select the tenant. |
-| Read or write | The method stays GET. The selected handler reads the case. This reproduction does not call a mutation and does not introduce a second tenant. |
+The gateway check named below is the check that runs on the public route. The target check is the check registered for the downstream route. The target check does not run, because the gateway already authorized the source route.
 
-A `#` in the same position drops `/timeline` as a fragment and also selects `GetCase`. The fragment is not transmitted.
+### A. Timeline to GetCase
 
-This is a confirmed change of route. It is not a demonstrated privilege escalation: both handlers use `CanViewCase`. It is not a demonstrated cross-tenant leak. `CONFIRMED_CROSS_ROUTE_ACCESS=NO` is withdrawn.
+```text
+PUBLIC_ROUTE=GET /api/v1/control-tower/cases/{caseId}/timeline
+INPUT=caseId segment 11111111-1111-1111-1111-111111111111%3F
+DOWNSTREAM_METHOD=GET
+DOWNSTREAM_PATH=/internal/v1/control-tower/cases/11111111-1111-1111-1111-111111111111
+DOWNSTREAM_QUERY=/timeline?
+TARGET_HANDLER=GetCase
+SOURCE_AUTHORIZATION=CanViewCase
+TARGET_AUTHORIZATION=CanViewCase
+TENANT_HEADER_PRESERVED=YES
+PRIVILEGE_ESCALATION_PROVEN=NO
+CROSS_TENANT_ACCESS_PROVEN=NO
+```
+
+`GetCaseTimeline` concatenates `"/internal/v1/control-tower/cases/" + caseID + "/timeline?" + r.URL.RawQuery`. Chi's parameter is `11111111-1111-1111-1111-111111111111?`. The first `?` ends the path. The read-model route `GET /cases/{caseId}` selects `GetCase`. The query `/timeline?` is on that request. `GetCase` does not read it. `X-Tenant-ID` is unchanged. Both named checks are `CanViewCase`.
+
+### B. Claim to bulk action
+
+```text
+PUBLIC_ROUTE=POST /api/v1/control-tower/work-items/{itemType}/{itemId}/claim
+INPUT=itemType segment bulk-action%3F, itemId segment x
+DOWNSTREAM_METHOD=POST
+DOWNSTREAM_PATH=/internal/v1/control-tower/work-items/bulk-action
+DOWNSTREAM_QUERY=/x/claim
+TARGET_HANDLER=BulkAction
+SOURCE_AUTHORIZATION=CanClaimWork
+TARGET_AUTHORIZATION=CanBulkManageWork
+TENANT_HEADER_PRESERVED=YES
+PRIVILEGE_ESCALATION_PROVEN=NO
+CROSS_TENANT_ACCESS_PROVEN=NO
+```
+
+Chi's parameters are `itemType=bulk-action?` and `itemId=x`. `ClaimWorkItem` formats `"/internal/v1/control-tower/work-items/%s/%s/claim"`. `http.NewRequest` sends `POST /internal/v1/control-tower/work-items/bulk-action` with query `/x/claim`. The read-model route is `BulkAction`.
+
+`ClaimWorkItem` sends a nil body. `BulkAction` requires JSON `items`. An empty body fails that decode with the read model's validation error. This input selects the bulk handler and does not apply a bulk item list. `CanClaimWork` and `CanBulkManageWork` both reduce to `CanAccessControlTower` today. That is the checked case. It is not a proof that a different body, or a later split of those two role functions, stays inside the caller's rights.
+
+On the PR #398 client this `?` URL is still accepted: it is same-origin, it has no fragment, and it has no backslash. The route switch remains after CT-L1.
+
+### C. KPI route
+
+```text
+PUBLIC_ROUTE=GET /api/v1/control-tower/cases/{caseId}/timeline
+INPUT=caseId segment kpi%3F
+DOWNSTREAM_METHOD=GET
+DOWNSTREAM_PATH=/internal/v1/control-tower/cases/kpi
+DOWNSTREAM_QUERY=/timeline?
+TARGET_HANDLER=GetKPI
+SOURCE_AUTHORIZATION=CanViewCase
+TARGET_AUTHORIZATION=CanViewCase
+TENANT_HEADER_PRESERVED=YES
+PRIVILEGE_ESCALATION_PROVEN=NO
+CROSS_TENANT_ACCESS_PROVEN=NO
+```
+
+The same timeline concatenation with parameter `kpi?` sends `GET /internal/v1/control-tower/cases/kpi`. That route is `GetKPI`, not `GetTimeline` and not `GetCase`. The query `/timeline?` is on the KPI request. `GetKPI` does not read it. Both named checks are `CanViewCase`. The PR #398 client accepts this relative URL for the same reason as group B.
+
+### D. Query injection
+
+`?`, and a `%3F` that the public parser has already turned into `?`, moves the remainder into `RawQuery`. `#`, and a decoded `%23`, starts a fragment. On this main tree the fragment is not transmitted. On the PR #398 client a fragment rejects the call before `Do`. A later `&` splits query pairs only after a `?` is already present. The read-model handlers below do not apply those query keys. The keys are still on the downstream request.
+
+UpdateNote:
+
+```text
+PUBLIC_ROUTE=PATCH /api/v1/control-tower/cases/{caseId}/notes/{noteId}
+INPUT=noteId segment aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa%3Fextra=1
+DOWNSTREAM_METHOD=PATCH
+DOWNSTREAM_PATH=/internal/v1/control-tower/cases/11111111-1111-1111-1111-111111111111/notes/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+DOWNSTREAM_QUERY=extra=1
+TARGET_HANDLER=UpdateNote
+SOURCE_AUTHORIZATION=CanAddCaseNote
+TARGET_AUTHORIZATION=CanAddCaseNote
+TENANT_HEADER_PRESERVED=YES
+PRIVILEGE_ESCALATION_PROVEN=NO
+CROSS_TENANT_ACCESS_PROVEN=NO
+```
+
+`CasePath` escapes `caseId` only. The suffix is `notes/` plus the raw `noteId`. The note id that arrives is the UUID before `?`. `UpdateNote` reads that path id and the body. It does not read `extra`. The query `extra=1` is on the request.
+
+RemoveCaseLink, which is the DELETE route:
+
+```text
+PUBLIC_ROUTE=DELETE /api/v1/control-tower/cases/{caseId}/links/{linkId}
+INPUT=linkId segment bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb%3Ftenant=other
+DOWNSTREAM_METHOD=DELETE
+DOWNSTREAM_PATH=/internal/v1/control-tower/cases/11111111-1111-1111-1111-111111111111/links/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+DOWNSTREAM_QUERY=tenant=other
+TARGET_HANDLER=RemoveLink
+SOURCE_AUTHORIZATION=CanManageCase
+TARGET_AUTHORIZATION=CanManageCase
+TENANT_HEADER_PRESERVED=YES
+PRIVILEGE_ESCALATION_PROVEN=NO
+CROSS_TENANT_ACCESS_PROVEN=NO
+```
+
+`RemoveCaseLink` concatenates `caseId` and `linkId`. The link id that `RemoveLink` parses is the UUID before `?`. The query `tenant=other` arrives on the DELETE request. `RemoveLink` takes the tenant from `X-Tenant-ID`, not from that query. This case does not show a second tenant. It does show a caller-controlled query on a DELETE.
 
 ## 5. Query allowlist
 
-Current readers:
+Order for timeline, duplicates, and handoffs:
 
-- Timeline (`GetTimeline`) reads `page` and `limit` through `parseIntDefault`. Empty, a non-integer, and any integer below 1 return the fallback (page 1, limit 50). The response status stays 200.
-- Duplicates (`FindDuplicates`) reads `itemType`, `itemId`, and `shipmentId`. `shipmentId` is applied only when `uuid.Parse` succeeds. An invalid value leaves the filter unset. Status stays 200.
-- Handoffs (`ListHandoffs`) reads `limit` through `parseIntDefault` (fallback 20), and `fromUser` and `toUser` through `uuid.Parse`. An invalid user id leaves that filter unset. Status stays 200.
-- `url.Values.Get` and `URL.Query().Get` return the first value. `ListHandoffs` on the gateway encodes the entire `r.URL.Query()`, so a duplicate key is present on the wire and the read model still uses the first. Timeline and duplicates append `r.URL.RawQuery` as text.
-- Unknown keys are ignored by these three readers. They are still forwarded today.
-- SQL for these filters uses placeholders. This is not SQL injection.
+1. Parse the public query with `url.ParseQuery`.
+2. For each allowlisted key, take the first value only.
+3. If that first value is empty, omit the key. Do not fall through to a later value.
+4. Ignore every later value of the same key.
+5. Drop keys that are not on the allowlist.
+6. Encode the result with `url.Values.Encode`.
 
-The proposed gateway behavior does not change those filter results. A stricter 400 for an unknown key, a bad number, or a bad filter UUID would be a product change and needs a controller decision. It is not part of CT-L2.
+`limit=&limit=5` parses as first value empty and second value `5`. The key is omitted. The read model applies its fallback. The downstream query is not `limit=5`.
 
-| Case | Current behavior | Proposed behavior | Read-model compatibility | HTTP status | Required test |
-| --- | --- | --- | --- | --- | --- |
-| Repeated key | `Get` uses the first value. Handoff `Encode` still writes every value. | Copy the first value once with `url.Values.Set`. | The reader already uses `Get`, so the filter result is unchanged. | The status of the same request with one value. | Downstream query contains the key once. Record the URL. |
-| Empty value | `Get` returns `""`. Numbers use the fallback. UUID filters stay unset. | Omit an empty allowlisted value. That is the same as an absent key. | Yes. `Get` of a missing key is also `""`. | 200 when the remaining input is valid. | Empty `page`, `limit`, `fromUser`, `toUser`, `shipmentId`. Record the URL. |
-| Unknown key | Ignored by the reader and still forwarded by `RawQuery` or full `Encode`. | Drop it. Do not answer 400. | The reader never applied it. | Same status as the request without that key. | `extra=1` is absent from the downstream query. |
-| Invalid UUID (`fromUser`, `toUser`, `shipmentId`) | Parse fails, filter stays unset, status 200. | Forward the first value unchanged so the read model keeps that result. | Yes. This does not turn the filter into a 400. | 200. | Invalid `fromUser` still reaches the read model and does not replace `X-Tenant-ID`. |
-| Invalid number (`page`, `limit`) | `parseIntDefault` returns the fallback. Status 200. | Forward the value. Do not answer 400. | Yes. The fallback stays in the read model. | 200, with the fallback page or limit. | `page=abc` and `limit=0` keep today’s fallback. Record the URL. |
-| Several values of one key | First value wins at `Get`. The wire may contain the rest. | Forward only the first. | Yes. | 200 when that first value is otherwise valid. | `limit=1&limit=99` produces one `limit`. |
-| Encoded characters in a value | `Query()` decodes once. `Encode` writes the canonical form. `RawQuery` forwards the original text. | Parse, keep the allowlisted first value, and `Encode`. | The read model decodes `Query()` again. One decode of a normal value is preserved. | 200 for an allowlisted value. A `%` here is query text, not an identifier, so the identifier reject does not apply. | A value containing `%3F` stays one query value. Record the URL. |
+`limit=5&limit=` keeps `limit=5`, because the first value is `5`.
 
-`tenant` and `user` in the query are unknown keys. They are dropped. They must not be copied into `X-Tenant-ID` or `X-User-ID`.
+`page=&page=2` omits `page`. The fallback page is 1.
 
-Allowlists, unchanged from the previous proposal:
+`pa%67e=2` parses as key `page` and value `2`. After the standard parse it is the allowlisted key, so it is forwarded as `page=2`.
 
-- Timeline: `page`, `limit`.
-- Duplicates: `itemType`, `itemId`, `shipmentId`.
-- Handoffs: `limit`, `fromUser`, `toUser`.
+`itemId=%3F` parses as value `?`. Duplicates forwards that one value. `Encode` writes `itemId=%3F`. The read model receives `?` as the item id string. This does not change the duplicate filter rule.
+
+An invalid `fromUser`, `toUser`, or `shipmentId` is forwarded unchanged. The read model leaves that filter unset and answers 200. CT-L2 does not turn that into a 400.
+
+An unknown key is dropped. The status matches the same request without that key.
+
+`tenant` and `user` are unknown keys. They are dropped. They are not copied into `X-Tenant-ID` or `X-User-ID`.
+
+Allowlists: timeline `page` and `limit`; duplicates `itemType`, `itemId`, and `shipmentId`; handoffs `limit`, `fromUser`, and `toUser`.
+
+Current readers stay as they are. Timeline and handoffs use `parseIntDefault`: empty, a non-integer, and an integer below 1 use the fallback, and the status stays 200. Duplicate and handoff UUID filters apply only when `uuid.Parse` succeeds. `Get` already returns the first value. Unknown keys are ignored by these readers and are still forwarded today. The gateway change stops forwarding them. It does not change the filter result.
 
 ## 6. Dynamic identifier policy
 
-Validation happens before `PathEscape` and before `http.NewRequest`. A rejected identifier does not call the read model. The proposed gateway status is 400. Today the read model returns 400 for a UUID it cannot parse (`VALIDATION_ERROR`). Moving that reject to the gateway changes where the 400 is produced. It does not change the path of a value that is already valid.
+Validation happens before `PathEscape` and before `http.NewRequest`. A rejected identifier does not call the read model. The public status of that local reject is section 7. It is not the read model's 400, and it is not a 400 today.
 
-`PathEscape` of a canonical UUID, and of the `itemType` token, does not change the characters. The original trimmed text is escaped after validation. The value is not reformatted, so an uppercase UUID that `uuid.Parse` accepts keeps the text the gateway sends today.
+`PathEscape` of a canonical UUID, and of the `itemType` token, does not change the characters. The original trimmed text is escaped after validation. The participant parameter is `userId`. There is no `participantId` parameter.
 
-The route parameter for a participant is `userId`. There is no `participantId` parameter.
+| Identifier | Type in the handler | UUID required | Forbidden before `PathEscape` | Malformed |
+| --- | --- | --- | --- | --- |
+| `itemType` | String. Constants `exception` and `risk`. Stored literals `driver_event` and `tracking`. | No. One token `[A-Za-z0-9_-]+`, not a frozen enum. | `% / \ ? #`, a token that is `.` or `..`, controls, any other character | No downstream call. The four observed values stay valid. |
+| `itemId` | String source id. `GetWorkItem` compares `SourceID` and does not call `uuid.Parse`. | No | `% / \ ? #`, the whole value `.` or `..`, controls | No downstream call. A source id without those characters keeps one segment. |
+| `viewId` | `uuid.Parse` in the view handlers | Yes | `% / \ ? #`, `.`, `..`, controls, plus any text `uuid.Parse` rejects | No downstream call |
+| `handoffId` | `uuid.Parse` in `GetHandoff` | Yes | Same as `viewId` | No downstream call |
+| `caseId` | `parseCaseID` calls `uuid.Parse` | Yes | Same as `viewId` | No downstream call |
+| `linkId` | `uuid.Parse` in read-model `RemoveLink`. The gateway source is `RemoveCaseLink`, which concatenates the raw parameter. | Yes | `% / \ ? #`, `.`, `..`, controls, plus any text `uuid.Parse` rejects | No downstream call. The query-injection row in section 4 is this DELETE route. |
+| `noteId` | `uuid.Parse` in `UpdateNote` | Yes | Same as `viewId` | No downstream call |
+| `actionId` | `uuid.Parse` in `UpdateActionItem` and `CompleteActionItem` | Yes | Same as `viewId` | No downstream call |
+| `userId` | `uuid.Parse` in `UpdateParticipant` and `RemoveParticipant` | Yes | Same as `viewId` | No downstream call |
+| `stepId` | `parseUUIDParam(r, "stepId")` in `mutateExecutionStep` | Yes. This is handler evidence. | Same as `viewId` | No downstream call. Escape the id before it enters the `steps/` suffix. |
+| `ruleId`, `playbookId`, `recommendationId`, `executionId` | `parseUUIDParam` on each name | Yes | Same as `viewId` | No downstream call. The suffix stays a constant. |
 
-| Identifier | Type in the handler | UUID required | Allowed | Empty | Forbidden before `PathEscape` | Validation | Encoding | Malformed | Negative tests | Old clients |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `itemType` | String. `GetWorkItem` passes it through. Constants `exception` and `risk`. Stored literals `driver_event` and `tracking`. | No | One token `[A-Za-z0-9_-]+` | Reject | `% / \ ? #`, a token that is `.` or `..`, controls, any other character | Token rule, not a frozen enum | `PathEscape` after the token check | 400, no downstream call | `%`, `/`, `.`, `..`, empty, Unicode | The four observed values stay valid |
-| `itemId` | String source id. `GetWorkItem` compares `SourceID` as a string and does not call `uuid.Parse`. | No. A UUID-shaped value is still a string. | Any text that survives the forbidden-character reject. No positive alphabet was proven for every stored source id. | Reject | `% / \ ? # \`, the whole value `.` or `..`, CR, LF, other controls | Reject that set, then escape | `PathEscape` of the remaining text | 400, no downstream call | The forbidden set, including `%252F` | A source id without those characters keeps one segment. This rule does not start requiring a UUID. |
-| `viewId` | `uuid.Parse` in `UpdateView`, `DeleteView`, `SetDefaultView` | Yes | Text `uuid.Parse` accepts | Reject | `% / \ ? #`, `.`, `..`, controls, and any text `uuid.Parse` rejects | Forbidden-character reject, then `uuid.Parse` | `PathEscape` of the original trimmed text | 400, no downstream call | Non-UUID, `%2F`, `%252F`, `.`, `..` | A UUID that is valid today keeps its path text |
-| `handoffId` | `uuid.Parse` in `GetHandoff` | Yes | Same as `viewId` | Reject | Same as `viewId` | Same as `viewId` | Same as `viewId` | 400 | Same as `viewId` | Same as `viewId` |
-| `caseId` | `parseCaseID` calls `uuid.Parse` | Yes | Same as `viewId` | Reject | Same as `viewId` | Same as `viewId` | Same as `viewId` | 400 | Same as `viewId`, plus the timeline `%3F` case | Same as `viewId` |
-| `noteId` | `uuid.Parse` in `UpdateNote` | Yes | Same as `viewId` | Reject | Same as `viewId` | Same as `viewId` | Same as `viewId` | 400 | Same as `viewId` | Same as `viewId` |
-| `actionId` | `uuid.Parse` in `UpdateActionItem` and `CompleteActionItem` | Yes | Same as `viewId` | Reject | Same as `viewId` | Same as `viewId` | Same as `viewId` | 400 | Same as `viewId` | Same as `viewId` |
-| `userId` (participant) | `uuid.Parse` in `UpdateParticipant` and `RemoveParticipant` | Yes | Same as `viewId` | Reject | Same as `viewId` | Same as `viewId` | Same as `viewId` | 400 | Same as `viewId` | Same as `viewId` |
-| `stepId` | `parseUUIDParam(r, "stepId")` in `mutateExecutionStep` | Yes. This is handler evidence, not a separate domain declaration. | Same as `viewId` | Reject | Same as `viewId` | Same as `viewId` | `PathEscape` before the id is placed in the `steps/...` suffix | 400 | Same as `viewId` | Same as `viewId` |
-| `ruleId`, `playbookId`, `recommendationId`, `executionId` | `parseUUIDParam` on each of those names | Yes | Same as `viewId` | Reject | Same as `viewId` | Same as `viewId` | `PathEscape` of the primary id. The suffix stays a constant. | 400 | One non-UUID and one `%` case per id | A valid id keeps today’s path text |
+## 7. Public HTTP status
 
-Future CT-L2 file scope is sufficient for this contract and is not sufficient for the adjacent event and risk builders:
+```text
+CURRENT_PUBLIC_STATUS=503
+PROPOSED_PUBLIC_STATUS=400_FOR_LOCAL_REJECT
+PUBLIC_STATUS_CHANGE_APPROVED=NO
+```
 
-- `services/api-gateway/internal/controltower/case_handler.go` — raw `caseId`, `linkId`, `userId`, timeline, and duplicates query.
-- `services/api-gateway/internal/controltowerreadmodel/client_case.go` — `CasePath` suffixes for `noteId`, `actionId`, and participant `userId`.
-- `services/api-gateway/internal/controltowerreadmodel/client_workspace.go` — the `fmt.Sprintf` paths for `itemType`, `itemId`, `viewId`, and `handoffId`, and the handoff query copy. Not `resolveWorkspaceEndpoint` and not `CheckRedirect`.
-- `services/api-gateway/internal/controltower/automation_handler.go` — `stepId` before it enters the suffix. The other automation ids already go through `PathEscape` and gain the UUID pre-check at that call site only if the implementation touches it; the current gap in this file is `stepId`.
-- One new `_test.go` next to those handlers or the read-model client.
+A malformed identifier that reaches the read model is a read-model validation error. `mapWorkspaceDependencyError` keeps 409 as conflict and 404 as not found. Every other read-model status, including 400 and 403, becomes `ControlTowerReadModelUnavailable`. `respond.Error` maps that code to HTTP 503. The checked public status for this class is 503. The R2 sentence that described the current public result as 400 is withdrawn.
 
-No read-model file, no public route file, and no event or risk client is in that list.
+`apperrors.Validation` is already mapped to 400, but the identifier paths do not return it today. They call the read model and then hit the 503 mapper.
 
-## 7. Dependency on CT-L1
+CT-L2 rejects the bad identifier before `http.Client.Do`. Two ways to surface that:
+
+Option A. Return the error the current mapper already turns into 503, and do not call the read model. Existing clients that treat this class as 503 stay compatible. The downstream count is 0, which is the security property. Files: `case_handler.go`, `client_case.go`, `client_workspace.go`, `automation_handler.go`, and the new test file. Negative tests expect public 503 and `DOWNSTREAM_REQUEST_COUNT=0`. 404 and 409 from a real read-model response stay on their current branches. The risk appears only if the default branch of `mapWorkspaceDependencyError` is edited; that edit is not part of option A.
+
+Option B. Return `apperrors.Validation` from the gateway handler before the client call. `respond.Error` already maps that code to 400, so `workspace.go` is not required. The additional file is `workspace_handler.go`, because work-item, view, and handoff parameters are read there. A reject inside `client_workspace.go` alone still returns a `DependencyError` and becomes 503 through `mapWorkspaceDependencyError`. Negative tests expect public 400 and `DOWNSTREAM_REQUEST_COUNT=0`. Clients that branch on 503 for a bad id see a new 400. 403 from the read model stays 503 unless `workspace.go` is changed. Changing that default branch could remap 403 together with 400. That is why `workspace.go` is not the minimal file.
+
+Recommendation: use 400 for a parameter the gateway rejects locally. That public change is not approved.
+
+```text
+PUBLIC_STATUS_CHANGE_APPROVED=NO
+STATUS_FILE_SCOPE=PENDING_CONTROLLER_APPROVAL
+```
+
+Until that approval, CT-L2 does not switch the public status. `workspace_handler.go` and `workspace.go` are not added to the authorized list. `workspace_handler.go` is the minimal file if option B is approved. `workspace.go` stays out of both options.
+
+## 8. Dependency on CT-L1
 
 ```text
 J_CT09C_001=OPEN
-CT_L2_IMPLEMENTATION_GATE=BLOCKED_UNTIL_CT_L1_SECURITY_REVIEW_AND_INTEGRATION
+CT_L1_INTEGRATION=NOT_COMPLETE
+CT_L2_IMPLEMENTATION_READY=NO
 ```
 
-PR #398 is the unmerged CT-L1 change. On `a9ef8f40`, `resolveWorkspaceEndpoint` still returns an absolute URL unchanged when the string contains `://`. The #398 diff binds the workspace client to the configured origin and rejects a cross-origin redirect on a per-request client copy.
+The notes below are from `resolveWorkspaceEndpoint` and `workspaceHTTPClient` at `b1f8e4749f2b8160e8a0d57061eaebe0361ad51f`. They are not the behavior of `a9ef8f40`, and the main-tree probe is not reused as if the stack behaved the same way.
 
-`J-CT09C-001` stays open. The risk is that a caller-supplied `CheckRedirect` can still need protection against a URL that changes after the origin check. This document does not patch that. PR #398 is not edited from this branch.
+- `#`. `url.Parse` sets `Fragment`. The resolver returns `errWorkspaceEndpointRejected` before `NewRequest`. On main, the same string is parsed by `NewRequest`, the fragment is dropped, and the shortened path is sent.
+- `\`. `strings.ContainsAny` rejects `\`, space, tab, CR, LF, and NUL before `url.Parse`. On main, `\` is encoded as `%5C` and remains one segment.
+- `?` in a relative endpoint. The resolver joins it to `baseURL` and does not reject it. `http.NewRequest` then splits the path. Groups B and C still select `BulkAction` and `GetKPI` on this stack.
+- Origin. An absolute URL must be `http` or `https`, with no userinfo and no opaque part, and scheme, host, and port must match the configured base. A foreign host is rejected before `Do`.
+- Redirect. The per-request client checks the redirect URL's origin before the inherited `CheckRedirect`. A foreign origin, userinfo, fragment, or opaque redirect returns `errWorkspaceRedirectRejected`.
+- `J-CT09C-001`. After that origin check, the inherited `CheckRedirect` still runs. A caller-supplied function that changes the URL after the check is not blocked by the code at `b1f8e474`. This revision does not patch it, and it does not edit PR #398.
 
-CT-L2, when it is eventually authorized, stacks on the reviewed CT-L1 tree. It does not:
+Query truncation and a path shortened by `?` are not problems CT-L1 already solved.
 
-- Weaken the origin check.
-- Weaken the redirect guard.
-- Copy `X-Tenant-ID` or `X-User-ID` onto a foreign origin.
-- Start from the unprotected `client_workspace.go` on old main.
-- Merge PR #398 by itself.
+Future CT-L2 does not weaken the origin check, does not weaken the redirect guard, does not copy tenant or user headers onto a foreign origin, does not start from the unprotected `client_workspace.go` on old main, and does not merge PR #398 by itself.
 
-Query truncation and a path whose shape changes inside a segment are not problems CT-L1 already solved. They are the subject of sections 3 and 4.
+## 9. Future file scope
 
-## 8. Adversarial test matrix
+Path and query construction, with the public status left at 503 until the controller decides:
 
-Future tests use `httptest` only. Each row records the downstream URL the test server received, and the gateway status. A status with no recorded URL does not pass the row. No external network call is part of the matrix.
+- `services/api-gateway/internal/controltower/case_handler.go`
+- `services/api-gateway/internal/controltowerreadmodel/client_case.go`
+- `services/api-gateway/internal/controltowerreadmodel/client_workspace.go`, limited to the sprintf paths and the handoff query copy. Not `resolveWorkspaceEndpoint` and not `CheckRedirect`.
+- `services/api-gateway/internal/controltower/automation_handler.go`, limited to `stepId` before the suffix
+- one or more `_test.go` files beside those handlers or the client
+
+`workspace_handler.go` is `PENDING_CONTROLLER_APPROVAL`. It is required only for option B, so a local reject returns 400. `workspace.go` is not included. The read model, the public router, and the event and risk clients stay out.
+
+## 10. Adversarial test matrix
+
+Future tests use `httptest` only. Each row records the gateway status, the downstream URL, the handler the path selects, and the number of downstream requests. A forbidden identifier passes only when `REQUEST_REJECTED=YES` and `DOWNSTREAM_REQUEST_COUNT=0`. A row that allows either a reject or a preserved route does not pass. No external network call is part of the matrix. Tests that stack on PR #398 use the resolver at `b1f8e474`, not the main-tree client.
 
 | Test | Required observation |
 | --- | --- |
-| Timeline `%3F` case from section 4 | Downstream path is `/internal/v1/control-tower/cases/{uuid}` and the handler selected by that path is `GetCase`. Status recorded. Same `X-Tenant-ID` as the caller. |
-| `%2F` in `itemId`, `caseId`, and `stepId` | Rejected before `NewRequest`, or the recorded path has no extra slash. The temporary probe showed chi still matching while `URL.Path` contains a slash, so the assertion is the path, not only `URLParam`. |
-| `%252F` in the same identifiers | Rejected. The row fails if the recorded `URL.Path` contains a slash that was not in the ordinary route. |
-| `.` and `..` | Rejected. `PathEscape` left both unchanged in the probe. |
-| Invalid UUID for `viewId`, `handoffId`, `caseId`, `noteId`, `actionId`, `userId`, `stepId`, `ruleId`, `playbookId`, `recommendationId`, `executionId` | 400 and zero requests at the test server. |
-| `itemType` token and non-UUID `itemId` | `exception`, `risk`, `driver_event`, and `tracking` keep one segment. `itemId` is not required to be a UUID. `%`, `.`, and `..` are rejected for both. |
-| Repeated query key | One copy of the key on the recorded query. |
-| Empty query value | The empty key is absent. Status matches an absent key. |
-| Unknown query key | Absent from the recorded query. Status matches the request without it. |
-| `tenant` or `user` in the query | Absent from the downstream query. `X-Tenant-ID` and `X-User-ID` equal the gateway context. |
-| Downstream headers | The test server records `X-Tenant-ID` and `X-User-ID` on the ordinary route and on the rejected-identifier route (no request). |
-| Ordinary GET, POST, PATCH, and DELETE | One route of each method from section 2 keeps today’s path and status. The recorded URL matches the current builder for a valid id. |
+| Section 4 group A, timeline `%3F` | Downstream path is `/cases/{uuid}`, handler `GetCase`, query begins with `/timeline`. |
+| Section 4 group B, `bulk-action%3F` | Downstream path is `/work-items/bulk-action`, method POST, handler `BulkAction`. |
+| Section 4 group C, `kpi%3F` | Downstream path is `/cases/kpi`, handler `GetKPI`. |
+| Section 4 UpdateNote `%3F` | Query `extra=1` is on the recorded URL. Handler is `UpdateNote`. |
+| Section 4 RemoveCaseLink `%3F` | Method DELETE. Query `tenant=other` is on the recorded URL. Handler is `RemoveLink`. `X-Tenant-ID` is the caller tenant. |
+| Forbidden `linkId`, including `%` | `REQUEST_REJECTED=YES`, `DOWNSTREAM_REQUEST_COUNT=0`. |
+| `itemId` as an opaque string | `exception` and a non-UUID source id keep one segment. `%` is rejected with count 0. |
+| `stepId` as a UUID | A valid UUID keeps the step path. A non-UUID has count 0. |
+| `%252F` with `RawPath` set | The assertion reads both `URL.Path` and `URLParam`. The forbidden form is rejected with count 0. |
+| `%25zz` | Rejected with count 0. The probe showed `NewRequest` accepting this text. |
+| Empty segment, as in `/cases//timeline` | Rejected with count 0. |
+| `.` and `..` | Rejected with count 0. |
+| `limit=&limit=5` | The recorded query has no `limit`. It is not `limit=5`. |
+| `limit=5&limit=` | The recorded query has one `limit=5`. |
+| Invalid filter UUID | Forwarded. The read model leaves the filter unset. Header tenant is unchanged. |
+| `tenant` and `user` in the query | Absent from the downstream query. Headers stay the gateway context. |
+| Option A status | Public 503 and count 0. |
+| Option B status | Public 400 and count 0. This row is not a pass condition until `PUBLIC_STATUS_CHANGE_APPROVED=YES`. |
+| Same `%3F` groups on the CT-L1 client | `?` still selects `BulkAction` and `GetKPI`. `#` and `\` do not call `Do`. |
 
-## 9. Findings
+## 11. Findings
 
-Severity and the reviewer’s own evidence text are `DETAILS_NOT_AVAILABLE` for every id. Nothing in this table is `CLOSED`.
+J's previous status is the status the controller supplied. This revision does not mark a finding closed.
 
-| Finding ID | Severity | Evidence | Remediation | Status |
-| --- | --- | --- | --- | --- |
-| `J-CT09D-001` | `DETAILS_NOT_AVAILABLE` | `DETAILS_NOT_AVAILABLE` | Section 1 and section 2 replace the earlier inventory. The verified counts are 27 groups, 64 public registrations on the CT-L2 surface, and 46 dynamic registrations. The full block is 75. The claim of 33 groups is not repeated. | `DOCUMENT_REMEDIATED_PENDING_J` |
-| `J-CT09D-002` | `DETAILS_NOT_AVAILABLE` | `DETAILS_NOT_AVAILABLE` | Section 3 withdraws the guarantee that `%252F` stays one segment, records `URL.Path` versus `URLParam`, and sets the CT-L2 reject of `%` before the downstream URL is built. | `DOCUMENT_REMEDIATED_PENDING_J` |
-| `J-CT09D-003` | `DETAILS_NOT_AVAILABLE` | `DETAILS_NOT_AVAILABLE` | Section 4 sets `CONFIRMED_CROSS_ROUTE_ACCESS=YES`, documents the reproduced timeline transition, and does not call it a privilege escalation or a cross-tenant leak. | `DOCUMENT_REMEDIATED_PENDING_J` |
-| `J-CT09D-004` | `DETAILS_NOT_AVAILABLE` | `DETAILS_NOT_AVAILABLE` | Section 5 defines duplicate, empty, unknown, invalid UUID, invalid number, multi-value, and encoded query behavior without changing the read-model filter result. | `DOCUMENT_REMEDIATED_PENDING_J` |
-| `J-CT09D-005` | `DETAILS_NOT_AVAILABLE` | `DETAILS_NOT_AVAILABLE` | Section 6 states `itemId` is a string and `stepId` is a UUID only because `parseUUIDParam` parses it. The file list covers that contract. | `DOCUMENT_REMEDIATED_PENDING_J` |
-| `J-CT09D-006` | `DETAILS_NOT_AVAILABLE` | `DETAILS_NOT_AVAILABLE` | Section 7 leaves `J-CT09C-001` open and sets `CT_L2_IMPLEMENTATION_GATE=BLOCKED_UNTIL_CT_L1_SECURITY_REVIEW_AND_INTEGRATION`. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| Finding | Previous status | R3 correction | Status awaiting J |
+| --- | --- | --- | --- |
+| `J-CT09D-001` | `CLOSED_WITH_NIT` | Inventory in sections 1 and 2 is unchanged. No new evidence reopens it. | `CLOSED_WITH_NIT` |
+| `J-CT09D-002` | `CLOSED` | Not reopened. The extra decode rows in section 3 are the new LOW items, not a new claim against this id. | `CLOSED` |
+| `J-CT09D-003` | `PARTIAL` | Section 4 now has the timeline, claim-to-bulk, KPI, UpdateNote, and RemoveCaseLink cases, with method, path, query, both authorizations, and the tenant result. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-004` | `PARTIAL` | Section 5 takes the first value and drops the key when that first value is empty. `limit=&limit=5` does not become `limit=5`. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-005` | `PARTIAL` | Section 6 adds `linkId` as a UUID from `RemoveLink`. Section 7 replaces the public-400 claim with the checked 503 path. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-006` | `PARTIAL` | Section 8 separates main from the `b1f8e474` resolver for `#`, `\`, `?`, origin, and redirect, and leaves `J-CT09C-001` open. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-007` | `NEW_LOW` | `DETAILS_NOT_AVAILABLE`. The review body is not on PR #400. Section 7 records the public 503 contract and both status options. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-008` | `NEW_LOW` | `DETAILS_NOT_AVAILABLE`. Section 6 records the `linkId` contract and the DELETE query row. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-009` | `NEW_LOW` | `DETAILS_NOT_AVAILABLE`. Section 3 records `%25zz`, an explicit `RawPath`, and the two-step `%252F` decode. | `DOCUMENT_REMEDIATED_PENDING_J` |
+| `J-CT09D-010` | `NEW_LOW` | `DETAILS_NOT_AVAILABLE`. Section 9 keeps `workspace_handler.go` as `PENDING_CONTROLLER_APPROVAL` and leaves `workspace.go` out. | `DOCUMENT_REMEDIATED_PENDING_J` |
 
-The controller described three MEDIUM findings and three LOW findings without naming which id has which severity. All six are addressed in this document. None is closed, because Agent J has not reconfirmed them. No LOW item is left open inside the docs-only scope: the inventory, the decode model, the route transition, the query table, the identifier contracts, and the CT-L1 gate are all written down. A product change for unknown-query 400, or for invalid filter-UUID 400, is explicitly deferred to the controller and is not required to accept this architecture text.
+The one-line assignment of 007 through 010 is not a quote from Agent J. Those four ids were named as new LOW findings without separate prose. The four sections above are the new defects this revision was told to correct. J confirms the id-to-section match on re-review.
 
-## 10. Implementation gate
+## 12. Implementation gate
 
 CT-L2 implementation does not start from this revision.
 
 ```text
-GO_FOR_J_R2_ARCHITECTURE_REVIEW=YES
+GO_FOR_J_R3_ARCHITECTURE_REVIEW=YES
 CT_L2_IMPLEMENTATION_READY=NO
-CT_L2_IMPLEMENTATION_GATE=BLOCKED_UNTIL_CT_L1_SECURITY_REVIEW_AND_INTEGRATION
+CT_L1_INTEGRATION=NOT_COMPLETE
+J_CT09C_001=OPEN
+PUBLIC_STATUS_CHANGE_APPROVED=NO
 CONFIRMED_CROSS_ROUTE_ACCESS=YES
 CONFIRMED_PRIVILEGE_ESCALATION=NO
+PRIVILEGE_ESCALATION_IMPOSSIBLE=NOT_CLAIMED
 CONFIRMED_CROSS_TENANT_LEAK=NO
-J_CT09C_001=OPEN
-FINAL_VERDICT=READY_FOR_J_R2_ARCHITECTURE_REVIEW
+FINAL_VERDICT=READY_FOR_J_R3_ARCHITECTURE_REVIEW
 ```
 
 Issue #334 stays open. Issue #344 stays open. Production consumer readiness stays blocked.
