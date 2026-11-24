@@ -20,6 +20,7 @@ import EmptyState from '~/components/ui/EmptyState.vue'
 import PageHeader from '~/components/ui/PageHeader.vue'
 import Button from '~/components/ui/Button.vue'
 import Card from '~/components/ui/Card.vue'
+import Badge from '~/components/ui/Badge.vue'
 
 definePageMeta({ middleware: 'auth', layout: 'default' })
 
