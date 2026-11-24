@@ -1,0 +1,6 @@
+psql:writers/pk_update.sql:6: ERROR:  23503: update or delete on table "transport_executions" violates foreign key constraint "transport_execution_revisions_execution_fk" on table "transport_execution_revisions"
+DETAIL:  Key (id, operating_tenant_id)=(11111111-1111-1111-1111-111111111111, 00000000-0000-0000-0000-00000000000b) is still referenced from table "transport_execution_revisions".
+SCHEMA NAME:  transport
+TABLE NAME:  transport_execution_revisions
+CONSTRAINT NAME:  transport_execution_revisions_execution_fk
+LOCATION:  ri_ReportViolation, ri_triggers.c:2621

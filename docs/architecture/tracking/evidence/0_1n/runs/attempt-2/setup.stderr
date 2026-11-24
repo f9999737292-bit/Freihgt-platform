@@ -1,0 +1,24 @@
+psql:setup.sql:6: NOTICE:  00000: drop cascades to 20 other objects
+DETAIL:  drop cascades to table transport.drivers
+drop cascades to table transport.vehicles
+drop cascades to table transport.cargoes
+drop cascades to table transport.locations
+drop cascades to table transport.shipments
+drop cascades to table transport.transport_executions
+drop cascades to table transport.transport_execution_revisions
+drop cascades to function transport.reject_transport_execution_revision_mismatch()
+drop cascades to table transport.transport_execution_participants
+drop cascades to table transport.transport_execution_active_shipments
+drop cascades to table transport.transport_execution_stops
+drop cascades to function transport.reject_transport_execution_stop_reparent()
+drop cascades to table transport.transport_execution_actions
+drop cascades to table transport.transport_execution_revision_stops
+drop cascades to table transport.transport_execution_revision_actions
+drop cascades to table transport.transport_execution_commands
+drop cascades to table transport.delivery_disposition_cases
+drop cascades to table transport.delivery_disposition_commands
+drop cascades to table transport.delivery_disposition_audit
+drop cascades to function transport.read_binding_line(uuid,uuid)
+LOCATION:  reportDependentObjects, dependency.c:1221
+psql:setup.sql:11: NOTICE:  42710: extension "pgrowlocks" already exists, skipping
+LOCATION:  CreateExtension, extension.c:2017
