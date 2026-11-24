@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -21,7 +22,7 @@ from bintrans_autopilot.scheduler import Policy, Scheduler
 from bintrans_autopilot.supervisor import SupervisorError, WorkerObservation, WorkerSupervisor
 from bintrans_autopilot.task_queue import QueueError as TaskQueueError
 from bintrans_autopilot.task_queue import Task, TaskStore
-from bintrans_autopilot.testing import open_gateway, open_supervisor
+from bintrans_autopilot.tests._harness import open_gateway, open_supervisor
 from bintrans_autopilot.worker import AutopilotWorker, WorkerError
 
 SHA = "a9ef8f40bf0e7f75cb4aee3794e7841723347e4c"
@@ -174,13 +175,9 @@ class ReadinessTests(unittest.TestCase):
     def _supervisor(self, **kwargs) -> WorkerSupervisor:
         kwargs.setdefault("tenant_id", "tenant-a")
         kwargs.setdefault("state_path", self.state_path)
-        kwargs.setdefault("env", {})
-        kwargs.setdefault("config_stop", False)
-        kwargs.setdefault("stop_file", Path(self._tmp.name) / "no-emergency-stop")
         return open_supervisor(**kwargs)
 
     def _gateway(self, **kwargs) -> AuditGateway:
-        kwargs.setdefault("env", {})
         kwargs.setdefault("journal_path", self.journal_path)
         kwargs.setdefault("observed_head", SHA)
         return open_gateway(**kwargs)
@@ -442,27 +439,31 @@ class ReadinessTests(unittest.TestCase):
             tampered._ledger.clear()
 
     def test_emergency_stop_sources_override_the_caller(self) -> None:
+        from unittest.mock import patch
+
         clock = Clock(100)
         stop = Path(self._tmp.name) / "EMERGENCY_STOP"
-        supervisor = self._supervisor(clock=clock, stop_file=stop)
-        self.assertEqual(supervisor.observe(_observe()).action, "continue")
-        stop.write_text("", encoding="utf-8")
-        self.assertEqual(supervisor.observe(_observe(), emergency_stop=False).action, "stop")
-        by_env = self._supervisor(
-            clock=clock,
-            state_path=Path(self._tmp.name) / "env-restarts.jsonl",
-            env={"AUTOPILOT_EMERGENCY_STOP": "true"},
-        )
-        self.assertEqual(by_env.observe(_observe(), emergency_stop=False).reason, "emergency_stop")
-        by_config = self._supervisor(
-            clock=clock,
-            state_path=Path(self._tmp.name) / "config-restarts.jsonl",
-            config_stop=True,
-        )
-        self.assertEqual(by_config.observe(_observe(), emergency_stop=False).action, "stop")
-        report = ReadinessCycle(by_env, self._gateway()).run((_observe(),))
-        self.assertEqual(report.decisions[0].action, "stop")
-        self.assertFalse(report.merge_authorized)
+        with patch("bintrans_autopilot.config.EMERGENCY_STOP_FILE", stop):
+            supervisor = self._supervisor(clock=clock)
+            self.assertEqual(supervisor.observe(_observe()).action, "continue")
+            stop.write_text("", encoding="utf-8")
+            self.assertEqual(supervisor.observe(_observe(), emergency_stop=False).action, "stop")
+        os.environ["AUTOPILOT_EMERGENCY_STOP"] = "true"
+        try:
+            by_env = self._supervisor(clock=clock, state_path=Path(self._tmp.name) / "env-restarts.jsonl")
+            self.assertEqual(by_env.observe(_observe(), emergency_stop=False).reason, "emergency_stop")
+            report = ReadinessCycle(by_env, self._gateway()).run((_observe(),))
+            self.assertEqual(report.decisions[0].action, "stop")
+            self.assertFalse(report.merge_authorized)
+        finally:
+            os.environ.pop("AUTOPILOT_EMERGENCY_STOP", None)
+
+        class _Config:
+            emergency_stop = True
+
+        with patch("bintrans_autopilot.config.load_config", return_value=_Config()):
+            by_config = self._supervisor(clock=clock, state_path=Path(self._tmp.name) / "config-restarts.jsonl")
+            self.assertEqual(by_config.observe(_observe(), emergency_stop=False).action, "stop")
 
     def test_readiness_lines_report_the_flags_that_are_actually_set(self) -> None:
         code, lines = readiness_lines({"AUTOPILOT_ENABLED": "true"})
@@ -473,10 +474,14 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("PRODUCTION_24X7_ENABLED=YES", lines)
         self.assertNotIn("PRODUCTION_24X7_ENABLED=NO", lines)
-        with self.assertRaises(SupervisorError):
-            self._supervisor(env={"PRODUCTION_24X7_ENABLED": "true"})
-        with self.assertRaises(AuditError):
-            self._gateway(env={"PRODUCTION_24X7_ENABLED": "true"})
+        os.environ["PRODUCTION_24X7_ENABLED"] = "true"
+        try:
+            with self.assertRaises(SupervisorError):
+                self._supervisor()
+            with self.assertRaises(AuditError):
+                AuditGateway()
+        finally:
+            os.environ.pop("PRODUCTION_24X7_ENABLED", None)
 
     def test_readiness_check_is_behind_the_workflow_guard(self) -> None:
         os.environ["GITHUB_ACTIONS"] = "true"
@@ -562,7 +567,7 @@ class ReadinessTests(unittest.TestCase):
             self.assertEqual(exit_code, 2)
             self.assertIn("READINESS_CHECK=REFUSED", buffer.getvalue())
             self.assertNotIn("READINESS_CHECK=DRY_RUN", buffer.getvalue())
-            supervisor = self._supervisor(clock=Clock(100), config_stop=None, stop_file=stop, env={})
+            supervisor = self._supervisor(clock=Clock(100), state_path=stop.parent / "config-stop-ledger.jsonl")
             decision = supervisor.observe(_observe(), emergency_stop=False)
         self.assertEqual(decision.action, "stop")
         self.assertEqual(decision.reason, "emergency_stop")
@@ -581,10 +586,13 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(RESTART_LEDGER_PATH.name, "restart-ledger.jsonl")
         self.assertEqual(AUDIT_JOURNAL_PATH.name, "audit-journal.jsonl")
         root = Path(__file__).resolve().parents[1]
-        for name in ("__main__.py", "readiness.py", "worker.py"):
+        self.assertFalse((root / "testing.py").exists())
+        self.assertFalse((root / "test_bind.py").exists())
+        for name in ("__main__.py", "readiness.py", "worker.py", "supervisor.py", "audit_gateway.py", "config.py"):
             text = root.joinpath(name).read_text(encoding="utf-8")
             self.assertNotIn("config_stop", text)
             self.assertNotIn("test_bind", text)
+            self.assertNotIn("bintrans_autopilot.tests", text)
             self.assertNotIn("open_supervisor", text)
             self.assertNotIn("open_gateway", text)
 
@@ -637,6 +645,42 @@ class ReadinessTests(unittest.TestCase):
         rebuilt = journal.verify()
         self.assertEqual(rebuilt[0]["body"]["note"], "rebuilt")
         self.assertNotIn("blocking_finding", journal.path.read_text(encoding="utf-8"))
+
+    def test_valid_prefix_of_restart_ledger_is_not_independently_anchored(self) -> None:
+        clock = Clock(100)
+        supervisor = self._supervisor(clock=clock, max_restarts=3)
+        stale = _observe(heartbeat_at=0)
+        self.assertEqual(supervisor.observe(stale).action, "restart")
+        clock.now = 102
+        self.assertEqual(supervisor.observe(stale).restart_count, 2)
+        text = self.state_path.read_text(encoding="utf-8")
+        self.state_path.write_text(text.splitlines()[0] + "\n", encoding="utf-8")
+        reopened = self._supervisor(clock=Clock(200), max_restarts=3)
+        self.assertEqual(reopened._ledger.count("tenant-a"), 1)
+        torn = self.state_path.read_bytes()
+        self.state_path.write_bytes(torn[:-2])
+        damaged = self._supervisor(clock=Clock(300), max_restarts=3)
+        self.assertEqual(damaged.observe(stale).reason, "state_tampered")
+        self.assertTrue(self.state_path.exists())
+        self.assertGreater(self.state_path.stat().st_size, 0)
+
+    def test_runtime_state_files_are_gitignored_and_untracked(self) -> None:
+        repo = Path(__file__).resolve().parents[3]
+        tracked = subprocess.check_output(
+            ["git", "ls-files", "--", "tools/bintrans_autopilot/state"],
+            cwd=repo,
+            text=True,
+        )
+        self.assertEqual(tracked.strip(), "")
+        for name in ("audit-journal.jsonl", "restart-ledger.jsonl", "audit-journal.jsonl.lock", "restart-ledger.jsonl.lock"):
+            completed = subprocess.run(
+                ["git", "check-ignore", "-q", "--", f"tools/bintrans_autopilot/state/{name}"],
+                cwd=repo,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, name)
+        self.assertFalse(AUDIT_JOURNAL_PATH.exists())
+        self.assertFalse(RESTART_LEDGER_PATH.exists())
 
 
 if __name__ == "__main__":

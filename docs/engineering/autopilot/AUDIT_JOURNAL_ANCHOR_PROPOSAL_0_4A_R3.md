@@ -26,7 +26,7 @@ The anchor has to live where the worker role cannot update, delete, or replace h
 3. A tip row, or a hash stored by a definer the worker cannot replace, that rejects an insert whose previous hash does not match the tip.
 4. No repair path that deletes rows. A missing or torn local copy stays refused until that store is read by the trusted workflow.
 
-That role split is a new trust boundary. It is not created here. Until an operator accepts it and a later change adds it, a negative decision can still be removed by replacing the local file with a valid shorter chain. The finding gate remains `blocked` either way.
+That role split is a new trust boundary. It is not created here. The contract for a later stage is `AUTOPILOT_0_4B_TRUST_STORAGE_ADR.md`. Until a controller accepts that contract and a later change implements it, a negative decision can still be removed by replacing the local file with a valid shorter chain. The same limit applies to the restart ledger: a valid shorter prefix can lower the stored restart count. A torn ledger fails closed and is not repaired by deletion. The finding gate remains `blocked` either way.
 
 ## Recovery chosen for the local file
 

@@ -36,7 +36,7 @@ Those two tests need `BINTRANS_AUTOPILOT_QUEUE_DSN`. They are not turned into pa
 
 | Gap | Addition |
 | --- | --- |
-| No restart budget above the worker | `WorkerSupervisor` stores the restart count for its tenant in a hash-chained file. A new worker id or a new supervisor using that file does not reset the count. A decision does not complete a job. |
+| No restart budget above the worker | `WorkerSupervisor` stores the restart count for its tenant in a hash-chained file at a fixed path. A new worker id does not reset the count. A torn ledger fails closed and is not deleted. A shorter prefix that still hashes is not detected, so that residual can lower the stored count. The local file is not an independent anchor. See `AUTOPILOT_0_4B_TRUST_STORAGE_ADR.md`. |
 | No independent audit packet | `AuditGateway` appends claims to a hash-chained journal. A reviewer string in the packet is not an identity. The finding gate stays `blocked`. A torn or missing journal fails closed. A shortened valid prefix is not anchored outside the file. See `AUDIT_TRUST_BOUNDARY_0_4A_R2.md` and `AUDIT_JOURNAL_ANCHOR_PROPOSAL_0_4A_R3.md`. |
 | No single readiness report | `ReadinessCycle.run` evaluates one batch. `python -m bintrans_autopilot readiness-check` prints the closed switches and exits. It does not claim a job. |
 | No dedicated deployment sketch | `deploy/autopilot-readiness.compose.example.yml` is an example. It is not part of the platform compose. The service is on profile `manual-approval-required`, `restart` is `no`, and the image is `example.invalid`. This stage does not run it. |
@@ -57,7 +57,7 @@ The scheduler and the PostgreSQL queue are reused. No platform migration is adde
 | Payload contains `command` or another unknown field | `enqueue` raises `invalid_input` before it connects. |
 | Agent J returns `CHANGES_REQUIRED`, `BLOCKED`, or a CRITICAL/HIGH finding | The journal keeps a block for that SHA. A later PASS packet does not remove it. |
 | Dead-job cap or restart cap | The supervisor holds. `release_hold` does not clear the stored count. |
-| Emergency stop | Env, the stop file, or `emergency_stop` in config stops the supervisor even when the caller passes false. `readiness-check` uses the same three sources and returns `REFUSED` with exit code 2. |
+| Emergency stop | Env, the stop file, or `emergency_stop` in config stops the supervisor even when the caller passes false. `readiness-check` uses the same three sources and returns `REFUSED` with exit code 2. The constructor does not accept a flag that skips the committed config. |
 
 ## Recovery
 
@@ -67,7 +67,8 @@ The scheduler and the PostgreSQL queue are reused. No platform migration is adde
 4. A supervisor hold stays in the restart ledger. `release_hold` refuses to clear it. That does not start a resident process.
 5. If Agent J recorded `CHANGES_REQUIRED` or `BLOCKED`, keep the packet. Do not replace the verdict with `PASS` inside this process.
 6. Do not start `deploy/autopilot-readiness.compose.example.yml` from this stage.
+7. Do not delete or truncate `tools/bintrans_autopilot/state/audit-journal.jsonl` or `restart-ledger.jsonl` to recover. A torn file stays refused. Those paths stay inside the checkout for this stage: moving them would change the directory a later deployment must persist. They are gitignored so a local file is not committed. A valid shorter prefix of the restart ledger is still accepted by the local hash and can lower the stored count. That residual is not closed.
 
 ## Not ready
 
-Continuous unattended execution, a paid Cloud Agent, merge to `main`, and deployment are not enabled. The finding gate cannot turn itself clear. The missing proof is described in `AUDIT_TRUST_BOUNDARY_0_4A_R2.md`.
+Continuous unattended execution, a paid Cloud Agent, merge to `main`, and deployment are not enabled. The finding gate cannot turn itself clear. The missing proof is described in `AUDIT_TRUST_BOUNDARY_0_4A_R2.md`. The proposed store is `AUTOPILOT_0_4B_TRUST_STORAGE_ADR.md`. It is not implemented.

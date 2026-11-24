@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+
+# Local runtime state. Do not commit these files, and do not delete an existing journal or ledger to recover.
+state/*.jsonl
+state/*.lock

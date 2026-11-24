@@ -11,11 +11,9 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from pathlib import Path
 
 from bintrans_autopilot.audit_journal import AuditJournal, AuditJournalError
 from bintrans_autopilot.config import AUDIT_JOURNAL_PATH
-from bintrans_autopilot.test_bind import BIND
 
 _LOCKED_TRUE = (
     "AUTOPILOT_ENABLED",
@@ -73,35 +71,15 @@ class AuditDecision:
 
 class AuditGateway:
     def __init__(self, *, mode: str = "dry_run", observed_head: str = ""):
-        self._configure(mode=mode, observed_head=observed_head, bind=None, env=None, journal_path=None)
-
-    def _configure(
-        self,
-        *,
-        mode: str,
-        observed_head: str,
-        bind: object | None,
-        env: dict[str, str] | None,
-        journal_path: Path | None,
-    ) -> None:
-        isolated = bind is not None
-        if isolated and bind is not BIND:
-            raise AuditError("untrusted_binding")
-        if not isolated:
-            env = None
-            journal_path = AUDIT_JOURNAL_PATH
         if mode != "dry_run":
             raise AuditError("audit_disabled")
-        source = os.environ if env is None else env
         for name in _LOCKED_TRUE:
-            if str(source.get(name, "")).strip().lower() == "true":
+            if str(os.environ.get(name, "")).strip().lower() == "true":
                 raise AuditError("audit_disabled")
         if observed_head and not _SHA.fullmatch(observed_head):
             raise AuditError("invalid_commit")
-        if journal_path is None:
-            raise AuditError("invalid_input")
         try:
-            journal = AuditJournal(Path(journal_path))
+            journal = AuditJournal(AUDIT_JOURNAL_PATH)
         except AuditJournalError as exc:
             raise AuditError(exc.code) from None
         self.mode = "dry_run"

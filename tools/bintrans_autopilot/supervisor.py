@@ -16,9 +16,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from bintrans_autopilot.config import EMERGENCY_STOP_FILE, RESTART_LEDGER_PATH, emergency_stop_active
+from bintrans_autopilot.config import RESTART_LEDGER_PATH, emergency_stop_active
 from bintrans_autopilot.file_lock import exclusive_file_lock
-from bintrans_autopilot.test_bind import BIND
 
 _LOCKED_TRUE = (
     "AUTOPILOT_ENABLED",
@@ -79,6 +78,8 @@ class RestartLedger:
 
     A missing file is not created here. Creating a fresh file would reset the
     restart count. A torn line stays in place and fails verification.
+    A shorter prefix that still hashes is not detected. That residual is not
+    closed by this file.
     """
 
     def __init__(self, path: Path):
@@ -202,50 +203,9 @@ class WorkerSupervisor:
         max_dead_jobs: int = 100,
         clock=None,
     ):
-        self._configure(
-            mode=mode,
-            tenant_id=tenant_id,
-            max_restarts=max_restarts,
-            heartbeat_timeout_seconds=heartbeat_timeout_seconds,
-            base_backoff_seconds=base_backoff_seconds,
-            max_backoff_seconds=max_backoff_seconds,
-            max_dead_jobs=max_dead_jobs,
-            clock=clock,
-            bind=None,
-            env=None,
-            stop_file=None,
-            config_stop=None,
-            state_path=None,
-        )
-
-    def _configure(
-        self,
-        *,
-        mode: str,
-        tenant_id: str,
-        max_restarts: int,
-        heartbeat_timeout_seconds: float,
-        base_backoff_seconds: float,
-        max_backoff_seconds: float,
-        max_dead_jobs: int,
-        clock,
-        bind: object | None,
-        env: dict[str, str] | None,
-        stop_file: Path | None,
-        config_stop: bool | None,
-        state_path: Path | None,
-    ) -> None:
-        isolated = bind is not None
-        if isolated and bind is not BIND:
-            raise SupervisorError("untrusted_binding")
-        if not isolated:
-            env = None
-            stop_file = EMERGENCY_STOP_FILE
-            config_stop = None
-            state_path = RESTART_LEDGER_PATH
         if mode != "dry_run":
             raise SupervisorError("supervisor_disabled")
-        if _locked(env):
+        if _locked(None):
             raise SupervisorError("supervisor_disabled")
         if isinstance(max_restarts, bool) or not isinstance(max_restarts, int) or not 1 <= max_restarts <= 8:
             raise SupervisorError("invalid_input")
@@ -253,7 +213,7 @@ class WorkerSupervisor:
             raise SupervisorError("invalid_input")
         if isinstance(max_dead_jobs, bool) or not isinstance(max_dead_jobs, int) or max_dead_jobs < 1:
             raise SupervisorError("invalid_input")
-        if not tenant_id or state_path is None:
+        if not tenant_id:
             raise SupervisorError("invalid_input")
         self.mode = "dry_run"
         self.tenant_id = tenant_id
@@ -269,11 +229,8 @@ class WorkerSupervisor:
         self.max_backoff_seconds = float(max_backoff_seconds)
         self.max_dead_jobs = max_dead_jobs
         self._clock = time.monotonic if clock is None else clock
-        self._env = env
-        self._stop_file = Path(stop_file) if stop_file is not None else EMERGENCY_STOP_FILE
-        self._config_stop = config_stop
         self._not_before: dict[str, float] = {}
-        self._ledger = RestartLedger(Path(state_path))
+        self._ledger = RestartLedger(RESTART_LEDGER_PATH)
 
     def observe(self, observation: WorkerObservation, *, emergency_stop: bool = False) -> SupervisorDecision:
         if not observation.worker_id or not observation.tenant_id:
@@ -317,11 +274,4 @@ class WorkerSupervisor:
         raise SupervisorError("hold_requires_controller")
 
     def _emergency_stop(self) -> bool:
-        if self._config_stop is True:
-            return True
-        if self._config_stop is False:
-            source = os.environ if self._env is None else self._env
-            if str(source.get("AUTOPILOT_EMERGENCY_STOP", "")).strip().lower() == "true":
-                return True
-            return self._stop_file.exists()
-        return emergency_stop_active(self._env, self._stop_file)
+        return emergency_stop_active()

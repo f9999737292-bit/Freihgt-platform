@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from bintrans_autopilot.audit_journal import AuditJournal
-from bintrans_autopilot.testing import append_packet_batch
+from bintrans_autopilot.tests._harness import append_packet_batch
 
 _GENESIS = "0" * 64
 
