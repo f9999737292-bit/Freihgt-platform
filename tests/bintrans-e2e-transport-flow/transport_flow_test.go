@@ -419,6 +419,18 @@ func continueDeliveryAndPOD(t *testing.T, env *flowEnv, fix flowFixture, carrier
 	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.documents WHERE related_entity_id=$1 AND document_type='POD'`, shipmentID) != 0 {
 		t.Fatal("denied pod intent inserted a document")
 	}
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.document_upload_intent WHERE tenant_id=$1 AND shipment_id=$2`, fix.TenantID, shipmentID) != 0 {
+		t.Fatal("denied pod intent inserted an upload")
+	}
+	seedCompletedPODFixture(t, env, fix, shipmentID)
+	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads", map[string]string{
+		"shipmentId": shipmentID, "driverId": fix.DriverID.String(), "ownerCompanyId": fix.CarrierID.String(),
+		"mimeType": "image/jpeg", "fileName": "pod.jpg", "idempotencyKey": "pod-after-fixture-" + shipmentID,
+	}, tenantHeader)
+	deny("pod intent after fixture", status, payload, http.StatusUnauthorized)
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.documents WHERE related_entity_id=$1 AND document_type='POD'`, shipmentID) != 1 {
+		t.Fatal("denied pod intent changed the fixture document")
+	}
 	finalShipment := decodeShipment(t, mustGetShipment(t, env, shipmentID, carrier))
 	if finalShipment.ID != shipmentID || finalShipment.Status != "DELIVERED" {
 		t.Fatalf("pod left shipment %+v", finalShipment)
@@ -426,6 +438,23 @@ func continueDeliveryAndPOD(t *testing.T, env *flowEnv, fix flowFixture, carrier
 	if countRows(t, env.pool, `SELECT COUNT(*) FROM transport.shipments`) != 1 {
 		t.Fatal("delivery or pod created another shipment")
 	}
+}
+
+func seedCompletedPODFixture(t *testing.T, env *flowEnv, fix flowFixture, shipmentID string) {
+	t.Helper()
+	docID := uuid.New()
+	mustExec(t, env.pool, `
+		INSERT INTO documents.documents (
+			id, tenant_id, document_number, document_type, document_status,
+			owner_company_id, related_entity_type, related_entity_id, created_at, updated_at
+		) VALUES ($1,$2,$3,'POD','SIGNED',$4,'SHIPMENT',$5,now(),now())`,
+		docID, fix.TenantID, "POD-E2E-"+docID.String(), fix.CarrierID, shipmentID)
+	mustExec(t, env.pool, `
+		INSERT INTO documents.document_upload_intent (
+			tenant_id, document_id, shipment_id, driver_id, object_key, upload_token_hash,
+			mime_type, max_bytes, file_name, status, idempotency_key, expires_at, completed_at
+		) VALUES ($1,$2,$3,$4,$5,$6,'image/jpeg',1024,'pod.jpg','completed',$7,now(),now())`,
+		fix.TenantID, docID, shipmentID, fix.DriverID, "e2e/"+docID.String(), "fixture-hash", "pod-fixture-"+shipmentID)
 }
 
 func waitPublished(t *testing.T, env *flowEnv, shipmentID string) {
