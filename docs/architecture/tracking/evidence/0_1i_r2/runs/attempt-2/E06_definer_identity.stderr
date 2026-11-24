@@ -1,0 +1,4 @@
+ERROR:  42501: permission denied for schema transport
+LINE 3:   FROM transport.read_binding_assignment('22222222-2222-2222...
+               ^
+LOCATION:  aclcheck_error, aclchk.c:2812

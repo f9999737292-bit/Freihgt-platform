@@ -1,0 +1,5 @@
+ERROR:  42883: function transport.read_binding_assignment(unknown) does not exist
+LINE 2:   FROM transport.read_binding_assignment('22222222-2222-2222...
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+LOCATION:  ParseFuncOrColumn, parse_func.c:629

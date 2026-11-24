@@ -1,0 +1,4 @@
+ERROR:  42501: permission denied for schema transport
+LINE 2: UPDATE transport.shipments
+               ^
+LOCATION:  aclcheck_error, aclchk.c:2812

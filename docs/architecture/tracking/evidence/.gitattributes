@@ -1,0 +1,3 @@
+# Evidence checkout must keep the Git blob bytes on every OS.
+* -text
+** -text
