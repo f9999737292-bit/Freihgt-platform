@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import json
+from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass
 from typing import Protocol
 from urllib.error import HTTPError, URLError
@@ -76,6 +77,27 @@ def agent_endpoint(agent_id: str = "", suffix: str = "") -> str:
     return path
 
 
+def _required_charged_cents(event: dict) -> Decimal:
+    """A missing charge is not zero. An explicit numeric 0 is a real charge."""
+
+    if not isinstance(event, dict) or "chargedCents" not in event:
+        raise CursorApiError(0, "spend_amount_absent", "chargedCents is absent")
+    raw = event.get("chargedCents")
+    if raw is None or isinstance(raw, bool):
+        raise CursorApiError(0, "spend_amount_absent", "chargedCents is absent")
+    if isinstance(raw, str) and not raw.strip():
+        raise CursorApiError(0, "spend_amount_absent", "chargedCents is absent")
+    if not isinstance(raw, (int, float, str, Decimal)):
+        raise CursorApiError(0, "spend_amount_absent", "chargedCents is absent")
+    try:
+        amount = Decimal(str(raw))
+    except (InvalidOperation, ValueError):
+        raise CursorApiError(0, "spend_amount_absent", "chargedCents is absent") from None
+    if not amount.is_finite() or amount < 0:
+        raise CursorApiError(0, "spend_amount_absent", "chargedCents is absent")
+    return amount
+
+
 class CursorClient:
     def __init__(self, api_key: str, transport: Transport, admin_api_key: str = ""):
         if not api_key:
@@ -83,6 +105,8 @@ class CursorClient:
         self._api_key = api_key
         self._admin_api_key = admin_api_key
         self._transport = transport
+        # Hourly Admin API rows do not prove the current hour is closed.
+        self.spend_events_lagged = True
 
     @property
     def has_admin_key(self) -> bool:
@@ -147,7 +171,8 @@ class CursorClient:
         """
         if not self._admin_api_key:
             raise CursorApiError(401, "missing_admin_api_key", "CURSOR_ADMIN_API_KEY is required for spend checks")
-        total = 0.0
+        self.spend_events_lagged = True
+        total = Decimal("0")
         page = 1
         while page <= 20:
             body = self._call(
@@ -164,9 +189,9 @@ class CursorClient:
                 admin=True,
             )
             for event in body.get("usageEvents") or []:
-                total += float(event.get("chargedCents") or 0)
+                total += _required_charged_cents(event)
             pagination = body.get("pagination") or {}
             if not pagination.get("hasNextPage"):
-                return total
+                return float(total)
             page += 1
         raise CursorApiError(0, "spend_pages_truncated", "spend result was truncated")

@@ -77,13 +77,24 @@ def _day(now_iso: str) -> str:
 
 
 class Dispatcher:
-    def __init__(self, config: AutopilotConfig, github, cursor, env: dict[str, str], now_iso: str, window: tuple[int, int]):
+    def __init__(
+        self,
+        config: AutopilotConfig,
+        github,
+        cursor,
+        env: dict[str, str],
+        now_iso: str,
+        window: tuple[int, int],
+        ledger_block_reason=None,
+    ):
         self.config = config
         self.github = github
         self.cursor = cursor
         self.env = env
         self.now_iso = now_iso
         self.window = window
+        # None means the PostgreSQL safety reason cannot be read. No connection is opened here.
+        self._ledger_block_reason = ledger_block_reason
 
     def run(self) -> DispatchResult:
         enabled, reason = runtime_enabled(self.config, self.env)
@@ -113,6 +124,13 @@ class Dispatcher:
         if not budget.allowed:
             self._hold_ready(issues, budget.reason)
             return DispatchResult(enabled=True, reason=budget.reason)
+        ledger_reason = self._ledger_block_reason_code()
+        if ledger_reason:
+            return DispatchResult(
+                enabled=True,
+                reason=ledger_reason,
+                preserved=[str(issue.number) for issue in issues],
+            )
         if not issues:
             return DispatchResult(enabled=True, reason="empty_queue")
         result = DispatchResult(enabled=True, reason="ok")
@@ -883,7 +901,19 @@ class Dispatcher:
         decision = assess_budget(self.config, self.cursor, budget_windows(now), now, active)
         if decision.preserve_task_state or not decision.allowed:
             return decision.reason
-        return ""
+        return self._ledger_block_reason_code()
+
+    def _ledger_block_reason_code(self) -> str:
+        reader = self._ledger_block_reason
+        if not callable(reader):
+            return "ledger_unreadable"
+        try:
+            reason = reader()
+        except Exception:
+            return "ledger_unreadable"
+        if not isinstance(reason, str):
+            return "ledger_unreadable"
+        return reason
 
     def _paid_agent_count(self, exclude_task_id: str = "") -> int:
         """Running Cloud Agent runs, not issue labels whose runs have already finished."""

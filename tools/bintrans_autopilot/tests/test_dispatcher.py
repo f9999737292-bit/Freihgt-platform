@@ -170,6 +170,7 @@ class FakeGithub:
 class FakeCursor:
     def __init__(self):
         self.creates = []
+        self.cancels = []
         self.follows = []
         self.runs = {}
         self.agents = {}
@@ -194,6 +195,10 @@ class FakeCursor:
         if self.charged_by_window and (start, end) in self.charged_by_window:
             return self.charged_by_window[(start, end)]
         return self.charged
+
+    def cancel_run(self, agent_id, run_id):
+        self.cancels.append((agent_id, run_id))
+        return {"status": "CANCELLED"}
 
     def create_agent(self, payload):
         with self.lock:
@@ -246,6 +251,7 @@ def run_dispatch(github, cursor, config=None, run_env=None):
         run_env if run_env is not None else env(),
         NOW,
         WINDOW,
+        ledger_block_reason=lambda: "",
     )
     return dispatcher.run()
 

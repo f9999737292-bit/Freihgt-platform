@@ -483,6 +483,10 @@ class MigrationRunner:
             if not applied:
                 return 0
             target = max(applied)
+            if target == 16:
+                self._down_budget_migration_v16(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
+                return int(max(applied)) if applied else 0
             if target == 15:
                 self._down_budget_migration_v15(cursor, allow_destructive_test=allow_destructive_test)
                 applied = self._applied(cursor)
@@ -553,6 +557,9 @@ class MigrationRunner:
         with self._cursor() as cursor:
             cursor.execute("SELECT pg_advisory_xact_lock(%s)", (_ADVISORY_LOCK,))
             applied = self._applied(cursor)
+            if 16 in applied:
+                self._down_budget_migration_v16(cursor, allow_destructive_test=allow_destructive_test)
+                applied = self._applied(cursor)
             if 15 in applied:
                 self._down_budget_migration_v15(cursor, allow_destructive_test=allow_destructive_test)
                 applied = self._applied(cursor)
@@ -618,6 +625,28 @@ class MigrationRunner:
         self._restore_launch_protocol_v9(cursor)
         self._restore_launch_protocol_v9_one_arg_release(cursor)
         cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 10")
+        return int(max(self._applied(cursor))) if self._applied(cursor) else 0
+
+    def _down_budget_migration_v16(self, cursor, *, allow_destructive_test: bool) -> int:
+        applied = self._applied(cursor)
+        if 16 not in applied:
+            return int(max(applied)) if applied else 0
+        self._assert_isolated_test_database(cursor)
+        if not allow_destructive_test:
+            cursor.execute(
+                """
+                SELECT 1 AS present
+                FROM autopilot_queue.launch_intents
+                WHERE lifecycle_state NOT IN (
+                    'CANCELLED_BEFORE_SEND', 'LAUNCH_REJECTED', 'LAUNCH_CONFIRMED', 'EXTERNAL_AGENT_CANCELLED'
+                )
+                LIMIT 1
+                """
+            )
+            if _rows(cursor):
+                raise QueueError("migration_blocked")
+        self._execute_down_file(cursor, 16)
+        cursor.execute("DELETE FROM autopilot_queue.schema_migrations WHERE version = 16")
         return int(max(self._applied(cursor))) if self._applied(cursor) else 0
 
     def _down_budget_migration_v15(self, cursor, *, allow_destructive_test: bool) -> int:
