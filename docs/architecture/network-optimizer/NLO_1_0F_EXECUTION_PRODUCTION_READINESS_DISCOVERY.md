@@ -2,7 +2,7 @@
 
 ```text
 AGENT=D
-STAGE=NLO-1.0F-R2
+STAGE=NLO-1.0F-EXECUTION-READINESS-DOC-REMEDIATION-R2
 BASE_SHA=892361db87985f35132aef86550a025909af648a
 PREVIOUS_HEAD=8d7e9f9c88d4f7ad140798c93f0b57bb00293880
 PREVIOUS_AUDIT=REMEDIATION_REQUIRED
@@ -22,11 +22,13 @@ TMS_HANDOFF_READY=NO
 CHAIN_EXECUTION_SUPPORTED=NO
 READY_FOR_0_9D_RUNTIME=NO
 PRODUCTION_CONSUMER_READINESS=BLOCKED
+PENDING_RETRY_DIGEST_DRIFT=PRODUCTION_BLOCKER
+RECOMMENDED_OPTION=A_PLUS_B_PLUS_C
 FINAL_VERDICT=READY_FOR_J_R2_ARCHITECTURE_REVIEW
 CONTROLLER_APPROVAL_REQUIRED=YES
 ```
 
-This note records the execution path on `a9ef8f40`. It does not enable a pilot, change NLO-0.9B, or authorize NLO-0.9D. A document is not a running adapter.
+This note records the execution path on current `origin/main` `892361db`. It does not enable a pilot, change NLO-0.9B, or authorize NLO-0.9D. A document is not a running adapter. The cited NLO, shipment, tracking, and Control Tower lines are unchanged by the gateway commits that moved main from `a9ef8f40` to `892361db`.
 
 ## 1. Baseline
 
@@ -62,9 +64,27 @@ Shipment-service stores one revision per `operating_tenant_id` and `source_activ
 
 A temporary projection error leaves the activation pending and still returns HTTP 200 (`execution_link.go` lines 50–62). A permanent rejection marks the activation `REJECTED`.
 
-The pending retry is not a replay of the first command. `finishActivationHandoff` calls `projectionCommand` again (`execution_link.go` lines 42–49). That function reads `CarrierCompanyID` and `DriverID` from a new `currentTrip.Build` (`execution_link.go` lines 119–131). `VehicleID` stays the vehicle stored on the route plan. If the first `Project` already committed in TMS and the acknowledgement was lost, a later driver or carrier change produces a different digest. TMS then returns 409. The NLO client treats 409 as permanent (`executionproj/client.go` lines 170–172) and `finishActivationHandoff` marks the activation `REJECTED` (`execution_link.go` lines 50–56). The TMS execution remains. NLO has no successor client that can cancel it.
+`PENDING_RETRY_DIGEST_DRIFT=PRODUCTION_BLOCKER`. A later activate is not unconditionally safe.
 
-`AcceptRoutePlanActivation` calls `requireCarrierTenant` before `Project` (`transport_execution_repository.go` lines 142–146). A carrier row with `deleted_at` set fails that check with `TENANT_DENIED` and HTTP 403 (`transport_execution_repository.go` lines 161–174, `transport_execution_commands.go` lines 217–223). The NLO client treats 403 as permanent as well. A soft-deleted carrier after a committed projection therefore follows the same split: TMS keeps the execution, and NLO can move the activation to `REJECTED`. Two overlapping activate calls can rebuild two different live commands for the same pending row. This description is the call chain. This stage did not run that race.
+`finishActivationHandoff` calls `projectionCommand` again while the row is `PENDING_EXECUTION` (`execution_link.go` lines 42–49). That rebuild reads `CarrierCompanyID` and `DriverID` from a new `currentTrip.Build` (`execution_link.go` lines 119–131). `VehicleID` is `graph.Plan.VehicleID` (`execution_link.go` line 131). A change of the live vehicle does not enter the retried command. The digest field `vehicle_id` changes only when the stored route-plan vehicle changes, which this retry does not do.
+
+The lost-acknowledgement sequence is:
+
+1. NLO inserts one route-plan activation in `PENDING_EXECUTION`.
+2. TMS commits the execution for that activation id.
+3. The acknowledgement is lost. The NLO client treats a timeout, an acknowledgement decode error, and a 5xx as temporary (`executionproj/client.go` lines 154–175).
+4. NLO leaves the activation in `PENDING_EXECUTION` and returns HTTP 200 (`execution_link.go` lines 50–62).
+5. Before the next attempt the live driver or the live carrier changes. A live vehicle change is not copied into the command.
+6. The next `PENDING_EXECUTION` attempt builds a new command from `currentTrip.Build`.
+7. `CanonicalDigest` of that command differs because `driver_id` or `carrier_company_id` differs.
+8. TMS returns 409 `ACTIVATION_BODY_CONFLICT` (`transport_execution.go` lines 178–182).
+9. The NLO client treats 409 as permanent, and `finishActivationHandoff` marks the activation `REJECTED` (`execution_link.go` lines 50–56). The TMS execution remains. NLO has no successor client that can cancel it.
+
+A crash after the TMS commit and before `EXECUTION_LINKED` is the same sequence. The row stays `PENDING_EXECUTION`, and the next process runs the rebuild above.
+
+Soft-delete is a separate path. `AcceptRoutePlanActivation` calls `requireCarrierTenant` before `Project` (`transport_execution_repository.go` lines 142–146). The company must match the operating tenant and have `deleted_at` null (`transport_execution_repository.go` lines 161–174). Failure is `TENANT_DENIED` and HTTP 403 (`transport_execution_commands.go` lines 217–223). The stored-digest replay inside `Project` does not run. The NLO client treats 403 as permanent and can mark `REJECTED` while the committed execution remains.
+
+Two overlapping activate calls can both observe `PENDING_EXECUTION` and build two different live commands. The first commit wins. The second can receive 409 and mark the shared row `REJECTED`. This is the call chain. This stage did not execute it.
 
 ### 2.3 What does not come back
 
@@ -114,15 +134,29 @@ Rules that stay in force:
 - Issue #344 stays open. `applyUntil` retries every tracking apply error (`execution_event_consumer.go` lines 110–128). `PRODUCTION_CONSUMER_READINESS=BLOCKED`. `REBALANCE_DESIGN=BLOCKED`. An NLO consumer must not reuse that loop.
 - A pending retry must not be described as safe while `projectionCommand` rebuilds carrier and driver. No option below is in force.
 
-Pending-retry options, for a later controller decision:
+Pending-retry options, for a later controller decision. None is in force. `CONTROLLER_APPROVAL_REQUIRED=YES`.
 
-| Option | What it would change | What it does not change |
-| --- | --- | --- |
-| A. Freeze the first projection command | Persist the carrier, driver, and digest with the activation row and resend that body | The current code, which rebuilds the command |
-| B. Reconcile instead of reject | On 409 `ACTIVATION_BODY_CONFLICT` or 403 `TENANT_DENIED`, read whether a revision for that activation already exists before `MarkRoutePlanActivationRejected` | NLO has no such read today |
-| C. Replay check before the carrier check | shipment-service would run the stored-digest replay before `requireCarrierTenant` | A digest change would still be 409 |
+A. Immutable projection snapshot. At the activation insert, store the projection command and every field that `CanonicalDigest` hashes. Every later `PENDING_EXECUTION` send uses that stored command. The live trip is not read again for carrier, driver, or vehicle.
 
-`RECOMMENDED_OPTION` for a later stage is B, because a lost acknowledgement plus a live TMS execution cannot be repaired by marking NLO `REJECTED`, and NLO has no successor client. A and C are shipment or activation-persistence changes. None of the three is authorized by this document. `CONTROLLER_APPROVAL_REQUIRED=YES`.
+B. Reconciliation state. After an uncertain TMS result, or on 409 `ACTIVATION_BODY_CONFLICT` or 403 `TENANT_DENIED`, NLO does not call `MarkRoutePlanActivationRejected`. It keeps the activation out of `REJECTED` until a tenant-scoped read shows whether a revision for that activation id exists.
+
+C. Replay lookup. Before a create-or-reject decision, resolve the existing revision by operating tenant and activation id. The lookup must keep the internal-token check, the network-optimizer caller check, and the tenant predicate. A soft-deleted carrier must not hide a revision that is already stored. The current `requireCarrierTenant` call runs before that lookup (`transport_execution_repository.go` lines 142–146).
+
+| Criterion | A. Immutable snapshot | B. Reconciliation state | C. Replay lookup |
+| --- | --- | --- | --- |
+| Idempotency | The resent body matches the first digest, so TMS replay returns the stored revision. | Does not by itself make two bodies identical. It stops a mismatched body from being recorded as `REJECTED`. | Same-digest replay already exists inside `Project`. C makes that path reachable when the carrier row is no longer active. |
+| Tenant isolation | The snapshot is stored and loaded with the activation row, which is already keyed by `actor.TenantID`. | The reconcile read must use the caller tenant and the activation id. A cross-tenant id stays not found. | The existing lookup is `operating_tenant_id` plus `source_activation_id` (`transport_execution_repository.go` lines 224–229). |
+| Lost acknowledgement | The retry sends the committed body. | The uncertain result stays unresolved until the read, including a crash after the TMS commit. | An identical body can replay. A rebuilt body still conflicts. |
+| Concurrent activation | Both callers send the body committed with the one activation row. | Two different in-flight bodies can still race. B only stops the loser from forcing `REJECTED` without a read. | Two different bodies still produce one commit and one 409. |
+| Soft-delete carrier | An identical retry still reaches `requireCarrierTenant` first and can return 403. | 403 does not become `REJECTED` until the read shows the revision. | The lookup sees the stored revision before the carrier check. A different body remains 409. |
+| Crash recovery | After restart the pending row still has the original command. | Restart does not invent `REJECTED`. The next attempt reads TMS before a terminal mark. | Restart can replay only when the lookup runs first and the body matches. |
+| Digest consistency | The stored command is the digest. A live driver, carrier, or vehicle change is ignored on retry. | The live rebuild can still change the digest. B does not hide that conflict. | C does not freeze the command. |
+| TMS compatibility | The existing projection route accepts the same body. No TMS write-contract change. | NLO needs a read of the stored revision. That read is not an NLO client today. The write route stays as it is. | Reordering the carrier check and the replay lookup is a shipment-service change. The public command shape stays as it is. |
+| Migrations | A later migration must store the snapshot or its digest inputs. This document does not add it. | A new persisted state is a later migration. Reusing `PENDING_EXECUTION` until the read finishes does not require one. | No new table is required for the reorder. This document does not change shipment-service. |
+| Tests | Resend after a driver change and assert the stored command, not the live trip. | 409 and 403 leave the row unrejected until the read. | Soft-deleted carrier plus the original body returns the stored revision. A different body still returns 409. |
+| Implementation risk | A snapshot taken before TMS commit can preserve a command TMS later rejects. The snapshot must be the body that was sent, and a rejected first attempt must not be retried as success. | A reconcile state without a read leaves the activation pending forever. | Doing C without A still rejects a changed driver. Doing A without C still 403s after soft-delete. |
+
+`RECOMMENDED_OPTION=A_PLUS_B_PLUS_C`. A alone still 403s after a soft-delete. B alone still rebuilds a different command. C alone still 409s when the live driver or carrier changed. The three together cover the lost acknowledgement, the concurrent rebuild, and the soft-delete. This recommendation is not a controller decision and does not authorize the migration, the new read, or the shipment-service reorder. Chain execution stays false.
 
 Tenant controls that exist today, and what they are not:
 
@@ -157,7 +191,7 @@ Tenant controls that exist today, and what they are not:
 | NLO execution feedback | No consumer and no successor client. |
 | Freshness vocabulary | Producer lowercase `fresh` fails the NLO `"FRESH"` checks. |
 | Same-plan reapply | One activation row is not inserted twice. A pending retry can still diverge from the committed TMS body. |
-| Pending retry digest drift | `AP-NLO10F-J-001`. Lost acknowledgement, then a changed driver or carrier, or a soft-deleted carrier, can leave TMS active and NLO `REJECTED`. |
+| Pending retry digest drift | `PRODUCTION_BLOCKER`. Lost acknowledgement, then a changed driver or carrier, can leave TMS active and NLO `REJECTED`. A live vehicle change does not enter the retried command. Soft-delete of the carrier is the 403 path. |
 | Staging and production | Not changed and not verified here. |
 
 ### 4.3 Failure modes
@@ -165,7 +199,7 @@ Tenant controls that exist today, and what they are not:
 | Failure | Current result | Safe continuation | Forbidden action |
 | --- | --- | --- | --- |
 | TMS timeout or 5xx before a commit | Temporary error, activation stays `PENDING_EXECUTION`, HTTP 200 | A later activate calls `projectionCommand` again | Do not treat that retry as the same digest. Do not insert a second activation row. |
-| TMS timeout or 5xx after TMS has committed | NLO still sees a temporary error and stays `PENDING_EXECUTION` | The next activate rebuilds carrier and driver | Do not call the retry safe. A changed carrier or driver becomes the 409 row below. |
+| TMS timeout, acknowledgement decode error, or 5xx after TMS has committed | NLO still sees a temporary error and stays `PENDING_EXECUTION` | The next activate rebuilds carrier and driver. It does not copy a new live vehicle | Do not call the retry safe. A changed carrier or driver becomes the 409 row below. |
 | TMS 409 `ACTIVATION_BODY_CONFLICT` after a committed projection | NLO marks `REJECTED`. TMS keeps the execution | Stop and reconcile outside this stage | Do not create a second activation id for the same plan. Do not claim NLO can cancel the TMS execution. |
 | TMS 403 after the carrier row is soft-deleted | `requireCarrierTenant` fails before the digest replay. NLO marks `REJECTED` | Stop | Do not describe 403 as proof that TMS has no execution. |
 | TMS 400, or 409 before any commit | Activation becomes `REJECTED` | Stop | Do not retry that body under a new activation id. |
@@ -212,19 +246,24 @@ These tasks are not authorized. Each one stops rather than widening into chain e
 
 ## 7. Tests for a later stage
 
-No new test runs in this discovery. A later stage, after approval, would need:
+No test in this table was run in this stage. `PASS` is not claimed.
 
-- Replay of the same activation id and digest against shipment-service.
-- A changed body for the same activation id returning conflict.
-- Temporary TMS failure before commit leaving `PENDING_EXECUTION`, with the next command rebuilt from the live trip.
-- Lost acknowledgement, then a changed driver or carrier, then TMS 409, with NLO `REJECTED` and the TMS execution still present.
-- Soft-deleted carrier after a committed projection, then TMS 403, with the same split.
-- Two overlapping activate calls for one pending row with different live carrier or driver values.
-- Permanent TMS rejection leaving `REJECTED` and a second call not projecting.
-- Cross-tenant plan id returning not found.
-- Carrier company in another tenant returning the tenant denial.
-- Producer `fresh` asserted separately from the `"FRESH"` gate, without changing the gate in the same change.
-- `execution_supported=false` on the chain response after any of the above.
+| Future test | Expected observation | Status |
+| --- | --- | --- |
+| Lost acknowledgement after a successful TMS commit | NLO stays `PENDING_EXECUTION` while the TMS revision exists | `NOT_RUN` |
+| Driver change between attempts | The retried command carries the new driver and the digest differs | `NOT_RUN` |
+| Carrier change between attempts | The retried command carries the new carrier and the digest differs | `NOT_RUN` |
+| Vehicle change on the live trip | The retried command keeps `graph.Plan.VehicleID` | `NOT_RUN` |
+| Soft-delete of the carrier after the TMS commit | 403 from `requireCarrierTenant` before digest replay | `NOT_RUN` |
+| Concurrent activate | Two live commands for one pending row; the loser can mark `REJECTED` | `NOT_RUN` |
+| Digest mismatch | TMS 409 `ACTIVATION_BODY_CONFLICT` | `NOT_RUN` |
+| TMS execution still present when NLO is `REJECTED` | The revision remains after the 409 or 403 rejection | `NOT_RUN` |
+| Crash and retry | A process restart after the TMS commit follows the pending rebuild | `NOT_RUN` |
+| Cross-tenant replay denial | A different operating tenant does not read or replay the stored revision | `NOT_RUN` |
+| Same activation id and same digest | TMS replay, `Created=false` | `NOT_RUN` |
+| Carrier company in another tenant | `TENANT_DENIED` | `NOT_RUN` |
+| Producer `fresh` versus the `"FRESH"` gate | The gate does not treat producer `fresh` as fresh | `NOT_RUN` |
+| Chain response after any of the above | `execution_supported=false` | `NOT_RUN` |
 
 ## 8. Findings from Agent J
 
@@ -232,7 +271,7 @@ These rows record the review of `8d7e9f9c`. They are not closed. Agent J has not
 
 | Finding ID | Severity | Evidence | Proposed correction | Review status |
 | --- | --- | --- | --- | --- |
-| `AP-NLO10F-J-001` | MEDIUM | A pending retry rebuilds `CarrierCompanyID` and `DriverID`. `CanonicalDigest` includes both. After a lost acknowledgement, 409 or a later 403 marks NLO `REJECTED` while TMS keeps the execution. Section 4.3 previously called the retry safe. | Sections 2.2, 3, 4.2, 4.3, and 7 now record the split and three unapproved options. No product code changes. | `DOC_REMEDIATED_PENDING_J` |
+| `AP-NLO10F-J-001` | MEDIUM | A pending retry rebuilds `CarrierCompanyID` and `DriverID`. `CanonicalDigest` includes both. After a lost acknowledgement, 409 or a later 403 marks NLO `REJECTED` while TMS keeps the execution. Section 4.3 previously called the retry safe. | Sections 2.2 and 4.3 now give the nine-step sequence, the soft-delete path, and `PRODUCTION_BLOCKER`. Section 3 compares A, B, and C. The recommendation `A_PLUS_B_PLUS_C` is not approved. | `DOC_REMEDIATED_PENDING_J` |
 | `AP-NLO10F-J-002` | LOW | The discovery called the PR #367 proof "1.0E". The merged title and test are v1.0D and `TestNLO10D_TrackingAndETARealHandlers`. | Sections 4.4, 5, and 6 now use 1.0D. | `DOC_REMEDIATED_PENDING_J` |
 
 `STALE_BASE` from that review is addressed by merging `892361db` into this branch. The merge does not change the NLO, shipment, tracking, or Control Tower service code cited above.
@@ -246,7 +285,7 @@ TMS_HANDOFF_READY=NO
 CHAIN_EXECUTION_SUPPORTED=NO
 READY_FOR_0_9D_RUNTIME=NO
 PRODUCTION_CONSUMER_READINESS=BLOCKED
-PENDING_RETRY_DIGEST_DRIFT=DOCUMENTED
+PENDING_RETRY_DIGEST_DRIFT=PRODUCTION_BLOCKER
 CONTROLLER_APPROVAL_REQUIRED=YES
 MERGE_PERFORMED=NO
 ```
