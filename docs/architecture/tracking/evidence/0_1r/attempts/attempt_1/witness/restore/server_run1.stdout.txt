@@ -1,0 +1,25 @@
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "pid": 48108, "records": 0, "t": 1794937080.0420012}
+{"body_ns": "ns-r", "body_request_id": null, "event": "request", "op": "epoch_set", "principal": "operator", "seq": 1, "status": "EPOCH_SET", "t": 1794937080.1555626}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "OK", "t": 1794937080.258292}
+{"body_ns": "ns-r", "body_request_id": "k1", "event": "request", "op": "reserve", "principal": "issuer_a", "seq": 2, "status": "RESERVED", "t": 1794937080.4527996}
+{"body_ns": "ns-r", "body_request_id": "k1", "event": "request", "op": "outcome", "principal": "issuer_a", "seq": 3, "status": "APPENDED", "t": 1794937080.6667883}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "OK", "t": 1794937081.0643415}
+{"body_ns": "ns-r", "body_request_id": "k2", "event": "request", "op": "reserve", "principal": "issuer_a", "seq": 4, "status": "RESERVED", "t": 1794937081.2673833}
+{"body_ns": "ns-r", "body_request_id": "k2", "event": "request", "op": "outcome", "principal": "issuer_a", "seq": 5, "status": "APPENDED", "t": 1794937081.4682791}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "OK", "t": 1794937081.581175}
+{"body_ns": "ns-r", "body_request_id": "k3", "event": "request", "op": "reserve", "principal": "issuer_a", "seq": 6, "status": "RESERVED", "t": 1794937081.7839644}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "OK", "t": 1794937083.7337406}
+{"body_ns": "ns-r", "body_request_id": "k3", "event": "request", "op": "outcome", "principal": "issuer_a", "seq": 7, "status": "APPENDED", "t": 1794937083.7467446}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "OK", "t": 1794937083.74873}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "OK", "t": 1794937084.2429464}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937084.2579975}
+{"body_ns": "ns-r", "body_request_id": "k3", "event": "request", "op": "outcome", "principal": "operator", "seq": null, "status": "INVALID_TRANSITION", "t": 1794937084.448129}
+{"body_ns": "ns-r", "body_request_id": "k3", "event": "request", "op": "outcome", "principal": "operator", "seq": 8, "status": "APPENDED", "t": 1794937084.4544258}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "OK", "t": 1794937084.5570483}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937084.7767448}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937085.1996503}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937085.2020707}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937085.203067}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "OK", "t": 1794937085.206596}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "shutdown", "principal": "harness", "seq": null, "status": "SHUTDOWN", "t": 1794937085.483389}
+{"event": "stopped", "t": 1794937085.483389}

@@ -1,0 +1,39 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-u"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:40:32.833580+00:00",
+    "witness": "unavail"
+  },
+  {
+    "app": "a3-w051-u-down",
+    "events": [
+      "start",
+      "witness_unavailable"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-u",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "error": "connect:FileNotFoundError",
+      "result": "ISSUE_DENIED_WITNESS_UNAVAILABLE"
+    },
+    "t": "2026-11-17T17:40:33.191558+00:00",
+    "t_end": "2026-11-17T17:40:33.191558+00:00",
+    "t_start": "2026-11-17T17:40:33.048923+00:00",
+    "tag": "w051-u-down"
+  }
+]

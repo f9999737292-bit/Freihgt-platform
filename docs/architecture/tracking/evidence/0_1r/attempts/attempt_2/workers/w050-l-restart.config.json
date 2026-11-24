@@ -1,0 +1,26 @@
+{
+  "app": "a2-w050-l-restart",
+  "container": "bintrans-proof-0-1r-77a2511d",
+  "db": "wproof_77a2511d",
+  "epoch": 1,
+  "fault": "",
+  "incarnation": "b166d312-4fd1-43db-b0d8-0da92c83153c",
+  "mode": "issue",
+  "ns": "ns-l",
+  "payload": {
+    "execution_ids": [
+      "exe-2",
+      "exe-1"
+    ],
+    "expected_epoch": 1,
+    "expected_revision": 1,
+    "operation": "ISSUE_TRACKING_BINDING",
+    "shipment": "shp-k1",
+    "sub": "user-0.1r-test",
+    "tenant_id": "tenant-0.1r-test"
+  },
+  "pg_role": "wproof_issuer",
+  "pipe": "bintrans-0-1r-77a2511d-lostack",
+  "principal": "issuer_a",
+  "request_id": "k1"
+}

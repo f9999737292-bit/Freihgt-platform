@@ -1,0 +1,282 @@
+[
+  {
+    "from": "RESERVED",
+    "to": "COMMIT_CONFIRMED",
+    "role": "issuer",
+    "expected": "APPENDED",
+    "observed": "APPENDED"
+  },
+  {
+    "from": "RESERVED",
+    "to": "COMMIT_CONFIRMED",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "RESERVED",
+    "to": "ABORT_CONFIRMED",
+    "role": "issuer",
+    "expected": "APPENDED",
+    "observed": "APPENDED"
+  },
+  {
+    "from": "RESERVED",
+    "to": "ABORT_CONFIRMED",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "RESERVED",
+    "to": "IN_DOUBT",
+    "role": "issuer",
+    "expected": "APPENDED",
+    "observed": "APPENDED"
+  },
+  {
+    "from": "RESERVED",
+    "to": "IN_DOUBT",
+    "role": "operator",
+    "expected": "APPENDED",
+    "observed": "APPENDED"
+  },
+  {
+    "from": "RESERVED",
+    "to": "PERMANENTLY_DENIED",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "RESERVED",
+    "to": "PERMANENTLY_DENIED",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "COMMIT_CONFIRMED",
+    "to": "COMMIT_CONFIRMED",
+    "role": "issuer",
+    "expected": "IDEMPOTENT",
+    "observed": "IDEMPOTENT"
+  },
+  {
+    "from": "COMMIT_CONFIRMED",
+    "to": "COMMIT_CONFIRMED",
+    "role": "operator",
+    "expected": "IDEMPOTENT",
+    "observed": "IDEMPOTENT"
+  },
+  {
+    "from": "COMMIT_CONFIRMED",
+    "to": "ABORT_CONFIRMED",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "COMMIT_CONFIRMED",
+    "to": "ABORT_CONFIRMED",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "COMMIT_CONFIRMED",
+    "to": "IN_DOUBT",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "COMMIT_CONFIRMED",
+    "to": "IN_DOUBT",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "COMMIT_CONFIRMED",
+    "to": "PERMANENTLY_DENIED",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "COMMIT_CONFIRMED",
+    "to": "PERMANENTLY_DENIED",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "ABORT_CONFIRMED",
+    "to": "COMMIT_CONFIRMED",
+    "role": "issuer",
+    "expected": "APPENDED",
+    "observed": "APPENDED"
+  },
+  {
+    "from": "ABORT_CONFIRMED",
+    "to": "COMMIT_CONFIRMED",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "ABORT_CONFIRMED",
+    "to": "ABORT_CONFIRMED",
+    "role": "issuer",
+    "expected": "IDEMPOTENT",
+    "observed": "IDEMPOTENT"
+  },
+  {
+    "from": "ABORT_CONFIRMED",
+    "to": "ABORT_CONFIRMED",
+    "role": "operator",
+    "expected": "IDEMPOTENT",
+    "observed": "IDEMPOTENT"
+  },
+  {
+    "from": "ABORT_CONFIRMED",
+    "to": "IN_DOUBT",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "ABORT_CONFIRMED",
+    "to": "IN_DOUBT",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "ABORT_CONFIRMED",
+    "to": "PERMANENTLY_DENIED",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "ABORT_CONFIRMED",
+    "to": "PERMANENTLY_DENIED",
+    "role": "operator",
+    "expected": "APPENDED",
+    "observed": "APPENDED"
+  },
+  {
+    "from": "IN_DOUBT",
+    "to": "COMMIT_CONFIRMED",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "IN_DOUBT",
+    "to": "COMMIT_CONFIRMED",
+    "role": "operator",
+    "expected": "APPENDED",
+    "observed": "APPENDED"
+  },
+  {
+    "from": "IN_DOUBT",
+    "to": "ABORT_CONFIRMED",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "IN_DOUBT",
+    "to": "ABORT_CONFIRMED",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "IN_DOUBT",
+    "to": "IN_DOUBT",
+    "role": "issuer",
+    "expected": "IDEMPOTENT",
+    "observed": "IDEMPOTENT"
+  },
+  {
+    "from": "IN_DOUBT",
+    "to": "IN_DOUBT",
+    "role": "operator",
+    "expected": "IDEMPOTENT",
+    "observed": "IDEMPOTENT"
+  },
+  {
+    "from": "IN_DOUBT",
+    "to": "PERMANENTLY_DENIED",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "IN_DOUBT",
+    "to": "PERMANENTLY_DENIED",
+    "role": "operator",
+    "expected": "APPENDED",
+    "observed": "APPENDED"
+  },
+  {
+    "from": "PERMANENTLY_DENIED",
+    "to": "COMMIT_CONFIRMED",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "PERMANENTLY_DENIED",
+    "to": "COMMIT_CONFIRMED",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "PERMANENTLY_DENIED",
+    "to": "ABORT_CONFIRMED",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "PERMANENTLY_DENIED",
+    "to": "ABORT_CONFIRMED",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "PERMANENTLY_DENIED",
+    "to": "IN_DOUBT",
+    "role": "issuer",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "PERMANENTLY_DENIED",
+    "to": "IN_DOUBT",
+    "role": "operator",
+    "expected": "INVALID_TRANSITION",
+    "observed": "INVALID_TRANSITION"
+  },
+  {
+    "from": "PERMANENTLY_DENIED",
+    "to": "PERMANENTLY_DENIED",
+    "role": "issuer",
+    "expected": "IDEMPOTENT",
+    "observed": "IDEMPOTENT"
+  },
+  {
+    "from": "PERMANENTLY_DENIED",
+    "to": "PERMANENTLY_DENIED",
+    "role": "operator",
+    "expected": "IDEMPOTENT",
+    "observed": "IDEMPOTENT"
+  }
+]

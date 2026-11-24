@@ -1,0 +1,1375 @@
+[
+  {
+    "id": "W1-RESERVE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "First reserve of (ns, k1) is RESERVED",
+    "observed": {
+      "status": "RESERVED",
+      "seq": 2,
+      "epoch": 1
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-SECOND-RESERVE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "Second reserve of the same key is DUPLICATE and appends nothing",
+    "observed": {
+      "response": {
+        "status": "DUPLICATE",
+        "state": "RESERVED",
+        "reservation_seq": 2
+      },
+      "records": [
+        2,
+        2
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NON-HOLDER-RESERVE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "A non-holder issuer cannot reserve",
+    "observed": {
+      "status": "NOT_EPOCH_HOLDER",
+      "holder": "issuer_a",
+      "epoch": 1
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-OPERATOR-CANNOT-RESERVE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "operator cannot reserve",
+    "observed": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-AUDITOR-CANNOT-RESERVE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "auditor cannot reserve",
+    "observed": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-BAD-SIGNATURE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "A request signed with the wrong key is AUTH_FAILED",
+    "observed": {
+      "status": "AUTH_FAILED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-TICKET-MISMATCH",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "Outcome citing a different ticket_id is rejected",
+    "observed": {
+      "status": "TICKET_MISMATCH"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NOT-OWNER",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "Another issuer cannot append the outcome",
+    "observed": {
+      "status": "NOT_RESERVATION_OWNER"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-EVIDENCE-REQUIRED",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "COMMIT_CONFIRMED without a commit acknowledgement is rejected",
+    "observed": {
+      "status": "EVIDENCE_REQUIRED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-COMMIT",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Owner appends COMMIT_CONFIRMED for its reservation",
+    "observed": {
+      "status": "APPENDED",
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-OUTCOME-IDEMPOTENT",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Repeating the same outcome is IDEMPOTENT and appends nothing",
+    "observed": {
+      "response": {
+        "status": "IDEMPOTENT",
+        "state": "COMMIT_CONFIRMED"
+      },
+      "records": [
+        3,
+        3
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-DELETE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "There is no 'delete' operation (UNSUPPORTED_OP)",
+    "observed": {
+      "status": "UNSUPPORTED_OP",
+      "op": "delete"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-UPDATE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "There is no 'update' operation (UNSUPPORTED_OP)",
+    "observed": {
+      "status": "UNSUPPORTED_OP",
+      "op": "update"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-TRUNCATE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "There is no 'truncate' operation (UNSUPPORTED_OP)",
+    "observed": {
+      "status": "UNSUPPORTED_OP",
+      "op": "truncate"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-REWRITE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "There is no 'rewrite' operation (UNSUPPORTED_OP)",
+    "observed": {
+      "status": "UNSUPPORTED_OP",
+      "op": "rewrite"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-RELEASE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "There is no 'release' operation (UNSUPPORTED_OP)",
+    "observed": {
+      "status": "UNSUPPORTED_OP",
+      "op": "release"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-RESERVATION",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "Outcome without a reservation is rejected",
+    "observed": {
+      "status": "NO_RESERVATION"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-EPOCH-MONOTONIC",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "Epoch cannot be set to a value not above the current one",
+    "observed": {
+      "status": "EPOCH_NOT_MONOTONIC",
+      "current": {
+        "epoch": 1,
+        "holder": "issuer_a"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-EPOCH-ROLE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "An issuer cannot set the fencing epoch",
+    "observed": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-CHECKPOINT",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Operator records the accepted sequence",
+    "observed": {
+      "status": "CHECKPOINT_ACCEPTED",
+      "checkpoint": {
+        "seq": 3,
+        "head_hash": "85d8f737777ee2bea529841f500faca5500d747b07a0a02963045f468973435b"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-CHECKPOINT-NO-LOWER",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "The accepted sequence cannot be lowered",
+    "observed": {
+      "status": "CHECKPOINT_LOWER_REJECTED",
+      "current": {
+        "seq": 3,
+        "head_hash": "85d8f737777ee2bea529841f500faca5500d747b07a0a02963045f468973435b"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-CHECKPOINT-HASH",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "A checkpoint with a wrong head hash is rejected",
+    "observed": {
+      "status": "CHECKPOINT_HASH_MISMATCH"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-CHECKPOINT-ROLE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "An issuer cannot move the checkpoint",
+    "observed": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-FAULT-ROLE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "Only the test harness principal can arm faults",
+    "observed": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-NO-TIMEOUT-RELEASE",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "A RESERVED key is still taken after a 3 s wait (no expiry)",
+    "observed": {
+      "status": "DUPLICATE",
+      "state": "RESERVED",
+      "reservation_seq": 4
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-SURVIVES-RESTART",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "After restart: k1 COMMIT_CONFIRMED with full history (reserve + outcome), k2 still RESERVED, same record count",
+    "observed": {
+      "shutdown_exit": 0,
+      "k1": {
+        "state": "COMMIT_CONFIRMED",
+        "ticket_id": "2e23a5c6-cb3c-46b4-b473-53ee0b80a85b",
+        "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+        "principal": "issuer_a",
+        "epoch": 1,
+        "incarnation": "i1",
+        "history": [
+          2,
+          3
+        ]
+      },
+      "k2": {
+        "state": "RESERVED",
+        "ticket_id": "3ff06386-c0da-4b0c-bc8c-32c218eac281",
+        "payload_hash": "6b175d0c072431e80bcf2178a00ae3ae4f3038e82618984fd76062af6c970585",
+        "principal": "issuer_a",
+        "epoch": 1,
+        "incarnation": "i6",
+        "history": [
+          4
+        ]
+      },
+      "records": 4,
+      "checkpoint": {
+        "seq": 3,
+        "head_hash": "85d8f737777ee2bea529841f500faca5500d747b07a0a02963045f468973435b"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-TRANSITION-MATRIX",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "All 40 (from_state, outcome, role) cases match the 0.1P table: allowed -> APPENDED, same state -> IDEMPOTENT, everything else -> INVALID_TRANSITION",
+    "observed": {
+      "cases": 40,
+      "mismatches": []
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W1-IN-DOUBT-NEVER-ABORT",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "IN_DOUBT -> ABORT_CONFIRMED is rejected for issuer and operator",
+    "observed": [
+      {
+        "from": "IN_DOUBT",
+        "to": "ABORT_CONFIRMED",
+        "role": "issuer",
+        "expected": "INVALID_TRANSITION",
+        "observed": "INVALID_TRANSITION"
+      },
+      {
+        "from": "IN_DOUBT",
+        "to": "ABORT_CONFIRMED",
+        "role": "operator",
+        "expected": "INVALID_TRANSITION",
+        "observed": "INVALID_TRANSITION"
+      }
+    ],
+    "result": "PASS"
+  },
+  {
+    "id": "W1-TERMINAL-STATES",
+    "scenario": "W1_STATE_MACHINE",
+    "kind": "DENIAL",
+    "description": "COMMIT_CONFIRMED and PERMANENTLY_DENIED accept no other outcome",
+    "observed": 12,
+    "result": "PASS"
+  },
+  {
+    "id": "W2-RACE-1",
+    "scenario": "W2_CONCURRENT_RESERVE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Round 1: 8 concurrent processes reserve one key; exactly one RESERVED, 7 DUPLICATE, one RESERVE record",
+    "observed": {
+      "results": [
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "RESERVED",
+        "DUPLICATE"
+      ],
+      "reserve_records": 1
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W2-RACE-2",
+    "scenario": "W2_CONCURRENT_RESERVE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Round 2: 8 concurrent processes reserve one key; exactly one RESERVED, 7 DUPLICATE, one RESERVE record",
+    "observed": {
+      "results": [
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "RESERVED"
+      ],
+      "reserve_records": 1
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W2-RACE-3",
+    "scenario": "W2_CONCURRENT_RESERVE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Round 3: 8 concurrent processes reserve one key; exactly one RESERVED, 7 DUPLICATE, one RESERVE record",
+    "observed": {
+      "results": [
+        "DUPLICATE",
+        "DUPLICATE",
+        "RESERVED",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE"
+      ],
+      "reserve_records": 1
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "W2-SINGLE-WRITER",
+    "scenario": "W2_CONCURRENT_RESERVE",
+    "kind": "DENIAL",
+    "description": "A second witness process on the same store refuses to start (exit 3, store_locked)",
+    "observed": {
+      "exit": 3,
+      "stdout": [
+        "{\"event\": \"store_locked\", \"store\": \"store\", \"t\": 1794937060.2547348}"
+      ],
+      "first_still_serving": "OK"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "S0-ISSUE-OK",
+    "scenario": "S0_NORMAL",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Normal issuance returns ISSUE_OK with the ticket in PostgreSQL and COMMIT_CONFIRMED",
+    "observed": {
+      "result": {
+        "result": "ISSUE_OK",
+        "resumed": false,
+        "ticket_id": "8c9d0dfa-1218-40aa-a0f0-5732165517ae"
+      },
+      "rows": [
+        {
+          "issued_by": "issuer_a",
+          "ticket_id": "8c9d0dfa-1218-40aa-a0f0-5732165517ae",
+          "request_id": "k1",
+          "witness_seq": 2,
+          "payload_hash": "16e54b4e4277d27fea6678229487b054111c47455715cc18416458976aaf1980"
+        }
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "S0-RESERVE-BEFORE-PG",
+    "scenario": "S0_NORMAL",
+    "kind": "ORDERING",
+    "description": "Witness RESERVED is received before the PostgreSQL ticket transaction begins",
+    "observed": {
+      "events": [
+        "start",
+        "witness_export",
+        "pg_read_rows",
+        "gate",
+        "witness_reserve",
+        "pg_begin_sent",
+        "pg_begin",
+        "pg_insert",
+        "pg_commit",
+        "witness_outcome"
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SA-STATE-AFTER-CRASH",
+    "scenario": "S_A_CRASH_AFTER_RESERVATION",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Process died after RESERVED: exit 137, witness RESERVED, no PostgreSQL ticket transaction, no ticket",
+    "observed": {
+      "exit": 137,
+      "state": "RESERVED",
+      "rows": [],
+      "txn_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SA-RESTART-IN-DOUBT",
+    "scenario": "S_A_CRASH_AFTER_RESERVATION",
+    "kind": "DENIAL",
+    "description": "Restarted process marks the old reservation IN_DOUBT and issues nothing",
+    "observed": {
+      "result": "ISSUE_DENIED_IN_DOUBT",
+      "state": "IN_DOUBT"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SA-GATE-CLOSED-WHILE-IN-DOUBT",
+    "scenario": "S_A_CRASH_AFTER_RESERVATION",
+    "kind": "DENIAL",
+    "description": "A new request in the namespace is refused while a key is IN_DOUBT",
+    "observed": {
+      "reasons": [
+        "OPEN_RESERVATIONS:k1"
+      ],
+      "result": "ISSUE_DENIED_GATE_CLOSED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SA-RECONCILE",
+    "scenario": "S_A_CRASH_AFTER_RESERVATION",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Reconciliation: automatic ABORT_CONFIRMED rejected; tombstone absent -> PERMANENTLY_DENIED",
+    "observed": {
+      "key": "ns-a|k1",
+      "witness_state_before": "IN_DOUBT",
+      "pg_row": null,
+      "auto_abort": "INVALID_TRANSITION",
+      "decision": "PERMANENTLY_DENIED",
+      "append": "APPENDED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SA-RETRY-DENIED",
+    "scenario": "S_A_CRASH_AFTER_RESERVATION",
+    "kind": "DENIAL",
+    "description": "Retry of the same request after reconciliation is ISSUE_DENIED_PERMANENTLY",
+    "observed": {
+      "result": "ISSUE_DENIED_PERMANENTLY",
+      "state": "PERMANENTLY_DENIED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SA-NEW-KEY-AFTER-RECONCILE",
+    "scenario": "S_A_CRASH_AFTER_RESERVATION",
+    "kind": "POSITIVE_CONTROL",
+    "description": "After reconciliation a new request_id issues normally",
+    "observed": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "0254597a-ce0c-435a-91ce-42ac214b5c5b"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SPC-STATE",
+    "scenario": "S_CRASH_BEFORE_PG_COMMIT",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Died after INSERT before COMMIT: exit 137, open transaction rolled back by the server, witness RESERVED",
+    "observed": {
+      "exit": 137,
+      "events": [
+        "start",
+        "witness_export",
+        "pg_read_rows",
+        "gate",
+        "witness_reserve",
+        "pg_begin_sent",
+        "pg_begin",
+        "pg_insert",
+        "fault_crash"
+      ],
+      "rows": [],
+      "state": "RESERVED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SPC-NO-SECOND-TICKET",
+    "scenario": "S_CRASH_BEFORE_PG_COMMIT",
+    "kind": "DENIAL",
+    "description": "Restart -> IN_DOUBT; reconciliation -> PERMANENTLY_DENIED (never ABORT); retry denied; zero tickets; one reservation",
+    "observed": {
+      "restart": {
+        "result": "ISSUE_DENIED_IN_DOUBT",
+        "state": "IN_DOUBT"
+      },
+      "reconcile": {
+        "key": "ns-pc|k1",
+        "witness_state_before": "IN_DOUBT",
+        "pg_row": null,
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "PERMANENTLY_DENIED",
+        "append": "APPENDED"
+      },
+      "retry": {
+        "result": "ISSUE_DENIED_PERMANENTLY",
+        "state": "PERMANENTLY_DENIED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SB-STATE",
+    "scenario": "S_B_COMMIT_WITHOUT_OUTCOME",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Died after COMMIT before outcome: ticket row present, witness still RESERVED, no response/ticket id returned",
+    "observed": {
+      "exit": 137,
+      "rows": [
+        {
+          "issued_by": "issuer_a",
+          "ticket_id": "4fb0fe4d-c74b-4c58-8847-571c6a1e6a28",
+          "request_id": "k1",
+          "witness_seq": 15,
+          "payload_hash": "51243fabb9015243b9ed53bd4d82c65f5ac8da8c0156b5d8367d6c065e943343"
+        }
+      ],
+      "state": "RESERVED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SB-NO-GRANT-WHILE-IN-DOUBT",
+    "scenario": "S_B_COMMIT_WITHOUT_OUTCOME",
+    "kind": "DENIAL",
+    "description": "Before reconciliation the retry gets no ticket (IN_DOUBT) and other requests are refused (gate closed)",
+    "observed": {
+      "retry": {
+        "result": "ISSUE_DENIED_IN_DOUBT",
+        "state": "IN_DOUBT"
+      },
+      "other": {
+        "reasons": [
+          "OPEN_RESERVATIONS:k1"
+        ],
+        "result": "ISSUE_DENIED_GATE_CLOSED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SB-RECONCILE-EVIDENCE-BOUND",
+    "scenario": "S_B_COMMIT_WITHOUT_OUTCOME",
+    "kind": "DENIAL",
+    "description": "Operator COMMIT_CONFIRMED citing a different tombstone ticket is rejected",
+    "observed": {
+      "status": "EVIDENCE_MISMATCH"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SB-RECONCILE-COMMIT",
+    "scenario": "S_B_COMMIT_WITHOUT_OUTCOME",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Matching tombstone -> COMMIT_CONFIRMED; retry replays the same ticket; still one row and one reservation",
+    "observed": {
+      "reconcile": {
+        "key": "ns-b|k1",
+        "witness_state_before": "IN_DOUBT",
+        "pg_row": {
+          "issued_by": "issuer_a",
+          "ticket_id": "4fb0fe4d-c74b-4c58-8847-571c6a1e6a28",
+          "request_id": "k1",
+          "witness_seq": 15,
+          "payload_hash": "51243fabb9015243b9ed53bd4d82c65f5ac8da8c0156b5d8367d6c065e943343"
+        },
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "COMMIT_CONFIRMED",
+        "append": "APPENDED"
+      },
+      "retry": {
+        "result": "ISSUE_REPLAY_ISSUED",
+        "ticket_id": "4fb0fe4d-c74b-4c58-8847-571c6a1e6a28"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SC-ABORT-CONFIRMED",
+    "scenario": "S_C_ROLLBACK",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Observed ROLLBACK -> ABORT_CONFIRMED; reservation kept; no ticket",
+    "observed": {
+      "result": {
+        "result": "ISSUE_ABORTED",
+        "witness": "APPENDED"
+      },
+      "key": {
+        "state": "ABORT_CONFIRMED",
+        "ticket_id": "fffcd25f-fa7c-483b-98cd-3b13840ff40e",
+        "payload_hash": "77149372281e7df32589452fb21ea70bfa8621fb2bba123a87b2b810fc4d4964",
+        "principal": "issuer_a",
+        "epoch": 1,
+        "incarnation": "55b5ebb4-5243-4799-820a-fe63b19d8b34",
+        "history": [
+          19,
+          20
+        ]
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SC-NO-NEW-RESERVATION",
+    "scenario": "S_C_ROLLBACK",
+    "kind": "DENIAL",
+    "description": "ABORT_CONFIRMED does not free the key: a new reserve is DUPLICATE",
+    "observed": {
+      "status": "DUPLICATE",
+      "state": "ABORT_CONFIRMED",
+      "reservation_seq": 19
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SC-PAYLOAD-MISMATCH",
+    "scenario": "S_C_ROLLBACK",
+    "kind": "DENIAL",
+    "description": "Same request_id with a different payload is ISSUE_DENIED_PAYLOAD_MISMATCH",
+    "observed": {
+      "result": "ISSUE_DENIED_PAYLOAD_MISMATCH",
+      "state": "ABORT_CONFIRMED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SC-RESUME-SAME-RESERVATION",
+    "scenario": "S_C_ROLLBACK",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Retry resumes the same reservation: ISSUE_OK with the reserved ticket_id, one row, one RESERVE record",
+    "observed": {
+      "result": {
+        "result": "ISSUE_OK",
+        "resumed": true,
+        "ticket_id": "fffcd25f-fa7c-483b-98cd-3b13840ff40e"
+      },
+      "rows": [
+        {
+          "issued_by": "issuer_a",
+          "ticket_id": "fffcd25f-fa7c-483b-98cd-3b13840ff40e",
+          "request_id": "k1",
+          "witness_seq": 19,
+          "payload_hash": "77149372281e7df32589452fb21ea70bfa8621fb2bba123a87b2b810fc4d4964"
+        }
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SD1-IN-DOUBT",
+    "scenario": "S_D1_UNKNOWN_COMMIT_COMMITTED",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Unobserved COMMIT acknowledgement -> IN_DOUBT, no ticket id returned, row exists",
+    "observed": {
+      "result": {
+        "result": "ISSUE_IN_DOUBT",
+        "witness": "APPENDED"
+      },
+      "rows": [
+        {
+          "issued_by": "issuer_a",
+          "ticket_id": "d22a9985-e69c-4ae2-bb3e-5f1a5fb5766a",
+          "request_id": "k1",
+          "witness_seq": 23,
+          "payload_hash": "0c5d071a60036dbf4cbabd394ef5b8b4eb2949b02be8613b85cea054f564c82c"
+        }
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SD1-RECONCILE",
+    "scenario": "S_D1_UNKNOWN_COMMIT_COMMITTED",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Retry before reconciliation gets nothing; auto-abort rejected; matching row -> COMMIT_CONFIRMED; replay same ticket",
+    "observed": {
+      "retry1": {
+        "result": "ISSUE_DENIED_IN_DOUBT",
+        "state": "IN_DOUBT"
+      },
+      "reconcile": {
+        "key": "ns-d1|k1",
+        "witness_state_before": "IN_DOUBT",
+        "pg_row": {
+          "issued_by": "issuer_a",
+          "ticket_id": "d22a9985-e69c-4ae2-bb3e-5f1a5fb5766a",
+          "request_id": "k1",
+          "witness_seq": 23,
+          "payload_hash": "0c5d071a60036dbf4cbabd394ef5b8b4eb2949b02be8613b85cea054f564c82c"
+        },
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "COMMIT_CONFIRMED",
+        "append": "APPENDED"
+      },
+      "retry2": {
+        "result": "ISSUE_REPLAY_ISSUED",
+        "ticket_id": "d22a9985-e69c-4ae2-bb3e-5f1a5fb5766a"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SD2-IN-DOUBT",
+    "scenario": "S_D2_UNKNOWN_COMMIT_NOT_COMMITTED",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Connection lost during COMMIT -> IN_DOUBT, no ticket id returned; the row does not exist",
+    "observed": {
+      "result": {
+        "result": "ISSUE_IN_DOUBT",
+        "witness": "APPENDED"
+      },
+      "terminate": "t",
+      "commit_event": {
+        "done": false,
+        "event": "pg_commit",
+        "lost": true,
+        "mono": 0.813,
+        "ok": false,
+        "sqlstates": [
+          "57P01"
+        ],
+        "stderr": "FATAL:  57P01: terminating connection due to administrator command\nLOCATION:  ProcessInterrupts, postgres.c:3286\nserver closed the connection unexpectedly\n\tThis probably means the server terminated abnormally\n\tbefore or while processing the request.\nconnection to server was lost",
+        "t": 1794937074.7295117
+      },
+      "rows": []
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SD2-NO-AUTO-ABORT",
+    "scenario": "S_D2_UNKNOWN_COMMIT_NOT_COMMITTED",
+    "kind": "DENIAL",
+    "description": "Unknown outcome is never auto-converted to ABORT_CONFIRMED; it becomes PERMANENTLY_DENIED; retry gets no ticket",
+    "observed": {
+      "reconcile": {
+        "key": "ns-d2|k1",
+        "witness_state_before": "IN_DOUBT",
+        "pg_row": null,
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "PERMANENTLY_DENIED",
+        "append": "APPENDED"
+      },
+      "retry": {
+        "result": "ISSUE_DENIED_PERMANENTLY",
+        "state": "PERMANENTLY_DENIED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SE-REPLAY",
+    "scenario": "S_E_RESPONSE_LOST",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Lost response: retry returns ISSUE_REPLAY_ISSUED with the same ticket; no new witness record; one row",
+    "observed": {
+      "lost": {
+        "result": "RESPONSE_LOST"
+      },
+      "retry": {
+        "result": "ISSUE_REPLAY_ISSUED",
+        "ticket_id": "9cc977cd-6e1f-4409-875a-e2e894b1faae"
+      },
+      "records": [
+        32,
+        32
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SE-PAYLOAD-MISMATCH",
+    "scenario": "S_E_RESPONSE_LOST",
+    "kind": "DENIAL",
+    "description": "Retry with a different payload is ISSUE_DENIED_PAYLOAD_MISMATCH",
+    "observed": {
+      "result": "ISSUE_DENIED_PAYLOAD_MISMATCH",
+      "state": "COMMIT_CONFIRMED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SL-NO-PG-WITHOUT-ACK",
+    "scenario": "S_WITNESS_CRASH_AFTER_APPEND",
+    "kind": "DENIAL",
+    "description": "Witness died after the durable append but before replying: issuer gets no ack and does not start PostgreSQL",
+    "observed": {
+      "result": {
+        "error": "io:EOFError",
+        "result": "ISSUE_WITNESS_OUTCOME_UNKNOWN",
+        "stage": "reserve"
+      },
+      "witness_exit": 137,
+      "txn_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SL-DURABLE-RESERVATION",
+    "scenario": "S_WITNESS_CRASH_AFTER_APPEND",
+    "kind": "POSITIVE_CONTROL",
+    "description": "After witness restart the unacknowledged reservation is RESERVED; retry -> IN_DOUBT; reconciliation -> PERMANENTLY_DENIED",
+    "observed": {
+      "state_after_restart": "RESERVED",
+      "retry": {
+        "result": "ISSUE_DENIED_IN_DOUBT",
+        "state": "IN_DOUBT"
+      },
+      "reconcile": {
+        "key": "ns-l|k1",
+        "witness_state_before": "IN_DOUBT",
+        "pg_row": null,
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "PERMANENTLY_DENIED",
+        "append": "APPENDED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SU-DENIED",
+    "scenario": "S_WITNESS_UNAVAILABLE",
+    "kind": "DENIAL",
+    "description": "Witness down: ISSUE_DENIED_WITNESS_UNAVAILABLE and no PostgreSQL connection at all",
+    "observed": {
+      "result": {
+        "error": "connect:FileNotFoundError",
+        "result": "ISSUE_DENIED_WITNESS_UNAVAILABLE"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SU-NO-SIDE-EFFECT",
+    "scenario": "S_WITNESS_UNAVAILABLE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "After restart the witness has the same records and no reservation for k1",
+    "observed": {
+      "records": [
+        1,
+        1
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SR-SETUP",
+    "scenario": "S_STALE_PG_RESTORE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Before restore: k1, k2 issued, k3 committed in PostgreSQL but witness RESERVED; after restoring the old dump only k1 remains",
+    "observed": {
+      "before": [
+        "k1",
+        "k2",
+        "k3"
+      ],
+      "after": [
+        "k1"
+      ]
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SR-CONFIRMED-NOT-REISSUED",
+    "scenario": "S_STALE_PG_RESTORE",
+    "kind": "DENIAL",
+    "description": "k2 is COMMIT_CONFIRMED in the witness but missing in the restored DB: no new ticket, reconciliation required",
+    "observed": {
+      "pg_row": null,
+      "result": "ISSUE_DENIED_RECONCILIATION_REQUIRED",
+      "state": "COMMIT_CONFIRMED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SR-RESERVED-NOT-FREED",
+    "scenario": "S_STALE_PG_RESTORE",
+    "kind": "DENIAL",
+    "description": "k3 (committed before the restore, row now gone) stays blocked: retry IN_DOUBT; auto-abort rejected; -> PERMANENTLY_DENIED, not a free request_id",
+    "observed": {
+      "retry": {
+        "result": "ISSUE_DENIED_IN_DOUBT",
+        "state": "IN_DOUBT"
+      },
+      "reconcile": {
+        "key": "ns-r|k3",
+        "witness_state_before": "IN_DOUBT",
+        "pg_row": null,
+        "auto_abort": "INVALID_TRANSITION",
+        "decision": "PERMANENTLY_DENIED",
+        "append": "APPENDED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SR-GATE-CLOSED",
+    "scenario": "S_STALE_PG_RESTORE",
+    "kind": "DENIAL",
+    "description": "A new request after the stale restore is refused: gate CLOSED because a confirmed ticket is missing in PostgreSQL",
+    "observed": {
+      "reasons": [
+        "CONFIRMED_TICKET_MISSING_OR_DIFFERENT_IN_PG:k2"
+      ],
+      "result": "ISSUE_DENIED_GATE_CLOSED"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SR-PG-ALONE-WOULD-ACCEPT",
+    "scenario": "S_STALE_PG_RESTORE",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "Without the witness, the restored database accepts a second ticket for k2 (insert succeeds; rolled back by harness)",
+    "observed": {
+      "stdout": "BEGIN\nINSERT 0 1\nINSERTED=1\nROLLBACK\n",
+      "stderr": ""
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SR-FINAL",
+    "scenario": "S_STALE_PG_RESTORE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Final restored DB holds only k1; each key has exactly one witness reservation",
+    "observed": [
+      "k1"
+    ],
+    "result": "PASS"
+  },
+  {
+    "id": "SS-HANDOVER",
+    "scenario": "S_SPLIT_BRAIN",
+    "kind": "POSITIVE_CONTROL",
+    "description": "A issued k1 and holds an in-flight reservation k0; operator moves epoch 2 to B",
+    "observed": {
+      "k1": {
+        "result": "ISSUE_OK",
+        "resumed": false,
+        "ticket_id": "ce6af165-79ad-4589-ba5a-aa491e8d3a62"
+      },
+      "k0": {
+        "status": "RESERVED",
+        "seq": 4,
+        "epoch": 1
+      },
+      "epoch": {
+        "status": "EPOCH_SET",
+        "seq": 5
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SS-OLD-COMMIT-NOT-FENCED",
+    "scenario": "S_SPLIT_BRAIN",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "After handover, old issuer A's PostgreSQL COMMIT for its earlier reservation k0 still succeeds; the witness does not stop it and accepts A's outcome for that existing reservation",
+    "observed": {
+      "insert": "INSERT 0 1",
+      "outcome": {
+        "status": "APPENDED",
+        "seq": 6,
+        "state": "COMMIT_CONFIRMED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SS-OLD-ISSUER-CANNOT-RESERVE",
+    "scenario": "S_SPLIT_BRAIN",
+    "kind": "DENIAL",
+    "description": "Old issuer A cannot start new issuance (gate: not epoch holder) and the witness refuses its reserve even if it claims epoch 2",
+    "observed": {
+      "worker": {
+        "reasons": [
+          "NOT_CURRENT_EPOCH_HOLDER"
+        ],
+        "result": "ISSUE_DENIED_GATE_CLOSED"
+      },
+      "direct": {
+        "status": "NOT_EPOCH_HOLDER",
+        "holder": "issuer_b",
+        "epoch": 2
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SS-NEW-ISSUER-WORKS",
+    "scenario": "S_SPLIT_BRAIN",
+    "kind": "POSITIVE_CONTROL",
+    "description": "New holder B issues k5 under epoch 2",
+    "observed": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "31a0a4a3-1241-4c5b-a105-c3cbb74d3a25"
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SS-BYPASS-DETECTED-NOT-PREVENTED",
+    "scenario": "S_SPLIT_BRAIN",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "A writes ticket k9 straight into PostgreSQL with no reservation: PostgreSQL accepts it; B's next issuance sees TICKET_IN_PG_WITHOUT_RESERVATION and the gate stays CLOSED",
+    "observed": {
+      "bypass": "INSERT 0 1",
+      "b": {
+        "reasons": [
+          "TICKET_IN_PG_WITHOUT_RESERVATION:k9"
+        ],
+        "result": "ISSUE_DENIED_GATE_CLOSED"
+      }
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SS-RACE-1",
+    "scenario": "S_SPLIT_BRAIN",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Round 1: 4 old-epoch A + 4 new-epoch B processes race on one key: A all NOT_EPOCH_HOLDER, exactly one B RESERVED",
+    "observed": {
+      "a": [
+        "NOT_EPOCH_HOLDER",
+        "NOT_EPOCH_HOLDER",
+        "NOT_EPOCH_HOLDER",
+        "NOT_EPOCH_HOLDER"
+      ],
+      "b": [
+        "DUPLICATE",
+        "RESERVED",
+        "DUPLICATE",
+        "DUPLICATE"
+      ],
+      "reserve_records": 1
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SS-RACE-2",
+    "scenario": "S_SPLIT_BRAIN",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Round 2: 4 old-epoch A + 4 new-epoch B processes race on one key: A all NOT_EPOCH_HOLDER, exactly one B RESERVED",
+    "observed": {
+      "a": [
+        "NOT_EPOCH_HOLDER",
+        "NOT_EPOCH_HOLDER",
+        "NOT_EPOCH_HOLDER",
+        "NOT_EPOCH_HOLDER"
+      ],
+      "b": [
+        "RESERVED",
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE"
+      ],
+      "reserve_records": 1
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SS-RACE-3",
+    "scenario": "S_SPLIT_BRAIN",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Round 3: 4 old-epoch A + 4 new-epoch B processes race on one key: A all NOT_EPOCH_HOLDER, exactly one B RESERVED",
+    "observed": {
+      "a": [
+        "NOT_EPOCH_HOLDER",
+        "NOT_EPOCH_HOLDER",
+        "NOT_EPOCH_HOLDER",
+        "NOT_EPOCH_HOLDER"
+      ],
+      "b": [
+        "DUPLICATE",
+        "DUPLICATE",
+        "RESERVED",
+        "DUPLICATE"
+      ],
+      "reserve_records": 1
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SX-FLIP",
+    "scenario": "S_WITNESS_CORRUPTION",
+    "kind": "DENIAL",
+    "description": "Tamper 'flip' is detected at load (HASH_MISMATCH); every request refused; issuer denies without touching PostgreSQL",
+    "observed": {
+      "witness": {
+        "status": "WITNESS_FAILED",
+        "reason": "HASH_MISMATCH seq=2"
+      },
+      "issuer": {
+        "reason": "HASH_MISMATCH seq=2",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SX-REWRITE-RECORD",
+    "scenario": "S_WITNESS_CORRUPTION",
+    "kind": "DENIAL",
+    "description": "Tamper 'rewrite-record' is detected at load (RECORD_REQUEST_MISMATCH); every request refused; issuer denies without touching PostgreSQL",
+    "observed": {
+      "witness": {
+        "status": "WITNESS_FAILED",
+        "reason": "RECORD_REQUEST_MISMATCH seq=2 field=payload_hash"
+      },
+      "issuer": {
+        "reason": "RECORD_REQUEST_MISMATCH seq=2 field=payload_hash",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SX-REWRITE-SIGNED",
+    "scenario": "S_WITNESS_CORRUPTION",
+    "kind": "DENIAL",
+    "description": "Tamper 'rewrite-signed' is detected at load (REQUEST_MAC_INVALID); every request refused; issuer denies without touching PostgreSQL",
+    "observed": {
+      "witness": {
+        "status": "WITNESS_FAILED",
+        "reason": "REQUEST_MAC_INVALID seq=2"
+      },
+      "issuer": {
+        "reason": "REQUEST_MAC_INVALID seq=2",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SX-REORDER",
+    "scenario": "S_WITNESS_CORRUPTION",
+    "kind": "DENIAL",
+    "description": "Tamper 'reorder' is detected at load (SEQUENCE_VIOLATION); every request refused; issuer denies without touching PostgreSQL",
+    "observed": {
+      "witness": {
+        "status": "WITNESS_FAILED",
+        "reason": "SEQUENCE_VIOLATION line=4 seq=5"
+      },
+      "issuer": {
+        "reason": "SEQUENCE_VIOLATION line=4 seq=5",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SX-TRUNCATE-BELOW-CHECKPOINT",
+    "scenario": "S_WITNESS_CORRUPTION",
+    "kind": "DENIAL",
+    "description": "Tamper 'truncate-below-checkpoint' is detected at load (ROLLBACK_DETECTED); every request refused; issuer denies without touching PostgreSQL",
+    "observed": {
+      "witness": {
+        "status": "WITNESS_FAILED",
+        "reason": "ROLLBACK_DETECTED log_len=3 accepted_seq=5"
+      },
+      "issuer": {
+        "reason": "ROLLBACK_DETECTED log_len=3 accepted_seq=5",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SX-FORGE-CHECKPOINT",
+    "scenario": "S_WITNESS_CORRUPTION",
+    "kind": "DENIAL",
+    "description": "Tamper 'forge-checkpoint' is detected at load (CHECKPOINT_MAC_INVALID); every request refused; issuer denies without touching PostgreSQL",
+    "observed": {
+      "witness": {
+        "status": "WITNESS_FAILED",
+        "reason": "CHECKPOINT_MAC_INVALID"
+      },
+      "issuer": {
+        "reason": "CHECKPOINT_MAC_INVALID",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SX-GARBAGE",
+    "scenario": "S_WITNESS_CORRUPTION",
+    "kind": "DENIAL",
+    "description": "Tamper 'garbage' is detected at load (UNPARSEABLE_RECORD); every request refused; issuer denies without touching PostgreSQL",
+    "observed": {
+      "witness": {
+        "status": "WITNESS_FAILED",
+        "reason": "UNPARSEABLE_RECORD line=3"
+      },
+      "issuer": {
+        "reason": "UNPARSEABLE_RECORD line=3",
+        "result": "ISSUE_DENIED_WITNESS_FAILED",
+        "witness": "WITNESS_FAILED"
+      },
+      "pg_connections": 0
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "SX-TAIL-LOSS-UNDETECTED",
+    "scenario": "S_WITNESS_CORRUPTION",
+    "kind": "COUNTEREXAMPLE_REPRODUCED",
+    "description": "Removing records after the accepted checkpoint is NOT detected: witness loads OK and k2 (lost tail) can be reserved a second time; k1 (covered by the checkpoint) stays DUPLICATE",
+    "observed": {
+      "health": {
+        "status": "OK",
+        "reason": null
+      },
+      "k1": {
+        "status": "DUPLICATE",
+        "state": "COMMIT_CONFIRMED",
+        "reservation_seq": 2
+      },
+      "k2": {
+        "status": "RESERVED",
+        "seq": 4,
+        "epoch": 1
+      },
+      "records_before": 5,
+      "records_after_tamper": 3
+    },
+    "result": "PASS"
+  },
+  {
+    "id": "HYGIENE-CONTAINER-REMOVED",
+    "scenario": "HYGIENE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "PostgreSQL container removed",
+    "observed": true,
+    "result": "PASS"
+  },
+  {
+    "id": "HYGIENE-TMP-REMOVED",
+    "scenario": "HYGIENE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "Witness temp directory removed",
+    "observed": true,
+    "result": "PASS"
+  },
+  {
+    "id": "HYGIENE-SECRET-SCAN",
+    "scenario": "HYGIENE",
+    "kind": "POSITIVE_CONTROL",
+    "description": "No generated key, pipe authkey, or password in any evidence file",
+    "observed": "none",
+    "result": "PASS"
+  }
+]

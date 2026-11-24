@@ -1,0 +1,48 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-ok"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:38:58.766363+00:00",
+    "witness": "e2e"
+  },
+  {
+    "app": "a2-w025-ok",
+    "events": [
+      "start",
+      "witness_export",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-ok",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "c6a851e2-fb4c-4f8f-a94e-3c8e38cceb14"
+    },
+    "t": "2026-11-17T17:38:59.263638+00:00",
+    "t_end": "2026-11-17T17:38:59.263638+00:00",
+    "t_start": "2026-11-17T17:38:58.774348+00:00",
+    "tag": "w025-ok"
+  }
+]

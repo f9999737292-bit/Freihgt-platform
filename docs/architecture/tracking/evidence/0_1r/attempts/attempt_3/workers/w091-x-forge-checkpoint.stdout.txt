@@ -1,0 +1,3 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "f86c6bf2-01ac-4a78-ad7a-d5d7d4dca832", "mode": "issue", "mono": 0.0, "ns": "ns-x", "payload_hash": "1f923697d2d3cea8976f0a56da3fe4b31dfcb471d0a8003102f67789868b7996", "principal": "issuer_a", "request_id": "k9", "t": 1794937264.210133}
+EVENT {"event": "witness_export", "mono": 0.0, "reason": "CHECKPOINT_MAC_INVALID", "seq": null, "status": "WITNESS_FAILED", "t": 1794937264.2116525}
+RESULT {"reason": "CHECKPOINT_MAC_INVALID", "result": "ISSUE_DENIED_WITNESS_FAILED", "witness": "WITNESS_FAILED"}

@@ -1,0 +1,11 @@
+EVENT {"epoch": 1, "event": "start", "fault": "commit_ack_unobserved", "incarnation": "f46cd106-16e3-4f30-bf8f-0295fa507e6d", "mode": "issue", "mono": 0.0, "ns": "ns-d1", "payload_hash": "0c5d071a60036dbf4cbabd394ef5b8b4eb2949b02be8613b85cea054f564c82c", "principal": "issuer_a", "request_id": "k1", "t": 1794937224.1879668}
+EVENT {"event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794937224.1902666}
+EVENT {"event": "pg_read_rows", "exit": 0, "mono": 0.203, "sqlstates": [], "t": 1794937224.3893006}
+EVENT {"event": "gate", "mono": 0.203, "open": true, "reasons": [], "t": 1794937224.3893006}
+EVENT {"event": "witness_reserve", "mono": 0.203, "reason": null, "seq": 23, "status": "RESERVED", "t": 1794937224.3935478}
+EVENT {"event": "pg_begin_sent", "mono": 0.203, "t": 1794937224.4028847}
+EVENT {"backend_pid": "353", "event": "pg_begin", "mono": 0.422, "ok": true, "t": 1794937224.60988}
+EVENT {"event": "pg_insert", "mono": 0.422, "ok": true, "sqlstates": [], "stderr": "", "t": 1794937224.6125817}
+EVENT {"event": "pg_commit_sent_ack_not_read", "mono": 0.422, "t": 1794937224.6125817}
+EVENT {"event": "witness_outcome", "mono": 0.422, "reason": null, "seq": 24, "status": "APPENDED", "t": 1794937224.617589}
+RESULT {"result": "ISSUE_IN_DOUBT", "witness": "APPENDED"}

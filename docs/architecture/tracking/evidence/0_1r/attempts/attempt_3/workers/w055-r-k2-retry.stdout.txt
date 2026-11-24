@@ -1,0 +1,8 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "31c04151-47bb-4b9d-a623-0e2ac51f90c3", "mode": "issue", "mono": 0.0, "ns": "ns-r", "payload_hash": "f0ae2b010de9a941b4192df7a73ce99db7befe9350e999ef0e66dd8df747bd70", "principal": "issuer_a", "request_id": "k2", "t": 1794937240.5070727}
+EVENT {"event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794937240.5085075}
+EVENT {"event": "witness_outcome", "mono": 0.015, "reason": null, "seq": 7, "status": "APPENDED", "t": 1794937240.5151434}
+EVENT {"event": "restart_recovery", "marked_in_doubt": [{"key": "ns-r|k3", "status": "APPENDED"}], "mono": 0.015, "t": 1794937240.5151434}
+EVENT {"event": "witness_export", "mono": 0.015, "reason": null, "seq": null, "status": "OK", "t": 1794937240.5163507}
+EVENT {"event": "existing_reservation", "mono": 0.015, "reservation_ticket_id": "127e859f-73f4-4e39-b6ee-dd883d83ea49", "state": "COMMIT_CONFIRMED", "t": 1794937240.5168557}
+EVENT {"event": "pg_read_rows", "exit": 0, "mono": 0.265, "sqlstates": [], "t": 1794937240.7745056}
+RESULT {"pg_row": null, "result": "ISSUE_DENIED_RECONCILIATION_REQUIRED", "state": "COMMIT_CONFIRMED"}

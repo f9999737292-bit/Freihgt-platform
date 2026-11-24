@@ -1,0 +1,27 @@
+{
+  "app": "a2-w071-sbrace2-a1",
+  "container": "bintrans-proof-0-1r-77a2511d",
+  "db": "wproof_77a2511d",
+  "epoch": 1,
+  "fault": "",
+  "incarnation": "27532734-69f2-450b-b8df-a7f48145864e",
+  "mode": "reserve_only",
+  "ns": "ns-sb-race",
+  "payload": {
+    "execution_ids": [
+      "exe-2",
+      "exe-1"
+    ],
+    "expected_epoch": 1,
+    "expected_revision": 1,
+    "operation": "ISSUE_TRACKING_BINDING",
+    "shipment": "shp-race-2",
+    "sub": "user-0.1r-test",
+    "tenant_id": "tenant-0.1r-test"
+  },
+  "pg_role": "wproof_issuer",
+  "pipe": "bintrans-0-1r-77a2511d-sb",
+  "principal": "issuer_a",
+  "request_id": "race-2",
+  "start_at": 1794937173.3842149
+}

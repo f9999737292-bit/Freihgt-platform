@@ -1,0 +1,9 @@
+EVENT {"epoch": 1, "event": "start", "fault": "crash_before_commit", "incarnation": "c7223750-dce5-4d48-9bab-01c20af85511", "mode": "issue", "mono": 0.0, "ns": "ns-pc", "payload_hash": "41048fac3ca25de4e177d837647fe7de35d5db56ff164412f9eccc674cf27e3d", "principal": "issuer_a", "request_id": "k1", "t": 1794937141.8563118}
+EVENT {"event": "witness_export", "mono": 0.015, "reason": null, "seq": null, "status": "OK", "t": 1794937141.8607764}
+EVENT {"event": "pg_read_rows", "exit": 0, "mono": 0.203, "sqlstates": [], "t": 1794937142.0459642}
+EVENT {"event": "gate", "mono": 0.203, "open": true, "reasons": [], "t": 1794937142.0459642}
+EVENT {"event": "witness_reserve", "mono": 0.203, "reason": null, "seq": 11, "status": "RESERVED", "t": 1794937142.054244}
+EVENT {"event": "pg_begin_sent", "mono": 0.218, "t": 1794937142.0654197}
+EVENT {"backend_pid": "232", "event": "pg_begin", "mono": 0.375, "ok": true, "t": 1794937142.2248576}
+EVENT {"event": "pg_insert", "mono": 0.375, "ok": true, "sqlstates": [], "stderr": "", "t": 1794937142.2279222}
+EVENT {"event": "fault_crash", "mono": 0.375, "point": "before_pg_commit", "t": 1794937142.2279222}

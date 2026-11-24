@@ -1,0 +1,2974 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-sm"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 1,
+      "status": "EPOCH_SET"
+    },
+    "t": "2026-11-17T17:37:23.464806+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i1",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "k1",
+      "ticket_id": "2e23a5c6-cb3c-46b4-b473-53ee0b80a85b"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 2,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:23.470360+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i2",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "k1",
+      "ticket_id": "29e4e0f7-9da8-4c83-99e3-69766bd5497e"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "reservation_seq": 2,
+      "state": "RESERVED",
+      "status": "DUPLICATE"
+    },
+    "t": "2026-11-17T17:37:23.472842+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i3",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "k1",
+      "ticket_id": "29e4e0f7-9da8-4c83-99e3-69766bd5497e"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_b",
+    "response": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "status": "NOT_EPOCH_HOLDER"
+    },
+    "t": "2026-11-17T17:37:23.475649+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i4",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "kx",
+      "ticket_id": "29e4e0f7-9da8-4c83-99e3-69766bd5497e"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "operator",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "t": "2026-11-17T17:37:23.477160+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i4",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "kx",
+      "ticket_id": "29e4e0f7-9da8-4c83-99e3-69766bd5497e"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "auditor",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "t": "2026-11-17T17:37:23.478356+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i5",
+      "ns": "ns-sm",
+      "payload_hash": "b73e29cdb62851b51a234cf6bb339e81736a75802ac60f5df5ea8cb3791729aa",
+      "request_id": "kx",
+      "ticket_id": "29e4e0f7-9da8-4c83-99e3-69766bd5497e"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "status": "AUTH_FAILED"
+    },
+    "t": "2026-11-17T17:37:23.479356+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "29e4e0f7-9da8-4c83-99e3-69766bd5497e"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "status": "TICKET_MISMATCH"
+    },
+    "t": "2026-11-17T17:37:23.479356+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "2e23a5c6-cb3c-46b4-b473-53ee0b80a85b"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_b",
+    "response": {
+      "status": "NOT_RESERVATION_OWNER"
+    },
+    "t": "2026-11-17T17:37:23.480933+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {},
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "2e23a5c6-cb3c-46b4-b473-53ee0b80a85b"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "status": "EVIDENCE_REQUIRED"
+    },
+    "t": "2026-11-17T17:37:23.481942+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "2e23a5c6-cb3c-46b4-b473-53ee0b80a85b"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 3,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:23.484457+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "2e23a5c6-cb3c-46b4-b473-53ee0b80a85b"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "state": "COMMIT_CONFIRMED",
+      "status": "IDEMPOTENT"
+    },
+    "t": "2026-11-17T17:37:23.489530+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "ns": "ns-sm",
+      "request_id": "k1"
+    },
+    "kind": "witness_call",
+    "op": "delete",
+    "principal": "operator",
+    "response": {
+      "op": "delete",
+      "status": "UNSUPPORTED_OP"
+    },
+    "t": "2026-11-17T17:37:23.492820+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "ns": "ns-sm",
+      "request_id": "k1"
+    },
+    "kind": "witness_call",
+    "op": "update",
+    "principal": "operator",
+    "response": {
+      "op": "update",
+      "status": "UNSUPPORTED_OP"
+    },
+    "t": "2026-11-17T17:37:23.492820+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "ns": "ns-sm",
+      "request_id": "k1"
+    },
+    "kind": "witness_call",
+    "op": "truncate",
+    "principal": "operator",
+    "response": {
+      "op": "truncate",
+      "status": "UNSUPPORTED_OP"
+    },
+    "t": "2026-11-17T17:37:23.492820+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "ns": "ns-sm",
+      "request_id": "k1"
+    },
+    "kind": "witness_call",
+    "op": "rewrite",
+    "principal": "operator",
+    "response": {
+      "op": "rewrite",
+      "status": "UNSUPPORTED_OP"
+    },
+    "t": "2026-11-17T17:37:23.492820+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "ns": "ns-sm",
+      "request_id": "k1"
+    },
+    "kind": "witness_call",
+    "op": "release",
+    "principal": "operator",
+    "response": {
+      "op": "release",
+      "status": "UNSUPPORTED_OP"
+    },
+    "t": "2026-11-17T17:37:23.492820+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "x"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "nope",
+      "ticket_id": "2e23a5c6-cb3c-46b4-b473-53ee0b80a85b"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "status": "NO_RESERVATION"
+    },
+    "t": "2026-11-17T17:37:23.492820+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_b",
+      "ns": "ns-sm"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "current": {
+        "epoch": 1,
+        "holder": "issuer_a"
+      },
+      "status": "EPOCH_NOT_MONOTONIC"
+    },
+    "t": "2026-11-17T17:37:23.497667+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 9,
+      "holder": "issuer_a",
+      "ns": "ns-sm"
+    },
+    "kind": "witness_call",
+    "op": "epoch_set",
+    "principal": "issuer_a",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "t": "2026-11-17T17:37:23.498752+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "head_hash": "85d8f737777ee2bea529841f500faca5500d747b07a0a02963045f468973435b",
+      "seq": 3
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "85d8f737777ee2bea529841f500faca5500d747b07a0a02963045f468973435b",
+        "seq": 3
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "t": "2026-11-17T17:37:23.507496+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "head_hash": "81f90f002c50d92d0271a90819272c835a4cb0841535356f72da2642553bb8f8",
+      "seq": 2
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "current": {
+        "head_hash": "85d8f737777ee2bea529841f500faca5500d747b07a0a02963045f468973435b",
+        "seq": 3
+      },
+      "status": "CHECKPOINT_LOWER_REJECTED"
+    },
+    "t": "2026-11-17T17:37:23.509535+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "head_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "seq": 3
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "status": "CHECKPOINT_HASH_MISMATCH"
+    },
+    "t": "2026-11-17T17:37:23.510837+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "head_hash": "85d8f737777ee2bea529841f500faca5500d747b07a0a02963045f468973435b",
+      "seq": 3
+    },
+    "kind": "witness_call",
+    "op": "checkpoint_accept",
+    "principal": "issuer_a",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "t": "2026-11-17T17:37:23.510837+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "fault": "crash_after_append_before_reply"
+    },
+    "kind": "witness_call",
+    "op": "fault",
+    "principal": "issuer_a",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "t": "2026-11-17T17:37:23.510837+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i6",
+      "ns": "ns-sm",
+      "payload_hash": "6b175d0c072431e80bcf2178a00ae3ae4f3038e82618984fd76062af6c970585",
+      "request_id": "k2",
+      "ticket_id": "3ff06386-c0da-4b0c-bc8c-32c218eac281"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 4,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:23.513634+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "i7",
+      "ns": "ns-sm",
+      "payload_hash": "6b175d0c072431e80bcf2178a00ae3ae4f3038e82618984fd76062af6c970585",
+      "request_id": "k2",
+      "ticket_id": "c2be336b-519a-4c57-844d-147fc912719b"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "reservation_seq": 4,
+      "state": "RESERVED",
+      "status": "DUPLICATE"
+    },
+    "t": "2026-11-17T17:37:26.520162+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "46a098459992b06cd026d3f4ad9a418b6505aed286d538cf93b56ee6076ba5d4",
+      "request_id": "m01",
+      "ticket_id": "39e27e3c-c469-4b7a-a603-b11081ee39a4"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 5,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:26.960971+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m01",
+      "ticket_id": "39e27e3c-c469-4b7a-a603-b11081ee39a4"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 6,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:26.966308+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "a31b27b9381496f73a9a02a43378c2922a6ce578869534b64f98e9197e74bdd4",
+      "request_id": "m02",
+      "ticket_id": "8e638fd1-940a-4157-be04-d2339f3dad67"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 7,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:26.971463+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "tombstone_payload_hash": "a31b27b9381496f73a9a02a43378c2922a6ce578869534b64f98e9197e74bdd4",
+        "tombstone_ticket_id": "8e638fd1-940a-4157-be04-d2339f3dad67"
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m02",
+      "ticket_id": "8e638fd1-940a-4157-be04-d2339f3dad67"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "RESERVED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "COMMIT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:26.971463+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "a519e5ca3b53b29beb10c3b05bc064240d807ad4db87dc8a663ff451bc5756e5",
+      "request_id": "m03",
+      "ticket_id": "578bf078-d1b7-412b-9b3e-542f17a9f0dc"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 8,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:26.974149+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m03",
+      "ticket_id": "578bf078-d1b7-412b-9b3e-542f17a9f0dc"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 9,
+      "state": "ABORT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:26.983812+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "b6902645edbab8832aba904326221b6a9b78cc3ebaa36dd9968c02a95346d5b9",
+      "request_id": "m04",
+      "ticket_id": "13b8fd6c-4971-441f-90e3-cd4aacf9d71a"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 10,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:26.986849+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m04",
+      "ticket_id": "13b8fd6c-4971-441f-90e3-cd4aacf9d71a"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "RESERVED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:26.991119+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "3510387b5bbbdd7b95196cb5c41b6bf97d7d5a825d08c07fe201d911a4c91c84",
+      "request_id": "m05",
+      "ticket_id": "0f04c789-fbcb-4cf2-a865-a0442182fa9c"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 11,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:26.992655+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m05",
+      "ticket_id": "0f04c789-fbcb-4cf2-a865-a0442182fa9c"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 12,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.001245+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "f0afd7b94d1aeee3a27f3d2e09897c1947cd551d7df59b79d0a95e9524b60992",
+      "request_id": "m06",
+      "ticket_id": "03497026-5f28-43ff-9e44-cee0078c94fb"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 13,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.001245+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m06",
+      "ticket_id": "03497026-5f28-43ff-9e44-cee0078c94fb"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 14,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.013869+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "93e7dea910906af1ebba4a502e1e59ff294f2c372a8ba39959a8364053065776",
+      "request_id": "m07",
+      "ticket_id": "576d7770-f496-4b8e-bae6-133f7772b371"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 15,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.019659+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m07",
+      "ticket_id": "576d7770-f496-4b8e-bae6-133f7772b371"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "RESERVED",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "PERMANENTLY_DENIED"
+    },
+    "t": "2026-11-17T17:37:27.021696+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "e71a0c0cf38e65bac816b1f0b451835dc44b54a215866cf80d86bd79fb75df5c",
+      "request_id": "m08",
+      "ticket_id": "7097d252-7d05-4751-890b-529bb7589ab5"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 16,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.026183+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m08",
+      "ticket_id": "7097d252-7d05-4751-890b-529bb7589ab5"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "RESERVED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "PERMANENTLY_DENIED"
+    },
+    "t": "2026-11-17T17:37:27.030252+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "6ef8690f8256d0a8c0cba331ebadcfe2b5e713e7055ee0ff9fc2201910d7ed18",
+      "request_id": "m09",
+      "ticket_id": "668c52b2-f46e-48b1-99df-ffa9791ed5a8"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 17,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.034826+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m09",
+      "ticket_id": "668c52b2-f46e-48b1-99df-ffa9791ed5a8"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 18,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.039739+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m09",
+      "ticket_id": "668c52b2-f46e-48b1-99df-ffa9791ed5a8"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "state": "COMMIT_CONFIRMED",
+      "status": "IDEMPOTENT"
+    },
+    "t": "2026-11-17T17:37:27.039739+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "716d04667670b283816ded829642dd55e92dd49674aa34e524c847845377d628",
+      "request_id": "m10",
+      "ticket_id": "62440ae9-9c87-473b-a5eb-ba25b1b49d87"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 19,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.047567+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m10",
+      "ticket_id": "62440ae9-9c87-473b-a5eb-ba25b1b49d87"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 20,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.052579+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "tombstone_payload_hash": "716d04667670b283816ded829642dd55e92dd49674aa34e524c847845377d628",
+        "tombstone_ticket_id": "62440ae9-9c87-473b-a5eb-ba25b1b49d87"
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m10",
+      "ticket_id": "62440ae9-9c87-473b-a5eb-ba25b1b49d87"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "state": "COMMIT_CONFIRMED",
+      "status": "IDEMPOTENT"
+    },
+    "t": "2026-11-17T17:37:27.054884+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "4b5dfad8a3af2d6ceb507ab6ff2b4ab80b04386205d2c3da44cb27cb39dfbb9e",
+      "request_id": "m11",
+      "ticket_id": "ba0fdcd6-77ee-428f-9182-d3c2d0fbe5dd"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 21,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.059315+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m11",
+      "ticket_id": "ba0fdcd6-77ee-428f-9182-d3c2d0fbe5dd"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 22,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.064651+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m11",
+      "ticket_id": "ba0fdcd6-77ee-428f-9182-d3c2d0fbe5dd"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "COMMIT_CONFIRMED",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:27.068202+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "316a28eaaaadb1a36e4e94823557fb7c6be324b960bd64312ba33665da3ceb9e",
+      "request_id": "m12",
+      "ticket_id": "0220aa5b-f52f-413b-a209-3124dff65531"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 23,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.069721+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m12",
+      "ticket_id": "0220aa5b-f52f-413b-a209-3124dff65531"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 24,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.076586+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m12",
+      "ticket_id": "0220aa5b-f52f-413b-a209-3124dff65531"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "COMMIT_CONFIRMED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:27.079653+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "9c0d327d760060b53aec8a9af6d81ae2ee4c91968843f834bfae8937d9ddc799",
+      "request_id": "m13",
+      "ticket_id": "14be8c69-cdf8-452f-98c0-4efeba143bde"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 25,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.082383+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m13",
+      "ticket_id": "14be8c69-cdf8-452f-98c0-4efeba143bde"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 26,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.089389+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m13",
+      "ticket_id": "14be8c69-cdf8-452f-98c0-4efeba143bde"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "COMMIT_CONFIRMED",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "IN_DOUBT"
+    },
+    "t": "2026-11-17T17:37:27.093769+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "3e48900ef26fe6abb4e7f21f18960f14c40680d19ced56a80d1a79d8e63fe16a",
+      "request_id": "m14",
+      "ticket_id": "4d7f350e-ffaf-4011-a85e-43b62f73a015"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 27,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.097051+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m14",
+      "ticket_id": "4d7f350e-ffaf-4011-a85e-43b62f73a015"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 28,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.102135+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m14",
+      "ticket_id": "4d7f350e-ffaf-4011-a85e-43b62f73a015"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "COMMIT_CONFIRMED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "IN_DOUBT"
+    },
+    "t": "2026-11-17T17:37:27.103243+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "aacdf10723d82495033e326355eb82b94e5e0b0a91ea59b62ed623af373d33d8",
+      "request_id": "m15",
+      "ticket_id": "1a654e34-40d7-4e8a-b86e-8d4faad94df4"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 29,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.109619+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m15",
+      "ticket_id": "1a654e34-40d7-4e8a-b86e-8d4faad94df4"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 30,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.112830+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m15",
+      "ticket_id": "1a654e34-40d7-4e8a-b86e-8d4faad94df4"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "COMMIT_CONFIRMED",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "PERMANENTLY_DENIED"
+    },
+    "t": "2026-11-17T17:37:27.112830+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "f29c709d3200bbb2d9300373cf239478871990d9b79a904fbfc5ae35bdb890f1",
+      "request_id": "m16",
+      "ticket_id": "faf17900-c4b8-4688-a851-7930155de5dc"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 31,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.121036+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m16",
+      "ticket_id": "faf17900-c4b8-4688-a851-7930155de5dc"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 32,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.123443+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m16",
+      "ticket_id": "faf17900-c4b8-4688-a851-7930155de5dc"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "COMMIT_CONFIRMED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "PERMANENTLY_DENIED"
+    },
+    "t": "2026-11-17T17:37:27.128626+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "6073f23e6ca6a99c88f0315bee54b876944fc2c6e4b55a66a8543c22b7d6bf1b",
+      "request_id": "m17",
+      "ticket_id": "ea9bae5b-908c-4f62-895f-673ad113ceef"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 33,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.131909+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m17",
+      "ticket_id": "ea9bae5b-908c-4f62-895f-673ad113ceef"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 34,
+      "state": "ABORT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.139979+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m17",
+      "ticket_id": "ea9bae5b-908c-4f62-895f-673ad113ceef"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 35,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.146603+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "3a8222c01016113c071f9978e8e03e306b31e2b85b6b0c0662c3dc9aa62cc48c",
+      "request_id": "m18",
+      "ticket_id": "4147cfa6-c879-4d1a-98e0-009227feac6d"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 36,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.149609+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m18",
+      "ticket_id": "4147cfa6-c879-4d1a-98e0-009227feac6d"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 37,
+      "state": "ABORT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.157613+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "tombstone_payload_hash": "3a8222c01016113c071f9978e8e03e306b31e2b85b6b0c0662c3dc9aa62cc48c",
+        "tombstone_ticket_id": "4147cfa6-c879-4d1a-98e0-009227feac6d"
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m18",
+      "ticket_id": "4147cfa6-c879-4d1a-98e0-009227feac6d"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "ABORT_CONFIRMED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "COMMIT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:27.160970+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "a13f026b27e60c8e0eafedc0e639951e17fa487d9af456489bd376ae1b3a1ae3",
+      "request_id": "m19",
+      "ticket_id": "10e45ee9-cb49-4cdd-aa44-0113626a152a"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 38,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.166087+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m19",
+      "ticket_id": "10e45ee9-cb49-4cdd-aa44-0113626a152a"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 39,
+      "state": "ABORT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.171156+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m19",
+      "ticket_id": "10e45ee9-cb49-4cdd-aa44-0113626a152a"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "state": "ABORT_CONFIRMED",
+      "status": "IDEMPOTENT"
+    },
+    "t": "2026-11-17T17:37:27.174687+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "b6dd54f8356dae31cefe7f1703407022ee7aebb3bed846ba675a007246af5d15",
+      "request_id": "m20",
+      "ticket_id": "18b216d3-a169-44c9-a05c-a7004414d434"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 40,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.179406+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m20",
+      "ticket_id": "18b216d3-a169-44c9-a05c-a7004414d434"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 41,
+      "state": "ABORT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.183641+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m20",
+      "ticket_id": "18b216d3-a169-44c9-a05c-a7004414d434"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "state": "ABORT_CONFIRMED",
+      "status": "IDEMPOTENT"
+    },
+    "t": "2026-11-17T17:37:27.189417+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "2ab59d50edf7b86d888f6aa3b420745bad5487e8c74e645a87a12db42377c359",
+      "request_id": "m21",
+      "ticket_id": "bab832fe-fab3-49d1-b1bd-c0ad59017d25"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 42,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.193419+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m21",
+      "ticket_id": "bab832fe-fab3-49d1-b1bd-c0ad59017d25"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 43,
+      "state": "ABORT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.199768+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m21",
+      "ticket_id": "bab832fe-fab3-49d1-b1bd-c0ad59017d25"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "ABORT_CONFIRMED",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "IN_DOUBT"
+    },
+    "t": "2026-11-17T17:37:27.201295+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "7d9968c43fc5feb8117d12b300fa2790679edf5b05c448abe4e02965c23fa45b",
+      "request_id": "m22",
+      "ticket_id": "90b99ac1-c1da-41df-9db3-be30a4278d8e"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 44,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.207387+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m22",
+      "ticket_id": "90b99ac1-c1da-41df-9db3-be30a4278d8e"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 45,
+      "state": "ABORT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.210923+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m22",
+      "ticket_id": "90b99ac1-c1da-41df-9db3-be30a4278d8e"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "ABORT_CONFIRMED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "IN_DOUBT"
+    },
+    "t": "2026-11-17T17:37:27.214849+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "afb9628d358ca1ee5a3d645cc9b7daeb997cf02ff559d6df7dae3529dad2f85e",
+      "request_id": "m23",
+      "ticket_id": "00dc9694-cc74-48a7-a0c4-17bdfcf62f0b"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 46,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.221871+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m23",
+      "ticket_id": "00dc9694-cc74-48a7-a0c4-17bdfcf62f0b"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 47,
+      "state": "ABORT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.226920+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m23",
+      "ticket_id": "00dc9694-cc74-48a7-a0c4-17bdfcf62f0b"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "ABORT_CONFIRMED",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "PERMANENTLY_DENIED"
+    },
+    "t": "2026-11-17T17:37:27.229985+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "05369af649da588c1f62357bc59d2bfdba3286e9db119c27448c514acfdd31aa",
+      "request_id": "m24",
+      "ticket_id": "d4637686-8dac-45db-a896-f36c557196e3"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 48,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.234360+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m24",
+      "ticket_id": "d4637686-8dac-45db-a896-f36c557196e3"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 49,
+      "state": "ABORT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.241076+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m24",
+      "ticket_id": "d4637686-8dac-45db-a896-f36c557196e3"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 50,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.247127+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "0c4f470e765ad0558da5a2fbbfd7c328721f3d6a4441971dd13901c7d264d102",
+      "request_id": "m25",
+      "ticket_id": "a0c07ff0-91b3-470a-8a07-8a013b75fee8"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 51,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.253990+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m25",
+      "ticket_id": "a0c07ff0-91b3-470a-8a07-8a013b75fee8"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 52,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.261607+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m25",
+      "ticket_id": "a0c07ff0-91b3-470a-8a07-8a013b75fee8"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "IN_DOUBT",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "COMMIT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:27.265387+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "d8ccfdaef66dd925baeb4d4793370fcfa5b002dae5e583bdef77109295b5dcc9",
+      "request_id": "m26",
+      "ticket_id": "69d975f8-8f1e-4110-9592-0c623704490f"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 53,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.271440+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m26",
+      "ticket_id": "69d975f8-8f1e-4110-9592-0c623704490f"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 54,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.274623+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "tombstone_payload_hash": "d8ccfdaef66dd925baeb4d4793370fcfa5b002dae5e583bdef77109295b5dcc9",
+        "tombstone_ticket_id": "69d975f8-8f1e-4110-9592-0c623704490f"
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m26",
+      "ticket_id": "69d975f8-8f1e-4110-9592-0c623704490f"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 55,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.283999+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "8c8bccd377a6fb632dd5e80c6dc0d0698ebebde52eb4cd34d21f2e9a18b85523",
+      "request_id": "m27",
+      "ticket_id": "6b962561-00fb-446d-b1be-411ea979ed02"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 56,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.288367+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m27",
+      "ticket_id": "6b962561-00fb-446d-b1be-411ea979ed02"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 57,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.293137+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m27",
+      "ticket_id": "6b962561-00fb-446d-b1be-411ea979ed02"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "IN_DOUBT",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:27.296660+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "9781b5126546b1467ffac5e051e978304db8f7190e936c81c724dd428996dc76",
+      "request_id": "m28",
+      "ticket_id": "f2b84fe3-ee4c-4de8-8a81-7db0b3fdcae8"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 58,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.301366+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m28",
+      "ticket_id": "f2b84fe3-ee4c-4de8-8a81-7db0b3fdcae8"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 59,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.307964+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m28",
+      "ticket_id": "f2b84fe3-ee4c-4de8-8a81-7db0b3fdcae8"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "IN_DOUBT",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:27.311364+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "05d85309669aa0fac25ee632d6cebad2f85204542f31055a0fc52d49e8b0e6d2",
+      "request_id": "m29",
+      "ticket_id": "c6514b93-2a8d-455e-a204-d2fec3a6c469"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 60,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.311364+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m29",
+      "ticket_id": "c6514b93-2a8d-455e-a204-d2fec3a6c469"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 61,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.322336+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m29",
+      "ticket_id": "c6514b93-2a8d-455e-a204-d2fec3a6c469"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "state": "IN_DOUBT",
+      "status": "IDEMPOTENT"
+    },
+    "t": "2026-11-17T17:37:27.325329+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "08615df43af8b6d58c1239d51e117327a14d7f01a8dd7ca75f739dcc1af77d64",
+      "request_id": "m30",
+      "ticket_id": "6f349f67-c382-4585-b597-e954acdcad03"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 62,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.329964+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m30",
+      "ticket_id": "6f349f67-c382-4585-b597-e954acdcad03"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 63,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.335553+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m30",
+      "ticket_id": "6f349f67-c382-4585-b597-e954acdcad03"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "state": "IN_DOUBT",
+      "status": "IDEMPOTENT"
+    },
+    "t": "2026-11-17T17:37:27.340685+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "614e40bfc0d579061b34a9486afbc3a9e7b8d8c4d54e6212b08a8f1ef0409bba",
+      "request_id": "m31",
+      "ticket_id": "5d358c63-d764-4afc-a1c5-801735d7ccde"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 64,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.344717+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m31",
+      "ticket_id": "5d358c63-d764-4afc-a1c5-801735d7ccde"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 65,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.349691+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m31",
+      "ticket_id": "5d358c63-d764-4afc-a1c5-801735d7ccde"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "IN_DOUBT",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "PERMANENTLY_DENIED"
+    },
+    "t": "2026-11-17T17:37:27.354530+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "10b24d887dca83ef6644d22a05e83792d17da4a0114f9de5e56e7b49016c161e",
+      "request_id": "m32",
+      "ticket_id": "4a734dd0-7a48-4ff7-ab0f-4942ad57254a"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 66,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.358831+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m32",
+      "ticket_id": "4a734dd0-7a48-4ff7-ab0f-4942ad57254a"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 67,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.362375+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m32",
+      "ticket_id": "4a734dd0-7a48-4ff7-ab0f-4942ad57254a"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 68,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.370370+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "b977a990eb4d2d4c8d2e996a4b72f43dea03c2def29b3581ef5e23583d73e8fa",
+      "request_id": "m33",
+      "ticket_id": "0677e310-ad8f-4f7d-af85-804d0bfe7c1b"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 69,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.375298+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m33",
+      "ticket_id": "0677e310-ad8f-4f7d-af85-804d0bfe7c1b"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 70,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.380168+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m33",
+      "ticket_id": "0677e310-ad8f-4f7d-af85-804d0bfe7c1b"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 71,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.383970+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m33",
+      "ticket_id": "0677e310-ad8f-4f7d-af85-804d0bfe7c1b"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "PERMANENTLY_DENIED",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "COMMIT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:27.387549+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "bf0c2ced0834638a5d67b9475be5521d5cc68bc7cdc7366a5340613fdba64c7a",
+      "request_id": "m34",
+      "ticket_id": "0d237f20-12bd-43ba-9415-ebb788393ea9"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 72,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.393223+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m34",
+      "ticket_id": "0d237f20-12bd-43ba-9415-ebb788393ea9"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 73,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.397743+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m34",
+      "ticket_id": "0d237f20-12bd-43ba-9415-ebb788393ea9"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 74,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.402276+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "tombstone_payload_hash": "bf0c2ced0834638a5d67b9475be5521d5cc68bc7cdc7366a5340613fdba64c7a",
+        "tombstone_ticket_id": "0d237f20-12bd-43ba-9415-ebb788393ea9"
+      },
+      "ns": "ns-sm",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "m34",
+      "ticket_id": "0d237f20-12bd-43ba-9415-ebb788393ea9"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "PERMANENTLY_DENIED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "COMMIT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:27.403277+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "c92b64b8f88b6f352626a963f60714e07c9965c9335f7c7c05722960199f3d79",
+      "request_id": "m35",
+      "ticket_id": "7961dc98-a432-4b60-a1c9-0b802cfd1288"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 75,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.409590+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m35",
+      "ticket_id": "7961dc98-a432-4b60-a1c9-0b802cfd1288"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 76,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.413478+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m35",
+      "ticket_id": "7961dc98-a432-4b60-a1c9-0b802cfd1288"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 77,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.421037+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m35",
+      "ticket_id": "7961dc98-a432-4b60-a1c9-0b802cfd1288"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "PERMANENTLY_DENIED",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:27.423350+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "56817006cc9fd59d867b63891fccd79dd00c2261118cf6e142f6eb4e1f4ab539",
+      "request_id": "m36",
+      "ticket_id": "e0ac622c-9494-418e-b319-3ffe57aecfce"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 78,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.427594+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m36",
+      "ticket_id": "e0ac622c-9494-418e-b319-3ffe57aecfce"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 79,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.430140+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m36",
+      "ticket_id": "e0ac622c-9494-418e-b319-3ffe57aecfce"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 80,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.436829+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_rollback_ack": true
+      },
+      "ns": "ns-sm",
+      "outcome": "ABORT_CONFIRMED",
+      "request_id": "m36",
+      "ticket_id": "e0ac622c-9494-418e-b319-3ffe57aecfce"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "PERMANENTLY_DENIED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "ABORT_CONFIRMED"
+    },
+    "t": "2026-11-17T17:37:27.439515+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "b4168b83ac5a7815af316451fdbb1c9d5b7cbe020800d568ad37701943e118b5",
+      "request_id": "m37",
+      "ticket_id": "e9790624-ee84-49a5-8bc4-319eba9d5b88"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 81,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.445396+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m37",
+      "ticket_id": "e9790624-ee84-49a5-8bc4-319eba9d5b88"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 82,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.449751+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m37",
+      "ticket_id": "e9790624-ee84-49a5-8bc4-319eba9d5b88"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 83,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.454469+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m37",
+      "ticket_id": "e9790624-ee84-49a5-8bc4-319eba9d5b88"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "from": "PERMANENTLY_DENIED",
+      "role": "issuer",
+      "status": "INVALID_TRANSITION",
+      "to": "IN_DOUBT"
+    },
+    "t": "2026-11-17T17:37:27.458512+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "b58a50eb585e8c88ac0c9af8fcc2197b328c29fefce68de41158512e47319046",
+      "request_id": "m38",
+      "ticket_id": "43386e7d-50e7-4df1-9f6e-885751eebcb5"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 84,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.463406+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m38",
+      "ticket_id": "43386e7d-50e7-4df1-9f6e-885751eebcb5"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 85,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.467740+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m38",
+      "ticket_id": "43386e7d-50e7-4df1-9f6e-885751eebcb5"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 86,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.472150+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m38",
+      "ticket_id": "43386e7d-50e7-4df1-9f6e-885751eebcb5"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "from": "PERMANENTLY_DENIED",
+      "role": "operator",
+      "status": "INVALID_TRANSITION",
+      "to": "IN_DOUBT"
+    },
+    "t": "2026-11-17T17:37:27.473212+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "640224fc4cf55d9cdc365519ca76126b49fb355e6bbde0bf528a1ef36374b39e",
+      "request_id": "m39",
+      "ticket_id": "dbe614ab-a0bc-4997-bbda-41cda1bb1ed6"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 87,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.479791+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m39",
+      "ticket_id": "dbe614ab-a0bc-4997-bbda-41cda1bb1ed6"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 88,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.484815+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m39",
+      "ticket_id": "dbe614ab-a0bc-4997-bbda-41cda1bb1ed6"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 89,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.489456+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m39",
+      "ticket_id": "dbe614ab-a0bc-4997-bbda-41cda1bb1ed6"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "state": "PERMANENTLY_DENIED",
+      "status": "IDEMPOTENT"
+    },
+    "t": "2026-11-17T17:37:27.493004+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "im",
+      "ns": "ns-sm",
+      "payload_hash": "149ee798e9b4513a424f4a2cf63e4bd167683ae9059de470813f5044586b095d",
+      "request_id": "m40",
+      "ticket_id": "ea25ff53-3a30-419a-b9d2-9178fa03df54"
+    },
+    "kind": "witness_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "seq": 90,
+      "status": "RESERVED"
+    },
+    "t": "2026-11-17T17:37:27.496839+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "IN_DOUBT",
+      "request_id": "m40",
+      "ticket_id": "ea25ff53-3a30-419a-b9d2-9178fa03df54"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 91,
+      "state": "IN_DOUBT",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.501449+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "setup"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m40",
+      "ticket_id": "ea25ff53-3a30-419a-b9d2-9178fa03df54"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "seq": 92,
+      "state": "PERMANENTLY_DENIED",
+      "status": "APPENDED"
+    },
+    "t": "2026-11-17T17:37:27.507255+00:00",
+    "witness": "sm"
+  },
+  {
+    "body": {
+      "evidence": {
+        "reason": "matrix"
+      },
+      "ns": "ns-sm",
+      "outcome": "PERMANENTLY_DENIED",
+      "request_id": "m40",
+      "ticket_id": "ea25ff53-3a30-419a-b9d2-9178fa03df54"
+    },
+    "kind": "witness_call",
+    "op": "outcome",
+    "principal": "operator",
+    "response": {
+      "state": "PERMANENTLY_DENIED",
+      "status": "IDEMPOTENT"
+    },
+    "t": "2026-11-17T17:37:27.509515+00:00",
+    "witness": "sm"
+  }
+]

@@ -1,0 +1,5 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "aa4db484-5431-418b-bf7d-aeb4fb76c358", "mode": "issue", "mono": 0.0, "ns": "ns-b", "payload_hash": "d42536a6437a12b0caf7f224fe1ed5bb52e1287b9d9a9ee916921615dd153a55", "principal": "issuer_a", "request_id": "k2", "t": 1794937221.679828}
+EVENT {"event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794937221.6812527}
+EVENT {"event": "pg_read_rows", "exit": 0, "mono": 0.187, "sqlstates": [], "t": 1794937221.8688228}
+EVENT {"event": "gate", "mono": 0.187, "open": false, "reasons": ["OPEN_RESERVATIONS:k1"], "t": 1794937221.8688228}
+RESULT {"reasons": ["OPEN_RESERVATIONS:k1"], "result": "ISSUE_DENIED_GATE_CLOSED"}

@@ -1,0 +1,6 @@
+{"event": "witness_failed", "reason": "SEQUENCE_VIOLATION line=4 seq=5", "t": 1794937181.526992}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": "SEQUENCE_VIOLATION line=4 seq=5", "pid": 23852, "records": 3, "t": 1794937181.527996}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "auditor", "seq": null, "status": "WITNESS_FAILED", "t": 1794937181.6308107}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "export", "principal": "issuer_a", "seq": null, "status": "WITNESS_FAILED", "t": 1794937181.7870603}
+{"body_ns": null, "body_request_id": null, "event": "request", "op": "shutdown", "principal": "harness", "seq": null, "status": "SHUTDOWN", "t": 1794937181.9497027}
+{"event": "stopped", "t": 1794937181.9497027}

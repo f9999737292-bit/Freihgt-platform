@@ -1,0 +1,26 @@
+{
+  "app": "a2-w054-r-k3-crash",
+  "container": "bintrans-proof-0-1r-77a2511d",
+  "db": "wproof_r_77a2511d",
+  "epoch": 1,
+  "fault": "crash_after_commit",
+  "incarnation": "7f419cdf-28d3-4f73-b76d-97ff213567f2",
+  "mode": "issue",
+  "ns": "ns-r",
+  "payload": {
+    "execution_ids": [
+      "exe-2",
+      "exe-1"
+    ],
+    "expected_epoch": 1,
+    "expected_revision": 1,
+    "operation": "ISSUE_TRACKING_BINDING",
+    "shipment": "shp-k3",
+    "sub": "user-0.1r-test",
+    "tenant_id": "tenant-0.1r-test"
+  },
+  "pg_role": "wproof_issuer",
+  "pipe": "bintrans-0-1r-77a2511d-restore",
+  "principal": "issuer_a",
+  "request_id": "k3"
+}
