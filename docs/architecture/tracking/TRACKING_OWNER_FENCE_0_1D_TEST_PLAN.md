@@ -1,0 +1,212 @@
+# Tracking owner fence 0.1D — test plan
+
+Status: designed, not executed.
+`CROSS_TENANT_TESTS_DEFINED=YES`.
+`CRASH_RECOVERY_TESTS_DEFINED=YES`.
+`BROKER_SAFETY_PROVEN=NO`.
+
+These tests need one PostgreSQL database that contains schema `transport` and schema `tracking`, plus the future `owner_epoch` column and `transport.lock_execution_owner`. They are not authorized by this stage. They do not use staging or production. A broker assertion is limited to `OffsetFetch` after the database result. Coordinator apply time stays unproven.
+
+Each test records the SQL state before the stimulus and after the sessions end. `PASS` and `FAIL` use those rows.
+
+## 1. Epoch 4, then epoch 5
+
+Setup: execution `owner_epoch = 4`. Tracking state `owner_epoch = 4` for an earlier event.
+Stimulus: session A calls `lock_execution_owner` and sees 4. Session B updates the epoch to 5 and commits only after A commits a state write for epoch 4.
+Expected SQL: execution `owner_epoch = 5`. The state row for the epoch-4 event remains `owner_epoch = 4`. No later update stores `owner_epoch = 4`.
+`PASS`: B's commit is after A's commit, and the epoch-4 row was not written again after B committed.
+`FAIL`: a state row shows `owner_epoch = 4` from a transaction that acquired the execution lock after B committed.
+
+## 2. Tracking transaction before the owner transition
+
+Setup: execution epoch 4. No epoch-5 update has started.
+Stimulus: the tracking transaction locks the execution, writes the matching event, and commits. The shipment transaction then sets epoch 5 and commits.
+Expected SQL: state `owner_epoch = 4`, `last_event_id` equals the event, inbox contains that `event_id`. Execution epoch is then 5.
+`PASS`: the epoch-4 effect is still present after epoch 5. It is not deleted.
+`FAIL`: the epoch-5 commit removes or rewrites the epoch-4 proof.
+
+## 3. Tracking transaction after the owner transition
+
+Setup: execution epoch is already 5. The event carries epoch 4.
+Stimulus: the tracking transaction calls the lock function and then attempts the state write.
+Expected SQL: execution epoch stays 5. State `owner_epoch` stays at its previous value. Inbox count for the new `event_id` is 0.
+`PASS`: the transaction rolls back.
+`FAIL`: the inbox gains a row or the state epoch becomes 4.
+
+## 4. Parallel writers
+
+Setup: execution epoch 4. Two tracking sessions carry the same epoch-4 event identity, and one shipment session sets epoch 5.
+Stimulus: all three start together. Tracking sessions use execution-then-state order.
+Expected SQL: one inbox row for that `event_id` or zero if both lose the race to epoch 5. State `owner_epoch` is 4 only when a tracking commit happened before epoch 5. Otherwise it is unchanged. Execution epoch ends at 5.
+`PASS`: no second inbox row, and no epoch-4 write is ordered after the epoch-5 commit.
+`FAIL`: two inbox rows, or a state write of epoch 4 after epoch 5 is visible.
+
+## 5. No tracking state row
+
+Setup: execution epoch 1 and no `tracking.execution_tracking_state` row.
+Stimulus: a matching event runs the full order.
+Expected SQL: one inbox row with that `event_id`, hash, and size, inserted before the state insert in the same transaction. One state row with `owner_epoch = 1` and `last_event_id` equal to the event.
+`PASS`: the insert follows a lock return for that execution.
+`FAIL`: the insert runs when the function returns no execution row.
+
+## 6. Tenant A against tenant B
+
+Setup: execution `operating_tenant_id` is tenant A and epoch is 4. The event claims tenant B and epoch 4.
+Stimulus: the tracking transaction locks the execution and compares the claim.
+Expected SQL: state `operating_tenant_id` stays A. Inbox has no row for the event. `RowsAffected` of any state update is 0 before rollback.
+`PASS`: both sessions end with the pre-test state row unchanged.
+`FAIL`: the stored tenant becomes B, or the offset advances.
+
+## 7. Deadlock and lock timeout
+
+Setup: session A holds the execution lock and waits for the state row. Session B holds the state row and then calls `lock_execution_owner`.
+Stimulus: the inverted order, which this contract forbids, and a second run in the prescribed order with `lock_timeout = '2s'`.
+Expected SQL: on the inverted run, PostgreSQL reports `40P01` or a lock timeout, and both transactions roll back. On the prescribed run, one session waits and then reads the committed epoch. No `40P01`.
+`PASS`: the forbidden order leaves no partial state row. The prescribed order completes without `40P01`.
+`FAIL`: the prescribed order deadlocks, or either run commits a state row whose epoch differs from the execution epoch at that commit.
+
+## 8. Crash before commit
+
+Setup: the tracking transaction has locked the execution and has not committed.
+Stimulus: the session is terminated.
+Expected SQL: state and inbox match the pre-test counts. Execution epoch is unchanged by the dead session.
+`PASS`: the next lock sees the pre-test epoch and no new inbox row.
+`FAIL`: a new inbox row or a new `last_event_id` is present.
+
+## 9. Crash after commit and before the Kafka offset
+
+Setup: the tracking transaction has committed the proof. `CommitRecords` has not been called.
+Stimulus: the process stops. `OffsetFetch` is read after restart.
+Expected SQL: inbox and state contain the proof. `OffsetFetch` remains on the pre-test offset.
+`PASS`: restart does not insert a second inbox row. The offset advances once only after the proof is read.
+`FAIL`: the offset advances without a matching `last_event_id`, hash, size, and epoch.
+
+## 10. Restart and replay
+
+Setup: the proof from test 9 is committed and the offset is still old.
+Stimulus: a new process loads the same record.
+Expected SQL: inbox count stays 1. State `last_event_id` stays equal to the event. After the proof check, `OffsetFetch` shows the next offset.
+`PASS`: one offset advance and no second state update.
+`FAIL`: the offset advances while `last_event_id` is null, or the same record advances the offset twice.
+
+## 11. ETA ingest bypass
+
+Setup: state `owner_epoch = 4` and execution `owner_epoch = 5`. ETA ingest is required to call `lock_execution_owner` before `LockExecutionTrackingStateTx`.
+Stimulus: an ETA observation for that execution.
+Expected SQL: `tracking.execution_stop_eta_state` is unchanged. The tracking state tenant and epoch are unchanged.
+`PASS`: the ETA transaction rolls back because the locked execution epoch differs from the state epoch.
+`FAIL`: `execution_stop_eta_state` changes while those epochs differ. The current code at `eta_ingest_service.go:256` is this failure mode until it takes the execution lock first.
+
+## 12. Old consumer bypass
+
+Setup: the group has one member that writes through `UpsertExecutionTrackingState` and does not call `lock_execution_owner`.
+Stimulus: the deployment gate evaluates the group, and the old session attempts a state update after execution epoch 5.
+Expected SQL: the new mode writes nothing. If the old session is still connected, its update is a bypass and the gate result is closed.
+`PASS`: the new consumer does not join, and no new-mode transaction commits.
+`FAIL`: the new mode runs beside the old session, or the gate treats that session as compatible.
+
+## 13. MarkApproachEmitted epoch oracle
+
+Calling `transport.lock_execution_owner` is not by itself evidence that the approach write is safe. `ListActiveTargetsForActors` at `services/tracking-service/internal/service/approach.go:69` runs before the execution lock. Its result is not the authoritative epoch.
+
+Setup:
+
+```text
+Authoritative execution:
+tenant=A
+owner_epoch=5
+
+Existing tracking state:
+tenant=A
+owner_epoch=4
+```
+
+Stimulus: one transaction runs `BEGIN`, calls `lock_execution_owner`, checks the returned owner and epoch against this approach target, and then reaches `MarkApproachEmitted` at `approach.go:94`.
+
+Expected: `ROLLBACK`. `tracking.execution_tracking_state` keeps tenant A, epoch 4, and the same `approach_emitted_at`. The inbox count is unchanged. `OffsetFetch` is unchanged.
+
+`PASS`: all four of those values match the setup after the session ends.
+`FAIL`: `approach_emitted_at` changes, the state epoch changes, an inbox row appears, or the offset advances. A successful function call followed by the `UPDATE` is this failure.
+
+## 14. MarkApproachEmitted tenant oracle
+
+Setup:
+
+```text
+Authoritative execution:
+tenant=A
+owner_epoch=5
+
+Tracking state:
+tenant=B
+owner_epoch=5
+```
+
+Stimulus: the same transaction locks the execution, compares tenant B with the returned tenant A, and does not treat the payload tenant or the pre-lock list as the owner.
+
+Expected: `OWNER_STATE_MISMATCH`, `ROLLBACK`, no state update, and no offset commit. The state row stays tenant B and epoch 5.
+
+`PASS`: the state row and the Kafka offset are unchanged, and the transaction does not commit.
+`FAIL`: the state tenant becomes A, any approach column changes, or the offset advances.
+
+## 15. Privilege and order oracles
+
+T1 through T8 are designed and not executed. No migration is applied for them. A result recorded here is the specified outcome, not a server result.
+
+### T1. Qualified function invocation
+
+Setup: `tracking_service_login` inherits `tracking_runtime`. That role has `USAGE ON SCHEMA transport` and `EXECUTE` on `transport.lock_execution_owner(uuid)` only.
+Stimulus: the login calls `transport.lock_execution_owner` for an existing execution.
+`PASS`: the qualified name resolves and the call returns the locked tenant and epoch.
+`FAIL`: the name is not resolved, or this login is rejected.
+
+### T2. No table DML
+
+Setup: the same login as T1.
+Stimulus: direct `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on `transport.transport_executions`.
+`PASS`: each statement fails with `42501`. The stored row is unchanged. The function owner is not the session role in this test.
+`FAIL`: any direct table statement by this login succeeds.
+
+### T3. PUBLIC function grants
+
+Setup: `tracking_runtime` has schema `USAGE`. An unrelated login is not a member of `tracking_runtime`. The migration text through `000105` revokes `PUBLIC` from the transport functions created in `000103` and does not revoke `PUBLIC` from the earlier `RETURNS trigger` functions listed in the security document.
+Stimulus: the unrelated login and `tracking_runtime` attempt every function in schema `transport` other than `transport.lock_execution_owner`. The catalog `proacl` is read in the same test.
+`PASS`: every non-trigger function except `transport.lock_execution_owner` returns `42501` for both sessions. `PUBLIC` cannot execute `transport.lock_execution_owner`. Trigger functions are recorded separately, because a direct call fails as a trigger function even when `EXECUTE` remains granted to `PUBLIC`.
+`FAIL`: either session calls another function successfully, or `PUBLIC` can execute the lock function.
+This test is not a pass in this stage. `PUBLIC_FUNCTION_EXECUTE_AUDIT=REQUIRED`.
+
+### T4. NOINHERIT and SET ROLE
+
+Setup: one login is a member of `tracking_runtime` `WITH INHERIT FALSE, SET TRUE`. A second login is `tracking_service_login`, the accepted membership `WITH INHERIT TRUE, SET FALSE`.
+Stimulus: read `session_user`, `current_user`, `pg_has_role(..., 'MEMBER')`, and `pg_has_role(..., 'USAGE')` before and after `SET ROLE tracking_runtime`. Then call the function from each login. The predicate is the PostgreSQL 16 definition cited in the security document. PostgreSQL 17 uses the same `pg_has_role` sentence. This stage does not claim the result for an older major version.
+`PASS`: before `SET ROLE`, the `NOINHERIT` login has `MEMBER` true and `USAGE` false, and the call does not commit a state effect. After `SET ROLE`, `session_user` is still that login, `USAGE` on `session_user` is still false, and the body still rejects the call even if `GRANT EXECUTE` allows entry. The inheriting login does not use `SET ROLE`, `USAGE` is true, and its call is the accepted path.
+`FAIL`: a predicted boolean differs from the server, the `NOINHERIT` login's `USAGE` result changes because of `SET ROLE`, or that login commits a state effect.
+`SET_ROLE_BYPASS=NOT_CLAIMED_SAFE_WITHOUT_TEST` until this test has a server result. This stage has none.
+
+### T5. Immediate foreign key
+
+Setup: an immediate foreign key from `last_event_id` to the inbox `event_id`, and a new event whose tenant, execution, and identity match the locked execution.
+Stimulus: the transaction inserts the inbox row and then writes the state proof, including `last_event_id`, in that same transaction.
+`PASS`: commit leaves one inbox row and a state row whose `last_event_id`, tenant, execution, and sequence match that inbox row.
+`FAIL`: the state row is written before the inbox insert, or commit succeeds when `last_event_id` points at an inbox UUID for another tenant, execution, or event identity.
+
+### T6. State failure rollback
+
+Setup: the lock and the epoch check have succeeded, and the inbox insert has been executed but not committed.
+Stimulus: the state update raises an error or changes zero rows.
+`PASS`: rollback leaves the pre-test inbox count and the pre-test state row. The offset is unchanged.
+`FAIL`: the new inbox row remains, the state row changes, or the offset advances.
+
+### T7. Cross-tenant mismatch
+
+Setup: the locked execution is tenant A. The event claims tenant B.
+Stimulus: the transaction compares the claim after the lock and before any inbox insert.
+`PASS`: `OWNER_STATE_MISMATCH`, rollback, no state effect, no new inbox row, and no offset commit.
+`FAIL`: a state column changes, an inbox row for the event remains, or the offset advances.
+
+### T8. Shared freight login
+
+Setup: the session is `freight`. If that role applied `000088`, it may own `transport.transport_executions`. It is not a member of `tracking_runtime`.
+Stimulus: direct `UPDATE` of the execution row, direct `UPDATE` of `tracking.execution_tracking_state`, and a call to `transport.lock_execution_owner`. Record each server result.
+The specified grant design rejects the function call. A successful direct `UPDATE` is a bypass. This test does not have a `PASS` that proves least privilege. A rejected `EXECUTE` does not prove that `freight` lacks table-owner rights. `SHARED_FREIGHT_RISK=OPEN`.
+`FAIL`: the report treats this session as evidence that the privilege set is least privilege, or the function call succeeds for `freight`.
