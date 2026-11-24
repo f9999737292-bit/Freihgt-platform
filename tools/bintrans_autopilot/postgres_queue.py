@@ -183,6 +183,25 @@ _EXPECTED_ROUTINES = {
 _PAYLOAD_SCHEMAS = {
     "docs": {"marker": "marker", "n": "count"},
     "ping": {"n": "count"},
+    "mock_launch": {
+        "launch_id": "marker",
+        "agent_id": "marker",
+        "run_id": "marker",
+        "scenario": "marker",
+        "reserve_cents": "count",
+        "charged_cents": "count",
+    },
+}
+_REQUIRED_PAYLOAD_FIELDS = {
+    "ping": ("n",),
+    "mock_launch": (
+        "launch_id",
+        "agent_id",
+        "run_id",
+        "scenario",
+        "reserve_cents",
+        "charged_cents",
+    ),
 }
 _SECRET_PARTS = {
     "password",
@@ -376,8 +395,9 @@ def _validate_payload(job_type: str, payload: dict) -> None:
                 raise QueueError("invalid_input")
         elif isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 1_000_000:
             raise QueueError("invalid_input")
-    if job_type == "ping" and "n" not in payload:
-        raise QueueError("invalid_input")
+    for field in _REQUIRED_PAYLOAD_FIELDS.get(job_type, ()):
+        if field not in payload:
+            raise QueueError("invalid_input")
 
 
 def _identifier(value: str, code: str = "invalid_input") -> str:
@@ -2026,6 +2046,29 @@ class PostgresQueue:
         if row is None:
             return None
         return _status(row, row["job_id"], tenant_id)
+
+    def leased_payload(self, tenant_id: str, job_id: str, owner: str, lease_token: str) -> dict:
+        tenant_id, job_id, owner, lease_token = _lease_args(tenant_id, job_id, owner, lease_token)
+        with self._cursor() as cursor:
+            _assert_runtime_binding(cursor, tenant_id)
+            cursor.execute(
+                """
+                SELECT payload
+                FROM autopilot_queue.jobs
+                WHERE tenant_id = %s AND job_id = %s AND lease_owner = %s AND lease_token = %s
+                  AND status = 'RUNNING' AND lease_expires_at > clock_timestamp()
+                """,
+                (tenant_id, job_id, owner, lease_token),
+            )
+            row = _one(cursor)
+            if row is None:
+                raise self._classify(cursor, tenant_id, job_id, owner, lease_token)
+        payload = row["payload"]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        if not isinstance(payload, dict):
+            raise QueueError("invalid_input")
+        return payload
 
     def _finish(self, tenant_id: str, job_id: str, owner: str, lease_token: str, status: str, error_code: str) -> JobStatus:
         tenant_id, job_id, owner, lease_token = _lease_args(tenant_id, job_id, owner, lease_token)

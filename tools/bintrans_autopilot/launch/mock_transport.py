@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -26,6 +27,31 @@ class MockCreateResult:
     proof_blob: dict[str, Any]
 
 
+def mock_identity(tenant_id: str, launch_id: str) -> tuple[str, str]:
+    """Stable mock agent and run ids derived from the trusted launch key.
+
+    The historical transport constants are unique per database, so a second
+    confirmed launch cannot reuse them. Payload-supplied ids are not used.
+    """
+
+    if not isinstance(tenant_id, str) or not isinstance(launch_id, str):
+        raise ValueError("invalid_input")
+    if not tenant_id or not launch_id:
+        raise ValueError("invalid_input")
+    return (
+        _mock_token("bc", f"mock-agent:{tenant_id}:{launch_id}"),
+        _mock_token("run", f"mock-run:{tenant_id}:{launch_id}"),
+    )
+
+
+def _mock_token(prefix: str, seed: str) -> str:
+    digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
+    return (
+        f"{prefix}-{digest[0:8]}-{digest[8:12]}-{digest[12:16]}-"
+        f"{digest[16:20]}-{digest[20:32]}"
+    )
+
+
 class MockCursorTransport:
     """Exact-type mock transport; subclasses forbidden (ADR RT-31)."""
 
@@ -44,12 +70,21 @@ class MockCursorTransport:
     def create_agent(self, _body: dict[str, Any]) -> MockCreateResult:
         scenario = self.scenario
         if scenario == "create_success":
+            tenant_id = _body.get("tenant_id")
+            launch_id = _body.get("launch_id")
+            if isinstance(tenant_id, str) and tenant_id and isinstance(launch_id, str) and launch_id:
+                agent_id, run_id = mock_identity(tenant_id, launch_id)
+            else:
+                agent_id, run_id = (
+                    "bc-33a0edbc-8fed-47fa-85b7-cc139e900375",
+                    "run-a51658e1-665d-4f7c-9135-c0d720b2210b",
+                )
             return MockCreateResult(
                 200,
                 None,
                 True,
-                "bc-33a0edbc-8fed-47fa-85b7-cc139e900375",
-                "run-a51658e1-665d-4f7c-9135-c0d720b2210b",
+                agent_id,
+                run_id,
                 "MOCK_TRUSTED",
                 {"http_status": 200, "agent_created_claim": True},
             )
