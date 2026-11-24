@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 )
 
@@ -62,7 +63,7 @@ func (c *DownstreamClient) FetchUserRoles(ctx context.Context, reqCtx RequestCon
 	}
 	c.applyHeaders(req, reqCtx)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(c.identity, req)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func (c *DownstreamClient) FetchShipment(ctx context.Context, reqCtx RequestCont
 	}
 	c.applyHeaders(req, reqCtx)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(c.shipment, req)
 	if err != nil {
 		return shipmentFetchResult{}, err
 	}
@@ -134,7 +135,7 @@ func (c *DownstreamClient) FetchStatusHistory(ctx context.Context, reqCtx Reques
 	}
 	c.applyHeaders(req, reqCtx)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(c.shipment, req)
 	if err != nil {
 		return statusHistoryFetchResult{Failed: true}, err
 	}
@@ -234,7 +235,7 @@ func (c *DownstreamClient) FetchDocuments(ctx context.Context, reqCtx RequestCon
 
 	endpoint := c.document + "/v1/documents?" + values.Encode()
 	var payload listResult
-	if err := c.getJSON(ctx, endpoint, reqCtx, &payload); err != nil {
+	if err := c.getJSON(ctx, c.document, endpoint, reqCtx, &payload); err != nil {
 		return nil, false, err
 	}
 
@@ -249,14 +250,14 @@ func (c *DownstreamClient) FetchDocuments(ctx context.Context, reqCtx RequestCon
 	return items, limited, nil
 }
 
-func (c *DownstreamClient) getJSON(ctx context.Context, endpoint string, reqCtx RequestContext, dest any) error {
+func (c *DownstreamClient) getJSON(ctx context.Context, baseURL, endpoint string, reqCtx RequestContext, dest any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return err
 	}
 	c.applyHeaders(req, reqCtx)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(baseURL, req)
 	if err != nil {
 		return err
 	}
@@ -266,6 +267,13 @@ func (c *DownstreamClient) getJSON(ctx context.Context, endpoint string, reqCtx 
 		return fmt.Errorf("downstream returned %d", resp.StatusCode)
 	}
 	return json.NewDecoder(resp.Body).Decode(dest)
+}
+
+func (c *DownstreamClient) do(baseURL string, req *http.Request) (*http.Response, error) {
+	if c == nil || c.httpClient == nil || req == nil {
+		return nil, httpredirect.ErrRejected
+	}
+	return httpredirect.Do(c.httpClient, baseURL, req)
 }
 
 func (c *DownstreamClient) applyHeaders(req *http.Request, reqCtx RequestContext) {

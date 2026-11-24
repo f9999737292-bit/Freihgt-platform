@@ -79,7 +79,7 @@ func (c *Client) AcknowledgeCriticalEvent(
 		req.Header.Set(sharedmiddleware.RequestIDHeader, input.RequestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		reason = classifyRequestError(ctx, err)
 		result = "ERROR"
@@ -142,7 +142,7 @@ func (c *Client) LookupAcknowledgements(
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
 		reason = classifyRequestError(ctx, err)
 		result = "ERROR"

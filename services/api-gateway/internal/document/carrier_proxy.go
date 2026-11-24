@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 )
 
@@ -79,7 +80,7 @@ func (h *CarrierHandler) proxy(w http.ResponseWriter, r *http.Request, requireSh
 	if actor := strings.TrimSpace(r.Header.Get("X-Actor-Kind")); actor != "" {
 		req.Header.Set("X-Actor-Kind", actor)
 	}
-	resp, err := h.shipper.httpClient.Do(req)
+	resp, err := httpredirect.Do(h.shipper.httpClient, h.shipper.baseURL, req)
 	if err != nil {
 		writeDocumentUnavailable(w)
 		return
