@@ -35,19 +35,19 @@ type Handler struct {
 }
 
 func NewHandler(log *slog.Logger, cfg config.Config) *Handler {
-	httpClient := &http.Client{Timeout: time.Duration(cfg.ProxyTimeoutSeconds) * time.Second}
-	readModel := controltowerreadmodel.NewClient(httpClient, cfg.ControlTower.ReadModel, controltowerreadmodel.NewMetrics())
+	timeout := time.Duration(cfg.ProxyTimeoutSeconds) * time.Second
+	readModel := controltowerreadmodel.NewClient(&http.Client{Timeout: timeout}, cfg.ControlTower.ReadModel, controltowerreadmodel.NewMetrics())
 	return &Handler{
 		log:       log,
-		client:    NewClient(httpClient, cfg.Services.Shipment),
-		tracking:  tracking.NewClient(httpClient, cfg.Services.Tracking, cfg.TrackingInternalToken),
-		documents: document.NewClient(httpClient, cfg.Services.Document),
+		client:    NewClient(&http.Client{Timeout: timeout}, cfg.Services.Shipment),
+		tracking:  tracking.NewClient(&http.Client{Timeout: timeout}, cfg.Services.Tracking, cfg.TrackingInternalToken),
+		documents: document.NewClient(&http.Client{Timeout: timeout}, cfg.Services.Document),
 		integrator: NewExceptionIntegrator(
 			readModel,
 			cfg.ControlTower.ReadModel.Mode.Enabled(),
 			cfg.ControlTower.ReadModel.Timeout,
 		),
-		identity:    routeauth.NewIdentityClient(httpClient, cfg.Services.Identity),
+		identity:    routeauth.NewIdentityClient(&http.Client{Timeout: timeout}, cfg.Services.Identity),
 		authEnabled: cfg.AuthEnabled,
 		devTenantID: strings.TrimSpace(cfg.DevTenantID),
 	}

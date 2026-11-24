@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	"github.com/freight-platform/api-gateway/internal/routeauth"
 )
 
@@ -50,7 +51,7 @@ func (c *IdentityClient) ListUserCompanies(ctx context.Context, reqCtx routeauth
 	}
 	c.applyHeaders(req, reqCtx)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +105,7 @@ func (c *IdentityClient) ListUserTenantRoles(ctx context.Context, reqCtx routeau
 	}
 	c.applyHeaders(req, reqCtx)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +136,13 @@ func (c *IdentityClient) ListUserTenantRoles(ctx context.Context, reqCtx routeau
 		}
 	}
 	return codes, nil
+}
+
+func (c *IdentityClient) do(req *http.Request) (*http.Response, error) {
+	if c == nil || c.httpClient == nil || req == nil {
+		return nil, httpredirect.ErrRejected
+	}
+	return httpredirect.Do(c.httpClient, c.baseURL, req)
 }
 
 func (c *IdentityClient) applyHeaders(req *http.Request, reqCtx routeauth.RequestContext) {
