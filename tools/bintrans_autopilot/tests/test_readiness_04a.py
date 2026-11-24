@@ -723,17 +723,39 @@ class ReadinessTests(unittest.TestCase):
         for required in (
             "append_worker_claim",
             "append_reviewer_verdict",
+            "append_restart_event",
+            "restart_recorder",
             "session_user",
+            "alone is not a subject",
             "current_user",
+            "DISCARD ALL",
             "REVOKE ALL ON FUNCTION",
             "search_path",
             "audit_tip",
             "restart_tip",
             "POLICY_DECISION_REQUIRED",
             "reviewer=agent-j",
+            "HOLD",
         ):
             self.assertIn(required, text)
         self.assertIn("does not authorize an implementation", text)
+
+    def test_emergency_stop_runbook_does_not_ship_the_ignored_marker(self) -> None:
+        root = Path(__file__).resolve().parents[3]
+        runbook = (root / "docs/engineering/autopilot/EMERGENCY_STOP.md").read_text(encoding="utf-8")
+        readiness = (root / "docs/engineering/autopilot/READINESS_0_4A.md").read_text(encoding="utf-8")
+        budget = (root / "docs/engineering/autopilot/BUDGET_CONTROLLER_0_3C2.md").read_text(encoding="utf-8")
+        workflow = (root / ".github/workflows/bintrans-autopilot-dispatcher.yml").read_text(encoding="utf-8")
+        for name, text in (("runbook", runbook), ("readiness", readiness), ("budget", budget)):
+            self.assertIn("NOT_IMPLEMENTED", text, name)
+            self.assertNotIn("git add", text, name)
+            self.assertNotIn("merge that through the normal review path", text, name)
+        self.assertIn("server-owned", runbook)
+        self.assertIn("fresh checkout", runbook)
+        self.assertIn("fail-closed", runbook)
+        self.assertIn("before each action", runbook)
+        self.assertEqual(workflow.count("AUTOPILOT_EMERGENCY_STOP: ${{ vars.AUTOPILOT_EMERGENCY_STOP }}"), 2)
+        self.assertNotIn("tools/bintrans_autopilot/EMERGENCY_STOP", workflow)
 
 
 if __name__ == "__main__":

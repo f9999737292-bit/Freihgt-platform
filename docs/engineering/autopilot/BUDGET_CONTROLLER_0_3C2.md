@@ -51,8 +51,10 @@ New reserves require **both**:
   gates; it only relaxes unrelated dispatcher pricing checks in `budget.py`).
 
 **Emergency stop is never bypassed:** `AUTOPILOT_EMERGENCY_STOP=true`,
-`config.emergency_stop`, or presence of `tools/bintrans_autopilot/EMERGENCY_STOP`
-always block reserves.
+`config.emergency_stop`, or a local `tools/bintrans_autopilot/EMERGENCY_STOP`
+that the process can already see always block reserves. The file is gitignored.
+Remote delivery of that file is NOT_IMPLEMENTED. A checkout that lacks the file
+is not permission to reserve.
 
 `AUTOPILOT_ENABLED=true` is **required** (together with config) for reserves.
 Setting the env var to `true` does **not** by itself block spending; disabling
