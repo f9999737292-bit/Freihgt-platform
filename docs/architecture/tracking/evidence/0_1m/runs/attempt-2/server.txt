@@ -1,0 +1,2 @@
+database=bintrans_01m_writer_compat
+server_version_num=160015

@@ -1,0 +1,7 @@
+psql:reader_read.sql:2: ERROR:  42501: permission denied for table transport_executions
+CONTEXT:  SQL statement "SELECT 1
+      FROM transport.transport_executions
+     WHERE id = p_execution_id
+       FOR SHARE"
+PL/pgSQL function transport.read_binding_line(uuid,uuid) line 12 at PERFORM
+LOCATION:  aclcheck_error, aclchk.c:2812

@@ -1,0 +1,68 @@
+setup role=proof_admin file=setup.sql 
+baseline_reset role=proof_admin file=fixture.sql 
+P0R_reset role=proof_admin file=fixture.sql 
+P0R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=12
+P0R_writer role=writer_probe file=writers/project_off_occupied.sql 
+P0R_retry role=writer_probe file=writers/project_off_free.sql 
+P0W_reset role=proof_admin file=fixture.sql 
+P0W_writer role=writer_probe file=writers/project_off_occupied.sql 
+P0W_FREE_reset role=proof_admin file=fixture.sql 
+P0W_FREE_writer role=writer_probe file=writers/project_off_free_hold.sql 
+P0W_FREE_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+P1R_reset role=proof_admin file=fixture.sql 
+P1R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=12
+P1R_writer role=writer_probe file=writers/project_on_occupied.sql 
+P1W_reset role=proof_admin file=fixture.sql 
+P1W_writer role=writer_probe file=writers/project_on_occupied_hold.sql 
+P1W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+P1R_FREE_reset role=proof_admin file=fixture.sql 
+P1R_FREE_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=12
+P1R_FREE_writer role=writer_probe file=writers/project_on_free.sql 
+P1W_FREE_reset role=proof_admin file=fixture.sql 
+P1W_FREE_writer role=writer_probe file=writers/project_on_free_hold.sql 
+P1W_FREE_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+AD_R_reset role=proof_admin file=fixture.sql 
+AD_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=12
+AD_R_writer role=writer_probe file=writers/assign_driver.sql 
+AD_W_reset role=proof_admin file=fixture.sql 
+AD_W_writer role=writer_probe file=writers/assign_driver_hold.sql 
+AD_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+AV_R_reset role=proof_admin file=fixture.sql 
+AV_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=12
+AV_R_writer role=writer_probe file=writers/assign_vehicle.sql 
+AV_W_reset role=proof_admin file=fixture.sql 
+AV_W_writer role=writer_probe file=writers/assign_vehicle_hold.sql 
+AV_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+DS_R_reset role=proof_admin file=fixture.sql 
+DS_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=12
+DS_R_writer role=writer_probe file=writers/driver_stop.sql 
+DS_W_reset role=proof_admin file=fixture.sql 
+DS_W_writer role=writer_probe file=writers/driver_stop_hold.sql 
+DS_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+DS_LINK_reset role=proof_admin file=fixture.sql 
+DS_LINK_writer role=writer_probe file=writers/driver_stop_hold.sql 
+SU_R_reset role=proof_admin file=fixture.sql 
+SU_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=12
+SU_R_writer role=writer_probe file=writers/successor.sql 
+SU_W_reset role=proof_admin file=fixture.sql 
+SU_W_writer role=writer_probe file=writers/successor_hold.sql 
+SU_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+SM_R_reset role=proof_admin file=fixture.sql 
+SM_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=12
+SM_R_writer role=writer_probe file=writers/shipment_status.sql 
+SM_W_reset role=proof_admin file=fixture.sql 
+SM_W_writer role=writer_probe file=writers/shipment_status_hold.sql 
+SM_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+DL_R_reset role=proof_admin file=fixture.sql 
+DL_R_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=12
+DL_R_writer role=writer_probe file=writers/direct_link.sql 
+DL_R_old_read role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+DL_R_new_read role=reader_probe file=reader_read.sql -v execution=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -v shipment=22222222-2222-2222-2222-222222222222
+DL_W_reset role=proof_admin file=fixture.sql 
+DL_W_writer role=writer_probe file=writers/direct_link_hold.sql 
+DL_W_reader role=reader_probe file=reader_read.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222
+DL_W_new_read role=reader_probe file=reader_read.sql -v execution=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -v shipment=22222222-2222-2222-2222-222222222222
+DL_T_reset role=proof_admin file=fixture.sql 
+DL_T_reader role=reader_probe file=reader_hold.sql -v execution=11111111-1111-1111-1111-111111111111 -v shipment=22222222-2222-2222-2222-222222222222 -v hold=12
+DL_T_writer role=writer_probe file=writers/direct_link_timeout.sql 
+DL_T_retry role=writer_probe file=writers/direct_link.sql 
