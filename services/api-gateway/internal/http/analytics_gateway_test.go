@@ -159,6 +159,14 @@ func TestAnalyticsGatewayAccessAndSpoofing(t *testing.T) {
 			t.Fatalf("status=%d calls=%d body=%s", rec.Code, seen.calls, rec.Body.String())
 		}
 	})
+	t.Run("company scoped platform admin is not tenant wide", func(t *testing.T) {
+		setFixture(identityFixture{companies: []map[string]any{companyItem(carrierA, "CARRIER", "PLATFORM_ADMIN")}})
+		before := seen.calls
+		rec := serveAnalytics(t, router, token, tenantB, "spoof-token", "shipment-service")
+		if rec.Code != http.StatusForbidden || seen.calls != before {
+			t.Fatalf("status=%d calls=%d body=%s", rec.Code, seen.calls, rec.Body.String())
+		}
+	})
 	t.Run("shipper and carrier denied", func(t *testing.T) {
 		setFixture(identityFixture{companies: []map[string]any{
 			companyItem(shipperA, "SHIPPER", "SHIPPER_ADMIN"),
@@ -243,6 +251,85 @@ func TestAnalyticsGatewayDependencyDown(t *testing.T) {
 	}
 	if strings.Contains(rec.Body.String(), `"value"`) {
 		t.Fatalf("returned a kpi: %s", rec.Body.String())
+	}
+}
+
+func TestAnalyticsMembershipRequestRequiresActiveStatus(t *testing.T) {
+	const (
+		secret           = "analytics-gateway-secret"
+		tenantA          = "11111111-1111-1111-1111-111111111111"
+		activeShipper    = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+		suspendedShipper = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+		deletedShipper   = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+	)
+	var analyticsCalls int
+	analytics := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		analyticsCalls++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"kpiId":"OPS_SHIPMENTS_TOTAL","definitionVersion":1,"measure":{"type":"COUNT","value":1},"dataFreshness":{"status":"UNKNOWN"},"completeness":"COMPLETE"}`))
+	}))
+	defer analytics.Close()
+	token := signAnalyticsToken(t, secret, "user-1", tenantA)
+
+	t.Run("active membership", func(t *testing.T) {
+		var query string
+		identity := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.URL.Path, "/companies") {
+				query = r.URL.RawQuery
+				if r.URL.Query().Get("status") != "ACTIVE" {
+					identityFixture{companies: []map[string]any{companyItem(suspendedShipper, "SHIPPER", "SHIPPER_ADMIN")}}.ServeHTTP(w, r)
+					return
+				}
+				identityFixture{companies: []map[string]any{companyItem(activeShipper, "SHIPPER", "SHIPPER_ADMIN")}}.ServeHTTP(w, r)
+				return
+			}
+			identityFixture{}.ServeHTTP(w, r)
+		}))
+		defer identity.Close()
+		router := analyticsRouter(t, secret, "gateway-internal-token", identity.URL, analytics.URL)
+		before := analyticsCalls
+		rec := serveAnalytics(t, router, token, "", "", "")
+		if rec.Code != http.StatusOK || !strings.Contains(query, "status=ACTIVE") || strings.Contains(rec.Body.String(), suspendedShipper) {
+			t.Fatalf("status=%d query=%s body=%s", rec.Code, query, rec.Body.String())
+		}
+		if analyticsCalls != before+1 {
+			t.Fatalf("analytics calls=%d", analyticsCalls)
+		}
+	})
+
+	for _, tt := range []struct {
+		name    string
+		company string
+	}{
+		{name: "suspended membership", company: suspendedShipper},
+		{name: "deleted membership", company: deletedShipper},
+		{name: "missing membership", company: ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var query string
+			identity := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.Contains(r.URL.Path, "/companies") {
+					query = r.URL.RawQuery
+					if r.URL.Query().Get("status") == "ACTIVE" || tt.company == "" {
+						identityFixture{}.ServeHTTP(w, r)
+						return
+					}
+					identityFixture{companies: []map[string]any{companyItem(tt.company, "SHIPPER", "SHIPPER_ADMIN")}}.ServeHTTP(w, r)
+					return
+				}
+				identityFixture{}.ServeHTTP(w, r)
+			}))
+			defer identity.Close()
+			router := analyticsRouter(t, secret, "gateway-internal-token", identity.URL, analytics.URL)
+			before := analyticsCalls
+			rec := serveAnalytics(t, router, token, "", "", "")
+			if rec.Code != http.StatusForbidden || analyticsCalls != before || !strings.Contains(query, "status=ACTIVE") {
+				t.Fatalf("status=%d calls=%d query=%s body=%s", rec.Code, analyticsCalls, query, rec.Body.String())
+			}
+			if tt.company != "" && strings.Contains(rec.Body.String(), tt.company) {
+				t.Fatalf("response disclosed a non-active company: %s", rec.Body.String())
+			}
+		})
 	}
 }
 

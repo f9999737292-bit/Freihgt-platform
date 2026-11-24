@@ -360,6 +360,10 @@ func TestOperationsAnalyticsSourcePickupAndCarriers(t *testing.T) {
 	if stillOwn.ShipmentTotal != 6 {
 		t.Fatalf("shipper saw another company %+v", stillOwn)
 	}
+	otherShipper := readAnalyticsSourceScoped(t, router, tenantA, domain.AnalyticsScopeShipper, foreignShipper)
+	if otherShipper.ShipmentTotal != 1 || len(otherShipper.Carriers) != 1 || otherShipper.Carriers[0].CarrierCompanyID != carrierB {
+		t.Fatalf("second shipper saw the first shipper population %+v", otherShipper)
+	}
 	crossTenant := readAnalyticsSourceScoped(t, router, tenantB, domain.AnalyticsScopeCarrier, graphA.carrier)
 	if crossTenant.ShipmentTotal != 0 || len(crossTenant.Carriers) != 0 {
 		t.Fatalf("cross tenant company %+v", crossTenant)

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 )
 
@@ -44,7 +45,7 @@ func (c *IdentityClient) FetchUserRoles(ctx context.Context, reqCtx RequestConte
 	}
 	c.applyHeaders(req, reqCtx)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +66,13 @@ func (c *IdentityClient) FetchUserRoles(ctx context.Context, reqCtx RequestConte
 		return nil, err
 	}
 	return payload.Roles, nil
+}
+
+func (c *IdentityClient) do(req *http.Request) (*http.Response, error) {
+	if c == nil || c.httpClient == nil || req == nil {
+		return nil, httpredirect.ErrRejected
+	}
+	return httpredirect.Do(c.httpClient, c.baseURL, req)
 }
 
 func (c *IdentityClient) applyHeaders(req *http.Request, reqCtx RequestContext) {

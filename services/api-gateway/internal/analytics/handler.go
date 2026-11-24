@@ -33,11 +33,11 @@ func NewHandler(log *slog.Logger, cfg config.Config) *Handler {
 	if timeout <= 0 {
 		timeout = 5
 	}
-	httpClient := &http.Client{Timeout: time.Duration(timeout) * time.Second}
+	httpTimeout := time.Duration(timeout) * time.Second
 	return &Handler{
 		log:         log,
-		client:      NewClient(httpClient, cfg.Services.Analytics, cfg.AnalyticsGatewayCallerToken),
-		companies:   companycontext.NewIdentityClient(httpClient, cfg.Services.Identity),
+		client:      NewClient(&http.Client{Timeout: httpTimeout}, cfg.Services.Analytics, cfg.AnalyticsGatewayCallerToken),
+		companies:   companycontext.NewIdentityClient(&http.Client{Timeout: httpTimeout}, cfg.Services.Identity),
 		authEnabled: cfg.AuthEnabled,
 		devTenantID: cfg.DevTenantID,
 	}
