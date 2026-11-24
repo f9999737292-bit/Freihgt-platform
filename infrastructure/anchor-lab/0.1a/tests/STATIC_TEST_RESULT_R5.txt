@@ -1,0 +1,63 @@
+STATIC_TEST_DOCKER=MOCK
+PASS wrong project selector
+PASS wrong COMPOSE_PROJECT_NAME
+PASS wrong compose path
+PASS wrong compose name
+PASS conflicting project sources
+PASS remote endpoint before docker
+PASS daemon unavailable before config
+PASS rendered secret is not printed
+PASS placeholder password
+PASS empty password
+warning: in the working copy of '.env', LF will be replaced by CRLF the next time Git touches it
+PASS tracked env file
+PASS mode other than 0600
+PASS accepted env hides password
+PASS foreign network
+PASS foreign volume
+PASS remote preflight
+PASS daemon unavailable preflight
+PASS cleanup foreign resources
+PASS cleanup contradictory labels
+PASS cleanup wrong project
+PASS mocked owned cleanup
+PASS cleanup rejects orphan override
+PASS scripts do not prune
+PASS owned network and volume recognized
+PASS owned container recognized
+PASS cleanup absent does nothing
+PASS wrong network label
+PASS wrong volume label
+PASS missing labels
+PASS inspect error is not absence
+PASS foreign container under lab name
+PASS cleanup remote endpoint
+PASS partial unknown owner
+PASS first start rejects labeled resources
+PASS empty project label does not shift
+PASS empty network label
+PASS empty volume label
+PASS container missing service label
+PASS container missing config-files label
+PASS shifted metadata fields
+PASS malformed metadata
+PASS extra fields keep required values
+PASS similar-name foreign resource
+PASS inspect errors fail closed
+PASS standalone safe env
+PASS standalone owned cleanup
+PASS standalone unsafe env
+PASS env symlink rejected
+PASS env untrusted owner
+PASS env wrong mode standalone
+PASS parser unavailable fails closed
+PASS exact resource names
+PASS exact project label
+PASS exact network label
+PASS exact volume label
+PASS exact service label
+PASS exact config-files label
+PASS nested duplicate keys
+PASS nested unique keys accepted
+STATIC_TESTS_PASSED=59
+STATIC_TESTS_FAILED=0
