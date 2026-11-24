@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -681,6 +682,58 @@ class ReadinessTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, name)
         self.assertFalse(AUDIT_JOURNAL_PATH.exists())
         self.assertFalse(RESTART_LEDGER_PATH.exists())
+
+    def test_emergency_stop_marker_is_ignored_by_ordinary_git(self) -> None:
+        product = Path(__file__).resolve().parents[3]
+        marker = product / "tools" / "bintrans_autopilot" / "EMERGENCY_STOP"
+        existed = marker.exists()
+        ignored = subprocess.run(
+            ["git", "check-ignore", "-q", "--", "tools/bintrans_autopilot/EMERGENCY_STOP"],
+            cwd=product,
+            check=False,
+        )
+        self.assertEqual(ignored.returncode, 0)
+        self.assertEqual(marker.exists(), existed)
+
+        sandbox = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, sandbox, True)
+        subprocess.run(["git", "init"], cwd=sandbox, check=True, capture_output=True)
+        (sandbox / ".gitignore").write_text("EMERGENCY_STOP\n", encoding="utf-8")
+        (sandbox / "README").write_text("fixture\n", encoding="utf-8")
+        commit = ["git", "-c", "user.email=test@example.com", "-c", "user.name=test"]
+        subprocess.run(["git", "add", "README", ".gitignore"], cwd=sandbox, check=True, capture_output=True)
+        subprocess.run([*commit, "commit", "-m", "fixture"], cwd=sandbox, check=True, capture_output=True)
+        stop = sandbox / "EMERGENCY_STOP"
+        stop.write_text("stop\n", encoding="utf-8")
+        subprocess.run(["git", "add", "-A"], cwd=sandbox, check=True, capture_output=True)
+        staged = subprocess.check_output(["git", "diff", "--cached", "--name-only"], cwd=sandbox, text=True)
+        self.assertNotIn("EMERGENCY_STOP", staged)
+        subprocess.run(["git", "clean", "-fd"], cwd=sandbox, check=True, capture_output=True)
+        self.assertTrue(stop.exists())
+        subprocess.run(["git", "stash", "push", "-u", "-m", "untracked"], cwd=sandbox, check=False, capture_output=True)
+        self.assertTrue(stop.exists())
+        self.assertEqual(stop.read_text(encoding="utf-8"), "stop\n")
+        subprocess.run(["git", "clean", "-fdx"], cwd=sandbox, check=True, capture_output=True)
+        self.assertFalse(stop.exists())
+
+    def test_trust_storage_adr_keeps_the_role_split_unimplemented(self) -> None:
+        text = Path(__file__).resolve().parents[3].joinpath(
+            "docs/engineering/autopilot/AUTOPILOT_0_4B_TRUST_STORAGE_ADR.md"
+        ).read_text(encoding="utf-8")
+        for required in (
+            "append_worker_claim",
+            "append_reviewer_verdict",
+            "session_user",
+            "current_user",
+            "REVOKE ALL ON FUNCTION",
+            "search_path",
+            "audit_tip",
+            "restart_tip",
+            "POLICY_DECISION_REQUIRED",
+            "reviewer=agent-j",
+        ):
+            self.assertIn(required, text)
+        self.assertIn("does not authorize an implementation", text)
 
 
 if __name__ == "__main__":

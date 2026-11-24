@@ -61,7 +61,7 @@ The scheduler and the PostgreSQL queue are reused. No platform migration is adde
 
 ## Recovery
 
-1. Leave `AUTOPILOT_ENABLED` unset or not `true`. To halt, set `AUTOPILOT_EMERGENCY_STOP=true` or add an empty `tools/bintrans_autopilot/EMERGENCY_STOP` through the normal review path.
+1. Leave `AUTOPILOT_ENABLED` unset or not `true`. To halt, set `AUTOPILOT_EMERGENCY_STOP=true`, set `emergency_stop` in the committed config, or add an empty `tools/bintrans_autopilot/EMERGENCY_STOP`. That marker is gitignored so `git add -A`, `git clean -fd`, and `git stash -u` leave it in place. `git clean -fdx` deletes ignored files, and replacing the checkout can remove the marker. A later production placement should keep the stop outside the checkout or rely on the committed config flag. The ignore rule does not stop someone who can edit the work tree.
 2. Do not delete `autopilot_queue.jobs` and do not complete a row with an expired token.
 3. After PostgreSQL returns, a later dry-run `run_once` calls `requeue_expired` and may claim a `PENDING` row. A `RUNNING` row stays until its lease time passes.
 4. A supervisor hold stays in the restart ledger. `release_hold` refuses to clear it. That does not start a resident process.
