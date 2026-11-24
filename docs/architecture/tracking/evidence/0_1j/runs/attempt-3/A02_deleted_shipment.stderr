@@ -1,0 +1,3 @@
+ERROR:  P0002: missing shipment
+CONTEXT:  PL/pgSQL function transport.read_binding_assignment(uuid,uuid) line 23 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897

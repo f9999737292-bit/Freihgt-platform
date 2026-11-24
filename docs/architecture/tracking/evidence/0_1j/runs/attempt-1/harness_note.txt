@@ -1,0 +1,4 @@
+Attempt 1 stopped before setup.sql.
+The database list did not contain freight_platform.
+string_agg(datname, ',' ORDER BY 1) treats 1 as a constant, so the name order is not a stable assertion.
+The runner was changed to ORDER BY datname. Attempt 2 is the rerun.

@@ -1,0 +1,6 @@
+psql:concurrency_crash_open.sql:9: FATAL:  57P01: terminating connection due to administrator command
+LOCATION:  ProcessInterrupts, postgres.c:3286
+psql:concurrency_crash_open.sql:9: server closed the connection unexpectedly
+	This probably means the server terminated abnormally
+	before or while processing the request.
+psql:concurrency_crash_open.sql:9: error: connection to server was lost

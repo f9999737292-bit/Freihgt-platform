@@ -1,0 +1,7 @@
+ERROR:  42501: permission denied for table shipments
+CONTEXT:  SQL statement "SELECT s.driver_id, s.vehicle_id
+                                     FROM transport.shipments AS s
+     WHERE s.id = p_shipment_id
+       AND s.deleted_at IS NULL"
+PL/pgSQL function transport.read_binding_assignment(uuid,uuid) line 26 at SQL statement
+LOCATION:  aclcheck_error, aclchk.c:2812

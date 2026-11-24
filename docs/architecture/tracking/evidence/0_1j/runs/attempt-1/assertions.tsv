@@ -1,0 +1,4 @@
+test_id	expected	actual	verdict	stdout	stderr
+E01_database	binding_full_function_proof_0_1j	binding_full_function_proof_0_1j	PASS	E01_database.stdout	E01_database.stderr
+E01_server_version_num	16	160015	PASS	E01_server_version_num.stdout	E01_server_version_num.stderr
+E01_databases	no_freight_platform	postgres,binding_full_function_proof_0_1j,template1,template0	FAIL	E01_databases.stdout	E01_databases.stderr

@@ -1,0 +1,7 @@
+Attempt 3 reached PostgreSQL 16.15 and recorded 56 passes and 4 failures.
+The full RETURN QUERY row matched the fixture.
+Privilege denials, missing rows, ambiguous assignment, tenant mismatch, and the same-transaction rollback matched the expected SQLSTATE or row.
+The 4 failures are harness defects.
+C01 and both C07 sessions stopped at SET deadlock_timeout with SQLSTATE 42501. On this server that parameter is superuser-only, so neither session took its lock.
+C02 and C03 then compared fixture decisions 6672 and 6673. Those decisions already name the newly assigned driver and vehicle, so the comparison matched and raised P0001.
+Attempt 4 removes the SET, applies deadlock_timeout with ALTER ROLE before the new sessions, and compares the original decision 66666666-6666-6666-6666-666666666666.

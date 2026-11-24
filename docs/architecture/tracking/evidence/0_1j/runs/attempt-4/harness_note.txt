@@ -1,0 +1,5 @@
+Attempt 4 reached PostgreSQL 16.15 and recorded 59 passes and 1 failure.
+C01, C02, and C03 passed after the deadlock_timeout SET was removed and the original decision was compared.
+C07 observed a real deadlock. The shipment-first session returned SQLSTATE 40P01 while locking transport_executions.
+The consume session committed decision 6670 because its 200ms deadlock check ran once, before the other session was waiting.
+Attempt 5 sets the consume deadlock_timeout to 5s and the shipment-first sleep to 2s, so the cycle exists when that one check runs.

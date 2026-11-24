@@ -1,0 +1,3 @@
+psql:assignment_compare.sql:49: ERROR:  23514: driver mismatch
+CONTEXT:  PL/pgSQL function inline_code_block line 15 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
