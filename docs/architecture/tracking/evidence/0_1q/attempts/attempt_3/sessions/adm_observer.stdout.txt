@@ -1,0 +1,199 @@
+    v    
+---------
+ VAL=158
+(1 row)
+
+__M1__
+    v     
+----------
+ VAL=true
+(1 row)
+
+__M60__
+INSERT 0 1
+INSERT 0 1
+__M61__
+            v             
+--------------------------
+ VAL=proof_issuer_login,1
+(1 row)
+
+__M65__
+INSERT 0 1
+INSERT 0 1
+__M66__
+INSERT 0 1
+INSERT 0 1
+__M67__
+    v     
+----------
+ VAL=true
+(1 row)
+
+__M84__
+   v   
+-------
+ VAL=1
+(1 row)
+
+__M86__
+             v             
+---------------------------
+ VAL={337,340,351,352,353}
+(1 row)
+
+__M93__
+     v     
+-----------
+ VAL=false
+(1 row)
+
+__M99__
+     v     
+-----------
+ VAL=false
+(1 row)
+
+__M101__
+     v     
+-----------
+ VAL=false
+(1 row)
+
+__M103__
+     v     
+-----------
+ VAL=false
+(1 row)
+
+__M105__
+   v    
+--------
+ VAL={}
+(1 row)
+
+__M106__
+   v   
+-------
+ VAL=0
+(1 row)
+
+__M111__
+    v     
+----------
+ VAL=true
+(1 row)
+
+__M112__
+    v     
+----------
+ VAL=true
+(1 row)
+
+__M113__
+   v   
+-------
+ VAL=1
+(1 row)
+
+__M115__
+            v            
+-------------------------
+ VAL=CLOSED,TRANSITIONED
+(1 row)
+
+__M119__
+INSERT 0 1
+INSERT 0 1
+__M123__
+REVOKE
+__M125__
+REVOKE
+__M128__
+REVOKE
+__M130__
+GRANT
+__M132__
+INSERT 0 1
+INSERT 0 1
+__M133__
+    v     
+----------
+ VAL=none
+(1 row)
+
+__M137__
+    v     
+----------
+ VAL=Lock
+(1 row)
+
+__M138__
+    v    
+---------
+ VAL=1,2
+(1 row)
+
+__M140__
+INSERT 0 1
+INSERT 0 1
+__M141__
+UPDATE 1
+__M143__
+    v    
+---------
+ VAL=1,2
+(1 row)
+
+__M146__
+INSERT 0 1
+INSERT 0 1
+__M147__
+UPDATE 1
+__M149__
+INSERT 0 1
+INSERT 0 1
+__M152__
+UPDATE 1
+__M153__
+INSERT 0 1
+INSERT 0 1
+__M155__
+    v     
+----------
+ VAL=true
+(1 row)
+
+__M159__
+     v     
+-----------
+ VAL=false
+(1 row)
+
+__M160__
+                        v                         
+--------------------------------------------------
+ VAL=HANDOVER_PENDING,CLOSED,1,proof_issuer_login
+(1 row)
+
+__M162__
+SET
+BEGIN
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMIT
+RESET
+__M170__
+    v     
+----------
+ VAL=true
+(1 row)
+
+__M172__
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ?column?                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ STATE_JSON {"roles": [{"rolname": "proof_admin", "rolcanlogin": true}, {"rolname": "proof_authority_owner", "rolcanlogin": false}, {"rolname": "proof_fence_owner", "rolcanlogin": false}, {"rolname": "proof_fencing_direct_login", "rolcanlogin": true}, {"rolname": "proof_fencing_login", "rolcanlogin": true}, {"rolname": "proof_issuer_b_login", "rolcanlogin": true}, {"rolname": "proof_issuer_login", "rolcanlogin": true}, {"rolname": "proof_other_service_login", "rolcanlogin": true}, {"rolname": "proof_shared_login", "rolcanlogin": true}, {"rolname": "proof_writer_login", "rolcanlogin": true}], "epochs": [{"epoch": 2, "holder": "proof_issuer_b_login", "issuer_namespace_id": "ns-e1"}, {"epoch": 2, "holder": "proof_issuer_b_login", "issuer_namespace_id": "ns-e2"}, {"epoch": 2, "holder": "proof_issuer_b_login", "issuer_namespace_id": "ns-e2b"}, {"epoch": 2, "holder": "proof_issuer_b_login", "issuer_namespace_id": "ns-e2c"}, {"epoch": 1, "holder": "proof_issuer_login", "issuer_namespace_id": "ns-e4"}, {"epoch": 2, "holder": "proof_issuer_b_login", "issuer_namespace_id": "ns-main"}, {"epoch": 1, "holder": "proof_issuer_login", "issuer_namespace_id": "ns-n4"}, {"epoch": 1, "holder": "proof_issuer_b_login", "issuer_namespace_id": "ns-revoke"}, {"epoch": 1, "holder": "proof_issuer_login", "issuer_namespace_id": "ns-t03"}], "tickets": [{"status": "ISSUED", "issued_by": "proof_writer_login", "ticket_id": 1, "request_id": "writer-via-public", "issued_epoch": 0, "issuer_namespace_id": "ns-unprotected"}, {"status": "ISSUED", "issued_by": "proof_other_service_login", "ticket_id": 2, "request_id": "other-via-public", "issued_epoch": 0, "issuer_namespace_id": "ns-unprotected"}, {"status": "ISSUED", "issued_by": "proof_issuer_login", "ticket_id": 3, "request_id": "i-ok", "issued_epoch": 1, "issuer_namespace_id": "ns-t03"}, {"status": "ISSUED", "issued_by": "proof_issuer_login", "ticket_id": 6, "request_id": "req-n4", "issued_epoch": 1, "issuer_namespace_id": "ns-n4"}, {"status": "ISSUED", "issued_by": "proof_issuer_b_login", "ticket_id": 7, "request_id": "req-r1", "issued_epoch": 1, "issuer_namespace_id": "ns-revoke"}, {"status": "ISSUED", "issued_by": "proof_issuer_b_login", "ticket_id": 8, "request_id": "req-e1", "issued_epoch": 1, "issuer_namespace_id": "ns-e1"}, {"status": "ISSUED", "issued_by": "proof_issuer_b_login", "ticket_id": 9, "request_id": "req-e2", "issued_epoch": 1, "issuer_namespace_id": "ns-e2"}, {"status": "ISSUED", "issued_by": "proof_issuer_login", "ticket_id": 10, "request_id": "req-shared-direct", "issued_epoch": 1, "issuer_namespace_id": "ns-main"}], "handover": [{"gate": "OPEN", "state": "OPEN", "new_holder": null, "old_holder": null, "witness_confirmed": false, "issuer_namespace_id": "ns-e1"}, {"gate": "OPEN", "state": "OPEN", "new_holder": null, "old_holder": null, "witness_confirmed": false, "issuer_namespace_id": "ns-e2"}, {"gate": "OPEN", "state": "OPEN", "new_holder": null, "old_holder": null, "witness_confirmed": false, "issuer_namespace_id": "ns-e2b"}, {"gate": "OPEN", "state": "OPEN", "new_holder": null, "old_holder": null, "witness_confirmed": false, "issuer_namespace_id": "ns-e2c"}, {"gate": "CLOSED", "state": "HANDOVER_PENDING", "new_holder": null, "old_holder": null, "witness_confirmed": false, "issuer_namespace_id": "ns-e4"}, {"gate": "OPEN", "state": "TRANSITIONED", "new_holder": "proof_issuer_b_login", "old_holder": "proof_issuer_login", "witness_confirmed": false, "issuer_namespace_id": "ns-main"}, {"gate": "CLOSED", "state": "HANDOVER_PENDING", "new_holder": null, "old_holder": null, "witness_confirmed": false, "issuer_namespace_id": "ns-n4"}, {"gate": "OPEN", "state": "OPEN", "new_holder": null, "old_holder": null, "witness_confirmed": false, "issuer_namespace_id": "ns-revoke"}, {"gate": "OPEN", "state": "OPEN", "new_holder": null, "old_holder": null, "witness_confirmed": false, "issuer_namespace_id": "ns-t03"}]}
+(1 row)
+
+__M177__

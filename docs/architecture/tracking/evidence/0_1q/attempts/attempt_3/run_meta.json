@@ -1,0 +1,27 @@
+{
+  "attempt": 3,
+  "catalog_server": {
+    "listen_addresses": "*",
+    "log_connections": "on",
+    "password_encryption": "scram-sha-256",
+    "server_version": "16.15 (Debian 16.15-1.pgdg13+2)",
+    "server_version_num": "160015"
+  },
+  "container": "bintrans-proof-0-1q-a08c1aa0",
+  "container_removed": true,
+  "harness_error": null,
+  "image": "postgres:16",
+  "image_id": "sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+  "inspect_network_mode": "none",
+  "inspect_port_bindings": "{}",
+  "inspect_ports": "{}",
+  "label": "bintrans.proof=0.1q",
+  "main_db": "proof_0_1q_a08c1aa0",
+  "network": "none",
+  "pub_db": "proof_pub_a08c1aa0",
+  "published_ports": "none",
+  "redaction_replacements": 1,
+  "server_version": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "t_end": "2026-11-17T16:14:14.518780+00:00",
+  "t_start": "2026-11-17T16:13:45.161851+00:00"
+}

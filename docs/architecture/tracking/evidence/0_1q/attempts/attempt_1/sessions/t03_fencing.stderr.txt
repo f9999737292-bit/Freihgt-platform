@@ -1,0 +1,22 @@
+ERROR:  42501: permission denied for table tickets
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M53__
+ERROR:  42501: permission denied for function issue_ticket
+LOCATION:  aclcheck_error, aclchk.c:2812
+__M54__
+ERROR:  42501: permission denied to alter role
+DETAIL:  To change another role's password, the current user must have the CREATEROLE attribute and the ADMIN option on the role.
+LOCATION:  AlterRole, user.c:788
+__M55__
+ERROR:  42501: permission denied to alter role
+DETAIL:  Only roles with the CREATEROLE attribute and the ADMIN option on role "proof_issuer_login" may alter this role.
+LOCATION:  AlterRole, user.c:780
+__M56__
+ERROR:  42501: permission denied to grant role "proof_issuer_login"
+DETAIL:  Only roles with the ADMIN option on role "proof_issuer_login" may grant this role.
+LOCATION:  check_role_membership_authorization, user.c:2157
+__M57__
+ERROR:  42501: permission denied to terminate process
+DETAIL:  Only roles with privileges of the role whose process is being terminated or with privileges of the "pg_signal_backend" role may terminate this process.
+LOCATION:  pg_terminate_backend, signalfuncs.c:240
+__M59__

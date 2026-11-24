@@ -1,0 +1,11 @@
+ALTER ROLE
+__M173__
+GRANT ROLE
+__M175__
+SET
+                      ?column?                       
+-----------------------------------------------------
+ VAL=proof_fencing_direct_login,proof_issuer_b_login
+(1 row)
+
+__M176__

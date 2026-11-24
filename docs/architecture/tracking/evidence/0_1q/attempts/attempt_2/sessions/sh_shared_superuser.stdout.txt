@@ -1,0 +1,20 @@
+    v    
+---------
+ VAL=479
+(1 row)
+
+__M164__
+INSERT 0 1
+__M165__
+UPDATE 1
+__M166__
+SET
+                 ?column?                  
+-------------------------------------------
+ VAL=proof_issuer_login,proof_issuer_login
+(1 row)
+
+RESET
+__M167__
+ALTER ROLE
+__M168__

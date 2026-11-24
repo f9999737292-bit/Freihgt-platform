@@ -1,0 +1,1 @@
+docker exec -i -e PGPASSWORD -e PGAPPNAME -e PROOF_PW_ATTEMPT bintrans-proof-0-1q-2b0867f3 stdbuf -o0 -e0 psql -X -v VERBOSITY=verbose -P pager=off -U proof_writer_login -d proof_0_1q_2b0867f3 -h 127.0.0.1

@@ -1,0 +1,1 @@
+docker inspect bintrans-proof-0-1q-a08c1aa0 --format {{.HostConfig.NetworkMode}}|{{json .HostConfig.PortBindings}}|{{json .NetworkSettings.Ports}}|{{.Image}}

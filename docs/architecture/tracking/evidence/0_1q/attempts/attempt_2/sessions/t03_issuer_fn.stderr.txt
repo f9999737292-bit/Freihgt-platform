@@ -1,0 +1,16 @@
+ERROR:  P0001: ISSUE_DENIED_AUTH missing_digest
+CONTEXT:  PL/pgSQL function proof.issue_ticket(text,text,text,bigint) line 9 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+__M62__
+__M63__
+ERROR:  23505: duplicate key value violates unique constraint "tickets_issuer_namespace_id_request_id_key"
+DETAIL:  Key (issuer_namespace_id, request_id)=(ns-t03, i-ok) already exists.
+CONTEXT:  SQL statement "INSERT INTO proof.tickets (issuer_namespace_id, request_id, payload_hash, issued_epoch, issued_by)
+  VALUES (p_ns, p_req, p_hash, v_epoch, session_user)
+  RETURNING ticket_id"
+PL/pgSQL function proof.issue_ticket(text,text,text,bigint) line 23 at SQL statement
+SCHEMA NAME:  proof
+TABLE NAME:  tickets
+CONSTRAINT NAME:  tickets_issuer_namespace_id_request_id_key
+LOCATION:  _bt_check_unique, nbtinsert.c:666
+__M64__

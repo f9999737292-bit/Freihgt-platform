@@ -1,0 +1,80 @@
+    v    
+---------
+ VAL=349
+(1 row)
+
+__M74__
+      set_handover       
+-------------------------
+ HANDOVER_PENDING:CLOSED
+(1 row)
+
+      set_handover       
+-------------------------
+ HANDOVER_PENDING:CLOSED
+(1 row)
+
+__M78__
+         deny_login         
+----------------------------
+ NOLOGIN:proof_issuer_login
+(1 row)
+
+__M80__
+      set_handover       
+-------------------------
+ RECONNECT_DENIED:CLOSED
+(1 row)
+
+__M82__
+       ?column?        
+-----------------------
+ VAL={316,339,346,347}
+(1 row)
+
+__M92__
+  set_handover   
+-----------------
+ QUIESCED:CLOSED
+(1 row)
+
+__M94__
+__M95__
+__M96__
+__M97__
+ ?column? 
+----------
+ VAL=true
+(1 row)
+
+__M98__
+ ?column? 
+----------
+ VAL=true
+(1 row)
+
+__M100__
+ ?column? 
+----------
+ VAL=true
+(1 row)
+
+__M102__
+ ?column? 
+----------
+ VAL=true
+(1 row)
+
+__M104__
+   v   
+-------
+ VAL=2
+(1 row)
+
+__M117__
+                v                 
+----------------------------------
+ VAL=CLOSED:WITNESS_NOT_CONFIRMED
+(1 row)
+
+__M118__
