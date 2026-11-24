@@ -10,9 +10,9 @@ Design and acceptance contract for creating a transport order and `SNAPSHOT_V1` 
 
 `COMMERCIAL_PILOT_READY=NO`
 
-`FINAL_VERDICT=READY_FOR_J_R3D_DELTA_REVIEW`
+`FINAL_VERDICT=READY_FOR_J_FINAL_DOC_DELTA_REVIEW`
 
-Base at authoring was `3f306fc407aeda4bdc652d825954292f4a54fad6`. Related discovery is PR #363 (`docs/engineering/FINANCE_SNAPSHOT_AUTHORITY_0_2D.md`). Revision 0.2E-R1 closed the first security-review findings on award-scope binding, the transport-order-service actor boundary, and idempotency across shippers. Revision 0.2E-R2 closed Agent J findings `J-FIN02E-R2-001`, `J-FIN02E-R2-002`, and `J-FIN02E-R2-003`. Those three remain closed. Revision 0.2E-R3 clarified grant replay, grant lifecycle, and the negative-test matrix after `PASS_ARCHITECTURE_ONLY`. Those R3 findings remain closed. Revision 0.2E-R3D closes `J-FIN02E-R3D-001` and `J-FIN02E-R3D-002`. Agent G does not record the R3D delta review as complete.
+Base at authoring was `3f306fc407aeda4bdc652d825954292f4a54fad6`. Related discovery is PR #363 (`docs/engineering/FINANCE_SNAPSHOT_AUTHORITY_0_2D.md`). Revision 0.2E-R1 closed the first security-review findings on award-scope binding, the transport-order-service actor boundary, and idempotency across shippers. Revision 0.2E-R2 closed Agent J findings `J-FIN02E-R2-001`, `J-FIN02E-R2-002`, and `J-FIN02E-R2-003`. Those three remain closed. Revision 0.2E-R3 clarified grant replay, grant lifecycle, and the negative-test matrix after `PASS_ARCHITECTURE_ONLY`. Those R3 findings remain closed. Revision 0.2E-R3D closed `J-FIN02E-R3D-001` and `J-FIN02E-R3D-002`. Those findings remain closed. Revision 0.2E-R3DD closes `J-FIN02E-R3DD-001` by using the section 3 authority tuple everywhere. Agent G does not record the final document delta review as complete.
 
 This document does not change transport-order-service, billing, VAT, rounding, PostgreSQL migrations, or PRs #341, #353, #356, and #363.
 
@@ -87,7 +87,7 @@ A denial at any step writes no order, no snapshot, and no idempotency row. The r
 | Actor user | Active user. Membership in the actor company is active |
 | Actor company | The company transport-order-service has confirmed for this user by its own actor check (section 12). A gateway header, including a header forwarded while `AUTH_ENABLED` is false, is not that confirmation |
 | Shipper company | Body `shipper_company_id` equals the shipper named on the grant. The company exists in the same tenant |
-| Role | The actor's membership role is one of the create roles (`PROCUREMENT_MANAGER`, `SHIPPER_ADMIN`, `FORWARDER_MANAGER`) and is included in the grant's allowed roles. `CARRIER_ADMIN`, `CARRIER_DISPATCHER`, and `SHIPPER_LOGIST` do not receive this permission from their current read or relationship roles |
+| Role | Checked separately from the authority tuple. The actor's membership role is one of the create roles (`PROCUREMENT_MANAGER`, `SHIPPER_ADMIN`, `FORWARDER_MANAGER`) and is listed in the grant's `allowed_role_codes`. The role is not part of the unique key in section 13. `CARRIER_ADMIN`, `CARRIER_DISPATCHER`, and `SHIPPER_LOGIST` do not receive this permission from their current read or relationship roles |
 | Grant activity | Section 13. The only usable result is a fresh `ACTIVE` read of the current grant. `REVOKED`, any other observed status, and an unreadable grant are denials. A status cached at login is not this check |
 
 Same-company create stays a separate path. It applies only when body `shipper_company_id` equals the verified actor company. That path does not require a delegation grant and does not use a carrier relationship.
@@ -100,7 +100,8 @@ Today `BuildSnapshotFromResolve` sets snapshot `buyer_company_id` from body `shi
 
 Required behavior:
 
-- No grant for the exact tuple `(tenant, actor user, actor company, shipper company, role)` means deny.
+- No `ACTIVE` grant for the authority tuple in section 3 means deny. That tuple is tenant, actor company, grantee user, shipper company, and `permission_code`. Role is not a member of the tuple.
+- The actor role is checked on its own. It must be a create role listed in that grant's `allowed_role_codes`. A role match does not add a second unique key and does not select a different grant.
 - A grant for shipper S does not authorize body shipper C.
 - The server does not search for some other active relationship and substitute it.
 - Omitted `shipper_company_id` does not default to a company taken from the client.
@@ -182,7 +183,7 @@ Server-owned grant read, required on the delegated path before idempotency looku
 `GET /internal/v1/transport-order-authority-grants/active`
 
 - Caller: transport-order-service, with the dedicated company-grant read credential.
-- Query: `tenant_id`, `actor_company_id`, `actor_user_id`, `shipper_company_id`, `permission_code=CREATE_TRANSPORT_ORDER_ON_BEHALF`.
+- Query: `tenant_id`, `actor_company_id`, `actor_user_id` as the grantee user, `shipper_company_id`, `permission_code=CREATE_TRANSPORT_ORDER_ON_BEHALF`. Role is not a query field.
 - Response fields: `grant_id`, `grant_version`, `status`, `tenant_id`, `subject_kind`, `actor_company_id`, `grantee_user_id`, `shipper_company_id`, `buyer_company_id`, `permission_code`, `allowed_role_codes`.
 - The service queries by the authority tuple in section 3. It uses the returned `grant_id` and `grant_version` only when the response contains exactly one `ACTIVE` row.
 - A client grant id is the locator from section 3. It must equal that row. It is not a second lookup key.
@@ -348,7 +349,7 @@ Proposal only, for a later approved change:
 5. Add the allow-audit table from section 10. Keep the snapshot immutability trigger covering the new columns.
 6. Do not backfill old snapshots with invented grants. Historical rows keep a null grant id.
 7. Grant revoke writes a new version with status `REVOKED`. It does not update the snapshot. `REVOKED` is terminal for that grant id. The same id does not return to `ACTIVE`.
-8. Proposed partial unique index, not a migration in this PR: one `ACTIVE` row for `(tenant_id, actor_company_id, grantee_user_id, shipper_company_id, permission_code)`. A future implementation that sees more than one `ACTIVE` row for that tuple fails closed. This index is a schema proposal. It is not created here and it is not a live rule.
+8. Proposed partial unique index, not a migration in this PR: one `ACTIVE` row for `(tenant_id, actor_company_id, grantee_user_id, shipper_company_id, permission_code)`. `allowed_role_codes` is not part of this key. The role check in section 4 reads that column after the row is found. A future implementation that sees more than one `ACTIVE` row for that tuple fails closed. This index is a schema proposal. It is not created here and it is not a live rule.
 
 ### Grant lifecycle
 
@@ -400,8 +401,8 @@ Also required on that future change, as part of RC-2 and RC-3 rather than as new
 - It does not make legal EDO ready.
 - RC-1, RC-2, and RC-3 stay runtime-open. RC-4 stays deferred.
 - It does not treat `1234.56 RUB` as evidence of create authority.
-- `J-FIN02E-R2-001`, `J-FIN02E-R2-002`, and `J-FIN02E-R2-003` stay closed. The R3 findings stay closed.
-- Revision 0.2E-R3D is the input for Agent J's short delta review. Agent G does not record that review as complete.
+- `J-FIN02E-R2-001`, `J-FIN02E-R2-002`, and `J-FIN02E-R2-003` stay closed. The R3 findings and the R3D findings stay closed.
+- Revision 0.2E-R3DD is the input for Agent J's short final document delta review. Agent G does not record that review as complete.
 - `expires_at` stays `POLICY_DECISION_REQUIRED`. Options E0 and E1 are not selected.
 - This revision creates no grant rows and no migration. The partial unique index in section 13 is a schema proposal only.
 
