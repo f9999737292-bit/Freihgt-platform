@@ -10,7 +10,7 @@ This document is not an Agent J closure. `J-EDO02A-003` stays open until Agent J
 
 | Ref | SHA | Role |
 | --- | --- | --- |
-| PR #397 head | `a8adb02ec3e39d558bbb7e80dae4efee2ba59faf` | Domain behavior this freeze describes |
+| Domain code | `a8adb02ec3e39d558bbb7e80dae4efee2ba59faf` | Behavior described below. A documentation commit does not change this code |
 | PR #397 branch | `feat/edo-signing-recovery-domain-v0.2` | Draft. Files before this document: `signing_operation.go`, `signing_operation_test.go` |
 | PR #397 base | `3f306fc407aeda4bdc652d825954292f4a54fad6` | Older than current `main` |
 | PR #401 head | `fe5f61192b1bc62e76e275877f79ccd81976c7ce` | Persistence discovery. Not edited by this freeze |
@@ -18,7 +18,7 @@ This document is not an Agent J closure. `J-EDO02A-003` stays open until Agent J
 
 PR #397 CI run `44939415732` on `a8adb02ec3e39d558bbb7e80dae4efee2ba59faf` completed with conclusion `success` after one failed-job rerun. The first attempt failed in `execution-tracking-pod-integration` because the runner reported `start postgres: no version found matching 16.4.0`. That job is outside this domain.
 
-GitHub shows no pull-request review, review comment, or issue comment on PR #397. The findings `J-EDO02A-001`, `J-EDO02A-002`, `J-EDO02A-003`, and `J-EDO02A-010` are the controller-supplied Agent J audit. R2 recorded `001` and `002` and `010` as fixed in `a8adb02` and left `003` as `BLOCKED_POLICY_DECISION`. This file is the policy record for that finding. It does not mark the finding closed.
+GitHub shows no pull-request review, review comment, or issue comment on PR #397. The findings `J-EDO02A-001`, `J-EDO02A-002`, `J-EDO02A-003`, and `J-EDO02A-010` are the controller-supplied Agent J audit. R2 recorded `001` and `002` as fixed in `a8adb02`. `010` is not closed for every path: `ReadSigningOperation` and `PlanPrepare` do not treat a foreign id and an unknown id the same way. Sections 5, 6, and 10 record that residual oracle. `003` stays open. This file does not mark either finding closed.
 
 `docs/architecture/edo/` is absent on `a8adb02`. The 0.1 documents under that directory live on another branch and are not edited here. `docs/architecture/edo-signing-recovery-v0.1.md` remains the document-status recovery note: public recovery stays `403`, and internal document status `SIGNED` is not an external legal signature.
 
@@ -34,6 +34,23 @@ GitHub shows no pull-request review, review comment, or issue comment on PR #397
 | D6 | `PROVIDER_NOT_FOUND_NOT_CANCELLATION` | A provider "not found" after a call may have been sent proves neither cancellation nor rejection |
 | D7 | `ONE_BLOCKING_OPERATION_PER_TENANT_DOCUMENT` | One blocking operation for each tenant and document. Signer identity stays inside the operation. Scope is not split per signer |
 | D8 | `NO_PROVIDER_STATUS_QUERY` | No automatic or manual provider status-read integration in this stage |
+
+### Hybrid C
+
+Hybrid C is decision D1. It is the whole set below, not a new transition and not a new permission.
+
+| Rule | Bound decision |
+| --- | --- |
+| Only technical transitions that already exist are automatic, and only with the evidence those transitions already require | D1 |
+| `RESULT_UNKNOWN` keeps the tenant+document lock | D1 and the current blocking rule |
+| Cancellation of `PREPARED` is not allowed | D2 |
+| Exit from `MANUAL_REVIEW_REQUIRED` is not allowed | D3 |
+| Provider acceptance is not a legally significant signature, and no acceptance state is added | D4 |
+| `FAILED_FINAL` scope stays as the code implements it | D5, deferred |
+| A provider "not found" after a possible send proves neither cancellation nor rejection | D6 |
+| One blocking operation for each tenant and document | D7 |
+| A provider status read is not enabled | D8 |
+| No new `document.sign` right | `DOCUMENT_SIGN_GRANTED=NO` |
 
 `EXTERNAL_RESPONSE_ABSENT` remains evidence for `PREPARED` → `RESULT_UNKNOWN` only. It is not cancellation, rejection, or acceptance.
 
@@ -93,8 +110,8 @@ Server-owned authority for every current transition is document-service code. A 
 | Item | Current behavior |
 | --- | --- |
 | Function | `PlanManualReview` |
-| Evidence kind | `CONTRADICTION` |
-| Evidence source | The function stores the kind and does not assign a source |
+| Evidence kind | `CONTRADICTION`. `PlanManualReview` assigns `State` and `EvidenceKind` only |
+| Evidence source | Left as it was on the previous state. `applySigningOperationTransition` clones the stored operation and does not assign or clear `EvidenceSource` or `EvidenceReference`. After `PlanExternalResultUnknown`, the carried source is `SERVER` and the reference is empty. `CONTRADICTION` with that carried `SERVER` source does not prove where the contradiction came from. Before a persistence stage or EDO 0.3, a separate server-owned mechanism must assign or clear `EvidenceSource`. This stage does not add that mechanism. `EDO_0_3_AUTHORIZED=NO` |
 | Predicates | Identity matches. The transition table allows this pair only with `CONTRADICTION` |
 | Authority | Server-side classification of contradictory evidence. A reviewer permission is not consulted because no reviewer exit exists |
 | Tenant | Identity match includes tenant |
@@ -158,6 +175,8 @@ The transition table contains only the four edges above, plus the in-place local
 7. `DOCUMENT_SIGN_GRANTED=NO`.
 8. An operation state is not a legally significant signature.
 
+`CONTRADICTION` whose `evidence_source` is still `SERVER` only because `PlanManualReview` left the previous source in place is not proof that the server originated the contradiction. Section 2 records that carry-over. Assigning or clearing the source is a later server-owned mechanism. This stage does not add it.
+
 `LOCAL_ATTEMPT_RECORDED` with source `SERVER` authorizes one local bookkeeping marker on `PREPARED`. It does not set document status `SIGNED` and it does not set cryptographic verification.
 
 D6: a provider response of "not found" after a call may have been sent is not `PROVIDER_REJECTION_CONFIRMED` and it is not cancellation. The operation stays in its stored state unless an already allowed edge applies. `EXTERNAL_RESPONSE_ABSENT` is the loss signal. It is not the "not found" signal rewritten into a failure.
@@ -168,7 +187,7 @@ D6: a provider response of "not found" after a call may have been sent is not `P
 | --- | --- | --- |
 | `PREPARED` | `PREPARED` with one `LOCAL_ATTEMPT_RECORDED` / `SERVER` marker | Allowed by current code |
 | `PREPARED` | `RESULT_UNKNOWN` with `EXTERNAL_RESPONSE_ABSENT` / `SERVER` | Allowed by current code |
-| `RESULT_UNKNOWN` | `MANUAL_REVIEW_REQUIRED` with `CONTRADICTION` | Allowed by current code |
+| `RESULT_UNKNOWN` | `MANUAL_REVIEW_REQUIRED` with `CONTRADICTION` | Allowed by current code for the kind. `EvidenceSource` is carried from the previous state. Section 2 |
 | `RESULT_UNKNOWN` | `FAILED_RETRYABLE` with authenticated rejection claim | Allowed by current code |
 | `RESULT_UNKNOWN` | `FAILED_FINAL` with authenticated rejection claim | Allowed by current code |
 | `PREPARED` | cancellation | Forbidden until a later decision names actor, evidence, and destination |
@@ -189,21 +208,27 @@ A repeat of an already stored allowed edge is replay. It is not a second transit
 2. Look up the operation id inside the caller's tenant.
 3. If that row exists and the full identity matches, return the stored operation with write `false`. A newer live document version or content hash does not rewrite `expected_version` or `content_hash` and does not start another external attempt.
 4. If the row exists and the identity differs, return conflict and do not write.
-5. If the same operation id exists only for another tenant, return not-found, the same message as a missing id, and do not create a row.
-6. If this tenant has no row, validate the server-owned observation and require it to match the presented identity.
+5. If the same operation id exists only for another tenant, `lookupTenantScopedOperation` returns `NOT_FOUND`. `PlanPrepare` does not create a row.
+6. If no supplied row has that operation id, the id is unknown to this call. `PlanPrepare` does not return `NOT_FOUND` for that absence. It validates the server-owned observation and requires the observation to match the presented identity.
 7. If another row for this tenant and document is in a blocking state, return conflict and do not write.
-8. Otherwise return a new `PREPARED` operation and request one write.
+8. When the remaining conditions pass, return a new `PREPARED` operation and request write `true`. The stored `operation_id` is the id the caller presented.
 
-Replay does not create a signature, does not call a provider, and does not update the stored operation. A new attempt after `FAILED_RETRYABLE` or `FAILED_FINAL` is a new operation id. It is not a replay of the old id. D5 does not add a block on that new id.
+`ReadSigningOperation` is a separate path. A foreign operation id and a missing operation id both return `NOT_FOUND` with `signing operation not found`, and that function does not write. `PlanPrepare` does not collapse those two cases. A foreign existing id is `NOT_FOUND` and write `false`. An unknown id, when the other prepare conditions pass, is a new `PREPARED` operation and write `true`. A caller who can tell those results apart learns that the operation id exists outside the caller tenant. That difference is a residual oracle risk. `J-EDO02A-010` is not closed for every path.
+
+Server-owned generation of `operation_id` is a mandatory requirement of a future persistence and API boundary. It is not an implemented guarantee. This package accepts a non-nil caller-supplied id and does not mint one.
+
+Replay of a matching identity does not create a signature, does not call a provider, and does not update the stored operation. A new attempt after `FAILED_RETRYABLE` or `FAILED_FINAL` is a new operation id. It is not a replay of the old id. D5 does not add a block on that new id.
 
 `PlanLocalSignatureRecord` refuses a new marker when the observation disagrees with the stored identity. The duplicate marker path is read-only.
 
 ## 6. Tenant isolation
 
-- Lookup filters by tenant before a missing id is treated as absent.
-- A foreign operation id and a missing operation id both surface as `signing operation not found`.
-- The foreign lookup does not insert a row for the caller.
-- Presented tenant is part of identity match. A mismatch of tenant with the stored row is not-found, not a rewrite.
+- `ReadSigningOperation` returns the same `NOT_FOUND` for a foreign operation id and for a missing operation id. It does not write.
+- `PlanPrepare` returns `NOT_FOUND` when the operation id already exists for another tenant, and it does not insert a row.
+- `PlanPrepare` treats an unknown operation id differently. When the observation matches and no blocking row exists for this tenant and document, it returns a new `PREPARED` operation with write `true`.
+- The Read/Prepare difference is a residual oracle. It does not mean `J-EDO02A-010` is closed for every path.
+- A future persistence and API boundary must generate `operation_id` on the server. That generation is not implemented in this package.
+- Presented tenant is part of identity match. A mismatch of tenant with the stored row is not a rewrite.
 - This package does not read `X-Tenant-ID` and does not accept a query-parameter tenant.
 - A future HTTP surface, if separately authorized, still has to use the gateway-established tenant. That surface is not opened here.
 - Public signing recovery stays `RejectSigningRecovery` with expected response `403`.
@@ -253,7 +278,7 @@ The risk of leaving the current rule in place is also recorded: after `FAILED_FI
 
 ## 10. Future test matrix
 
-These rows are the regression set for a later authorized change. They are not a test run of this documentation stage. Existing domain tests at `a8adb02` already cover replay, observation mismatch, cross-tenant not-found, absence versus failure, and distinct failure states. This table does not claim a new `go test` result.
+These rows are the regression set for a later authorized change. They are not a test run of this documentation stage. Existing domain tests at `a8adb02` cover replay, observation mismatch, the `ReadSigningOperation` foreign/missing pair, the `PlanPrepare` foreign `NOT_FOUND` path, absence versus failure, and distinct failure states. Those tests do not close `J-EDO02A-010` for every path. This table does not claim a new `go test` result. Read cases and Prepare cases stay separate.
 
 | Id | Case | Expected while D1–D8 stand |
 | --- | --- | --- |
@@ -265,7 +290,10 @@ These rows are the regression set for a later authorized change. They are not a 
 | T6 | Rejection kind without `AUTHENTICATED_PROVIDER` and a non-empty reference | Conflict, no write |
 | T7 | `FAILED_RETRYABLE` to `FAILED_FINAL` and the reverse | Conflict, no write |
 | T8 | Any transition out of `MANUAL_REVIEW_REQUIRED` | No allowed edge |
-| T9 | Foreign operation id and missing operation id | Same not-found, no insert |
+| T9-Read | `ReadSigningOperation` for a foreign operation id and for a missing operation id | Same `NOT_FOUND`, no write |
+| T9-Prepare-Foreign | `PlanPrepare` when the operation id exists only for another tenant | `NOT_FOUND`, write false, no new `PREPARED` |
+| T9-Prepare-Unknown | `PlanPrepare` when the operation id is absent and the other prepare conditions pass | New `PREPARED`, write true |
+| T9-Oracle | The Prepare pair above, with a caller-chosen operation id | Residual oracle. Future server-owned id generation is required at the persistence/API boundary and is not implemented |
 | T10 | Second blocking operation for one tenant and document | Conflict, no insert |
 | T11 | Same provider reference repeated | No second signature |
 | T12 | Client body sets `AUTHENTICATED_PROVIDER` or `REVIEWER` | Rejected by a future trusted boundary. The domain function does not authenticate the caller |
@@ -297,6 +325,9 @@ D1–D8 are decided for this stage. The following are still open and are not dec
 - Allowed edges match `signingOperationTransitions` plus the single local marker.
 - `EXTERNAL_RESPONSE_ABSENT` and provider "not found" are not cancellation or rejection.
 - `PlanPrepare` at `a8adb02` looks up the tenant-scoped operation before it checks a live observation. Section 13 records the older order in PR #401. This file does not adopt that older order as current behavior.
+- `ReadSigningOperation` and `PlanPrepare` are not described as one not-found result. `J-EDO02A-010` is not marked closed for every path.
+- Hybrid C is defined as the D1–D8 set in section 1, including unchanged `FAILED_FINAL` scope and no `document.sign` grant.
+- `PlanManualReview` is described as changing `State` and `EvidenceKind` while leaving `EvidenceSource` from the previous state. A carried `SERVER` source is not treated as proof of the contradiction's origin.
 - D5 does not change `SigningOperationStateBlocksDocument` for `FAILED_FINAL`.
 - D7 does not split scope by signer.
 - No migration, table, unique index, route, provider client, or `document.sign` grant is introduced.
@@ -317,6 +348,6 @@ PR #401 at `fe5f611` describes persistence for a later stage and still quotes th
 | Cited PR #397 head | `7fe59bf090e9ab53c8eaaf833eff5bcdc014ca80` | `a8adb02ec3e39d558bbb7e80dae4efee2ba59faf` |
 | `FAILED_FINAL` scope | Documents the current non-blocking behavior | Unchanged. D5 does not implement a hold |
 | Schema | Proposes `signing_operations`, an event table, and a partial unique index | Not present in this domain commit and not added by this freeze |
-| `CONTRADICTION` source | Discovery allows server or reviewer | `PlanManualReview` stores the kind and does not set a source. No reviewer transition exists |
+| `CONTRADICTION` source | Discovery allows server or reviewer | `PlanManualReview` changes `State` and `EvidenceKind`. `EvidenceSource` remains the previous state's source. Carried `SERVER` is not proof that the server originated the contradiction. No server-owned assign-or-clear mechanism is added, and no reviewer transition exists |
 
 No new table, migration, or unique index is specified for implementation by this document.
