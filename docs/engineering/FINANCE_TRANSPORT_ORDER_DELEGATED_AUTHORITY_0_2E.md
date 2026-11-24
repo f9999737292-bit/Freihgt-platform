@@ -10,9 +10,9 @@ Design and acceptance contract for creating a transport order and `SNAPSHOT_V1` 
 
 `COMMERCIAL_PILOT_READY=NO`
 
-`FINAL_VERDICT=READY_FOR_SECURITY_R2`
+`FINAL_VERDICT=READY_FOR_J_R3_SECURITY_REVIEW`
 
-Base `3f306fc407aeda4bdc652d825954292f4a54fad6`. Related discovery is PR #363 (`docs/engineering/FINANCE_SNAPSHOT_AUTHORITY_0_2D.md`). Revision 0.2E-R1 closes the security-review findings on award-scope binding, the transport-order-service actor boundary, and idempotency across shippers. Security review R2 is the next step. This revision does not record R2 as complete.
+Base at authoring was `3f306fc407aeda4bdc652d825954292f4a54fad6`. Related discovery is PR #363 (`docs/engineering/FINANCE_SNAPSHOT_AUTHORITY_0_2D.md`). Revision 0.2E-R1 closed the first security-review findings on award-scope binding, the transport-order-service actor boundary, and idempotency across shippers. Revision 0.2E-R2 closes Agent J findings `J-FIN02E-R2-001`, `J-FIN02E-R2-002`, and `J-FIN02E-R2-003`. Agent G does not record security review R3 as complete.
 
 This document does not change transport-order-service, billing, VAT, rounding, PostgreSQL migrations, or PRs #341, #353, #356, and #363.
 
@@ -57,11 +57,24 @@ The permission code is `CREATE_TRANSPORT_ORDER_ON_BEHALF`.
 
 It is a row the server writes and the server reads back. The client does not send the permission code, the role, or the grant status. A client-supplied grant id is a locator only. The server loads the row and rejects the call when the loaded row does not match the verified actor and the body shipper.
 
+The same load runs on a first create and on an idempotency replay. An idempotency key does not carry authority. The server re-reads membership, role, and grant status before it uses the key.
+
 The permission is absent from the current schema. No role constant and no snapshot column carries it.
 
 ## 4. Checks required before rate resolution and insert
 
-Evaluate every item below inside the trusted server path, before the contract-rate call and before `CreatePricedOrder`. A failure writes no order, no snapshot, and no idempotency row.
+Evaluate the following sequence inside transport-order-service, before the contract-rate call and before `CreatePricedOrder`. A failure writes no order, no snapshot, and no idempotency row. A failure also returns no stored transport order id and no stored snapshot id.
+
+The sequence applies to the first create and to every replay. Replay does not waive it.
+
+1. Establish the trusted actor identity (section 12). Client headers are not that identity.
+2. Check the verified tenant and the verified actor company. A body tenant or a body actor company that differs is a denial.
+3. Re-read current membership, current role, and, on the delegated path, the current grant row.
+4. Deny when the grant is missing, `REVOKED`, expired, cancelled, or pending. A grant status cached at login is not this check.
+5. Look up `idempotency_key` only after steps 1–4 succeed.
+6. Return the stored order and snapshot only after step 5 finds the same tenant, the same actor company, the same shipper, and the same request hash.
+
+On the same-company path, step 3 still re-reads membership and a create role. A stored row whose `authority_grant_id` is null does not require a delegation grant. A stored row that has `authority_grant_id` remains a delegated row: step 4 must see that grant `ACTIVE` before step 5.
 
 | Check | Rule |
 | --- | --- |
@@ -119,16 +132,61 @@ Required award-scope behavior. transport-order-service confirms the whole chain 
 
 | Link | What transport-order-service confirms |
 | --- | --- |
-| Trusted internal caller | The internal credential authenticates the configured award caller. A missing or wrong credential stays unauthorized and writes nothing (NT-6). That credential is only this link |
-| RFx event | The service loads the event by id in the verified tenant through a server-owned read. The body is not that read. An unknown event is a denial |
-| Event owner company | The owner is the owner field on the loaded event. The service does not take the owner from body `actor_company_id` or body `shipper_company_id` |
-| Actor company | On the same-company path the body actor company equals the loaded event owner. On the delegated path it equals the actor company on an `ACTIVE` `CREATE_TRANSPORT_ORDER_ON_BEHALF` grant that this service loaded |
+| Trusted internal caller | The inbound credential is the dedicated `rfx-service` award-caller credential defined below. A missing credential, a shared multi-service token, or a token issued to another service stays unauthorized and writes nothing (NT-6, NT-D21). That credential is only this link |
+| RFx event | transport-order-service loads the award-conversion subject from rfx-service. The body is not that read. An unknown event is a denial |
+| Event owner company | The owner is `owner_company_id` on the loaded subject. The service does not take the owner from body `actor_company_id` or body `shipper_company_id` |
+| Lot | When the body names `rfx_lot_id`, the loaded subject says that lot exists on that event. A missing lot is a denial. An event-level conversion, with no lot id, is allowed only when the loaded subject says the award has no lot scope |
+| Award status | The loaded event status is `AWARDED`, the status `ValidateAwardConversionEventStatus` already requires. Any other status is a denial |
+| Winning carrier | The loaded subject names `winning_carrier_company_id`. Body `carrier_company_id` equals that company. A different carrier is a denial |
+| Actor company | On the same-company path the body actor company equals the loaded event owner. On the delegated path it equals the actor company on an `ACTIVE` `CREATE_TRANSPORT_ORDER_ON_BEHALF` grant that this service loaded, including grant version |
 | Shipper company | The body shipper equals the loaded event owner. On the delegated path that same company is the grant shipper |
-| Allowed creation | Every link above agrees. Only then the service may create one order and one `SNAPSHOT_V1` |
+| Tenant | Request tenant, loaded event tenant, grant tenant, actor company tenant, and shipper company tenant are one value |
+| Allowed creation | Every link above agrees, and the idempotency sequence in section 4 has already authorized the actor. Only then the service may create one order and one `SNAPSHOT_V1`, or return the stored pair for the same authorized request |
 
 A valid service token together with body `actor_company_id` equal to body `shipper_company_id` is not this chain. Those two facts do not identify the event owner and do not authorize an arbitrary company in the tenant (NT-D11).
 
 rfx-service `requireOwnerCompanyAccess` remains the caller's own check. It does not replace the load inside transport-order-service. A grant whose shipper differs from the loaded event owner does not authorize award conversion. The service loads any `CREATE_TRANSPORT_ORDER_ON_BEHALF` grant itself. A statement from rfx-service that a delegation exists is not that load.
+
+`POST /internal/v1/rates/resolve` prices a snapshot. It does not prove that the lot exists, that the event is `AWARDED`, that the carrier won, or that the event owner is the company in the body. A successful resolve is not a substitute for the award-conversion subject or the grant read (NT-D28).
+
+### Trusted RFx → TMS channel
+
+The future implementation uses three dedicated credentials. This PR does not add them.
+
+| Call | Caller identity | Acceptable credential | Rejected credential |
+| --- | --- | --- | --- |
+| rfx-service calls `POST /internal/v1/transport-orders/from-award-scope` | `rfx-service` | Dedicated award-caller credential issued only to rfx-service | A shared multi-service token, or a token issued to shipment-service, billing-register-service, company-service, document-service, or contract-rate-service |
+| transport-order-service reads the award subject | `transport-order-service` | Dedicated RFx read credential issued only to transport-order-service | The inbound award-caller credential, a shared token, or another service's token |
+| transport-order-service reads the grant | `transport-order-service` | Dedicated company-grant read credential issued only to transport-order-service | A shared token, or a token whose service identity is not transport-order-service |
+
+A shared internal token proves only that some caller knows a platform secret. It does not prove that the caller is rfx-service.
+
+Server-owned event read, required before rate resolution and before insert:
+
+`GET /internal/v1/rfx-events/{eventId}/award-conversion-subject`
+
+- Caller: transport-order-service, with the dedicated RFx read credential.
+- Query: `tenant_id`, and `lot_id` when the award scope names a lot.
+- Response fields: `event_id`, `tenant_id`, `owner_company_id`, `event_status`, `award_id`, `winning_carrier_company_id`, `lot_id`, `lot_exists`, `lot_scoped`, `source_version`.
+- Allow only when `tenant_id` equals the verified tenant, `event_status` is `AWARDED`, `owner_company_id` equals the body shipper, and `winning_carrier_company_id` equals body `carrier_company_id`.
+- When `lot_id` is present, `lot_exists` is true and the lot belongs to `event_id`. When `lot_id` is absent, `lot_scoped` is false.
+- The stored award link records `event_id`, `award_id`, `lot_id` when present, and `source_version` so the order points at the subject that authorized it.
+
+Server-owned grant read, required on the delegated path before idempotency lookup:
+
+`GET /internal/v1/transport-order-authority-grants/active`
+
+- Caller: transport-order-service, with the dedicated company-grant read credential.
+- Query: `tenant_id`, `actor_company_id`, `actor_user_id`, `shipper_company_id`, `permission_code=CREATE_TRANSPORT_ORDER_ON_BEHALF`.
+- Response fields: `grant_id`, `grant_version`, `status`, `tenant_id`, `subject_kind`, `actor_company_id`, `grantee_user_id`, `shipper_company_id`, `buyer_company_id`, `permission_code`, `allowed_role_codes`.
+- The service uses the returned `grant_id` and `grant_version`. A client grant id that differs from the loaded row is a denial.
+- `status` must be `ACTIVE`.
+
+Fail closed:
+
+- The RFx subject read times out, returns a transport error, or returns an unavailable status. Deny. Write no order, no snapshot, and no idempotency row.
+- The company-service grant read times out, returns a transport error, or returns an unavailable status on a delegated create or a delegated replay. Deny. Write nothing, and return no stored order id or snapshot id.
+- The service does not fill the event owner, the award status, the winning carrier, or the grant from the request body when a read fails.
 
 ## 8. Four parties
 
@@ -168,9 +226,11 @@ When a later request repeats `tenant_id`, `actor_company_id`, and `idempotency_k
 - The service returns a conflict denial.
 - The denial does not insert a second order and does not insert a second snapshot.
 - The denial body does not contain the stored transport order id, the stored snapshot id, or the payload of the operation that belongs to the other грузовладелец.
-- The service returns the stored result only when `shipper_company_id` is the same and the stored request hash matches this request.
+- The service returns the stored result only when section 4 has authorized the caller, `shipper_company_id` is the same, and the stored request hash matches this request.
 
 A hash mismatch takes the conflict path. It does not call the replay that returns the stored order. NT-D13. This rule does not add a migration. The unique key may stay `(tenant_id, actor_company_id, idempotency_key)` because the shipper comparison is mandatory before any replay.
+
+Authorization stays in front of that lookup. A revoked grant, a missing create role, a missing grant, or a foreign tenant is denied at steps 1–4 of section 4. Those denials do not return the stored order. NT-D14 through NT-D18.
 
 ## 10. Audit
 
@@ -203,7 +263,22 @@ These tests are specified here and are not implemented in this change. Each deni
 | NT-D10 | Award-scope has a valid internal token. Body actor company is a forwarder and body shipper is a different company, with no grant loaded by transport-order-service | Deny |
 | NT-D11 | Award-scope has a valid internal token. Body `actor_company_id` equals body `shipper_company_id`, and both are an arbitrary company C in the tenant. The service's own read of the RFx event has an owner other than C, or the event does not resolve | Deny before the rate call and before insert. No order, snapshot, or idempotency row for C |
 | NT-D12 | Direct `POST /v1/transport-orders` on transport-order-service carries client `X-User-ID`, `X-Company-ID`, and `X-Actor-Kind`, and the service has not confirmed that actor. Includes the case `AUTH_ENABLED=false` and the case with no gateway on the path | Deny before the order insert and before the `SNAPSHOT_V1` insert |
-| NT-D13 | A stored create used tenant T, actor company A, idempotency key K, and shipper S. The next request uses T, A, and K with shipper C, and C differs from S | Conflict denial. No second order and no second snapshot. The response does not contain the order id, snapshot id, or payload stored for S |
+| NT-D13 | A stored create used tenant T, actor company A, idempotency key K, and shipper S. The next request uses T, A, and K with shipper C, and C differs from S. Section 4 has already authorized the caller | Conflict denial. No second order and no second snapshot. The response does not contain the order id, snapshot id, or payload stored for S |
+| NT-D14 | A delegated create stored an order under an `ACTIVE` grant. The grant is then `REVOKED`. The same actor replays the same idempotency key | Deny at the grant check. No idempotency lookup result is returned. The response has no stored order id and no stored snapshot id |
+| NT-D15 | The stored order belongs to actor company A. A second user of company A has no create role and replays the key | Deny at the role check. The response has no stored order id and no stored snapshot id |
+| NT-D16 | The stored order was delegated. The replay caller has a create role and has no `CREATE_TRANSPORT_ORDER_ON_BEHALF` grant for that shipper | Deny at the grant check. The response has no stored order id and no stored snapshot id |
+| NT-D17 | The stored order is in tenant A. The caller is verified in tenant B and presents tenant A's key or tenant A's body tenant | Deny at the tenant check. The response has no stored order id and no stored snapshot id |
+| NT-D18 | Any denial in NT-D13 through NT-D17 | The response body omits the stored transport order id, the stored snapshot id, and the stored order payload |
+| NT-D19 | Award-scope credential is the dedicated rfx-service credential. The RFx award-subject read times out or is unavailable | Deny. No order, snapshot, or idempotency row |
+| NT-D20 | Delegated award-scope. The company-service grant read times out or is unavailable | Deny. No order, snapshot, or idempotency row, and no stored ids in the response |
+| NT-D21 | Award-scope presents a valid token issued to shipment-service, billing-register-service, or a shared multi-service token | Unauthorized. No order, snapshot, or idempotency row |
+| NT-D22 | The verified tenant and the tenant on the loaded award subject differ, or the body tenant differs from the verified tenant | Deny. No row |
+| NT-D23 | Body shipper or body actor company is company C. The loaded award subject owner is a different company | Deny. No row |
+| NT-D24 | Award-scope grant read returns `REVOKED` | Deny before idempotency lookup. No stored ids in the response |
+| NT-D25 | Body names `rfx_lot_id`. The loaded subject says the lot does not exist on the event | Deny. No row |
+| NT-D26 | The loaded event status is not `AWARDED` | Deny. No row |
+| NT-D27 | Body `carrier_company_id` differs from the loaded `winning_carrier_company_id` | Deny. No row |
+| NT-D28 | Contract-rate resolve would succeed, and the award-subject read was not completed | Deny. Resolve is not the award check |
 | NT-2 | From PR #363. Member of company A sends shipper B and has no grant | Deny before the rate call |
 | NT-7 | From PR #363. Auth disabled. Public create does not treat client actor headers as authority | Deny |
 
@@ -218,7 +293,7 @@ Safe behavior at the gateway:
 - Public priced create fails closed while auth is disabled (RC-1, NT-7, NT-D9).
 - Delegated create is unavailable in that mode. There is no verified actor user, actor company, or role to match against a grant.
 - Client headers, a body shipper, and a body grant id are not a substitute.
-- Disabling gateway auth does not widen `POST /internal/v1/transport-orders/from-award-scope`. That route still requires the internal token and the award-scope chain in section 7.
+- Disabling gateway auth does not widen `POST /internal/v1/transport-orders/from-award-scope`. That route still requires the dedicated rfx-service award-caller credential and the award-scope chain in section 7.
 
 The gateway flag is not the actor check. transport-order-service confirms the actor on its own boundary for `POST /v1/transport-orders`, before the rate call and before `CreatePricedOrder`.
 
@@ -257,10 +332,10 @@ PR #363 remains unchanged. The future fix uses the acceptance below. `IMPLEMENTA
 
 | ID | Acceptance |
 | --- | --- |
-| RC-1 | NT-7, NT-D9, and NT-D12. With `AUTH_ENABLED` unset or false, `POST /api/v1/transport-orders` is denied and writes no order, snapshot, or idempotency row. Client `X-Company-ID` and `X-Actor-Kind` are not forwarded into priced create as a verified actor. transport-order-service also denies `POST /v1/transport-orders` when it has not confirmed the actor, before the order insert and before the `SNAPSHOT_V1` insert, including a direct call that never passed the gateway |
-| RC-2 | Replaces the PR #363 wording that every `shipper_company_id` different from the actor company is rejected. NT-2 and NT-D1, NT-D2, NT-D3, NT-D5, NT-D6, NT-D7, and NT-D8 deny before the rate call and before insert. NT-D13: the same tenant, actor company, and idempotency key with a different shipper returns a conflict denial, creates no second order or snapshot, and does not return the stored result for the other shipper. The allowed forwarder case in section 11 creates one order and one snapshot whose buyer is the grant shipper and whose grant id is the server row. Existing tenant denials still pass |
-| RC-3 | NT-6 stays: no internal token, no row. NT-D10: a valid token plus a forwarder actor and a different shipper is denied when transport-order-service has not loaded a matching active grant. NT-D11: a valid token plus body actor company equal to body shipper company is denied when that company is not the owner of the event the service loaded. Award conversion is allowed only after transport-order-service has confirmed the trusted caller, the loaded event, the loaded event owner, the actor company, the shipper company, and the allowed-creation rule in section 7. `requireOwnerCompanyAccess` inside rfx-service does not replace that confirmation |
-| RC-4 | NT-5 from PR #363. Add the tenant-B internal snapshot read test. This contract does not add a company filter on `GET /internal/v1/transport-orders/{id}/rate-snapshot`. Company filtering of that read waits for a separate service-to-service decision |
+| RC-1 | Runtime-open. NT-7, NT-D9, and NT-D12. With `AUTH_ENABLED` unset or false, `POST /api/v1/transport-orders` is denied and writes no order, snapshot, or idempotency row. Client `X-Company-ID` and `X-Actor-Kind` are not forwarded into priced create as a verified actor. transport-order-service also denies `POST /v1/transport-orders` when it has not confirmed the actor, before the order insert and before the `SNAPSHOT_V1` insert, including a direct call that never passed the gateway |
+| RC-2 | Runtime-open. Replaces the PR #363 wording that every `shipper_company_id` different from the actor company is rejected. NT-2 and NT-D1, NT-D2, NT-D3, NT-D5, NT-D6, NT-D7, and NT-D8 deny before the rate call and before insert. Section 4 runs before idempotency lookup: NT-D14, NT-D15, NT-D16, NT-D17, and NT-D18 deny without returning a stored order id or snapshot id. NT-D13: the same tenant, actor company, and idempotency key with a different shipper returns a conflict denial, creates no second order or snapshot, and does not return the stored result for the other shipper. The allowed forwarder case in section 11 creates one order and one snapshot whose buyer is the grant shipper and whose grant id and grant version are the server row. Existing tenant denials still pass |
+| RC-3 | Runtime-open. NT-6 stays: no dedicated rfx-service credential, no row. NT-D10: a dedicated credential plus a forwarder actor and a different shipper is denied when transport-order-service has not loaded a matching active grant. NT-D11 and NT-D23: body companies that are not the loaded event owner are denied. NT-D19 and NT-D20 fail closed when the RFx subject or the grant read is unavailable. NT-D21 rejects another service's token and a shared token. NT-D22 denies a substituted tenant. NT-D24 denies a revoked grant before replay. NT-D25, NT-D26, and NT-D27 deny a missing lot, a non-`AWARDED` event, and a carrier that did not win. NT-D28 denies when resolve is the only successful check. `requireOwnerCompanyAccess` inside rfx-service does not replace that confirmation |
+| RC-4 | Deferred. NT-5 from PR #363. Add the tenant-B internal snapshot read test. This contract does not add a company filter on `GET /internal/v1/transport-orders/{id}/rate-snapshot`. Company filtering of that read waits for a separate service-to-service decision |
 
 Also required on that future change, as part of RC-2 and RC-3 rather than as new product scope: the audit row from section 10, the snapshot fields from section 9, and the migration proposal from section 13. VAT, rounding, billing math, and register payer selection stay out of that change.
 
@@ -268,9 +343,14 @@ Also required on that future change, as part of RC-2 and RC-3 rather than as new
 
 - It does not implement the grant, the checks, the audit, or the migration.
 - It does not edit PR #341, #353, #356, or #363.
-- It does not select a VAT policy and does not declare commercial finance ready.
+- It does not select a VAT basis. NET, GROSS, and VAT-not-applicable stay unselected.
+- It does not approve a rounding rule.
+- It does not introduce a payer identity. Buyer and payer stay different parties.
+- It does not confirm billing readiness.
+- It does not make legal EDO ready.
+- RC-1, RC-2, and RC-3 stay runtime-open. RC-4 stays deferred.
 - It does not treat `1234.56 RUB` as evidence of create authority.
-- Revision 0.2E-R1 is the input for security review R2. Agent G does not record R2 as complete.
+- Revision 0.2E-R2 is the input for Agent J security review R3. Agent G does not record R3 as complete.
 
 `PAYMENT_EXECUTED=NO`
 
