@@ -202,6 +202,7 @@ func continueFinancialClosing(t *testing.T, env *flowEnv, fix flowFixture, shipm
 		t.Fatal("freight cost outbox has no pending settlement event")
 	}
 	assertRateSnapshot(t, env, fix, created.ID, shipmentID, orderID, registerID, itemID)
+	assertClosingDocumentMoney(t, env, created.ID, registerID)
 	status, payload = env.get(t, env.documents, "/v1/documents/"+singleText(t, env, `SELECT id::text FROM documents.documents WHERE related_entity_id=$1 AND document_type='POD'`, shipmentID), map[string]string{"X-Tenant-ID": fix.ForeignTenant.String()})
 	deny("foreign tenant document after billing", status, payload, http.StatusNotFound)
 	assertChain()
@@ -331,6 +332,50 @@ func assertRateSnapshot(t *testing.T, env *flowEnv, fix flowFixture, settlementI
 	if !itemShipment || !itemBase || !itemVAT || !registerCustomer || !registerContractor || registerMoney != 1 {
 		t.Fatalf("register money itemShipment=%v itemBase=%v itemVAT=%v customer=%v contractor=%v money=%d",
 			itemShipment, itemBase, itemVAT, registerCustomer, registerContractor, registerMoney)
+	}
+}
+
+func assertClosingDocumentMoney(t *testing.T, env *flowEnv, settlementID, registerID string) {
+	t.Helper()
+	var ok bool
+	err := env.pool.QueryRow(context.Background(), `
+		SELECT
+			snap.total_amount::text = fs.base_freight_amount::text
+			AND fs.base_freight_amount::text = bri.base_amount::text
+			AND bri.base_amount::text = br.total_without_vat::text
+			AND fs.currency_code = snap.currency_code
+			AND br.currency_code = snap.currency_code
+			AND act.currency_code = br.currency_code
+			AND bri.extra_charges = 0
+			AND bri.penalties = 0
+			AND fs.approved_accessorial_total = 0
+			AND fs.vat_rate IS NULL
+			AND br.vat_rate IS NULL
+			AND bri.vat_rate IS NULL
+			AND vi.vat_rate IS NULL
+			AND act.total_amount::text = br.total_with_vat::text
+			AND vi.amount_without_vat::text = br.total_without_vat::text
+			AND vi.vat_amount::text = br.vat_amount::text
+			AND vi.amount_with_vat::text = br.total_with_vat::text
+			AND act.seller_company_id = br.contractor_company_id
+			AND act.buyer_company_id = br.customer_company_id
+			AND vi.seller_company_id = br.contractor_company_id
+			AND vi.buyer_company_id = br.customer_company_id
+			AND (SELECT COUNT(*) FROM billing.billing_register_items WHERE register_id = br.id) = 1
+			AND (SELECT COUNT(*) FROM billing.acts WHERE register_id = br.id) = 1
+			AND (SELECT COUNT(*) FROM billing.vat_invoices WHERE register_id = br.id) = 1
+		FROM billing.freight_settlements fs
+		JOIN transport.transport_order_rate_snapshots snap ON snap.id = fs.rate_snapshot_id AND snap.tenant_id = fs.tenant_id
+		JOIN billing.billing_registers br ON br.id = fs.billing_register_id AND br.tenant_id = fs.tenant_id
+		JOIN billing.billing_register_items bri ON bri.id = fs.billing_register_item_id AND bri.register_id = br.id
+		JOIN billing.acts act ON act.register_id = br.id AND act.tenant_id = br.tenant_id
+		JOIN billing.vat_invoices vi ON vi.register_id = br.id AND vi.tenant_id = br.tenant_id
+		WHERE fs.id = $1 AND br.id = $2`, settlementID, registerID).Scan(&ok)
+	if err != nil {
+		t.Fatalf("closing document money: %v", err)
+	}
+	if !ok {
+		t.Fatal("stored snapshot, settlement, register, act, and VAT invoice texts are not identical")
 	}
 }
 
