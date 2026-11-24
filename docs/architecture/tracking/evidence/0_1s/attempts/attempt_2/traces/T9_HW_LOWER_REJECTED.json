@@ -1,0 +1,745 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-t"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "t9-w",
+    "t": "2026-11-17T18:50:36.008123+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "7ab8a93936406a39cf29ebb24a7025d8f9c0b64a49b93fa01f762620ab70f4d9",
+      "request_id": "k1",
+      "ticket_id": "bb5c80d8-5d54-4a77-826a-d9bd645740f4"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "high_water_seq": 3,
+      "seq": 3,
+      "status": "RESERVED"
+    },
+    "server": "t9-w",
+    "t": "2026-11-17T18:50:36.019125+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-t",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k1",
+      "ticket_id": "bb5c80d8-5d54-4a77-826a-d9bd645740f4"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 4,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "server": "t9-w",
+    "t": "2026-11-17T18:50:36.031385+00:00"
+  },
+  {
+    "body": {
+      "head_hash": "e5b08ea32cb7214ace0da8119e1f8b98e3d3976316f30776c6fc886192a9ed72",
+      "seq": 4
+    },
+    "kind": "server_call",
+    "op": "checkpoint_accept",
+    "principal": "operator",
+    "response": {
+      "checkpoint": {
+        "head_hash": "e5b08ea32cb7214ace0da8119e1f8b98e3d3976316f30776c6fc886192a9ed72",
+        "seq": 4
+      },
+      "status": "CHECKPOINT_ACCEPTED"
+    },
+    "server": "t9-w",
+    "t": "2026-11-17T18:50:36.087204+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "ab2b0eb1b61e9ab781cf4f05d10d835190896809aea4180c4d673a132be868e9",
+      "request_id": "k2",
+      "ticket_id": "90ef9af1-5073-4e67-91f0-002d30764157"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "high_water_seq": 5,
+      "seq": 5,
+      "status": "RESERVED"
+    },
+    "server": "t9-w",
+    "t": "2026-11-17T18:50:36.112404+00:00"
+  },
+  {
+    "body": {
+      "evidence": {
+        "pg_commit_ack": true
+      },
+      "ns": "ns-t",
+      "outcome": "COMMIT_CONFIRMED",
+      "request_id": "k2",
+      "ticket_id": "90ef9af1-5073-4e67-91f0-002d30764157"
+    },
+    "kind": "server_call",
+    "op": "outcome",
+    "principal": "issuer_a",
+    "response": {
+      "seq": 6,
+      "state": "COMMIT_CONFIRMED",
+      "status": "APPENDED"
+    },
+    "server": "t9-w",
+    "t": "2026-11-17T18:50:36.147824+00:00"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "reason": null,
+      "status": "OK"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.154414+00:00"
+  },
+  {
+    "body": {
+      "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+      "journal_id": "journal-t9-w",
+      "prev_digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+      "prev_seq": 6,
+      "seq": 3
+    },
+    "kind": "server_call",
+    "op": "advance",
+    "principal": "witness_svc",
+    "response": {
+      "mark": {
+        "digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+        "history": [
+          [
+            0,
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          [
+            1,
+            "f35fee2e23e517693d61637b4acf7efb9dec0e8a2314c0e755ed4334fa746aa0"
+          ],
+          [
+            2,
+            "90e8a2341535b40334eb56e1188b9d8ac76f8cb2f981739fd8306da0e7225ab1"
+          ],
+          [
+            3,
+            "7ab98cb5cbdebd390fee1b7267917b2d625c73d497cf05f00600d40247ff4be9"
+          ],
+          [
+            4,
+            "e5b08ea32cb7214ace0da8119e1f8b98e3d3976316f30776c6fc886192a9ed72"
+          ],
+          [
+            5,
+            "86348a3956823208abf1827935cf55cd37d0fe316d8c01811f3a6214c71cedeb"
+          ],
+          [
+            6,
+            "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429"
+          ]
+        ],
+        "journal_id": "journal-t9-w",
+        "journal_incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+        "seq": 6
+      },
+      "status": "NOT_MONOTONIC"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.156429+00:00"
+  },
+  {
+    "body": {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+      "journal_id": "journal-t9-w",
+      "prev_digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+      "prev_seq": 6,
+      "seq": 6
+    },
+    "kind": "server_call",
+    "op": "advance",
+    "principal": "witness_svc",
+    "response": {
+      "mark": {
+        "digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+        "history": [
+          [
+            0,
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          [
+            1,
+            "f35fee2e23e517693d61637b4acf7efb9dec0e8a2314c0e755ed4334fa746aa0"
+          ],
+          [
+            2,
+            "90e8a2341535b40334eb56e1188b9d8ac76f8cb2f981739fd8306da0e7225ab1"
+          ],
+          [
+            3,
+            "7ab98cb5cbdebd390fee1b7267917b2d625c73d497cf05f00600d40247ff4be9"
+          ],
+          [
+            4,
+            "e5b08ea32cb7214ace0da8119e1f8b98e3d3976316f30776c6fc886192a9ed72"
+          ],
+          [
+            5,
+            "86348a3956823208abf1827935cf55cd37d0fe316d8c01811f3a6214c71cedeb"
+          ],
+          [
+            6,
+            "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429"
+          ]
+        ],
+        "journal_id": "journal-t9-w",
+        "journal_incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+        "seq": 6
+      },
+      "status": "CONFLICT"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.157940+00:00"
+  },
+  {
+    "body": {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+      "journal_id": "journal-t9-w",
+      "prev_digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+      "prev_seq": 6,
+      "seq": 8
+    },
+    "kind": "server_call",
+    "op": "advance",
+    "principal": "witness_svc",
+    "response": {
+      "mark": {
+        "digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+        "history": [
+          [
+            0,
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          [
+            1,
+            "f35fee2e23e517693d61637b4acf7efb9dec0e8a2314c0e755ed4334fa746aa0"
+          ],
+          [
+            2,
+            "90e8a2341535b40334eb56e1188b9d8ac76f8cb2f981739fd8306da0e7225ab1"
+          ],
+          [
+            3,
+            "7ab98cb5cbdebd390fee1b7267917b2d625c73d497cf05f00600d40247ff4be9"
+          ],
+          [
+            4,
+            "e5b08ea32cb7214ace0da8119e1f8b98e3d3976316f30776c6fc886192a9ed72"
+          ],
+          [
+            5,
+            "86348a3956823208abf1827935cf55cd37d0fe316d8c01811f3a6214c71cedeb"
+          ],
+          [
+            6,
+            "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429"
+          ]
+        ],
+        "journal_id": "journal-t9-w",
+        "journal_incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+        "seq": 6
+      },
+      "status": "GAP"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.159600+00:00"
+  },
+  {
+    "body": {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+      "journal_id": "journal-t9-w",
+      "prev_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "prev_seq": 6,
+      "seq": 7
+    },
+    "kind": "server_call",
+    "op": "advance",
+    "principal": "witness_svc",
+    "response": {
+      "mark": {
+        "digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+        "history": [
+          [
+            0,
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          [
+            1,
+            "f35fee2e23e517693d61637b4acf7efb9dec0e8a2314c0e755ed4334fa746aa0"
+          ],
+          [
+            2,
+            "90e8a2341535b40334eb56e1188b9d8ac76f8cb2f981739fd8306da0e7225ab1"
+          ],
+          [
+            3,
+            "7ab98cb5cbdebd390fee1b7267917b2d625c73d497cf05f00600d40247ff4be9"
+          ],
+          [
+            4,
+            "e5b08ea32cb7214ace0da8119e1f8b98e3d3976316f30776c6fc886192a9ed72"
+          ],
+          [
+            5,
+            "86348a3956823208abf1827935cf55cd37d0fe316d8c01811f3a6214c71cedeb"
+          ],
+          [
+            6,
+            "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429"
+          ]
+        ],
+        "journal_id": "journal-t9-w",
+        "journal_incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+        "seq": 6
+      },
+      "status": "PREV_MISMATCH"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.164125+00:00"
+  },
+  {
+    "body": {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "incarnation": "other",
+      "journal_id": "journal-t9-w",
+      "prev_digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+      "prev_seq": 6,
+      "seq": 7
+    },
+    "kind": "server_call",
+    "op": "advance",
+    "principal": "witness_svc",
+    "response": {
+      "mark": {
+        "digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+        "history": [
+          [
+            0,
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          [
+            1,
+            "f35fee2e23e517693d61637b4acf7efb9dec0e8a2314c0e755ed4334fa746aa0"
+          ],
+          [
+            2,
+            "90e8a2341535b40334eb56e1188b9d8ac76f8cb2f981739fd8306da0e7225ab1"
+          ],
+          [
+            3,
+            "7ab98cb5cbdebd390fee1b7267917b2d625c73d497cf05f00600d40247ff4be9"
+          ],
+          [
+            4,
+            "e5b08ea32cb7214ace0da8119e1f8b98e3d3976316f30776c6fc886192a9ed72"
+          ],
+          [
+            5,
+            "86348a3956823208abf1827935cf55cd37d0fe316d8c01811f3a6214c71cedeb"
+          ],
+          [
+            6,
+            "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429"
+          ]
+        ],
+        "journal_id": "journal-t9-w",
+        "journal_incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+        "seq": 6
+      },
+      "status": "INCARNATION_MISMATCH"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.165135+00:00"
+  },
+  {
+    "body": {
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "incarnation": "other",
+      "journal_id": "journal-t9-w",
+      "seq": 0
+    },
+    "kind": "server_call",
+    "op": "init",
+    "principal": "witness_svc",
+    "response": {
+      "mark": {
+        "digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+        "history": [
+          [
+            0,
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          [
+            1,
+            "f35fee2e23e517693d61637b4acf7efb9dec0e8a2314c0e755ed4334fa746aa0"
+          ],
+          [
+            2,
+            "90e8a2341535b40334eb56e1188b9d8ac76f8cb2f981739fd8306da0e7225ab1"
+          ],
+          [
+            3,
+            "7ab98cb5cbdebd390fee1b7267917b2d625c73d497cf05f00600d40247ff4be9"
+          ],
+          [
+            4,
+            "e5b08ea32cb7214ace0da8119e1f8b98e3d3976316f30776c6fc886192a9ed72"
+          ],
+          [
+            5,
+            "86348a3956823208abf1827935cf55cd37d0fe316d8c01811f3a6214c71cedeb"
+          ],
+          [
+            6,
+            "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429"
+          ]
+        ],
+        "journal_id": "journal-t9-w",
+        "journal_incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+        "seq": 6
+      },
+      "status": "ALREADY_INITIALIZED"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.168141+00:00"
+  },
+  {
+    "body": {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+      "journal_id": "journal-t9-w",
+      "prev_digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+      "prev_seq": 6,
+      "seq": 7
+    },
+    "kind": "server_call",
+    "op": "advance",
+    "principal": "issuer_a",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.169406+00:00"
+  },
+  {
+    "body": {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+      "journal_id": "journal-t9-w",
+      "prev_digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+      "prev_seq": 6,
+      "seq": 7
+    },
+    "kind": "server_call",
+    "op": "advance",
+    "principal": "operator",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.171414+00:00"
+  },
+  {
+    "body": {
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+      "journal_id": "journal-t9-w",
+      "prev_digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+      "prev_seq": 6,
+      "seq": 7
+    },
+    "kind": "server_call",
+    "op": "advance",
+    "principal": "auditor",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.172928+00:00"
+  },
+  {
+    "body": {
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "incarnation": "x",
+      "journal_id": "journal-x",
+      "seq": 0
+    },
+    "kind": "server_call",
+    "op": "init",
+    "principal": "issuer_a",
+    "response": {
+      "status": "ROLE_FORBIDDEN"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.173950+00:00"
+  },
+  {
+    "body": {
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "journal_id": "journal-t9-w",
+      "seq": 1
+    },
+    "kind": "server_call",
+    "op": "set",
+    "principal": "witness_svc",
+    "response": {
+      "op": "set",
+      "status": "UNSUPPORTED_OP"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.175464+00:00"
+  },
+  {
+    "body": {
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "journal_id": "journal-t9-w",
+      "seq": 1
+    },
+    "kind": "server_call",
+    "op": "lower",
+    "principal": "witness_svc",
+    "response": {
+      "op": "lower",
+      "status": "UNSUPPORTED_OP"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.176487+00:00"
+  },
+  {
+    "body": {
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "journal_id": "journal-t9-w",
+      "seq": 1
+    },
+    "kind": "server_call",
+    "op": "reset",
+    "principal": "witness_svc",
+    "response": {
+      "op": "reset",
+      "status": "UNSUPPORTED_OP"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.177479+00:00"
+  },
+  {
+    "body": {
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "journal_id": "journal-t9-w",
+      "seq": 1
+    },
+    "kind": "server_call",
+    "op": "delete",
+    "principal": "witness_svc",
+    "response": {
+      "op": "delete",
+      "status": "UNSUPPORTED_OP"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.180011+00:00"
+  },
+  {
+    "body": {
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "journal_id": "journal-t9-w",
+      "seq": 1
+    },
+    "kind": "server_call",
+    "op": "truncate",
+    "principal": "witness_svc",
+    "response": {
+      "op": "truncate",
+      "status": "UNSUPPORTED_OP"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.181534+00:00"
+  },
+  {
+    "body": {
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "journal_id": "journal-t9-w",
+      "seq": 1
+    },
+    "kind": "server_call",
+    "op": "rollback",
+    "principal": "witness_svc",
+    "response": {
+      "op": "rollback",
+      "status": "UNSUPPORTED_OP"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.185085+00:00"
+  },
+  {
+    "body": {
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "journal_id": "journal-t9-w",
+      "seq": 1
+    },
+    "kind": "server_call",
+    "op": "rewrite",
+    "principal": "witness_svc",
+    "response": {
+      "op": "rewrite",
+      "status": "UNSUPPORTED_OP"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.187081+00:00"
+  },
+  {
+    "body": {
+      "digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+      "incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+      "journal_id": "journal-t9-w",
+      "prev_digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+      "prev_seq": 6,
+      "seq": 6
+    },
+    "kind": "server_call",
+    "op": "advance",
+    "principal": "witness_svc",
+    "response": {
+      "mark": {
+        "digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+        "history": [
+          [
+            0,
+            "0000000000000000000000000000000000000000000000000000000000000000"
+          ],
+          [
+            1,
+            "f35fee2e23e517693d61637b4acf7efb9dec0e8a2314c0e755ed4334fa746aa0"
+          ],
+          [
+            2,
+            "90e8a2341535b40334eb56e1188b9d8ac76f8cb2f981739fd8306da0e7225ab1"
+          ],
+          [
+            3,
+            "7ab98cb5cbdebd390fee1b7267917b2d625c73d497cf05f00600d40247ff4be9"
+          ],
+          [
+            4,
+            "e5b08ea32cb7214ace0da8119e1f8b98e3d3976316f30776c6fc886192a9ed72"
+          ],
+          [
+            5,
+            "86348a3956823208abf1827935cf55cd37d0fe316d8c01811f3a6214c71cedeb"
+          ],
+          [
+            6,
+            "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429"
+          ]
+        ],
+        "journal_id": "journal-t9-w",
+        "journal_incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+        "seq": 6
+      },
+      "status": "IDEMPOTENT"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.188941+00:00"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "reason": null,
+      "status": "OK"
+    },
+    "server": "t9-hw",
+    "t": "2026-11-17T18:50:36.191461+00:00"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "e5b08ea32cb7214ace0da8119e1f8b98e3d3976316f30776c6fc886192a9ed72",
+        "seq": 4
+      },
+      "high_water": {
+        "digest": "942f937e6eab4072b5b8a316e5d778c44ec4b3c3774da5610bb78f6f529fe429",
+        "journal_incarnation": "e0410d3b-0791-440a-a09e-2f7d2b49c4c0",
+        "seq": 6
+      },
+      "hw_state": "CONSISTENT",
+      "reason": null,
+      "status": "OK"
+    },
+    "server": "t9-w",
+    "t": "2026-11-17T18:50:36.608715+00:00"
+  },
+  {
+    "body": {
+      "epoch": 1,
+      "incarnation": "direct",
+      "ns": "ns-t",
+      "payload_hash": "ecbe6a7e590a6cbf70c04c5bf7635fab5ed5466941c692f4dc1f12f52942a6b7",
+      "request_id": "k3",
+      "ticket_id": "322fa3a8-142d-4c0a-9707-a0bc0b449490"
+    },
+    "kind": "server_call",
+    "op": "reserve",
+    "principal": "issuer_a",
+    "response": {
+      "epoch": 1,
+      "high_water_seq": 7,
+      "seq": 7,
+      "status": "RESERVED"
+    },
+    "server": "t9-w",
+    "t": "2026-11-17T18:50:36.621649+00:00"
+  }
+]

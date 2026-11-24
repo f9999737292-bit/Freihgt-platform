@@ -1,0 +1,71 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-cw1"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "cw1-w",
+    "t": "2026-11-17T18:52:27.283194+00:00"
+  },
+  {
+    "app": "a3-w039-cw1-crash",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "fault_crash"
+    ],
+    "exit": 137,
+    "fault": "crash_before_reserve",
+    "kind": "worker",
+    "ns": "ns-cw1",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": null,
+    "t": "2026-11-17T18:52:27.584724+00:00",
+    "t_end": "2026-11-17T18:52:27.584724+00:00",
+    "t_start": "2026-11-17T18:52:27.289742+00:00",
+    "tag": "w039-cw1-crash"
+  },
+  {
+    "app": "a3-w040-cw1-retry",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw1",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "c670a201-5770-4364-8a97-25459c76fb17"
+    },
+    "t": "2026-11-17T18:52:28.105901+00:00",
+    "t_end": "2026-11-17T18:52:28.105901+00:00",
+    "t_start": "2026-11-17T18:52:27.596872+00:00",
+    "tag": "w040-cw1-retry"
+  }
+]

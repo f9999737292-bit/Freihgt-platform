@@ -1,0 +1,111 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-cw7b"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "cw7b-w",
+    "t": "2026-11-17T18:52:46.677959+00:00"
+  },
+  {
+    "body": {
+      "fault": "crash_after_append_before_hw",
+      "on_type": "OUTCOME"
+    },
+    "kind": "server_call",
+    "op": "fault",
+    "principal": "harness",
+    "response": {
+      "name": "crash_after_append_before_hw",
+      "on_type": "OUTCOME",
+      "status": "FAULT_ARMED"
+    },
+    "server": "cw7b-w",
+    "t": "2026-11-17T18:52:46.679276+00:00"
+  },
+  {
+    "app": "a3-w058-cw7b-k1",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_unavailable"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw7b",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "error": "io:EOFError",
+      "result": "ISSUE_OUTCOME_UNKNOWN",
+      "wanted": "COMMIT_CONFIRMED"
+    },
+    "t": "2026-11-17T18:52:47.206961+00:00",
+    "t_end": "2026-11-17T18:52:47.206961+00:00",
+    "t_start": "2026-11-17T18:52:46.686787+00:00",
+    "tag": "w058-cw7b-k1"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "seq": 0
+      },
+      "high_water": {
+        "digest": "98c3488d7c3cd4a8dd5fd68862c0e8c96f8d9e636602cef677adbfa3683a3f6a",
+        "journal_incarnation": "a3344025-eb13-457c-9f3f-92a8a250b9a4",
+        "seq": 4
+      },
+      "hw_state": "CONSISTENT",
+      "reason": null,
+      "status": "OK"
+    },
+    "server": "cw7b-w",
+    "t": "2026-11-17T18:52:47.810640+00:00"
+  },
+  {
+    "app": "a3-w059-cw7b-replay",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "existing_reservation",
+      "pg_read_rows"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw7b",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_REPLAY_ISSUED",
+      "ticket_id": "4de9dac6-8694-403e-b4cd-958f1c903190"
+    },
+    "t": "2026-11-17T18:52:48.319465+00:00",
+    "t_end": "2026-11-17T18:52:48.319465+00:00",
+    "t_start": "2026-11-17T18:52:48.020088+00:00",
+    "tag": "w059-cw7b-replay"
+  }
+]

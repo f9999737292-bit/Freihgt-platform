@@ -1,0 +1,6 @@
+{"event": "ready", "failed": null, "marks": {"journal-p3-w": {"digest": "abea26664db6d2c56ca8f3c33d3b39c33ce70ca1f2d019bd785db9f122f18b51", "seq": 4}}, "pid": 12488, "records": 5, "t": 1794941585.1636908}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": null, "seq": null, "status": "OK", "t": 1794941585.3672042}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941585.5686395}
+{"body_ns": null, "body_request_id": null, "body_seq": 5, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941585.7914195}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941586.0008845}
+{"event": "stopped", "t": 1794941586.0008845}

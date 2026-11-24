@@ -1,0 +1,23 @@
+{
+  "attempt": 2,
+  "container": "bintrans-proof-0-1s-d76b2f46",
+  "container_removed": true,
+  "db": "wproof_d76b2f46",
+  "db_priv": "wproof_p_d76b2f46",
+  "db_restore": "wproof_r_d76b2f46",
+  "findings": [],
+  "harness_error": null,
+  "host_os": "win32",
+  "image": "postgres:16",
+  "image_id": "sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+  "network": "none",
+  "network_mode": "none",
+  "port_bindings": "{}",
+  "published_ports": "none",
+  "python": "3.12.10",
+  "server_tmp_removed": true,
+  "server_tmp_root": "<per-attempt temp dir outside repository>",
+  "server_version": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "t_end": "2026-11-17T18:51:41.616242+00:00",
+  "t_start": "2026-11-17T18:50:06.203220+00:00"
+}

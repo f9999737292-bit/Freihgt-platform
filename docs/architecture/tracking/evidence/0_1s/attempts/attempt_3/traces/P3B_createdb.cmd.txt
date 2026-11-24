@@ -1,0 +1,1 @@
+docker exec bintrans-proof-0-1s-dd0485ff createdb -U wproof_admin wproof_p_dd0485ff

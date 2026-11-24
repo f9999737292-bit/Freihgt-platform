@@ -1,0 +1,7 @@
+{"event": "roll_forward", "seq": 4, "t": 1794941374.1663468, "type": "OUTCOME"}
+{"checkpoint": {"head_hash": "0000000000000000000000000000000000000000000000000000000000000000", "seq": 0}, "event": "ready", "failed": null, "high_water": {"digest": "34a6cb5386c52cabbb7a1d3f7f35f7133ffa1d105498d9374ae7b4659e324816", "journal_incarnation": "11029345-452b-4eec-87e3-c67acc916edd", "seq": 4}, "hw_reason": null, "hw_state": "CONSISTENT", "order": "append_first", "pid": 36760, "records": 4, "t": 1794941374.1663468}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "health", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941374.270693}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "auditor", "reason": null, "seq": null, "status": "OK", "t": 1794941374.472871}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "export", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941374.5646915}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941374.7832444}
+{"event": "stopped", "t": 1794941374.7832444}

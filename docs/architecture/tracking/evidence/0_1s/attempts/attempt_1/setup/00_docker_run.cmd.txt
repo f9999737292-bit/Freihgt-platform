@@ -1,0 +1,1 @@
+docker run -d --pull never --name bintrans-proof-0-1s-2c7a427a --label bintrans.proof=0.1s --label bintrans.proof.attempt=1 --network none -e POSTGRES_USER=wproof_admin -e POSTGRES_PASSWORD -e POSTGRES_DB=wproof_2c7a427a postgres:16 postgres -c log_connections=on -c log_disconnections=on -c log_line_prefix=%m [%p] sqlstate=%e user=%u db=%d app=%a 

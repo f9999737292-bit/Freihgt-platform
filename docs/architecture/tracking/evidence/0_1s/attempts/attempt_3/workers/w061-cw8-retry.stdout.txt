@@ -1,0 +1,9 @@
+EVENT {"epoch": 1, "event": "start", "fault": "", "incarnation": "3e00807f-fd5b-442b-ae3a-79051e816833", "mode": "issue", "mono": 0.0, "ns": "ns-cw8", "payload_hash": "ab268cbde0fa875aedcf7e8090edc84f824a7b2922c8a01e0b2dbf1bcd7984e8", "principal": "issuer_a", "request_id": "k1", "t": 1794941569.6357288}
+EVENT {"durability": null, "event": "witness_export", "mono": 0.0, "reason": null, "seq": null, "status": "OK", "t": 1794941569.6372635}
+EVENT {"complete": true, "event": "history_check", "high_water_seq": 3, "journal_len": 3, "mono": 0.0, "problem": null, "t": 1794941569.6385403}
+EVENT {"durability": null, "event": "witness_outcome", "mono": 0.015, "reason": null, "seq": 4, "status": "APPENDED", "t": 1794941569.648325}
+EVENT {"event": "restart_recovery", "marked_in_doubt": [{"key": "ns-cw8|k1", "status": "APPENDED"}], "mono": 0.015, "t": 1794941569.648325}
+EVENT {"durability": null, "event": "witness_export", "mono": 0.015, "reason": null, "seq": null, "status": "OK", "t": 1794941569.6493337}
+EVENT {"complete": true, "event": "history_check", "high_water_seq": 4, "journal_len": 4, "mono": 0.015, "problem": null, "t": 1794941569.6506834}
+EVENT {"event": "existing_reservation", "mono": 0.015, "reservation_ticket_id": "8d80ddb5-dcd3-4cfa-a21a-263b2225ca95", "state": "IN_DOUBT", "t": 1794941569.6506834}
+RESULT {"result": "ISSUE_DENIED_IN_DOUBT", "state": "IN_DOUBT"}

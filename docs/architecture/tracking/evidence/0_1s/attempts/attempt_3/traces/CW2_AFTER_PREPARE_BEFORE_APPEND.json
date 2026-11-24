@@ -1,0 +1,113 @@
+[
+  {
+    "body": {
+      "epoch": 1,
+      "holder": "issuer_a",
+      "ns": "ns-cw2"
+    },
+    "kind": "server_call",
+    "op": "epoch_set",
+    "principal": "operator",
+    "response": {
+      "seq": 2,
+      "status": "EPOCH_SET"
+    },
+    "server": "cw2-w",
+    "t": "2026-11-17T18:52:29.026130+00:00"
+  },
+  {
+    "body": {
+      "fault": "crash_before_append",
+      "on_type": "RESERVE"
+    },
+    "kind": "server_call",
+    "op": "fault",
+    "principal": "harness",
+    "response": {
+      "name": "crash_before_append",
+      "on_type": "RESERVE",
+      "status": "FAULT_ARMED"
+    },
+    "server": "cw2-w",
+    "t": "2026-11-17T18:52:29.028638+00:00"
+  },
+  {
+    "app": "a3-w041-cw2-k1",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_unavailable"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw2",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "error": "io:EOFError",
+      "result": "ISSUE_WITNESS_OUTCOME_UNKNOWN",
+      "stage": "reserve"
+    },
+    "t": "2026-11-17T18:52:29.389963+00:00",
+    "t_end": "2026-11-17T18:52:29.389963+00:00",
+    "t_start": "2026-11-17T18:52:29.036282+00:00",
+    "tag": "w041-cw2-k1"
+  },
+  {
+    "body": {},
+    "kind": "server_call",
+    "op": "health",
+    "principal": "auditor",
+    "response": {
+      "checkpoint": {
+        "head_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "seq": 0
+      },
+      "high_water": {
+        "digest": "48decbdda9842cabf064ec8cfead1de8e32e4b7dfb4b12d3f7f9f4219fa73631",
+        "journal_incarnation": "9d9d9e3c-d430-45df-a851-fb4b27c8e90b",
+        "seq": 2
+      },
+      "hw_state": "CONSISTENT",
+      "reason": null,
+      "status": "OK"
+    },
+    "server": "cw2-w",
+    "t": "2026-11-17T18:52:29.834199+00:00"
+  },
+  {
+    "app": "a3-w042-cw2-retry",
+    "events": [
+      "start",
+      "witness_export",
+      "history_check",
+      "pg_read_rows",
+      "gate",
+      "witness_reserve",
+      "pg_begin_sent",
+      "pg_begin",
+      "pg_insert",
+      "pg_commit",
+      "witness_outcome"
+    ],
+    "exit": 0,
+    "fault": "",
+    "kind": "worker",
+    "ns": "ns-cw2",
+    "principal": "issuer_a",
+    "request_id": "k1",
+    "result": {
+      "result": "ISSUE_OK",
+      "resumed": false,
+      "ticket_id": "8f11b18e-781b-48c8-a2bf-d9e1f9db2c29"
+    },
+    "t": "2026-11-17T18:52:30.618155+00:00",
+    "t_end": "2026-11-17T18:52:30.618155+00:00",
+    "t_start": "2026-11-17T18:52:29.843783+00:00",
+    "tag": "w042-cw2-retry"
+  }
+]

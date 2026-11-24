@@ -1,0 +1,4 @@
+{"event": "ready", "failed": null, "marks": {"journal-t7-w": {"digest": "a5d5b312ecea746b4c9b18b33cb4abfe5b1ded38aaa82d299f9cfd07ef633173", "seq": 6}}, "pid": 10268, "records": 7, "t": 1794941426.6703603}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": null, "seq": null, "status": "OK", "t": 1794941426.774236}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941426.7756846}
+{"event": "stopped", "t": 1794941426.7756846}

@@ -1,0 +1,7 @@
+{"event": "ready", "failed": null, "marks": {"journal-p3b-w": {"digest": "e4bdcff73d4ae8946ef401029edf884892f273ef80b7ba547547e9db6fe59923", "seq": 4}}, "pid": 26384, "records": 5, "t": 1794941492.8200264}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "witness_svc", "reason": null, "seq": null, "status": "OK", "t": 1794941493.0174606}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "get", "principal": "issuer_a", "reason": null, "seq": null, "status": "OK", "t": 1794941493.2168732}
+{"body_ns": null, "body_request_id": null, "body_seq": 5, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941493.4114077}
+{"body_ns": null, "body_request_id": null, "body_seq": 6, "event": "request", "op": "advance", "principal": "witness_svc", "reason": null, "seq": null, "status": "ADVANCED", "t": 1794941493.6493378}
+{"body_ns": null, "body_request_id": null, "body_seq": null, "event": "request", "op": "shutdown", "principal": "harness", "reason": null, "seq": null, "status": "SHUTDOWN", "t": 1794941493.8725512}
+{"event": "stopped", "t": 1794941493.8735654}

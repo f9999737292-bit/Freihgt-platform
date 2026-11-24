@@ -1,0 +1,5 @@
+{
+  "advance": "ADVANCED",
+  "description": "journal tail replaced by forged valid records; mark advanced to the forged head with the stolen witness_svc credential",
+  "lower": "NOT_MONOTONIC"
+}

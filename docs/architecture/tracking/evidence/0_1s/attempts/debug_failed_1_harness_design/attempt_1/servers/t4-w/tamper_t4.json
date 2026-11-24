@@ -1,0 +1,7 @@
+{
+  "backup_taken_at_seq": 5,
+  "description": "Journal replaced by a byte copy taken at seq 5 (one below the mark)",
+  "lines_after": 5,
+  "lines_before": 6,
+  "local_chain_check_on_tampered_journal": "VALID"
+}

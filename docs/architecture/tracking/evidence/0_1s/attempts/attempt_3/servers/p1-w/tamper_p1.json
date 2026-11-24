@@ -1,0 +1,4 @@
+{
+  "description": "truncate to seq 4, append 3 forged valid records (journal longer than mark)",
+  "lines_after": 7
+}

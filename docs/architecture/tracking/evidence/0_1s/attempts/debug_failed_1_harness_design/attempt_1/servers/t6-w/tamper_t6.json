@@ -1,0 +1,8 @@
+{
+  "description": "Journal rebuilt with the same records under a different GENESIS incarnation (valid chain)",
+  "forged_incarnation": "4df4866d-11cf-4e87-92e7-3ae8301e49a5",
+  "lines_after": 6,
+  "lines_before": 6,
+  "local_chain_check_on_tampered_journal": "VALID",
+  "original_incarnation": "491d679a-7d31-4b46-b731-a79c02bcb55e"
+}

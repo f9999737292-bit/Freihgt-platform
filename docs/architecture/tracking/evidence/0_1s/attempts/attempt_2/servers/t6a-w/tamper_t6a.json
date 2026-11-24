@@ -1,0 +1,9 @@
+{
+  "description": "Journal rebuilt with the same records under a different GENESIS incarnation (valid chain); operator checkpoint left in place",
+  "forged_incarnation": "c9a70e4c-f62a-4f6d-9bf6-3cdbfe060e72",
+  "lines_after": 6,
+  "lines_before": 6,
+  "local_chain_check_on_tampered_journal": "VALID",
+  "operator_checkpoint_deleted": false,
+  "original_incarnation": "72f1f222-a1d3-43f9-bce8-84c4d11ab749"
+}
