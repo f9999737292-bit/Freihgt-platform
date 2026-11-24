@@ -36,8 +36,8 @@ Those two tests need `BINTRANS_AUTOPILOT_QUEUE_DSN`. They are not turned into pa
 
 | Gap | Addition |
 | --- | --- |
-| No restart budget above the worker | `WorkerSupervisor` observes heartbeats. It restarts at most `max_restarts` times, waits out backoff, then holds. A decision does not complete a job. |
-| No independent audit packet | `AuditGateway` stores the commit SHA, the test command, and the test result. Reviewer `agent-j` is the only reviewer that can clear the finding gate. `agent-h` cannot. `merge_authorized` stays false. |
+| No restart budget above the worker | `WorkerSupervisor` stores the restart count for its tenant in a hash-chained file. A new worker id or a new supervisor using that file does not reset the count. A decision does not complete a job. |
+| No independent audit packet | `AuditGateway` appends claims to a hash-chained journal. A reviewer string in the packet is not an identity. The finding gate stays `blocked` until a trusted workflow can read a GitHub review and a CI result for the exact SHA. See `AUDIT_TRUST_BOUNDARY_0_4A_R2.md`. |
 | No single readiness report | `ReadinessCycle.run` evaluates one batch. `python -m bintrans_autopilot readiness-check` prints the closed switches and exits. It does not claim a job. |
 | No dedicated deployment sketch | `deploy/autopilot-readiness.compose.example.yml` is an example. It is not part of the platform compose. The service is on profile `manual-approval-required`, `restart` is `no`, and the image is `example.invalid`. This stage does not run it. |
 
@@ -55,19 +55,19 @@ The scheduler and the PostgreSQL queue are reused. No platform migration is adde
 | Handler returned and `complete` did not | The outcome is `unavailable` or `failed`. The metric stays at the previous total. |
 | Lease expired, then a new claim | The next `run_once` can complete with a new token. The first token does not. |
 | Payload contains `command` or another unknown field | `enqueue` raises `invalid_input` before it connects. |
-| Agent J returns `CHANGES_REQUIRED` or a blocking finding | The finding gate is `blocked`. |
-| Dead-job cap or restart cap | The supervisor holds. `release_hold` is an operator call and does not set `WORKER_ENABLED`. |
-| Emergency stop | The supervisor action is `stop`. The check command reports `EMERGENCY_STOP=YES` and does not launch. |
+| Agent J returns `CHANGES_REQUIRED`, `BLOCKED`, or a CRITICAL/HIGH finding | The journal keeps a block for that SHA. A later PASS packet does not remove it. |
+| Dead-job cap or restart cap | The supervisor holds. `release_hold` does not clear the stored count. |
+| Emergency stop | Env, the stop file, or `emergency_stop` in config stops the supervisor even when the caller passes false. |
 
 ## Recovery
 
 1. Leave `AUTOPILOT_ENABLED` unset or not `true`. To halt, set `AUTOPILOT_EMERGENCY_STOP=true` or add an empty `tools/bintrans_autopilot/EMERGENCY_STOP` through the normal review path.
 2. Do not delete `autopilot_queue.jobs` and do not complete a row with an expired token.
 3. After PostgreSQL returns, a later dry-run `run_once` calls `requeue_expired` and may claim a `PENDING` row. A `RUNNING` row stays until its lease time passes.
-4. A supervisor hold stays until an operator calls `release_hold`. That call does not start a resident process.
+4. A supervisor hold stays in the restart ledger. `release_hold` refuses to clear it. That does not start a resident process.
 5. If Agent J recorded `CHANGES_REQUIRED` or `BLOCKED`, keep the packet. Do not replace the verdict with `PASS` inside this process.
 6. Do not start `deploy/autopilot-readiness.compose.example.yml` from this stage.
 
 ## Not ready
 
-Continuous unattended execution, a paid Cloud Agent, merge to `main`, and deployment are not enabled. A clear Agent J packet is evidence for a later controller decision.
+Continuous unattended execution, a paid Cloud Agent, merge to `main`, and deployment are not enabled. The finding gate cannot turn itself clear. The missing proof is described in `AUDIT_TRUST_BOUNDARY_0_4A_R2.md`.

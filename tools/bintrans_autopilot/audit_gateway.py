@@ -1,8 +1,9 @@
-"""Record an execution result for Agent J.
+"""Record an execution claim. Do not treat the claim as Agent J.
 
-A packet stored here is evidence. It is not an independent review, and a
-PASS written by the implementation agent does not authorize merge, deploy, or
-a paid launch. Promotion stays closed in this stage.
+The reviewer name, test result, and verdict in a packet are untrusted text.
+This process cannot prove who wrote them: that proof has to come from a
+GitHub review and a CI check on the exact SHA, read by the trusted workflow.
+Those reads are not available here, so the finding gate stays blocked.
 """
 
 from __future__ import annotations
@@ -10,6 +11,9 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
+from pathlib import Path
+
+from bintrans_autopilot.audit_journal import AuditJournal, AuditJournalError
 
 _LOCKED_TRUE = (
     "AUTOPILOT_ENABLED",
@@ -20,10 +24,12 @@ _LOCKED_TRUE = (
     "AUTO_DEPLOY",
     "AUTO_DEPLOY_ENABLED",
     "WORKER_ENABLED",
+    "PRODUCTION_24X7_ENABLED",
 )
-_INDEPENDENT_REVIEWER = "agent-j"
 _VERDICTS = {"PASS", "PASS_WITH_NITS", "CHANGES_REQUIRED", "BLOCKED"}
 _RESULTS = {"PASS", "FAIL", "NOT_RUN"}
+_SEVERITIES = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
+_BLOCKING_SEVERITIES = {"HIGH", "CRITICAL"}
 _BLOCKING_VERDICTS = {"CHANGES_REQUIRED", "BLOCKED"}
 _SHA = re.compile(r"^[0-9a-f]{40}$")
 
@@ -59,20 +65,36 @@ class AuditDecision:
     merge_authorized: bool = False
     production_enabled: bool = False
     paid_automation_enabled: bool = False
+    reviewer_authenticated: bool = False
+    ci_verified: bool = False
 
 
 class AuditGateway:
-    def __init__(self, *, mode: str = "dry_run", env: dict[str, str] | None = None):
+    def __init__(
+        self,
+        *,
+        mode: str = "dry_run",
+        env: dict[str, str] | None = None,
+        journal_path: Path | None = None,
+        observed_head: str = "",
+    ):
         if mode != "dry_run":
             raise AuditError("audit_disabled")
         source = os.environ if env is None else env
         for name in _LOCKED_TRUE:
             if str(source.get(name, "")).strip().lower() == "true":
                 raise AuditError("audit_disabled")
+        if observed_head and not _SHA.fullmatch(observed_head):
+            raise AuditError("invalid_commit")
+        if journal_path is None:
+            raise AuditError("invalid_input")
         self.mode = "dry_run"
         self.merge_authorized = False
         self.production_enabled = False
-        self._packets: list[AuditPacket] = []
+        self.reviewer_authenticated = False
+        self.ci_verified = False
+        self.observed_head = observed_head
+        self.journal = AuditJournal(Path(journal_path))
 
     def submit(self, packet: AuditPacket) -> AuditDecision:
         if not _SHA.fullmatch(packet.commit_sha or ""):
@@ -81,15 +103,57 @@ class AuditGateway:
             raise AuditError("invalid_input")
         if not packet.test_command.strip():
             raise AuditError("invalid_input")
-        self._packets.append(packet)
-        reviewer = packet.reviewer.strip().lower()
-        if reviewer != _INDEPENDENT_REVIEWER:
-            return AuditDecision("self_approval_rejected", True, "blocked")
-        if packet.test_result != "PASS":
-            return AuditDecision("tests_not_passed", True, "blocked")
-        if packet.verdict in _BLOCKING_VERDICTS or any(item.blocks_merge for item in packet.findings):
-            return AuditDecision("blocking_finding", True, "blocked")
-        return AuditDecision("recorded_for_controller", True, "clear")
+        for finding in packet.findings:
+            if finding.severity not in _SEVERITIES or not finding.finding_id.strip():
+                raise AuditError("invalid_input")
+        try:
+            records = self.journal.verify()
+        except AuditJournalError as exc:
+            raise AuditError(exc.code) from None
+        claimed = {
+            "claimed_result": packet.test_result,
+            "claimed_reviewer": packet.reviewer,
+            "claimed_verdict": packet.verdict,
+            "commit_sha": packet.commit_sha,
+            "severities": [item.severity for item in packet.findings],
+        }
+        try:
+            self.journal.append("packet", claimed)
+        except AuditJournalError as exc:
+            raise AuditError(exc.code) from None
+        if _already_blocked(records, packet.commit_sha):
+            return self._blocked("prior_block_stands")
+        if _must_block(packet):
+            reason = "blocking_severity" if _high_severity(packet) else "blocking_finding"
+            try:
+                self.journal.append("block", {"commit_sha": packet.commit_sha, "reason": reason})
+            except AuditJournalError as exc:
+                raise AuditError(exc.code) from None
+            return self._blocked(reason)
+        if self.observed_head and packet.commit_sha != self.observed_head:
+            return self._blocked("sha_mismatch")
+        return self._blocked("trust_boundary_absent")
 
-    def packets(self) -> tuple[AuditPacket, ...]:
-        return tuple(self._packets)
+    def packets(self) -> tuple[dict, ...]:
+        try:
+            records = self.journal.verify()
+        except AuditJournalError as exc:
+            raise AuditError(exc.code) from None
+        return tuple(record["body"] for record in records if record["kind"] == "packet")
+
+    def _blocked(self, reason: str) -> AuditDecision:
+        return AuditDecision(reason, True, "blocked")
+
+
+def _already_blocked(records: tuple[dict, ...], commit_sha: str) -> bool:
+    return any(record["kind"] == "block" and record["body"].get("commit_sha") == commit_sha for record in records)
+
+
+def _high_severity(packet: AuditPacket) -> bool:
+    return any(item.severity in _BLOCKING_SEVERITIES for item in packet.findings)
+
+
+def _must_block(packet: AuditPacket) -> bool:
+    if packet.verdict in _BLOCKING_VERDICTS or _high_severity(packet):
+        return True
+    return any(item.blocks_merge for item in packet.findings)

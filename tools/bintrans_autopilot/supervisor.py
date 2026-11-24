@@ -2,15 +2,21 @@
 
 This module does not spawn a process, open a network client, or read a job payload.
 A restart decision is a signal to the caller. It does not complete a job and
-it does not clear a PostgreSQL lease. Lost work stays on the queue until the
-existing lease expiry path requeues it.
+it does not clear a PostgreSQL lease. The restart count is stored in a
+hash-chained file keyed by the supervisor tenant, not by the caller's worker id.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
+import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
+
+from bintrans_autopilot.config import EMERGENCY_STOP_FILE, load_config
 
 _LOCKED_TRUE = (
     "AUTOPILOT_ENABLED",
@@ -21,7 +27,10 @@ _LOCKED_TRUE = (
     "AUTO_DEPLOY",
     "AUTO_DEPLOY_ENABLED",
     "WORKER_ENABLED",
+    "PRODUCTION_24X7_ENABLED",
 )
+_GENESIS = "0" * 64
+_FUTURE_SKEW_SECONDS = 1.0
 
 
 class SupervisorError(Exception):
@@ -58,13 +67,102 @@ def _locked(env: dict[str, str] | None = None) -> str:
     return ""
 
 
+def _digest(prev: str, body: dict) -> str:
+    encoded = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(f"{prev}\n{encoded}".encode("ascii")).hexdigest()
+
+
+class RestartLedger:
+    """Append-only restart budget. Update and delete are refused."""
+
+    def __init__(self, path: Path):
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.path.exists():
+            self.path.write_text("", encoding="utf-8")
+        self._lock = threading.Lock()
+        self.tampered = False
+        try:
+            self.verify()
+        except SupervisorError:
+            self.tampered = True
+
+    def verify(self) -> tuple[dict, ...]:
+        text = self.path.read_text(encoding="utf-8")
+        if text == "":
+            return ()
+        if not text.endswith("\n") or "\r" in text:
+            raise SupervisorError("state_tampered")
+        records: list[dict] = []
+        prev = _GENESIS
+        for line in text.split("\n"):
+            if line == "":
+                continue
+            try:
+                record = json.loads(line)
+                body = {
+                    "count": record["count"],
+                    "event": record["event"],
+                    "reason": record["reason"],
+                    "tenant_id": record["tenant_id"],
+                }
+            except (KeyError, TypeError, json.JSONDecodeError):
+                raise SupervisorError("state_tampered") from None
+            digest = _digest(prev, body)
+            if record.get("prev") != prev or record.get("hash") != digest:
+                raise SupervisorError("state_tampered")
+            prev = digest
+            records.append(record)
+        return tuple(records)
+
+    def count(self, tenant_id: str) -> int:
+        total = 0
+        for record in self.verify():
+            if record["tenant_id"] == tenant_id and record["event"] == "restart":
+                total = int(record["count"])
+        return total
+
+    def hold_reason(self, tenant_id: str) -> str:
+        reason = ""
+        for record in self.verify():
+            if record["tenant_id"] == tenant_id and record["event"] == "hold":
+                reason = str(record["reason"])
+        return reason
+
+    def append(self, tenant_id: str, event: str, reason: str, count: int) -> None:
+        if event not in {"restart", "hold"}:
+            raise SupervisorError("invalid_input")
+        with self._lock:
+            if self.tampered:
+                raise SupervisorError("state_tampered")
+            records = self.verify()
+            prev = records[-1]["hash"] if records else _GENESIS
+            body = {"count": count, "event": event, "reason": reason, "tenant_id": tenant_id}
+            digest = _digest(prev, body)
+            line = json.dumps(
+                {"count": count, "event": event, "hash": digest, "prev": prev, "reason": reason, "tenant_id": tenant_id},
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            )
+            with self.path.open("a", encoding="utf-8", newline="\n") as handle:
+                handle.write(line + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+
+    def clear(self) -> None:
+        raise SupervisorError("state_immutable")
+
+
 class WorkerSupervisor:
-    """Counts restarts per worker and holds the worker when the budget is spent."""
+    """Counts restarts for one tenant and holds that tenant when the budget is spent."""
 
     def __init__(
         self,
         *,
         mode: str = "dry_run",
+        tenant_id: str = "",
+        state_path: Path | None = None,
         max_restarts: int = 3,
         heartbeat_timeout_seconds: float = 30,
         base_backoff_seconds: float = 1,
@@ -72,11 +170,12 @@ class WorkerSupervisor:
         max_dead_jobs: int = 100,
         clock=None,
         env: dict[str, str] | None = None,
+        stop_file: Path | None = None,
+        config_stop: bool | None = None,
     ):
         if mode != "dry_run":
             raise SupervisorError("supervisor_disabled")
-        locked = _locked(env)
-        if locked:
+        if _locked(env):
             raise SupervisorError("supervisor_disabled")
         if isinstance(max_restarts, bool) or not isinstance(max_restarts, int) or not 1 <= max_restarts <= 8:
             raise SupervisorError("invalid_input")
@@ -84,7 +183,10 @@ class WorkerSupervisor:
             raise SupervisorError("invalid_input")
         if isinstance(max_dead_jobs, bool) or not isinstance(max_dead_jobs, int) or max_dead_jobs < 1:
             raise SupervisorError("invalid_input")
+        if not tenant_id or state_path is None:
+            raise SupervisorError("invalid_input")
         self.mode = "dry_run"
+        self.tenant_id = tenant_id
         self.worker_enabled = False
         self.autopilot_enabled = False
         self.paid_automation_enabled = False
@@ -97,41 +199,57 @@ class WorkerSupervisor:
         self.max_backoff_seconds = float(max_backoff_seconds)
         self.max_dead_jobs = max_dead_jobs
         self._clock = time.monotonic if clock is None else clock
-        self._restarts: dict[str, int] = {}
-        self._held: dict[str, str] = {}
+        self._env = env
+        self._stop_file = EMERGENCY_STOP_FILE if stop_file is None else Path(stop_file)
+        self._config_stop = config_stop
         self._not_before: dict[str, float] = {}
+        self._ledger = RestartLedger(Path(state_path))
 
     def observe(self, observation: WorkerObservation, *, emergency_stop: bool = False) -> SupervisorDecision:
         if not observation.worker_id or not observation.tenant_id:
             raise SupervisorError("invalid_input")
-        worker_id = observation.worker_id
-        count = self._restarts.get(worker_id, 0)
-        if emergency_stop:
+        if self._ledger.tampered:
+            return SupervisorDecision("hold", "state_tampered", 0, 0.0)
+        if observation.tenant_id != self.tenant_id:
+            return SupervisorDecision("hold", "tenant_mismatch", 0, 0.0)
+        count = self._ledger.count(self.tenant_id)
+        if emergency_stop or self._emergency_stop():
             return SupervisorDecision("stop", "emergency_stop", count, 0.0)
-        if worker_id in self._held:
-            return SupervisorDecision("hold", self._held[worker_id], count, 0.0)
+        held = self._ledger.hold_reason(self.tenant_id)
+        if held:
+            return SupervisorDecision("hold", held, count, 0.0)
         if observation.dead_jobs >= self.max_dead_jobs:
-            self._held[worker_id] = "resource_limit"
+            self._ledger.append(self.tenant_id, "hold", "resource_limit", count)
             return SupervisorDecision("hold", "resource_limit", count, 0.0)
         now = float(self._clock())
+        if float(observation.heartbeat_at) > now + _FUTURE_SKEW_SECONDS:
+            return SupervisorDecision("hold", "heartbeat_in_future", count, 0.0)
         stale = (now - float(observation.heartbeat_at)) > self.heartbeat_timeout_seconds
         if not stale:
             return SupervisorDecision("continue", "healthy", count, 0.0)
-        waiting = self._not_before.get(worker_id, 0.0)
+        waiting = self._not_before.get(self.tenant_id, 0.0)
         if now < waiting:
             return SupervisorDecision("wait", "backoff", count, waiting - now)
         if count >= self.max_restarts:
-            self._held[worker_id] = "restart_budget_exhausted"
+            self._ledger.append(self.tenant_id, "hold", "restart_budget_exhausted", count)
             return SupervisorDecision("hold", "restart_budget_exhausted", count, 0.0)
         count += 1
-        self._restarts[worker_id] = count
+        self._ledger.append(self.tenant_id, "restart", "heartbeat_lost", count)
         backoff = min(self.max_backoff_seconds, self.base_backoff_seconds * (2 ** (count - 1)))
-        self._not_before[worker_id] = now + backoff
+        self._not_before[self.tenant_id] = now + backoff
         reason = "stuck_job" if observation.running_jobs > 0 else "heartbeat_lost"
         return SupervisorDecision("restart", reason, count, backoff)
 
-    def release_hold(self, worker_id: str) -> None:
-        """Operator reset. This does not set WORKER_ENABLED or start a process."""
-        self._held.pop(worker_id, None)
-        self._restarts.pop(worker_id, None)
-        self._not_before.pop(worker_id, None)
+    def release_hold(self, _worker_id: str) -> None:
+        """A caller cannot clear a persisted hold or restart count."""
+        raise SupervisorError("hold_requires_controller")
+
+    def _emergency_stop(self) -> bool:
+        source = os.environ if self._env is None else self._env
+        if str(source.get("AUTOPILOT_EMERGENCY_STOP", "")).strip().lower() == "true":
+            return True
+        if self._stop_file.exists():
+            return True
+        if self._config_stop is not None:
+            return bool(self._config_stop)
+        return bool(load_config().emergency_stop)

@@ -13,6 +13,7 @@ from contextlib import redirect_stdout
 
 from bintrans_autopilot.__main__ import main
 from bintrans_autopilot.audit_gateway import AuditError, AuditFinding, AuditGateway, AuditPacket
+from bintrans_autopilot.audit_journal import AuditJournalError
 from bintrans_autopilot.postgres_queue import JobLease, JobStatus, PostgresQueue, QueueError
 from bintrans_autopilot.readiness import ReadinessCycle, readiness_lines
 from bintrans_autopilot.scheduler import Policy, Scheduler
@@ -150,6 +151,12 @@ class ReadinessTests(unittest.TestCase):
         self._saved = {name: os.environ.get(name) for name in _LOCKED}
         for name in _LOCKED:
             os.environ.pop(name, None)
+        self._saved_actions = os.environ.get("GITHUB_ACTIONS")
+        os.environ.pop("GITHUB_ACTIONS", None)
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.state_path = Path(self._tmp.name) / "restarts.jsonl"
+        self.journal_path = Path(self._tmp.name) / "audit.jsonl"
 
     def tearDown(self) -> None:
         for name, value in self._saved.items():
@@ -157,6 +164,24 @@ class ReadinessTests(unittest.TestCase):
                 os.environ.pop(name, None)
             else:
                 os.environ[name] = value
+        if self._saved_actions is None:
+            os.environ.pop("GITHUB_ACTIONS", None)
+        else:
+            os.environ["GITHUB_ACTIONS"] = self._saved_actions
+
+    def _supervisor(self, **kwargs) -> WorkerSupervisor:
+        kwargs.setdefault("tenant_id", "tenant-a")
+        kwargs.setdefault("state_path", self.state_path)
+        kwargs.setdefault("env", {})
+        kwargs.setdefault("config_stop", False)
+        kwargs.setdefault("stop_file", Path(self._tmp.name) / "no-emergency-stop")
+        return WorkerSupervisor(**kwargs)
+
+    def _gateway(self, **kwargs) -> AuditGateway:
+        kwargs.setdefault("env", {})
+        kwargs.setdefault("journal_path", self.journal_path)
+        kwargs.setdefault("observed_head", SHA)
+        return AuditGateway(**kwargs)
 
     def test_sources_do_not_spawn_or_enable_switches(self) -> None:
         root = Path(__file__).resolve().parents[1]
@@ -164,7 +189,7 @@ class ReadinessTests(unittest.TestCase):
             source = root.joinpath(name).read_text(encoding="utf-8")
             for banned in ("subprocess", "socket", "cursor_api", "os.system", "Popen", "docker"):
                 self.assertNotIn(banned, source)
-        supervisor = WorkerSupervisor(clock=Clock(100))
+        supervisor = self._supervisor(clock=Clock(100))
         self.assertFalse(supervisor.worker_enabled)
         self.assertFalse(supervisor.autopilot_enabled)
         self.assertFalse(supervisor.auto_merge_enabled)
@@ -184,7 +209,9 @@ class ReadinessTests(unittest.TestCase):
             code, lines = readiness_lines({name: "true", "AUTOPILOT_EMERGENCY_STOP": "true"})
             self.assertEqual(code, 2)
             self.assertIn("READINESS_CHECK=REFUSED", lines)
-            self.assertIn("PRODUCTION_24X7_ENABLED=NO", lines)
+            shown = {"AUTO_MERGE_ENABLED": "AUTO_MERGE", "AUTO_DEPLOY_ENABLED": "AUTO_DEPLOY"}.get(name, name)
+            self.assertIn(f"{shown}=YES", lines)
+            self.assertNotIn(f"{shown}=NO", lines)
         with self.assertRaises(WorkerError):
             _worker(ScriptedQueue(), mode="live")
 
@@ -206,7 +233,7 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(queue.completes, 0)
         self.assertEqual(queue.fails, 1)
         clock = Clock(100)
-        supervisor = WorkerSupervisor(clock=clock, max_restarts=3, base_backoff_seconds=1, max_backoff_seconds=8)
+        supervisor = self._supervisor(clock=clock, max_restarts=3, base_backoff_seconds=1, max_backoff_seconds=8)
         stale = _observe(heartbeat_at=0, running_jobs=1)
         first = supervisor.observe(stale)
         self.assertEqual(first.action, "restart")
@@ -339,49 +366,138 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(scripted.completes, 0)
         self.assertEqual(worker.external_calls, 0)
 
-    def test_agent_j_block_rejects_self_approval(self) -> None:
-        gateway = AuditGateway(env={})
+    def test_forged_reviewer_cannot_clear_and_a_block_sticks(self) -> None:
+        gateway = self._gateway()
         command = "python -m unittest discover -s tools/bintrans_autopilot/tests -v"
-        self_signed = gateway.submit(AuditPacket(SHA, command, "PASS", "agent-h", "PASS"))
-        self.assertEqual(self_signed.reason, "self_approval_rejected")
-        self.assertEqual(self_signed.finding_gate, "blocked")
-        self.assertFalse(self_signed.merge_authorized)
-        blocked = gateway.submit(
-            AuditPacket(
-                SHA,
-                command,
-                "PASS",
-                "agent-j",
-                "CHANGES_REQUIRED",
-                (AuditFinding("J-1", "HIGH", True),),
-            )
+        forged = gateway.submit(AuditPacket(SHA, command, "PASS", "agent-j", "PASS"))
+        self.assertEqual(forged.reason, "trust_boundary_absent")
+        self.assertEqual(forged.finding_gate, "blocked")
+        self.assertFalse(forged.reviewer_authenticated)
+        self.assertFalse(forged.ci_verified)
+        self.assertFalse(forged.merge_authorized)
+        spaced = gateway.submit(AuditPacket(SHA, command, "PASS", "  AGENT-J ", "PASS"))
+        self.assertEqual(spaced.finding_gate, "blocked")
+        self.assertNotEqual(spaced.reason, "recorded_for_controller")
+        mismatch = gateway.submit(AuditPacket("0" * 40, "true", "PASS", "agent-j", "PASS"))
+        self.assertEqual(mismatch.reason, "sha_mismatch")
+        self.assertEqual(mismatch.finding_gate, "blocked")
+        negative = gateway.submit(AuditPacket(SHA, command, "PASS", "agent-j", "CHANGES_REQUIRED"))
+        self.assertEqual(negative.reason, "blocking_finding")
+        later = gateway.submit(AuditPacket(SHA, command, "PASS", "agent-j", "PASS"))
+        self.assertEqual(later.reason, "prior_block_stands")
+        self.assertEqual(later.finding_gate, "blocked")
+        critical = self._gateway(journal_path=Path(self._tmp.name) / "severity.jsonl").submit(
+            AuditPacket(SHA, command, "PASS", "agent-j", "PASS", (AuditFinding("J-2", "CRITICAL", False),))
         )
-        self.assertEqual(blocked.reason, "blocking_finding")
-        self.assertFalse(blocked.production_enabled)
-        clean = gateway.submit(AuditPacket(SHA, command, "PASS", "agent-j", "PASS"))
-        self.assertEqual(clean.reason, "recorded_for_controller")
-        self.assertEqual(clean.finding_gate, "clear")
-        self.assertFalse(clean.merge_authorized)
-        self.assertFalse(clean.paid_automation_enabled)
-        self.assertEqual(len(gateway.packets()), 3)
-        failed = gateway.submit(AuditPacket(SHA, command, "NOT_RUN", "agent-j", "PASS"))
-        self.assertEqual(failed.reason, "tests_not_passed")
+        self.assertEqual(critical.reason, "blocking_severity")
+        self.assertFalse(critical.production_enabled)
+        reloaded = self._gateway()
+        self.assertEqual(reloaded.submit(AuditPacket(SHA, command, "PASS", "agent-j", "PASS")).reason, "prior_block_stands")
+        with self.assertRaises(AuditJournalError):
+            reloaded.journal.clear()
+        with self.assertRaises(AuditError):
+            gateway.submit(AuditPacket(SHA, command, "PASS", "agent-j", "PASS", (AuditFinding("J-3", "EXTREME", False),)))
+
+    def test_journal_detects_rewrites_and_keeps_history(self) -> None:
+        gateway = self._gateway(journal_path=Path(self._tmp.name) / "chain.jsonl")
+        command = "python -m unittest discover -s tools/bintrans_autopilot/tests -v"
+        gateway.submit(AuditPacket(SHA, command, "FAIL", "agent-h", "BLOCKED"))
+        original = gateway.journal.path.read_text(encoding="utf-8")
+        self.assertGreater(len(gateway.packets()), 0)
+        gateway.journal.path.write_text(original.replace("BLOCKED", "PASS"), encoding="utf-8")
+        with self.assertRaises(AuditError) as raised:
+            gateway.submit(AuditPacket(SHA, command, "PASS", "agent-j", "PASS"))
+        self.assertEqual(raised.exception.code, "journal_tampered")
+        with self.assertRaises(AuditJournalError):
+            gateway.journal.delete()
+        with self.assertRaises(AuditJournalError):
+            gateway.journal.update({})
+
+    def test_restart_budget_is_not_reset_by_a_new_id_or_instance(self) -> None:
+        clock = Clock(100)
+        supervisor = self._supervisor(clock=clock, max_restarts=1)
+        stale = _observe(heartbeat_at=0, worker_id="worker-a")
+        self.assertEqual(supervisor.observe(stale).action, "restart")
+        clock.now = 102
+        self.assertEqual(supervisor.observe(stale).action, "hold")
+        self.assertEqual(supervisor.observe(_observe(heartbeat_at=0, worker_id="worker-b")).action, "hold")
+        clock.now = 200
+        revived = self._supervisor(clock=clock, max_restarts=1)
+        self.assertEqual(revived.observe(_observe(heartbeat_at=0, worker_id="worker-c")).action, "hold")
+        fresh = self._supervisor(clock=Clock(50), state_path=Path(self._tmp.name) / "fresh-restarts.jsonl", max_restarts=3)
+        future = fresh.observe(_observe(heartbeat_at=1e12))
+        self.assertEqual(future.reason, "heartbeat_in_future")
+        self.assertNotEqual(future.action, "continue")
+        text = self.state_path.read_text(encoding="utf-8")
+        self.state_path.write_text(text.replace("restart", "RESTART"), encoding="utf-8")
+        tampered = self._supervisor(clock=clock, max_restarts=1)
+        self.assertEqual(tampered.observe(stale).reason, "state_tampered")
+        with self.assertRaises(SupervisorError):
+            tampered._ledger.clear()
+
+    def test_emergency_stop_sources_override_the_caller(self) -> None:
+        clock = Clock(100)
+        stop = Path(self._tmp.name) / "EMERGENCY_STOP"
+        supervisor = self._supervisor(clock=clock, stop_file=stop)
+        self.assertEqual(supervisor.observe(_observe()).action, "continue")
+        stop.write_text("", encoding="utf-8")
+        self.assertEqual(supervisor.observe(_observe(), emergency_stop=False).action, "stop")
+        by_env = self._supervisor(
+            clock=clock,
+            state_path=Path(self._tmp.name) / "env-restarts.jsonl",
+            env={"AUTOPILOT_EMERGENCY_STOP": "true"},
+        )
+        self.assertEqual(by_env.observe(_observe(), emergency_stop=False).reason, "emergency_stop")
+        by_config = self._supervisor(
+            clock=clock,
+            state_path=Path(self._tmp.name) / "config-restarts.jsonl",
+            config_stop=True,
+        )
+        self.assertEqual(by_config.observe(_observe(), emergency_stop=False).action, "stop")
+        report = ReadinessCycle(by_env, self._gateway()).run((_observe(),))
+        self.assertEqual(report.decisions[0].action, "stop")
+        self.assertFalse(report.merge_authorized)
+
+    def test_readiness_lines_report_the_flags_that_are_actually_set(self) -> None:
+        code, lines = readiness_lines({"AUTOPILOT_ENABLED": "true"})
+        self.assertEqual(code, 2)
+        self.assertIn("AUTOPILOT_ENABLED=YES", lines)
+        self.assertNotIn("AUTOPILOT_ENABLED=NO", lines)
+        code, lines = readiness_lines({"PRODUCTION_24X7_ENABLED": "true"})
+        self.assertEqual(code, 2)
+        self.assertIn("PRODUCTION_24X7_ENABLED=YES", lines)
+        self.assertNotIn("PRODUCTION_24X7_ENABLED=NO", lines)
+        with self.assertRaises(SupervisorError):
+            self._supervisor(env={"PRODUCTION_24X7_ENABLED": "true"})
+        with self.assertRaises(AuditError):
+            self._gateway(env={"PRODUCTION_24X7_ENABLED": "true"})
+
+    def test_readiness_check_is_behind_the_workflow_guard(self) -> None:
+        os.environ["GITHUB_ACTIONS"] = "true"
+        buffer = StringIO()
+        with redirect_stdout(buffer):
+            code = main(["readiness-check"])
+        text = buffer.getvalue()
+        self.assertEqual(code, 2)
+        self.assertIn("UNTRUSTED_WORKFLOW=", text)
+        self.assertNotIn("READINESS_CHECK=DRY_RUN", text)
+        self.assertNotIn("PAID_AGENTS_LAUNCHED=YES", text)
 
     def test_resource_limit_and_emergency_stop_hold_the_worker(self) -> None:
         clock = Clock(100)
-        supervisor = WorkerSupervisor(clock=clock, max_dead_jobs=2)
+        supervisor = self._supervisor(clock=clock, max_dead_jobs=2)
         limited = supervisor.observe(_observe(dead_jobs=2))
         self.assertEqual(limited.action, "hold")
         self.assertEqual(limited.reason, "resource_limit")
         self.assertFalse(limited.completes_job)
-        self.assertEqual(supervisor.observe(_observe(dead_jobs=0)).reason, "resource_limit")
-        supervisor.release_hold("worker-a")
+        self.assertEqual(self._supervisor(clock=clock, max_dead_jobs=2).observe(_observe(dead_jobs=0)).reason, "resource_limit")
+        with self.assertRaises(SupervisorError) as raised:
+            supervisor.release_hold("worker-a")
+        self.assertEqual(raised.exception.code, "hold_requires_controller")
         self.assertFalse(supervisor.worker_enabled)
-        self.assertEqual(supervisor.observe(_observe()).action, "continue")
         stopped = supervisor.observe(_observe(), emergency_stop=True)
         self.assertEqual(stopped.action, "stop")
-        self.assertEqual(stopped.restart_count, 0)
-        cycle = ReadinessCycle(supervisor, AuditGateway(env={}))
+        cycle = ReadinessCycle(supervisor, self._gateway(journal_path=Path(self._tmp.name) / "cycle.jsonl"))
         report = cycle.run((_observe(),), emergency_stop=True)
         self.assertEqual(report.decisions[0].action, "stop")
         self.assertEqual(report.audit_reason, "audit_not_submitted")

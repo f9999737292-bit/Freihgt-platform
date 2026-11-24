@@ -14,15 +14,14 @@ from bintrans_autopilot.audit_gateway import AuditGateway, AuditPacket
 from bintrans_autopilot.config import EMERGENCY_STOP_FILE
 from bintrans_autopilot.supervisor import SupervisorDecision, WorkerObservation, WorkerSupervisor
 
-_LOCKED_TRUE = (
+_PRINT_FLAGS = (
     "AUTOPILOT_ENABLED",
     "PAID_AUTOMATION_ENABLED",
     "EXTERNAL_TOOLS_ENABLED",
     "AUTO_MERGE",
-    "AUTO_MERGE_ENABLED",
     "AUTO_DEPLOY",
-    "AUTO_DEPLOY_ENABLED",
     "WORKER_ENABLED",
+    "PRODUCTION_24X7_ENABLED",
 )
 
 
@@ -36,44 +35,33 @@ class CycleReport:
     cloud_agents_started: int = 0
 
 
+def _enabled(source: dict[str, str], name: str) -> bool:
+    if str(source.get(name, "")).strip().lower() == "true":
+        return True
+    alias = {"AUTO_MERGE": "AUTO_MERGE_ENABLED", "AUTO_DEPLOY": "AUTO_DEPLOY_ENABLED"}.get(name, "")
+    return bool(alias) and str(source.get(alias, "")).strip().lower() == "true"
+
+
 def _locked(env: dict[str, str]) -> str:
-    for name in _LOCKED_TRUE:
-        if str(env.get(name, "")).strip().lower() == "true":
+    for name in _PRINT_FLAGS:
+        if _enabled(env, name):
             return name
     return ""
+
+
+def _flag_lines(source: dict[str, str]) -> tuple[str, ...]:
+    return tuple(f"{name}={'YES' if _enabled(source, name) else 'NO'}" for name in _PRINT_FLAGS)
 
 
 def readiness_lines(env: dict[str, str] | None = None) -> tuple[int, tuple[str, ...]]:
     source = dict(os.environ if env is None else env)
     locked = _locked(source)
     stopped = source.get("AUTOPILOT_EMERGENCY_STOP", "").strip().lower() == "true" or EMERGENCY_STOP_FILE.exists()
+    flags = _flag_lines(source)
+    tail = (f"EMERGENCY_STOP={'YES' if stopped else 'NO'}", "CLOUD_AGENTS_STARTED=0")
     if locked:
-        lines = (
-            "READINESS_CHECK=REFUSED",
-            f"REASON={locked}",
-            "AUTOPILOT_ENABLED=NO",
-            "PAID_AUTOMATION_ENABLED=NO",
-            "EXTERNAL_TOOLS_ENABLED=NO",
-            "AUTO_MERGE=NO",
-            "AUTO_DEPLOY=NO",
-            "WORKER_ENABLED=NO",
-            "PRODUCTION_24X7_ENABLED=NO",
-            "CLOUD_AGENTS_STARTED=0",
-        )
-        return 2, lines
-    lines = (
-        "READINESS_CHECK=DRY_RUN",
-        "AUTOPILOT_ENABLED=NO",
-        "PAID_AUTOMATION_ENABLED=NO",
-        "EXTERNAL_TOOLS_ENABLED=NO",
-        "AUTO_MERGE=NO",
-        "AUTO_DEPLOY=NO",
-        "WORKER_ENABLED=NO",
-        f"EMERGENCY_STOP={'YES' if stopped else 'NO'}",
-        "PRODUCTION_24X7_ENABLED=NO",
-        "CLOUD_AGENTS_STARTED=0",
-    )
-    return 0, lines
+        return 2, ("READINESS_CHECK=REFUSED", f"REASON={locked}", *flags, *tail)
+    return 0, ("READINESS_CHECK=DRY_RUN", *flags, *tail)
 
 
 def readiness_check(env: dict[str, str] | None = None) -> int:
