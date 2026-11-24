@@ -11,7 +11,7 @@ import os
 from dataclasses import dataclass
 
 from bintrans_autopilot.audit_gateway import AuditGateway, AuditPacket
-from bintrans_autopilot.config import EMERGENCY_STOP_FILE
+from bintrans_autopilot.config import emergency_stop_active
 from bintrans_autopilot.supervisor import SupervisorDecision, WorkerObservation, WorkerSupervisor
 
 _PRINT_FLAGS = (
@@ -56,16 +56,18 @@ def _flag_lines(source: dict[str, str]) -> tuple[str, ...]:
 def readiness_lines(env: dict[str, str] | None = None) -> tuple[int, tuple[str, ...]]:
     source = dict(os.environ if env is None else env)
     locked = _locked(source)
-    stopped = source.get("AUTOPILOT_EMERGENCY_STOP", "").strip().lower() == "true" or EMERGENCY_STOP_FILE.exists()
+    stopped = emergency_stop_active(source)
     flags = _flag_lines(source)
     tail = (f"EMERGENCY_STOP={'YES' if stopped else 'NO'}", "CLOUD_AGENTS_STARTED=0")
+    if stopped:
+        return 2, ("READINESS_CHECK=REFUSED", "REASON=emergency_stop", *flags, *tail)
     if locked:
         return 2, ("READINESS_CHECK=REFUSED", f"REASON={locked}", *flags, *tail)
     return 0, ("READINESS_CHECK=DRY_RUN", *flags, *tail)
 
 
-def readiness_check(env: dict[str, str] | None = None) -> int:
-    code, lines = readiness_lines(env)
+def readiness_check() -> int:
+    code, lines = readiness_lines(None)
     for line in lines:
         print(line)
     return code

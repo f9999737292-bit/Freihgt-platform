@@ -16,7 +16,9 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from bintrans_autopilot.config import EMERGENCY_STOP_FILE, load_config
+from bintrans_autopilot.config import EMERGENCY_STOP_FILE, RESTART_LEDGER_PATH, emergency_stop_active
+from bintrans_autopilot.file_lock import exclusive_file_lock
+from bintrans_autopilot.test_bind import BIND
 
 _LOCKED_TRUE = (
     "AUTOPILOT_ENABLED",
@@ -73,22 +75,45 @@ def _digest(prev: str, body: dict) -> str:
 
 
 class RestartLedger:
-    """Append-only restart budget. Update and delete are refused."""
+    """Append-only restart budget. Update and delete are refused.
+
+    A missing file is not created here. Creating a fresh file would reset the
+    restart count. A torn line stays in place and fails verification.
+    """
 
     def __init__(self, path: Path):
         self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        if not self.path.exists():
-            self.path.write_text("", encoding="utf-8")
-        self._lock = threading.Lock()
+        self._lock_path = self.path.with_name(self.path.name + ".lock")
+        self._thread = threading.Lock()
+        self.missing = not self.path.is_file()
         self.tampered = False
-        try:
-            self.verify()
-        except SupervisorError:
-            self.tampered = True
+        if not self.missing:
+            try:
+                self.verify()
+            except SupervisorError:
+                self.tampered = True
 
-    def verify(self) -> tuple[dict, ...]:
-        text = self.path.read_text(encoding="utf-8")
+    @classmethod
+    def create(cls, path: Path) -> RestartLedger:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = path.with_name(path.name + ".lock")
+        with exclusive_file_lock(lock_path):
+            if path.exists():
+                raise SupervisorError("state_exists")
+            path.write_text("", encoding="utf-8")
+        return cls(path)
+
+    def _read(self) -> str:
+        try:
+            return self.path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            raise SupervisorError("state_missing") from None
+        except OSError:
+            raise SupervisorError("state_tampered") from None
+
+    def _verify_unlocked(self) -> tuple[dict, ...]:
+        text = self._read()
         if text == "":
             return ()
         if not text.endswith("\n") or "\r" in text:
@@ -115,6 +140,11 @@ class RestartLedger:
             records.append(record)
         return tuple(records)
 
+    def verify(self) -> tuple[dict, ...]:
+        with self._thread:
+            with exclusive_file_lock(self._lock_path):
+                return self._verify_unlocked()
+
     def count(self, tenant_id: str) -> int:
         total = 0
         for record in self.verify():
@@ -132,23 +162,26 @@ class RestartLedger:
     def append(self, tenant_id: str, event: str, reason: str, count: int) -> None:
         if event not in {"restart", "hold"}:
             raise SupervisorError("invalid_input")
-        with self._lock:
-            if self.tampered:
-                raise SupervisorError("state_tampered")
-            records = self.verify()
-            prev = records[-1]["hash"] if records else _GENESIS
-            body = {"count": count, "event": event, "reason": reason, "tenant_id": tenant_id}
-            digest = _digest(prev, body)
-            line = json.dumps(
-                {"count": count, "event": event, "hash": digest, "prev": prev, "reason": reason, "tenant_id": tenant_id},
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=True,
-            )
-            with self.path.open("a", encoding="utf-8", newline="\n") as handle:
-                handle.write(line + "\n")
-                handle.flush()
-                os.fsync(handle.fileno())
+        with self._thread:
+            with exclusive_file_lock(self._lock_path):
+                if self.missing or not self.path.is_file():
+                    raise SupervisorError("state_missing")
+                if self.tampered:
+                    raise SupervisorError("state_tampered")
+                records = self._verify_unlocked()
+                prev = records[-1]["hash"] if records else _GENESIS
+                body = {"count": count, "event": event, "reason": reason, "tenant_id": tenant_id}
+                digest = _digest(prev, body)
+                line = json.dumps(
+                    {"count": count, "event": event, "hash": digest, "prev": prev, "reason": reason, "tenant_id": tenant_id},
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                )
+                with self.path.open("a", encoding="utf-8", newline="\n") as handle:
+                    handle.write(line + "\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
 
     def clear(self) -> None:
         raise SupervisorError("state_immutable")
@@ -162,17 +195,54 @@ class WorkerSupervisor:
         *,
         mode: str = "dry_run",
         tenant_id: str = "",
-        state_path: Path | None = None,
         max_restarts: int = 3,
         heartbeat_timeout_seconds: float = 30,
         base_backoff_seconds: float = 1,
         max_backoff_seconds: float = 60,
         max_dead_jobs: int = 100,
         clock=None,
-        env: dict[str, str] | None = None,
-        stop_file: Path | None = None,
-        config_stop: bool | None = None,
     ):
+        self._configure(
+            mode=mode,
+            tenant_id=tenant_id,
+            max_restarts=max_restarts,
+            heartbeat_timeout_seconds=heartbeat_timeout_seconds,
+            base_backoff_seconds=base_backoff_seconds,
+            max_backoff_seconds=max_backoff_seconds,
+            max_dead_jobs=max_dead_jobs,
+            clock=clock,
+            bind=None,
+            env=None,
+            stop_file=None,
+            config_stop=None,
+            state_path=None,
+        )
+
+    def _configure(
+        self,
+        *,
+        mode: str,
+        tenant_id: str,
+        max_restarts: int,
+        heartbeat_timeout_seconds: float,
+        base_backoff_seconds: float,
+        max_backoff_seconds: float,
+        max_dead_jobs: int,
+        clock,
+        bind: object | None,
+        env: dict[str, str] | None,
+        stop_file: Path | None,
+        config_stop: bool | None,
+        state_path: Path | None,
+    ) -> None:
+        isolated = bind is not None
+        if isolated and bind is not BIND:
+            raise SupervisorError("untrusted_binding")
+        if not isolated:
+            env = None
+            stop_file = EMERGENCY_STOP_FILE
+            config_stop = None
+            state_path = RESTART_LEDGER_PATH
         if mode != "dry_run":
             raise SupervisorError("supervisor_disabled")
         if _locked(env):
@@ -200,7 +270,7 @@ class WorkerSupervisor:
         self.max_dead_jobs = max_dead_jobs
         self._clock = time.monotonic if clock is None else clock
         self._env = env
-        self._stop_file = EMERGENCY_STOP_FILE if stop_file is None else Path(stop_file)
+        self._stop_file = Path(stop_file) if stop_file is not None else EMERGENCY_STOP_FILE
         self._config_stop = config_stop
         self._not_before: dict[str, float] = {}
         self._ledger = RestartLedger(Path(state_path))
@@ -208,6 +278,8 @@ class WorkerSupervisor:
     def observe(self, observation: WorkerObservation, *, emergency_stop: bool = False) -> SupervisorDecision:
         if not observation.worker_id or not observation.tenant_id:
             raise SupervisorError("invalid_input")
+        if self._ledger.missing:
+            return SupervisorDecision("hold", "state_missing", 0, 0.0)
         if self._ledger.tampered:
             return SupervisorDecision("hold", "state_tampered", 0, 0.0)
         if observation.tenant_id != self.tenant_id:
@@ -245,11 +317,11 @@ class WorkerSupervisor:
         raise SupervisorError("hold_requires_controller")
 
     def _emergency_stop(self) -> bool:
-        source = os.environ if self._env is None else self._env
-        if str(source.get("AUTOPILOT_EMERGENCY_STOP", "")).strip().lower() == "true":
+        if self._config_stop is True:
             return True
-        if self._stop_file.exists():
-            return True
-        if self._config_stop is not None:
-            return bool(self._config_stop)
-        return bool(load_config().emergency_stop)
+        if self._config_stop is False:
+            source = os.environ if self._env is None else self._env
+            if str(source.get("AUTOPILOT_EMERGENCY_STOP", "")).strip().lower() == "true":
+                return True
+            return self._stop_file.exists()
+        return emergency_stop_active(self._env, self._stop_file)

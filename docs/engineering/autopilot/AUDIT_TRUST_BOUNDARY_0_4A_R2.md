@@ -10,7 +10,9 @@ The gateway records the claim in `AuditJournal` and returns `finding_gate=blocke
 
 ## What is stored
 
-The journal is append-only. Each line carries the hash of the previous line. `update`, `delete`, and `clear` raise `journal_immutable`. A rewritten line fails verification with `journal_tampered`, and the gateway then refuses further submits.
+The journal is append-only through this type. `update`, `delete`, and `clear` raise `journal_immutable`. A changed byte, a torn line, or a missing trailing newline fails verification with `journal_tampered`, and the gateway then refuses further submits. A missing file raises `journal_missing` and is not recreated.
+
+The local chain does not detect every loss. A shorter prefix that still hashes, or a whole file replaced by a new valid chain, still verifies. Those cases need an append-only store the worker cannot rewrite. That store is not implemented here. See `AUDIT_JOURNAL_ANCHOR_PROPOSAL_0_4A_R3.md`. There is no HMAC key in this process.
 
 A `CHANGES_REQUIRED` or `BLOCKED` verdict, a `blocks_merge` finding, or a `CRITICAL` or `HIGH` severity writes a block for that SHA. A later packet for the same SHA returns `prior_block_stands`.
 

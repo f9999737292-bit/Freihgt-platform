@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from bintrans_autopilot.audit_journal import AuditJournal, AuditJournalError
+from bintrans_autopilot.config import AUDIT_JOURNAL_PATH
+from bintrans_autopilot.test_bind import BIND
 
 _LOCKED_TRUE = (
     "AUTOPILOT_ENABLED",
@@ -70,14 +72,24 @@ class AuditDecision:
 
 
 class AuditGateway:
-    def __init__(
+    def __init__(self, *, mode: str = "dry_run", observed_head: str = ""):
+        self._configure(mode=mode, observed_head=observed_head, bind=None, env=None, journal_path=None)
+
+    def _configure(
         self,
         *,
-        mode: str = "dry_run",
-        env: dict[str, str] | None = None,
-        journal_path: Path | None = None,
-        observed_head: str = "",
-    ):
+        mode: str,
+        observed_head: str,
+        bind: object | None,
+        env: dict[str, str] | None,
+        journal_path: Path | None,
+    ) -> None:
+        isolated = bind is not None
+        if isolated and bind is not BIND:
+            raise AuditError("untrusted_binding")
+        if not isolated:
+            env = None
+            journal_path = AUDIT_JOURNAL_PATH
         if mode != "dry_run":
             raise AuditError("audit_disabled")
         source = os.environ if env is None else env
@@ -88,13 +100,17 @@ class AuditGateway:
             raise AuditError("invalid_commit")
         if journal_path is None:
             raise AuditError("invalid_input")
+        try:
+            journal = AuditJournal(Path(journal_path))
+        except AuditJournalError as exc:
+            raise AuditError(exc.code) from None
         self.mode = "dry_run"
         self.merge_authorized = False
         self.production_enabled = False
         self.reviewer_authenticated = False
         self.ci_verified = False
         self.observed_head = observed_head
-        self.journal = AuditJournal(Path(journal_path))
+        self.journal = journal
 
     def submit(self, packet: AuditPacket) -> AuditDecision:
         if not _SHA.fullmatch(packet.commit_sha or ""):

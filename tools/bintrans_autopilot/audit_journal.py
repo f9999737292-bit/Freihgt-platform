@@ -1,8 +1,9 @@
 """Append-only hash-chained audit journal.
 
-Records can be added. They cannot be updated or deleted through this type.
-A rewritten or truncated file fails verification and the gate stays blocked.
-This file is not a trusted reviewer. It only preserves what was submitted.
+A changed byte, a torn line, or a missing trailing newline fails verification.
+The chain does not prove the file is complete. A shorter prefix that still
+hashes, a rebuilt chain, or a deleted file is not anchored outside this
+process. A missing file is not recreated. There is no HMAC key.
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ import json
 import os
 import threading
 from pathlib import Path
+
+from bintrans_autopilot.file_lock import exclusive_file_lock
 
 _GENESIS = "0" * 64
 
@@ -30,13 +33,32 @@ def _digest(prev: str, kind: str, body: dict) -> str:
 class AuditJournal:
     def __init__(self, path: Path):
         self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        if not self.path.exists():
-            self.path.write_text("", encoding="utf-8")
-        self._lock = threading.Lock()
+        self._lock_path = self.path.with_name(self.path.name + ".lock")
+        self._thread = threading.Lock()
+        if not self.path.is_file():
+            raise AuditJournalError("journal_missing")
 
-    def verify(self) -> tuple[dict, ...]:
-        text = self.path.read_text(encoding="utf-8")
+    @classmethod
+    def create(cls, path: Path) -> AuditJournal:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = path.with_name(path.name + ".lock")
+        with exclusive_file_lock(lock_path):
+            if path.exists():
+                raise AuditJournalError("journal_exists")
+            path.write_text("", encoding="utf-8")
+        return cls(path)
+
+    def _read(self) -> str:
+        try:
+            return self.path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            raise AuditJournalError("journal_missing") from None
+        except OSError:
+            raise AuditJournalError("journal_tampered") from None
+
+    def _verify_unlocked(self) -> tuple[dict, ...]:
+        text = self._read()
         if text == "":
             return ()
         if not text.endswith("\n") or "\r" in text:
@@ -63,24 +85,30 @@ class AuditJournal:
             records.append(record)
         return tuple(records)
 
+    def verify(self) -> tuple[dict, ...]:
+        with self._thread:
+            with exclusive_file_lock(self._lock_path):
+                return self._verify_unlocked()
+
     def append(self, kind: str, body: dict) -> str:
         if kind not in {"packet", "block"}:
             raise AuditJournalError("invalid_input")
-        with self._lock:
-            records = self.verify()
-            prev = records[-1]["hash"] if records else _GENESIS
-            digest = _digest(prev, kind, body)
-            line = json.dumps(
-                {"body": body, "hash": digest, "kind": kind, "prev": prev},
-                sort_keys=True,
-                separators=(",", ":"),
-                ensure_ascii=True,
-            )
-            with self.path.open("a", encoding="utf-8", newline="\n") as handle:
-                handle.write(line + "\n")
-                handle.flush()
-                os.fsync(handle.fileno())
-            return digest
+        with self._thread:
+            with exclusive_file_lock(self._lock_path):
+                records = self._verify_unlocked()
+                prev = records[-1]["hash"] if records else _GENESIS
+                digest = _digest(prev, kind, body)
+                line = json.dumps(
+                    {"body": body, "hash": digest, "kind": kind, "prev": prev},
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                )
+                with self.path.open("a", encoding="utf-8", newline="\n") as handle:
+                    handle.write(line + "\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                return digest
 
     def clear(self) -> None:
         raise AuditJournalError("journal_immutable")

@@ -37,7 +37,7 @@ Those two tests need `BINTRANS_AUTOPILOT_QUEUE_DSN`. They are not turned into pa
 | Gap | Addition |
 | --- | --- |
 | No restart budget above the worker | `WorkerSupervisor` stores the restart count for its tenant in a hash-chained file. A new worker id or a new supervisor using that file does not reset the count. A decision does not complete a job. |
-| No independent audit packet | `AuditGateway` appends claims to a hash-chained journal. A reviewer string in the packet is not an identity. The finding gate stays `blocked` until a trusted workflow can read a GitHub review and a CI result for the exact SHA. See `AUDIT_TRUST_BOUNDARY_0_4A_R2.md`. |
+| No independent audit packet | `AuditGateway` appends claims to a hash-chained journal. A reviewer string in the packet is not an identity. The finding gate stays `blocked`. A torn or missing journal fails closed. A shortened valid prefix is not anchored outside the file. See `AUDIT_TRUST_BOUNDARY_0_4A_R2.md` and `AUDIT_JOURNAL_ANCHOR_PROPOSAL_0_4A_R3.md`. |
 | No single readiness report | `ReadinessCycle.run` evaluates one batch. `python -m bintrans_autopilot readiness-check` prints the closed switches and exits. It does not claim a job. |
 | No dedicated deployment sketch | `deploy/autopilot-readiness.compose.example.yml` is an example. It is not part of the platform compose. The service is on profile `manual-approval-required`, `restart` is `no`, and the image is `example.invalid`. This stage does not run it. |
 
@@ -57,7 +57,7 @@ The scheduler and the PostgreSQL queue are reused. No platform migration is adde
 | Payload contains `command` or another unknown field | `enqueue` raises `invalid_input` before it connects. |
 | Agent J returns `CHANGES_REQUIRED`, `BLOCKED`, or a CRITICAL/HIGH finding | The journal keeps a block for that SHA. A later PASS packet does not remove it. |
 | Dead-job cap or restart cap | The supervisor holds. `release_hold` does not clear the stored count. |
-| Emergency stop | Env, the stop file, or `emergency_stop` in config stops the supervisor even when the caller passes false. |
+| Emergency stop | Env, the stop file, or `emergency_stop` in config stops the supervisor even when the caller passes false. `readiness-check` uses the same three sources and returns `REFUSED` with exit code 2. |
 
 ## Recovery
 

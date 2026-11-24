@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = PACKAGE_DIR / "autopilot.config.json"
 EMERGENCY_STOP_FILE = PACKAGE_DIR / "EMERGENCY_STOP"
+AUDIT_JOURNAL_PATH = PACKAGE_DIR / "state" / "audit-journal.jsonl"
+RESTART_LEDGER_PATH = PACKAGE_DIR / "state" / "restart-ledger.jsonl"
 
 
 @dataclass(frozen=True)
@@ -202,6 +205,28 @@ def load_config(path: Path | None = None) -> AutopilotConfig:
         test_budget_harness=False,
         test_model_spend_harness=False,
     )
+
+
+def emergency_stop_active(env: dict[str, str] | None = None, stop_file: Path | None = None) -> bool:
+    """True when env, the stop file, or the committed config requests a stop.
+
+    A missing or unreadable config is treated as a stop. The caller cannot
+    pass a false value that skips the committed config.
+    """
+
+    source = os.environ if env is None else env
+    marker = EMERGENCY_STOP_FILE if stop_file is None else Path(stop_file)
+    if str(source.get("AUTOPILOT_EMERGENCY_STOP", "")).strip().lower() == "true":
+        return True
+    try:
+        if marker.exists():
+            return True
+    except OSError:
+        return True
+    try:
+        return bool(load_config().emergency_stop)
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+        return True
 
 
 def runtime_enabled(config: AutopilotConfig, env: dict[str, str]) -> tuple[bool, str]:

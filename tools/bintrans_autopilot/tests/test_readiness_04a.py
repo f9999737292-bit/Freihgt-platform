@@ -13,13 +13,15 @@ from contextlib import redirect_stdout
 
 from bintrans_autopilot.__main__ import main
 from bintrans_autopilot.audit_gateway import AuditError, AuditFinding, AuditGateway, AuditPacket
-from bintrans_autopilot.audit_journal import AuditJournalError
+from bintrans_autopilot.audit_journal import AuditJournal, AuditJournalError
+from bintrans_autopilot.config import AUDIT_JOURNAL_PATH, RESTART_LEDGER_PATH
 from bintrans_autopilot.postgres_queue import JobLease, JobStatus, PostgresQueue, QueueError
-from bintrans_autopilot.readiness import ReadinessCycle, readiness_lines
+from bintrans_autopilot.readiness import ReadinessCycle, readiness_check, readiness_lines
 from bintrans_autopilot.scheduler import Policy, Scheduler
 from bintrans_autopilot.supervisor import SupervisorError, WorkerObservation, WorkerSupervisor
 from bintrans_autopilot.task_queue import QueueError as TaskQueueError
 from bintrans_autopilot.task_queue import Task, TaskStore
+from bintrans_autopilot.testing import open_gateway, open_supervisor
 from bintrans_autopilot.worker import AutopilotWorker, WorkerError
 
 SHA = "a9ef8f40bf0e7f75cb4aee3794e7841723347e4c"
@@ -175,13 +177,13 @@ class ReadinessTests(unittest.TestCase):
         kwargs.setdefault("env", {})
         kwargs.setdefault("config_stop", False)
         kwargs.setdefault("stop_file", Path(self._tmp.name) / "no-emergency-stop")
-        return WorkerSupervisor(**kwargs)
+        return open_supervisor(**kwargs)
 
     def _gateway(self, **kwargs) -> AuditGateway:
         kwargs.setdefault("env", {})
         kwargs.setdefault("journal_path", self.journal_path)
         kwargs.setdefault("observed_head", SHA)
-        return AuditGateway(**kwargs)
+        return open_gateway(**kwargs)
 
     def test_sources_do_not_spawn_or_enable_switches(self) -> None:
         root = Path(__file__).resolve().parents[1]
@@ -201,11 +203,15 @@ class ReadinessTests(unittest.TestCase):
 
     def test_enabled_switch_refuses_supervision_and_the_check(self) -> None:
         for name in _LOCKED:
-            with self.assertRaises(SupervisorError) as raised:
-                WorkerSupervisor(env={name: "true"})
-            self.assertEqual(raised.exception.code, "supervisor_disabled")
-            with self.assertRaises(AuditError):
-                AuditGateway(env={name: "true"})
+            os.environ[name] = "true"
+            try:
+                with self.assertRaises(SupervisorError) as raised:
+                    WorkerSupervisor(tenant_id="tenant-a")
+                self.assertEqual(raised.exception.code, "supervisor_disabled")
+                with self.assertRaises(AuditError):
+                    AuditGateway()
+            finally:
+                os.environ.pop(name, None)
             code, lines = readiness_lines({name: "true", "AUTOPILOT_EMERGENCY_STOP": "true"})
             self.assertEqual(code, 2)
             self.assertIn("READINESS_CHECK=REFUSED", lines)
@@ -513,7 +519,10 @@ class ReadinessTests(unittest.TestCase):
             with redirect_stdout(buffer):
                 code = main(["readiness-check"])
             text = buffer.getvalue()
-            self.assertEqual(code, 0)
+            self.assertEqual(code, 2)
+            self.assertIn("READINESS_CHECK=REFUSED", text)
+            self.assertIn("REASON=emergency_stop", text)
+            self.assertNotIn("READINESS_CHECK=DRY_RUN", text)
             self.assertIn("EMERGENCY_STOP=YES", text)
             self.assertIn("PRODUCTION_24X7_ENABLED=NO", text)
             self.assertNotIn("AUTOPILOT_ENABLED=YES", text)
@@ -532,6 +541,102 @@ class ReadinessTests(unittest.TestCase):
         self.assertIn("mem_limit: 256m", text)
         self.assertIn('AUTOPILOT_EMERGENCY_STOP: "true"', text)
         self.assertNotIn("docker compose up", text)
+
+    def test_config_emergency_stop_refuses_readiness_and_matches_supervisor(self) -> None:
+        from unittest.mock import patch
+
+        class _Config:
+            emergency_stop = True
+
+        stop = Path(self._tmp.name) / "absent-stop"
+        with patch("bintrans_autopilot.config.load_config", return_value=_Config()):
+            code, lines = readiness_lines({})
+            self.assertEqual(code, 2)
+            self.assertIn("READINESS_CHECK=REFUSED", lines)
+            self.assertIn("REASON=emergency_stop", lines)
+            self.assertIn("EMERGENCY_STOP=YES", lines)
+            self.assertNotIn("READINESS_CHECK=DRY_RUN", lines)
+            buffer = StringIO()
+            with redirect_stdout(buffer):
+                exit_code = readiness_check()
+            self.assertEqual(exit_code, 2)
+            self.assertIn("READINESS_CHECK=REFUSED", buffer.getvalue())
+            self.assertNotIn("READINESS_CHECK=DRY_RUN", buffer.getvalue())
+            supervisor = self._supervisor(clock=Clock(100), config_stop=None, stop_file=stop, env={})
+            decision = supervisor.observe(_observe(), emergency_stop=False)
+        self.assertEqual(decision.action, "stop")
+        self.assertEqual(decision.reason, "emergency_stop")
+
+    def test_production_constructors_reject_override_arguments(self) -> None:
+        with self.assertRaises(TypeError):
+            WorkerSupervisor(tenant_id="tenant-a", env={})
+        with self.assertRaises(TypeError):
+            WorkerSupervisor(tenant_id="tenant-a", config_stop=False)
+        with self.assertRaises(TypeError):
+            WorkerSupervisor(tenant_id="tenant-a", state_path=self.state_path)
+        with self.assertRaises(TypeError):
+            AuditGateway(env={})
+        with self.assertRaises(TypeError):
+            AuditGateway(journal_path=self.journal_path)
+        self.assertEqual(RESTART_LEDGER_PATH.name, "restart-ledger.jsonl")
+        self.assertEqual(AUDIT_JOURNAL_PATH.name, "audit-journal.jsonl")
+        root = Path(__file__).resolve().parents[1]
+        for name in ("__main__.py", "readiness.py", "worker.py"):
+            text = root.joinpath(name).read_text(encoding="utf-8")
+            self.assertNotIn("config_stop", text)
+            self.assertNotIn("test_bind", text)
+            self.assertNotIn("open_supervisor", text)
+            self.assertNotIn("open_gateway", text)
+
+    def test_torn_truncated_journal_stays_refused_after_restart(self) -> None:
+        gateway = self._gateway()
+        gateway.submit(AuditPacket(SHA, "true", "FAIL", "agent-h", "BLOCKED"))
+        raw = gateway.journal.path.read_bytes()
+        gateway.journal.path.write_bytes(raw[:-3])
+        with self.assertRaises(AuditJournalError) as raised:
+            gateway.journal.verify()
+        self.assertEqual(raised.exception.code, "journal_tampered")
+        reopened = AuditJournal(gateway.journal.path)
+        with self.assertRaises(AuditJournalError) as again:
+            reopened.append("packet", {"n": 1})
+        self.assertEqual(again.exception.code, "journal_tampered")
+        self.assertTrue(gateway.journal.path.exists())
+        self.assertGreater(gateway.journal.path.stat().st_size, 0)
+
+    def test_deleted_journal_is_not_recreated_and_blocks_stay_closed(self) -> None:
+        gateway = self._gateway()
+        command = "python -m unittest discover -s tools/bintrans_autopilot/tests -v"
+        gateway.submit(AuditPacket(SHA, command, "PASS", "agent-j", "CHANGES_REQUIRED"))
+        gateway.journal.path.unlink()
+        with self.assertRaises(AuditJournalError) as missing:
+            AuditJournal(gateway.journal.path)
+        self.assertEqual(missing.exception.code, "journal_missing")
+        self.assertFalse(gateway.journal.path.exists())
+        with self.assertRaises(AuditError) as refused:
+            gateway.submit(AuditPacket(SHA, command, "PASS", "agent-j", "PASS"))
+        self.assertEqual(refused.exception.code, "journal_missing")
+        self.assertFalse(gateway.journal.path.exists())
+        self.assertFalse(AUDIT_JOURNAL_PATH.exists())
+        with self.assertRaises(AuditError) as production:
+            AuditGateway()
+        self.assertEqual(production.exception.code, "journal_missing")
+        self.assertFalse(AUDIT_JOURNAL_PATH.exists())
+
+    def test_rebuilt_chain_and_valid_prefix_are_not_locally_anchored(self) -> None:
+        journal = self._gateway().journal
+        journal.append("packet", {"commit_sha": SHA, "note": "claim"})
+        journal.append("block", {"commit_sha": SHA, "reason": "blocking_finding"})
+        text = journal.path.read_text(encoding="utf-8")
+        journal.path.write_text(text.splitlines()[0] + "\n", encoding="utf-8")
+        records = journal.verify()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["kind"], "packet")
+        replacement = AuditJournal.create(Path(self._tmp.name) / "replacement.jsonl")
+        replacement.append("packet", {"commit_sha": SHA, "note": "rebuilt"})
+        journal.path.write_bytes(replacement.path.read_bytes())
+        rebuilt = journal.verify()
+        self.assertEqual(rebuilt[0]["body"]["note"], "rebuilt")
+        self.assertNotIn("blocking_finding", journal.path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
