@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 	"github.com/freight-platform/shared-go/clientip"
 	"github.com/freight-platform/shared-go/integrationauth"
@@ -123,14 +124,15 @@ func verifyAPIKeyViaIdentity(ctx context.Context, cfg IntegrationAuthConfig, tok
 	if strings.TrimSpace(cfg.IdentityInternalURL) == "" {
 		return integrationauth.AuthenticatedContext{}, integrationauth.ErrInvalidCredentials
 	}
+	baseURL := strings.TrimRight(cfg.IdentityInternalURL, "/")
 	body, _ := json.Marshal(map[string]string{"bearer": token})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(cfg.IdentityInternalURL, "/")+"/internal/v1/integrations/auth/verify-bearer", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/internal/v1/integrations/auth/verify-bearer", bytes.NewReader(body))
 	if err != nil {
 		return integrationauth.AuthenticatedContext{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Internal-Service-Token", cfg.InternalServiceToken)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpredirect.Do(http.DefaultClient, baseURL, req)
 	if err != nil {
 		return integrationauth.AuthenticatedContext{}, err
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/freight-platform/api-gateway/internal/config"
 	gwmiddleware "github.com/freight-platform/api-gateway/internal/http/middleware"
 	apperrors "github.com/freight-platform/api-gateway/internal/platform/errors"
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	"github.com/freight-platform/api-gateway/internal/platform/respond"
 )
 
@@ -84,7 +85,7 @@ func (h *ShipperHandler) proxy(w http.ResponseWriter, r *http.Request, requireSh
 	if actor := strings.TrimSpace(r.Header.Get("X-Actor-Kind")); actor != "" {
 		req.Header.Set("X-Actor-Kind", actor)
 	}
-	resp, err := h.httpClient.Do(req)
+	resp, err := httpredirect.Do(h.httpClient, h.baseURL, req)
 	if err != nil {
 		respond.Error(w, apperrors.ServiceUnavailable("document service is temporarily unavailable", "document-service"))
 		return

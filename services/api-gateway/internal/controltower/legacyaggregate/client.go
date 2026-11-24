@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 )
 
@@ -115,7 +116,7 @@ func (c *Client) FetchStatusSummary(ctx context.Context, mode, tenantID, request
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		reason = classifyRequestError(ctx, err)
 		result = "ERROR"
@@ -187,6 +188,13 @@ func aggregateFromRemote(payload *remoteSummary) AggregateSummary {
 		ByStatus:         byStatus,
 		Complete:         payload.Complete,
 	}
+}
+
+func (c *Client) do(req *http.Request) (*http.Response, error) {
+	if c == nil || c.httpClient == nil || req == nil {
+		return nil, httpredirect.ErrRejected
+	}
+	return httpredirect.Do(c.httpClient, c.baseURL, req)
 }
 
 func classifyRequestError(ctx context.Context, err error) FailureReason {
