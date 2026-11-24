@@ -10,9 +10,9 @@ Design and acceptance contract for creating a transport order and `SNAPSHOT_V1` 
 
 `COMMERCIAL_PILOT_READY=NO`
 
-`FINAL_VERDICT=READY_FOR_J_R3_SECURITY_REVIEW`
+`FINAL_VERDICT=READY_FOR_J_DELTA_REVIEW`
 
-Base at authoring was `3f306fc407aeda4bdc652d825954292f4a54fad6`. Related discovery is PR #363 (`docs/engineering/FINANCE_SNAPSHOT_AUTHORITY_0_2D.md`). Revision 0.2E-R1 closed the first security-review findings on award-scope binding, the transport-order-service actor boundary, and idempotency across shippers. Revision 0.2E-R2 closes Agent J findings `J-FIN02E-R2-001`, `J-FIN02E-R2-002`, and `J-FIN02E-R2-003`. Agent G does not record security review R3 as complete.
+Base at authoring was `3f306fc407aeda4bdc652d825954292f4a54fad6`. Related discovery is PR #363 (`docs/engineering/FINANCE_SNAPSHOT_AUTHORITY_0_2D.md`). Revision 0.2E-R1 closed the first security-review findings on award-scope binding, the transport-order-service actor boundary, and idempotency across shippers. Revision 0.2E-R2 closed Agent J findings `J-FIN02E-R2-001`, `J-FIN02E-R2-002`, and `J-FIN02E-R2-003`. Those three remain closed. Revision 0.2E-R3 clarifies grant replay, grant lifecycle, and the negative-test matrix after `PASS_ARCHITECTURE_ONLY`. Agent G does not record the R3 delta review as complete.
 
 This document does not change transport-order-service, billing, VAT, rounding, PostgreSQL migrations, or PRs #341, #353, #356, and #363.
 
@@ -57,7 +57,7 @@ The permission code is `CREATE_TRANSPORT_ORDER_ON_BEHALF`.
 
 It is a row the server writes and the server reads back. The client does not send the permission code, the role, or the grant status. A client-supplied grant id is a locator only. The server loads the row and rejects the call when the loaded row does not match the verified actor and the body shipper.
 
-The same load runs on a first create and on an idempotency replay. An idempotency key does not carry authority. The server re-reads membership, role, and grant status before it uses the key.
+The same load runs on a first create and on an idempotency replay. An idempotency key does not carry authority. The server re-reads membership, role, and the current grant for the actor and shipper named in the request before it uses the key. It does not read the stored order to decide which grant to load.
 
 The permission is absent from the current schema. No role constant and no snapshot column carries it.
 
@@ -69,12 +69,15 @@ The sequence applies to the first create and to every replay. Replay does not wa
 
 1. Establish the trusted actor identity (section 12). Client headers are not that identity.
 2. Check the verified tenant and the verified actor company. A body tenant or a body actor company that differs is a denial.
-3. Re-read current membership, current role, and, on the delegated path, the current grant row.
-4. Deny when the grant is missing, `REVOKED`, expired, cancelled, or pending. A grant status cached at login is not this check.
+3. Re-read current membership and require a create role. This step does not open the idempotency table and does not use a stored `authority_grant_id`.
+4. Authorize the actor and shipper named in this request. When they are the same company, same-company authority is enough. When they differ, load the current `CREATE_TRANSPORT_ORDER_ON_BEHALF` grant for that tuple and require the lifecycle result in section 13. The request body selects this path. A stored order does not.
 5. Look up `idempotency_key` only after steps 1–4 succeed.
-6. Return the stored order and snapshot only after step 5 finds the same tenant, the same actor company, the same shipper, and the same request hash.
+6. After that lookup, compare the stored `authority_grant_id` with the authority from step 4. A null stored grant id is acceptable only for a same-company stored row whose shipper is the actor company. A non-null stored grant id must be the same grant id as step 4, and a fresh read of that id must still be an acceptable current authority for the same tenant, actor company, and shipper. A different grant id is a denial.
+7. Immediately before the response returns the stored order and snapshot, re-read that authority and compare tenant, actor company, shipper, and request hash. A revoke, a version mismatch, a failed read, or a different identity is a denial.
 
-On the same-company path, step 3 still re-reads membership and a create role. A stored row whose `authority_grant_id` is null does not require a delegation grant. A stored row that has `authority_grant_id` remains a delegated row: step 4 must see that grant `ACTIVE` before step 5.
+No step before step 5 reads the stored order to classify the grant. There is no automatic succession from an older grant to a newer grant. A controller would have to decide any transfer of authority in a separate policy. This contract does not make that decision. The mismatch path is fail-closed (NT-D36).
+
+A denial at any step writes no order, no snapshot, and no idempotency row. The response omits the stored transport order id, the stored snapshot id, and commercial fields such as amount, currency, and carrier price.
 
 | Check | Rule |
 | --- | --- |
@@ -83,7 +86,7 @@ On the same-company path, step 3 still re-reads membership and a create role. A 
 | Actor company | The company transport-order-service has confirmed for this user by its own actor check (section 12). A gateway header, including a header forwarded while `AUTH_ENABLED` is false, is not that confirmation |
 | Shipper company | Body `shipper_company_id` equals the shipper named on the grant. The company exists in the same tenant |
 | Role | The actor's membership role is one of the create roles (`PROCUREMENT_MANAGER`, `SHIPPER_ADMIN`, `FORWARDER_MANAGER`) and is included in the grant's allowed roles. `CARRIER_ADMIN`, `CARRIER_DISPATCHER`, and `SHIPPER_LOGIST` do not receive this permission from their current read or relationship roles |
-| Grant activity | Status is `ACTIVE`. `REVOKED`, expired, cancelled, and pending are denials. Re-read status at create time. A status cached at login is not enough |
+| Grant activity | Section 13. The only usable result is a fresh `ACTIVE` read of the current grant. `REVOKED`, any other observed status, and an unreadable grant are denials. A status cached at login is not this check |
 
 Same-company create stays a separate path. It applies only when body `shipper_company_id` equals the verified actor company. That path does not require a delegation grant and does not use a carrier relationship.
 
@@ -188,6 +191,17 @@ Fail closed:
 - The company-service grant read times out, returns a transport error, or returns an unavailable status on a delegated create or a delegated replay. Deny. Write nothing, and return no stored order id or snapshot id.
 - The service does not fill the event owner, the award status, the winning carrier, or the grant from the request body when a read fails.
 
+### J-FIN02E-R3-INFO-01 Award source freshness
+
+`source_version` on the award-conversion subject can change after transport-order-service has read it and before the order insert commits. The future implementation proposes this check and does not contain it today:
+
+- Hold the `source_version` returned by the award-subject read.
+- Immediately before the atomic insert of the order, snapshot, and idempotency row, compare that version with a new server-owned read, or make the insert conditional on the same version inside the writing transaction.
+- When the version differs, or the freshness read fails, roll the transaction back. Write no order, no snapshot, and no idempotency row.
+- An equivalent server guarantee is a single rfx-service operation that reserves that `source_version` for this conversion and fails closed when the version has moved. This contract does not choose the transport. It requires one of those two guarantees before an implementation can treat the award subject as stable.
+
+This check is a proposal. It is not implemented on main.
+
 ## 8. Four parties
 
 | Party | Meaning | Today | Required on a delegated create |
@@ -230,7 +244,7 @@ When a later request repeats `tenant_id`, `actor_company_id`, and `idempotency_k
 
 A hash mismatch takes the conflict path. It does not call the replay that returns the stored order. NT-D13. This rule does not add a migration. The unique key may stay `(tenant_id, actor_company_id, idempotency_key)` because the shipper comparison is mandatory before any replay.
 
-Authorization stays in front of that lookup. A revoked grant, a missing create role, a missing grant, or a foreign tenant is denied at steps 1–4 of section 4. Those denials do not return the stored order. NT-D14 through NT-D18.
+Authorization stays in front of that lookup. A revoked grant, a missing create role, a missing grant, or a foreign tenant is denied at steps 1–4 of section 4. A stored grant that differs from the current grant, or a grant that is no longer acceptable, is denied at steps 6–7. Those denials do not return the stored order, the stored snapshot, or commercial fields. NT-D14 through NT-D18 and NT-D31 through NT-D36.
 
 ## 10. Audit
 
@@ -279,6 +293,15 @@ These tests are specified here and are not implemented in this change. Each deni
 | NT-D26 | The loaded event status is not `AWARDED` | Deny. No row |
 | NT-D27 | Body `carrier_company_id` differs from the loaded `winning_carrier_company_id` | Deny. No row |
 | NT-D28 | Contract-rate resolve would succeed, and the award-subject read was not completed | Deny. Resolve is not the award check |
+| NT-D29 | The loaded award subject has `lot_scoped=true`. The body omits `rfx_lot_id` | Deny. The service does not choose a lot |
+| NT-D30 | The inbound rfx-service award-caller credential is presented to `GET /internal/v1/rfx-events/{eventId}/award-conversion-subject` | The RFx read rejects it. transport-order-service denies. No order, snapshot, or idempotency row |
+| NT-D31 | Replay. The membership read times out or is unavailable | Deny at step 3, before idempotency lookup. No stored order id, snapshot id, or commercial fields |
+| NT-D32 | Delegated replay. The current grant read times out or is unavailable | Deny at step 4, before idempotency lookup. No stored order id, snapshot id, or commercial fields |
+| NT-D33 | Conditional on lifecycle option E1 in section 13. A grant with `expires_at` in the past is replayed | Deny before the stored order is returned. No stored ids and no commercial fields. This test is not a current rule. Option E1 is not selected |
+| NT-D34 | Replay. The grant read returns `REVOKED`, `pending`, `cancelled`, empty, or any status other than `ACTIVE` | Deny. No stored order id, snapshot id, or commercial fields |
+| NT-D35 | The loaded award subject names more than one winning carrier, or a lot winner that differs from `winning_carrier_company_id` | Deny. One body carrier does not select a winner |
+| NT-D36 | The create stored `authority_grant_id` G1. Replay authorizes current grant G2, and G2 differs from G1 | Deny at step 6. No transfer from G1 to G2. No stored order id, snapshot id, or commercial fields |
+| NT-D18a | Any denial in NT-D29 through NT-D36, together with NT-D18 | The response omits the stored transport order id, the stored snapshot id, amount, currency, and carrier price |
 | NT-2 | From PR #363. Member of company A sends shipper B and has no grant | Deny before the rate call |
 | NT-7 | From PR #363. Auth disabled. Public create does not treat client actor headers as authority | Deny |
 
@@ -314,13 +337,35 @@ The current schema is not sufficient. A later implementation needs a migration. 
 
 Proposal only, for a later approved change:
 
-1. A company-owned grant table. Suggested name `company.transport_order_authority_grants`. Columns: id, version, tenant id, subject kind (`COMPANY_MEMBER` or `PLATFORM_ADMIN`), actor company id, grantee user id, shipper company id, buyer company id, permission code constrained to `CREATE_TRANSPORT_ORDER_ON_BEHALF`, allowed role codes, status constrained to `ACTIVE` or `REVOKED`, revoked at, created by, created at.
+1. A company-owned grant table. Suggested name `company.transport_order_authority_grants`. Columns: id, version, tenant id, subject kind (`COMPANY_MEMBER` or `PLATFORM_ADMIN`), actor company id, grantee user id, shipper company id, buyer company id, permission code constrained to `CREATE_TRANSPORT_ORDER_ON_BEHALF`, allowed role codes, status constrained to `ACTIVE` or `REVOKED`, revoked at, created by, created at. `expires_at` is not a column of this proposal.
 2. Buyer company id on the grant equals shipper company id. Actor company id differs from shipper company id on a `COMPANY_MEMBER` delegation row.
 3. Do not add the permission onto `company.carrier_relationships` and do not treat relationship status as this status.
 4. Add nullable `actor_company_id`, `authority_grant_id`, and `authority_grant_version` to `transport.transport_order_rate_snapshots`. A check constraint requires the grant id when `actor_company_id` is present and differs from `buyer_company_id`.
 5. Add the allow-audit table from section 10. Keep the snapshot immutability trigger covering the new columns.
 6. Do not backfill old snapshots with invented grants. Historical rows keep a null grant id.
-7. Grant revoke is a new version or a status change on the grant. It does not update the snapshot.
+7. Grant revoke writes a new version with status `REVOKED`. It does not update the snapshot.
+
+### Grant lifecycle
+
+This model is a proposal. Main has no `CREATE_TRANSPORT_ORDER_ON_BEHALF` grant, no grant status, and no `expires_at`. Section 4 uses this model for every current-authority check and for the post-lookup check.
+
+| Observed result | Meaning |
+| --- | --- |
+| `ACTIVE` | The only result that can pass step 4 or step 6. The read must be fresh |
+| `REVOKED` | Denial. The snapshot keeps the old grant id. Replay does not return the stored order |
+| `pending`, `cancelled`, empty, or any other value | Not a stored status of this table. If a read returns one, the call fails closed. The service does not map it to `ACTIVE` |
+| Read timeout, transport error, or unavailable | Fail closed. The service does not reuse a cached status |
+
+Versioning: `grant_version` increases when the status changes. The snapshot stores the version that was `ACTIVE` at insert. Step 6 accepts the stored row only when the fresh read of that same grant id is `ACTIVE` and the live version equals the stored `authority_grant_version`. A new version of the same id, or a different grant id for the same actor and shipper, does not inherit the old snapshot.
+
+A status change between step 4 and step 7 is decided by the step 7 re-read. When that re-read is not a matching `ACTIVE` version, the response is a denial and contains no stored order, snapshot, or commercial fields.
+
+`POLICY_DECISION_REQUIRED` for expiry. This contract does not select an option.
+
+| Option | Rule | Status |
+| --- | --- | --- |
+| E0 | No `expires_at`. A grant ends only by a new `REVOKED` version. Usable only while a fresh read says `ACTIVE` | The proposal in the column list above. Not a controller approval |
+| E1 | Add `expires_at`. Usable only when status is `ACTIVE` and the check time is earlier than `expires_at`, both at step 4 and at step 7. If the clock crosses `expires_at` between those reads, deny | Not selected. NT-D33 applies only after a controller selects E1 |
 
 `MIGRATION_REQUIRED=YES` as this proposal. `MIGRATIONS_CREATED=NO` in this PR.
 
@@ -333,8 +378,8 @@ PR #363 remains unchanged. The future fix uses the acceptance below. `IMPLEMENTA
 | ID | Acceptance |
 | --- | --- |
 | RC-1 | Runtime-open. NT-7, NT-D9, and NT-D12. With `AUTH_ENABLED` unset or false, `POST /api/v1/transport-orders` is denied and writes no order, snapshot, or idempotency row. Client `X-Company-ID` and `X-Actor-Kind` are not forwarded into priced create as a verified actor. transport-order-service also denies `POST /v1/transport-orders` when it has not confirmed the actor, before the order insert and before the `SNAPSHOT_V1` insert, including a direct call that never passed the gateway |
-| RC-2 | Runtime-open. Replaces the PR #363 wording that every `shipper_company_id` different from the actor company is rejected. NT-2 and NT-D1, NT-D2, NT-D3, NT-D5, NT-D6, NT-D7, and NT-D8 deny before the rate call and before insert. Section 4 runs before idempotency lookup: NT-D14, NT-D15, NT-D16, NT-D17, and NT-D18 deny without returning a stored order id or snapshot id. NT-D13: the same tenant, actor company, and idempotency key with a different shipper returns a conflict denial, creates no second order or snapshot, and does not return the stored result for the other shipper. The allowed forwarder case in section 11 creates one order and one snapshot whose buyer is the grant shipper and whose grant id and grant version are the server row. Existing tenant denials still pass |
-| RC-3 | Runtime-open. NT-6 stays: no dedicated rfx-service credential, no row. NT-D10: a dedicated credential plus a forwarder actor and a different shipper is denied when transport-order-service has not loaded a matching active grant. NT-D11 and NT-D23: body companies that are not the loaded event owner are denied. NT-D19 and NT-D20 fail closed when the RFx subject or the grant read is unavailable. NT-D21 rejects another service's token and a shared token. NT-D22 denies a substituted tenant. NT-D24 denies a revoked grant before replay. NT-D25, NT-D26, and NT-D27 deny a missing lot, a non-`AWARDED` event, and a carrier that did not win. NT-D28 denies when resolve is the only successful check. `requireOwnerCompanyAccess` inside rfx-service does not replace that confirmation |
+| RC-2 | Runtime-open. Replaces the PR #363 wording that every `shipper_company_id` different from the actor company is rejected. NT-2 and NT-D1, NT-D2, NT-D3, NT-D5, NT-D6, NT-D7, and NT-D8 deny before the rate call and before insert. Steps 1–4 run before idempotency lookup: NT-D14, NT-D15, NT-D16, NT-D17, NT-D18, NT-D31, NT-D32, and NT-D34 deny without returning a stored order id, snapshot id, or commercial fields. Steps 6–7 deny NT-D36 when the current grant id differs from the stored grant id. NT-D13: the same tenant, actor company, and idempotency key with a different shipper returns a conflict denial and does not return the stored result for the other shipper. The allowed forwarder case in section 11 creates one order and one snapshot whose buyer is the grant shipper and whose grant id and grant version are the server row. Existing tenant denials still pass |
+| RC-3 | Runtime-open. NT-6 stays: no dedicated rfx-service credential, no row. NT-D10: a dedicated credential plus a forwarder actor and a different shipper is denied when transport-order-service has not loaded a matching active grant. NT-D11 and NT-D23: body companies that are not the loaded event owner are denied. NT-D19 and NT-D20 fail closed when the RFx subject or the grant read is unavailable. NT-D21 rejects another service's token and a shared token. NT-D30 rejects the inbound award credential on the RFx read. NT-D22 denies a substituted tenant. NT-D24 denies a revoked grant before replay. NT-D25, NT-D26, NT-D27, NT-D29, and NT-D35 deny a missing lot, a lot-scoped award without a lot id, a non-`AWARDED` event, a carrier that did not win, and a split award. NT-D28 denies when resolve is the only successful check. `requireOwnerCompanyAccess` inside rfx-service does not replace that confirmation |
 | RC-4 | Deferred. NT-5 from PR #363. Add the tenant-B internal snapshot read test. This contract does not add a company filter on `GET /internal/v1/transport-orders/{id}/rate-snapshot`. Company filtering of that read waits for a separate service-to-service decision |
 
 Also required on that future change, as part of RC-2 and RC-3 rather than as new product scope: the audit row from section 10, the snapshot fields from section 9, and the migration proposal from section 13. VAT, rounding, billing math, and register payer selection stay out of that change.
@@ -350,7 +395,9 @@ Also required on that future change, as part of RC-2 and RC-3 rather than as new
 - It does not make legal EDO ready.
 - RC-1, RC-2, and RC-3 stay runtime-open. RC-4 stays deferred.
 - It does not treat `1234.56 RUB` as evidence of create authority.
-- Revision 0.2E-R2 is the input for Agent J security review R3. Agent G does not record R3 as complete.
+- `J-FIN02E-R2-001`, `J-FIN02E-R2-002`, and `J-FIN02E-R2-003` stay closed.
+- Revision 0.2E-R3 is the input for Agent J's delta review. Agent G does not record that delta review as complete.
+- `expires_at` stays `POLICY_DECISION_REQUIRED`. Option E1 is not selected.
 
 `PAYMENT_EXECUTED=NO`
 
