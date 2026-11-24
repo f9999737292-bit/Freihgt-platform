@@ -1,0 +1,4 @@
+command_probe|transport_execution_active_shipments|ExclusiveLock|true
+command_probe|transport_execution_active_shipments|RowExclusiveLock|true
+fence_probe|transport_execution_active_shipments|AccessShareLock|true
+fence_probe|transport_execution_active_shipments|RowShareLock|true

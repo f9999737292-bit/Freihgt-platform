@@ -1,0 +1,3 @@
+psql:concurrency_lock_timeout.sql:6: ERROR:  55P03: canceling statement due to lock timeout
+CONTEXT:  while updating tuple (0,15) in relation "shipments"
+LOCATION:  ProcessInterrupts, postgres.c:3387
