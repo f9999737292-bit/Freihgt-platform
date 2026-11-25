@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 )
 
@@ -144,7 +145,7 @@ func (c *Client) doJSONWithIdempotency(ctx context.Context, reqCtx RequestContex
 	if idempotencyKey != "" {
 		req.Header.Set("Idempotency-Key", idempotencyKey)
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -157,6 +158,13 @@ func (c *Client) doJSONWithIdempotency(ctx context.Context, reqCtx RequestContex
 		return json.RawMessage("{}"), resp.StatusCode, nil
 	}
 	return json.RawMessage(raw), resp.StatusCode, nil
+}
+
+func (c *Client) do(req *http.Request) (*http.Response, error) {
+	if c == nil || c.httpClient == nil || req == nil {
+		return nil, httpredirect.ErrRejected
+	}
+	return httpredirect.Do(c.httpClient, c.baseURL, req)
 }
 
 func (c *Client) doJSON(ctx context.Context, reqCtx RequestContext, method, path string, body []byte) (json.RawMessage, int, error) {

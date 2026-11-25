@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +29,12 @@ const (
 	listHandoffsPath     = "/internal/v1/control-tower/handoffs"
 	handoffPath          = "/internal/v1/control-tower/handoffs/%s"
 )
+
+var errWorkspaceEndpointRejected = errors.New("workspace endpoint rejected")
+var errWorkspaceRedirectRejected = errors.New("workspace redirect rejected")
+var errWorkspaceRedirectLimit = errors.New("workspace redirect limit")
+
+const workspaceRedirectLimit = 10
 
 type WorkItemsFilter struct {
 	ItemType          string
@@ -420,13 +427,19 @@ func (c *Client) doWorkspaceJSON(
 	if c == nil {
 		return &DependencyError{Reason: ReasonUnknown, Err: fmt.Errorf("read model client is nil")}
 	}
-	endpoint = c.resolveWorkspaceEndpoint(endpoint)
+	resolved, err := c.resolveWorkspaceEndpoint(endpoint)
 	start := time.Now()
 	result := "SUCCESS"
 	var reason FailureReason
 	defer func() {
 		c.metrics.ObserveRequest("WORKSPACE", result, string(reason), time.Since(start))
 	}()
+	if err != nil {
+		reason = ReasonUnknown
+		result = "ERROR"
+		return &DependencyError{Reason: reason, Err: errWorkspaceEndpointRejected}
+	}
+	endpoint = resolved
 
 	var reader io.Reader
 	if len(body) > 0 {
@@ -436,7 +449,7 @@ func (c *Client) doWorkspaceJSON(
 	if err != nil {
 		reason = ReasonUnknown
 		result = "ERROR"
-		return &DependencyError{Reason: reason, Err: err}
+		return &DependencyError{Reason: reason, Err: errWorkspaceEndpointRejected}
 	}
 	if len(body) > 0 {
 		req.Header.Set("Content-Type", "application/json")
@@ -449,8 +462,20 @@ func (c *Client) doWorkspaceJSON(
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.doReadModel(req)
 	if err != nil {
+		if errors.Is(err, errWorkspaceRedirectRejected) || errors.Is(err, errWorkspaceRedirectLimit) || workspaceLocationError(err) {
+			if resp != nil && resp.Body != nil {
+				_ = resp.Body.Close()
+			}
+			reason = ReasonUnknown
+			result = "ERROR"
+			sentinel := errWorkspaceRedirectRejected
+			if errors.Is(err, errWorkspaceRedirectLimit) {
+				sentinel = errWorkspaceRedirectLimit
+			}
+			return &DependencyError{Reason: reason, Err: sentinel}
+		}
 		reason = classifyRequestError(ctx, err)
 		result = "ERROR"
 		return &DependencyError{Reason: reason, Err: err}
@@ -486,17 +511,239 @@ func (c *Client) doWorkspaceJSON(
 	return nil
 }
 
-func (c *Client) resolveWorkspaceEndpoint(endpoint string) string {
-	if c == nil || strings.Contains(endpoint, "://") {
-		return endpoint
+func (c *Client) resolveWorkspaceEndpoint(endpoint string) (string, error) {
+	if c == nil {
+		return "", errWorkspaceEndpointRejected
+	}
+	base, err := workspaceOrigin(c.baseURL)
+	if err != nil {
+		return "", errWorkspaceEndpointRejected
 	}
 	if endpoint == "" {
-		return c.baseURL
+		return c.baseURL, nil
 	}
-	if !strings.HasPrefix(endpoint, "/") {
-		endpoint = "/" + endpoint
+	if strings.ContainsAny(endpoint, " \t\r\n\\") || strings.Contains(endpoint, "\x00") {
+		return "", errWorkspaceEndpointRejected
 	}
-	return c.baseURL + endpoint
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed == nil {
+		return "", errWorkspaceEndpointRejected
+	}
+	if parsed.User != nil || parsed.Fragment != "" || parsed.Opaque != "" {
+		return "", errWorkspaceEndpointRejected
+	}
+	if parsed.Scheme == "" && parsed.Host == "" {
+		if strings.HasPrefix(endpoint, "//") {
+			return "", errWorkspaceEndpointRejected
+		}
+		joined := endpoint
+		if !strings.HasPrefix(joined, "/") {
+			joined = "/" + joined
+		}
+		return c.baseURL + joined, nil
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", errWorkspaceEndpointRejected
+	}
+	if parsed.Hostname() == "" || !sameWorkspaceOrigin(base, parsed) {
+		return "", errWorkspaceEndpointRejected
+	}
+	return endpoint, nil
+}
+
+func (c *Client) doReadModel(req *http.Request) (*http.Response, error) {
+	httpClient := c.workspaceHTTPClient()
+	if httpClient == nil || req == nil {
+		return nil, errWorkspaceEndpointRejected
+	}
+	resp, err := httpClient.Do(req)
+	if err == nil {
+		return resp, nil
+	}
+	if errors.Is(err, errWorkspaceRedirectRejected) || errors.Is(err, errWorkspaceRedirectLimit) || workspaceLocationError(err) {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		if errors.Is(err, errWorkspaceRedirectLimit) {
+			return nil, errWorkspaceRedirectLimit
+		}
+		return nil, errWorkspaceRedirectRejected
+	}
+	return resp, err
+}
+
+func (c *Client) workspaceHTTPClient() *http.Client {
+	if c == nil || c.httpClient == nil {
+		return nil
+	}
+	clone := *c.httpClient
+	inherited := clone.CheckRedirect
+	clone.CheckRedirect = workspaceRedirectPolicy(c.baseURL, inherited)
+	return &clone
+}
+
+func workspaceRedirectPolicy(baseURL string, inherited func(*http.Request, []*http.Request) error) func(*http.Request, []*http.Request) error {
+	var trusted trustedRedirect
+	captured := false
+	return func(req *http.Request, via []*http.Request) error {
+		if len(via) >= workspaceRedirectLimit {
+			scrubWorkspaceRedirectHeaders(req, true)
+			return errWorkspaceRedirectLimit
+		}
+		if !workspaceRedirectAllowed(baseURL, req) {
+			scrubWorkspaceRedirectHeaders(req, true)
+			return errWorkspaceRedirectRejected
+		}
+		if !captured {
+			trusted = captureTrustedRedirect(via)
+			captured = true
+		}
+		if inherited != nil {
+			if err := inherited(req, via); err != nil {
+				scrubWorkspaceRedirectHeaders(req, true)
+				return errWorkspaceRedirectRejected
+			}
+		}
+		if !workspaceRedirectAllowed(baseURL, req) {
+			scrubWorkspaceRedirectHeaders(req, true)
+			return errWorkspaceRedirectRejected
+		}
+		applyTrustedRedirect(req, trusted)
+		scrubWorkspaceRedirectHeaders(req, false)
+		return nil
+	}
+}
+
+type trustedRedirect struct {
+	tenant    string
+	user      string
+	requestID string
+	host      string
+	ok        bool
+}
+
+func captureTrustedRedirect(via []*http.Request) trustedRedirect {
+	if len(via) == 0 || via[0] == nil {
+		return trustedRedirect{}
+	}
+	origin := via[0]
+	host := origin.Host
+	if origin.URL != nil && origin.URL.Host != "" {
+		host = origin.URL.Host
+	}
+	return trustedRedirect{
+		tenant:    strings.Clone(origin.Header.Get("X-Tenant-ID")),
+		user:      strings.Clone(origin.Header.Get("X-User-ID")),
+		requestID: strings.Clone(origin.Header.Get(sharedmiddleware.RequestIDHeader)),
+		host:      strings.Clone(host),
+		ok:        true,
+	}
+}
+
+func applyTrustedRedirect(req *http.Request, trusted trustedRedirect) {
+	if req == nil || !trusted.ok {
+		return
+	}
+	setOrDeleteHeader(req, "X-Tenant-ID", trusted.tenant)
+	setOrDeleteHeader(req, "X-User-ID", trusted.user)
+	setOrDeleteHeader(req, sharedmiddleware.RequestIDHeader, trusted.requestID)
+	if trusted.host != "" {
+		req.Host = trusted.host
+	}
+}
+
+func setOrDeleteHeader(req *http.Request, header, value string) {
+	if value == "" {
+		req.Header.Del(header)
+		return
+	}
+	req.Header.Set(header, value)
+}
+
+func scrubWorkspaceRedirectHeaders(req *http.Request, deny bool) {
+	if req == nil {
+		return
+	}
+	for _, header := range []string{"Authorization", "Proxy-Authorization", "Cookie", "Cookie2"} {
+		req.Header.Del(header)
+	}
+	if !deny {
+		return
+	}
+	req.Header.Del("X-Tenant-ID")
+	req.Header.Del("X-User-ID")
+	req.Header.Del(sharedmiddleware.RequestIDHeader)
+}
+
+func workspaceRedirectAllowed(baseURL string, req *http.Request) bool {
+	if req == nil || req.URL == nil {
+		return false
+	}
+	base, err := workspaceOrigin(baseURL)
+	if err != nil {
+		return false
+	}
+	if req.URL.User != nil || req.URL.Fragment != "" || req.URL.Opaque != "" {
+		return false
+	}
+	if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
+		return false
+	}
+	return req.URL.Hostname() != "" && sameWorkspaceOrigin(base, req.URL)
+}
+
+func workspaceOrigin(raw string) (*url.URL, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed == nil {
+		return nil, errWorkspaceEndpointRejected
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return nil, errWorkspaceEndpointRejected
+	}
+	if parsed.User != nil || parsed.Hostname() == "" || parsed.Opaque != "" {
+		return nil, errWorkspaceEndpointRejected
+	}
+	return parsed, nil
+}
+
+func sameWorkspaceOrigin(base, target *url.URL) bool {
+	if base == nil || target == nil {
+		return false
+	}
+	if !strings.EqualFold(base.Scheme, target.Scheme) {
+		return false
+	}
+	if !strings.EqualFold(base.Hostname(), target.Hostname()) {
+		return false
+	}
+	basePort := canonicalOriginPort(base)
+	targetPort := canonicalOriginPort(target)
+	return basePort != "" && basePort == targetPort
+}
+
+func canonicalOriginPort(u *url.URL) string {
+	if u == nil {
+		return ""
+	}
+	if port := u.Port(); port != "" {
+		return port
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http":
+		return "80"
+	case "https":
+		return "443"
+	default:
+		return ""
+	}
+}
+
+func workspaceLocationError(err error) bool {
+	var urlErr *url.Error
+	if !errors.As(err, &urlErr) || urlErr == nil || urlErr.Err == nil {
+		return false
+	}
+	return strings.Contains(urlErr.Err.Error(), "Location header")
 }
 
 func setIf(q url.Values, key, value string) {

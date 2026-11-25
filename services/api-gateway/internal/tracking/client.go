@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/freight-platform/api-gateway/internal/platform/httpredirect"
 	sharedmiddleware "github.com/freight-platform/shared-go/middleware"
 )
 
@@ -71,7 +72,7 @@ func (c *Client) GetCurrent(ctx context.Context, tenantID, requestID, shipmentID
 	if requestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +114,7 @@ func (c *Client) ProxyShipperJSON(ctx context.Context, tenantID, requestID, comp
 	if requestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -138,7 +139,7 @@ func (c *Client) ProxyJSON(ctx context.Context, tenantID, requestID, method, pat
 	if requestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -165,7 +166,7 @@ func (c *Client) LookupStates(ctx context.Context, tenantID, requestID string, s
 	if requestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +206,7 @@ func (c *Client) IngestDriverLocation(ctx context.Context, tenantID, requestID, 
 	if requestID != "" {
 		req.Header.Set(sharedmiddleware.RequestIDHeader, requestID)
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -215,6 +216,13 @@ func (c *Client) IngestDriverLocation(ctx context.Context, tenantID, requestID, 
 		return nil, resp.StatusCode, err
 	}
 	return json.RawMessage(raw), resp.StatusCode, nil
+}
+
+func (c *Client) do(req *http.Request) (*http.Response, error) {
+	if c == nil || c.httpClient == nil || req == nil {
+		return nil, httpredirect.ErrRejected
+	}
+	return httpredirect.Do(c.httpClient, c.baseURL, req)
 }
 
 type summaryDTO struct {
