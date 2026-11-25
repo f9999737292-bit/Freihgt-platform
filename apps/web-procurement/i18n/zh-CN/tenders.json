@@ -329,6 +329,7 @@
       "confirmAward": "确认授标",
       "awardSuccess": "已确定中标方",
       "awardFailed": "授标失败",
+      "awardNotPermitted": "当前角色或公司无权授标",
       "decisionHistory": "决策历史",
       "noHistory": "暂无事件",
       "transportOrders": "运输订单",

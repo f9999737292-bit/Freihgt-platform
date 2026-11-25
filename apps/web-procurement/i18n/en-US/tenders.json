@@ -329,6 +329,7 @@
       "confirmAward": "Confirm award",
       "awardSuccess": "Winner awarded",
       "awardFailed": "Award failed",
+      "awardNotPermitted": "Award is not permitted for the current role or company",
       "decisionHistory": "Decision history",
       "noHistory": "No events yet",
       "transportOrders": "Transport orders",

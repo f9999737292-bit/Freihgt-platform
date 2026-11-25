@@ -35,4 +35,22 @@ describe('evaluation award UI guard', () => {
     const awardBlock = source.slice(source.indexOf('data-testid="evaluation-award"') - 200, source.indexOf('data-testid="evaluation-award"') + 40)
     expect(awardBlock).toContain('canBuyerAwardManage()')
   })
+
+  it('rechecks buyer manage and selected company before award confirmation', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../pages/tenders/[id]/evaluation.vue'), 'utf8')
+    const confirmBlock = source.slice(source.indexOf('async function confirmAward'), source.indexOf('async function confirmConversion'))
+    expect(confirmBlock).toContain('canBuyerAwardManage()')
+    expect(confirmBlock).toContain('selectedCompanyMatchesAward()')
+    expect(confirmBlock).toContain('error.status === 403')
+  })
+
+  it('gates shortlist and recalculate with PolicyBuyerManage', () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../pages/tenders/[id]/evaluation.vue'), 'utf8')
+    expect(source).toContain('data-testid="evaluation-recalculate"')
+    expect(source).toContain('data-testid="evaluation-shortlist"')
+    const recalculate = source.slice(source.indexOf('data-testid="evaluation-recalculate"') - 80, source.indexOf('data-testid="evaluation-recalculate"'))
+    const shortlist = source.slice(source.indexOf('data-testid="evaluation-shortlist"') - 160, source.indexOf('data-testid="evaluation-shortlist"'))
+    expect(recalculate).toContain('canBuyerAwardManage()')
+    expect(shortlist).toContain('canBuyerAwardManage()')
+  })
 })
