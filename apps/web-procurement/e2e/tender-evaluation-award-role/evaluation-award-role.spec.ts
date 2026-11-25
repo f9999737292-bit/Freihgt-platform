@@ -68,7 +68,9 @@ test.describe('tender evaluation award button role gate', () => {
     await expect(page.getByTestId('evaluation-award-confirm')).toBeVisible()
     await page.evaluate((companyId) => {
       const root = document.querySelector('#__nuxt')
-      const pinia = root && root.__vue_app__ && root.__vue_app__.config.globalProperties.$pinia
+      if (!root) return
+      const vueApp = Reflect.get(root, '__vue_app__')
+      const pinia = vueApp && vueApp.config && vueApp.config.globalProperties && vueApp.config.globalProperties.$pinia
       const tenant = pinia && pinia._s.get('tenant')
       if (tenant) tenant.setCompany(companyId)
     }, otherCompanyId)
@@ -88,7 +90,9 @@ test.describe('tender evaluation award button role gate', () => {
     await page.getByTestId('evaluation-award').click()
     await page.evaluate(() => {
       const root = document.querySelector('#__nuxt')
-      const pinia = root && root.__vue_app__ && root.__vue_app__.config.globalProperties.$pinia
+      if (!root) return
+      const vueApp = Reflect.get(root, '__vue_app__')
+      const pinia = vueApp && vueApp.config && vueApp.config.globalProperties && vueApp.config.globalProperties.$pinia
       const auth = pinia && pinia._s.get('auth')
       if (auth && auth.user) auth.user = Object.assign({}, auth.user, { roles: ['SHIPPER_LOGIST'] })
     })
