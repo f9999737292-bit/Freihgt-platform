@@ -54,8 +54,13 @@ func RequireAnalyticsSourceCaller(platformToken, callerToken string) func(http.H
 }
 
 type OperationsAnalyticsSourceReader interface {
-	OperationsFoundation(ctx context.Context, tenantID uuid.UUID) (domain.OperationsAnalyticsSourceSnapshot, error)
+	OperationsFoundation(ctx context.Context, tenantID uuid.UUID, scope domain.AnalyticsReadScope) (domain.OperationsAnalyticsSourceSnapshot, error)
 }
+
+const (
+	headerAnalyticsScope   = "X-Analytics-Scope"
+	headerAnalyticsCompany = "X-Analytics-Company-ID"
+)
 
 type OperationsAnalyticsSourceHandler struct {
 	reader OperationsAnalyticsSourceReader
@@ -66,7 +71,16 @@ func NewOperationsAnalyticsSourceHandler(reader OperationsAnalyticsSourceReader)
 }
 
 func (h *OperationsAnalyticsSourceHandler) Get(w http.ResponseWriter, r *http.Request) {
-	snap, err := h.read(r)
+	scope, err := resolveAnalyticsReadScope(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	if scope.Kind != domain.AnalyticsScopeTenant {
+		respond.Error(w, apperrors.Forbidden("analytics company scope is not available for this contract"))
+		return
+	}
+	snap, err := h.read(r, scope)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -82,7 +96,12 @@ func (h *OperationsAnalyticsSourceHandler) Get(w http.ResponseWriter, r *http.Re
 }
 
 func (h *OperationsAnalyticsSourceHandler) GetExtended(w http.ResponseWriter, r *http.Request) {
-	snap, err := h.read(r)
+	scope, err := resolveAnalyticsReadScope(r)
+	if err != nil {
+		respond.Error(w, err)
+		return
+	}
+	snap, err := h.read(r, scope)
 	if err != nil {
 		respond.Error(w, err)
 		return
@@ -93,7 +112,7 @@ func (h *OperationsAnalyticsSourceHandler) GetExtended(w http.ResponseWriter, r 
 	respond.JSON(w, http.StatusOK, snap)
 }
 
-func (h *OperationsAnalyticsSourceHandler) read(r *http.Request) (domain.OperationsAnalyticsSourceSnapshot, error) {
+func (h *OperationsAnalyticsSourceHandler) read(r *http.Request, scope domain.AnalyticsReadScope) (domain.OperationsAnalyticsSourceSnapshot, error) {
 	if h == nil || h.reader == nil {
 		return domain.OperationsAnalyticsSourceSnapshot{}, apperrors.Internal("analytics source is not configured", nil)
 	}
@@ -101,5 +120,32 @@ func (h *OperationsAnalyticsSourceHandler) read(r *http.Request) (domain.Operati
 	if err != nil {
 		return domain.OperationsAnalyticsSourceSnapshot{}, err
 	}
-	return h.reader.OperationsFoundation(r.Context(), tenantID)
+	snap, err := h.reader.OperationsFoundation(r.Context(), tenantID, scope)
+	if err != nil {
+		return domain.OperationsAnalyticsSourceSnapshot{}, err
+	}
+	if err := domain.BindDispositionScope(&snap, scope); err != nil {
+		return domain.OperationsAnalyticsSourceSnapshot{}, err
+	}
+	return snap, nil
+}
+
+func resolveAnalyticsReadScope(r *http.Request) (domain.AnalyticsReadScope, error) {
+	kind := strings.TrimSpace(r.Header.Get(headerAnalyticsScope))
+	companyRaw := strings.TrimSpace(r.Header.Get(headerAnalyticsCompany))
+	switch kind {
+	case domain.AnalyticsScopeTenant:
+		if companyRaw != "" {
+			return domain.AnalyticsReadScope{}, apperrors.Forbidden("analytics company scope is not available")
+		}
+		return domain.AnalyticsReadScope{Kind: kind}, nil
+	case domain.AnalyticsScopeShipper, domain.AnalyticsScopeCarrier:
+		companyID, err := uuid.Parse(companyRaw)
+		if err != nil || companyID == uuid.Nil {
+			return domain.AnalyticsReadScope{}, apperrors.Forbidden("analytics company scope is not available")
+		}
+		return domain.AnalyticsReadScope{Kind: kind, CompanyID: companyID}, nil
+	default:
+		return domain.AnalyticsReadScope{}, apperrors.Forbidden("analytics company scope is not available")
+	}
 }

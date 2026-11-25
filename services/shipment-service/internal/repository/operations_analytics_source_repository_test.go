@@ -61,3 +61,27 @@ func TestOperationsAnalyticsSourceStatementIsOneRead(t *testing.T) {
 		t.Fatal("hold cases must not be selected")
 	}
 }
+
+func TestOperationsAnalyticsCompanyScopeStatementDoesNotReadCases(t *testing.T) {
+	sql := strings.ToLower(OperationsAnalyticsCompanyScopeStatement)
+	if strings.Contains(sql, ";") {
+		t.Fatal("statement must be a single query")
+	}
+	for _, required := range []string{
+		"from transport.shipments",
+		"where tenant_id = $1",
+		"shipper_company_id = $3::uuid",
+		"carrier_company_id = $3::uuid",
+		"$2::text = 'shipper'",
+		"$2::text = 'carrier'",
+		"carrier_company_id is not null",
+		"group by carrier_company_id",
+	} {
+		if !strings.Contains(sql, required) {
+			t.Fatalf("missing %q", required)
+		}
+	}
+	if strings.Contains(sql, "delivery_disposition_cases") {
+		t.Fatal("company scope must not read disposition cases")
+	}
+}

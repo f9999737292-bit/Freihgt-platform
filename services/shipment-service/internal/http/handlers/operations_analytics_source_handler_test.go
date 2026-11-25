@@ -22,11 +22,13 @@ const (
 
 type analyticsSourceStub struct {
 	tenant uuid.UUID
+	scope  domain.AnalyticsReadScope
 	snap   domain.OperationsAnalyticsSourceSnapshot
 }
 
-func (s *analyticsSourceStub) OperationsFoundation(_ context.Context, tenantID uuid.UUID) (domain.OperationsAnalyticsSourceSnapshot, error) {
+func (s *analyticsSourceStub) OperationsFoundation(_ context.Context, tenantID uuid.UUID, scope domain.AnalyticsReadScope) (domain.OperationsAnalyticsSourceSnapshot, error) {
 	s.tenant = tenantID
+	s.scope = scope
 	if s.snap.TenantID == uuid.Nil {
 		s.snap.TenantID = tenantID
 	}
@@ -218,6 +220,7 @@ func TestOperationsAnalyticsSourceV2AuthAndFacts(t *testing.T) {
 		if headerTenant != "" {
 			req.Header.Set("X-Tenant-ID", headerTenant)
 		}
+		req.Header.Set("X-Analytics-Scope", domain.AnalyticsScopeTenant)
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
 		return rec
@@ -249,6 +252,67 @@ func TestOperationsAnalyticsSourceV2AuthAndFacts(t *testing.T) {
 	}
 }
 
+func TestOperationsAnalyticsCompanyScopeIgnoresClientCompany(t *testing.T) {
+	tenant := uuid.New()
+	own := uuid.New()
+	other := uuid.New()
+	stub := &analyticsSourceStub{snap: domain.OperationsAnalyticsSourceSnapshot{
+		ShipmentTotal: 1,
+		Carriers: []domain.OperationsAnalyticsCarrierSource{{
+			CarrierCompanyID: own, OnTimePickupDenominator: 1, OnTimePickupNumerator: 1,
+		}},
+	}}
+	router := analyticsSourceRouter(stub)
+
+	missing := httptest.NewRequest(http.MethodGet, OperationsFoundationV2Path, nil)
+	missing.Header.Set("X-Internal-Service-Token", callerToken)
+	missing.Header.Set("X-Internal-Service-Name", AuthorizedAnalyticsCaller)
+	missing.Header.Set("X-Tenant-ID", tenant.String())
+	missing.Header.Set("X-Company-ID", own.String())
+	missingRec := httptest.NewRecorder()
+	router.ServeHTTP(missingRec, missing)
+	if missingRec.Code != http.StatusForbidden || stub.tenant != uuid.Nil {
+		t.Fatalf("client company status %d tenant %s", missingRec.Code, stub.tenant)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, OperationsFoundationV2Path+"?carrier_company_id="+other.String(), nil)
+	req.Header.Set("X-Internal-Service-Token", callerToken)
+	req.Header.Set("X-Internal-Service-Name", AuthorizedAnalyticsCaller)
+	req.Header.Set("X-Tenant-ID", tenant.String())
+	req.Header.Set("X-Company-ID", other.String())
+	req.Header.Set("X-Analytics-Scope", domain.AnalyticsScopeCarrier)
+	req.Header.Set("X-Analytics-Company-ID", own.String())
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d %s", rec.Code, rec.Body.String())
+	}
+	if stub.scope.Kind != domain.AnalyticsScopeCarrier || stub.scope.CompanyID != own {
+		t.Fatalf("scope %+v", stub.scope)
+	}
+	var snap domain.OperationsAnalyticsSourceSnapshot
+	if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
+		t.Fatal(err)
+	}
+	if snap.DispositionScope != domain.DispositionScopeUnavailable || snap.ReturnCaseCount != 0 || snap.RedirectCaseCount != 0 {
+		t.Fatalf("%+v", snap)
+	}
+	if len(snap.Carriers) != 1 || snap.Carriers[0].CarrierCompanyID != own {
+		t.Fatalf("%+v", snap.Carriers)
+	}
+	legacy := httptest.NewRequest(http.MethodGet, analyticsSourcePath, nil)
+	legacy.Header.Set("X-Internal-Service-Token", callerToken)
+	legacy.Header.Set("X-Internal-Service-Name", AuthorizedAnalyticsCaller)
+	legacy.Header.Set("X-Tenant-ID", tenant.String())
+	legacy.Header.Set("X-Analytics-Scope", domain.AnalyticsScopeCarrier)
+	legacy.Header.Set("X-Analytics-Company-ID", own.String())
+	legacyRec := httptest.NewRecorder()
+	router.ServeHTTP(legacyRec, legacy)
+	if legacyRec.Code != http.StatusForbidden || strings.Contains(legacyRec.Body.String(), `"shipmentTotal"`) {
+		t.Fatalf("legacy company status %d %s", legacyRec.Code, legacyRec.Body.String())
+	}
+}
+
 func analyticsSourceCall(router http.Handler, token, caller, tenant, queryTenant string) *httptest.ResponseRecorder {
 	path := analyticsSourcePath
 	if queryTenant != "" {
@@ -264,6 +328,7 @@ func analyticsSourceCall(router http.Handler, token, caller, tenant, queryTenant
 	if tenant != "" {
 		req.Header.Set("X-Tenant-ID", tenant)
 	}
+	req.Header.Set("X-Analytics-Scope", domain.AnalyticsScopeTenant)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	return rec

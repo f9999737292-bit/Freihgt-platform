@@ -10,7 +10,7 @@ import (
 )
 
 type OperationsAnalyticsSourceStore interface {
-	OperationsFoundation(ctx context.Context, tenantID uuid.UUID) (domain.OperationsAnalyticsSourceSnapshot, error)
+	OperationsFoundation(ctx context.Context, tenantID uuid.UUID, scope domain.AnalyticsReadScope) (domain.OperationsAnalyticsSourceSnapshot, error)
 }
 
 type OperationsAnalyticsSourceService struct {
@@ -21,20 +21,23 @@ func NewOperationsAnalyticsSourceService(store OperationsAnalyticsSourceStore) *
 	return &OperationsAnalyticsSourceService{store: store}
 }
 
-func (s *OperationsAnalyticsSourceService) OperationsFoundation(ctx context.Context, tenantID uuid.UUID) (domain.OperationsAnalyticsSourceSnapshot, error) {
+func (s *OperationsAnalyticsSourceService) OperationsFoundation(ctx context.Context, tenantID uuid.UUID, scope domain.AnalyticsReadScope) (domain.OperationsAnalyticsSourceSnapshot, error) {
 	if err := domain.ValidateVerifiedTenant(tenantID); err != nil {
 		return domain.OperationsAnalyticsSourceSnapshot{}, err
 	}
 	if s == nil || s.store == nil {
 		return domain.OperationsAnalyticsSourceSnapshot{}, apperrors.Internal("analytics source is not configured", nil)
 	}
-	snap, err := s.store.OperationsFoundation(ctx, tenantID)
+	snap, err := s.store.OperationsFoundation(ctx, tenantID, scope)
 	if err != nil {
 		return domain.OperationsAnalyticsSourceSnapshot{}, err
 	}
 	snap.TenantID = tenantID
 	if snap.Carriers == nil {
 		snap.Carriers = []domain.OperationsAnalyticsCarrierSource{}
+	}
+	if err := domain.BindDispositionScope(&snap, scope); err != nil {
+		return domain.OperationsAnalyticsSourceSnapshot{}, err
 	}
 	if err := validateOperationsAnalyticsSource(snap); err != nil {
 		return domain.OperationsAnalyticsSourceSnapshot{}, err

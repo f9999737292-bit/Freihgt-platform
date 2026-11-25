@@ -16,8 +16,11 @@ type analyticsSourceStub struct {
 	err    error
 }
 
-func (s *analyticsSourceStub) OperationsFoundation(_ context.Context, tenantID uuid.UUID) (domain.OperationsAnalyticsSourceSnapshot, error) {
+func (s *analyticsSourceStub) OperationsFoundation(_ context.Context, tenantID uuid.UUID, scope domain.AnalyticsReadScope) (domain.OperationsAnalyticsSourceSnapshot, error) {
 	s.tenant = tenantID
+	if scope.Kind != domain.AnalyticsScopeTenant {
+		return domain.OperationsAnalyticsSourceSnapshot{}, apperrors.Forbidden("analytics company scope is not available")
+	}
 	if s.err != nil {
 		return domain.OperationsAnalyticsSourceSnapshot{}, s.err
 	}
@@ -30,7 +33,7 @@ func TestOperationsAnalyticsSourceServiceUsesVerifiedTenant(t *testing.T) {
 		TenantID: uuid.New(), ShipmentTotal: 4, OnTimeDeliveryDenominator: 2, OnTimeDeliveryNumerator: 1, ReturnCaseCount: 3, RedirectCaseCount: 1,
 	}}
 	svc := NewOperationsAnalyticsSourceService(stub)
-	snap, err := svc.OperationsFoundation(context.Background(), tenant)
+	snap, err := svc.OperationsFoundation(context.Background(), tenant, domain.AnalyticsReadScope{Kind: domain.AnalyticsScopeTenant})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +49,7 @@ func TestOperationsAnalyticsSourceServiceRejectsInconsistentSnapshot(t *testing.
 	stub := &analyticsSourceStub{snap: domain.OperationsAnalyticsSourceSnapshot{
 		ShipmentTotal: 1, OnTimeDeliveryDenominator: 2, OnTimeDeliveryNumerator: 2,
 	}}
-	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New())
+	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New(), domain.AnalyticsReadScope{Kind: domain.AnalyticsScopeTenant})
 	app, ok := err.(*apperrors.AppError)
 	if !ok || app.Code != apperrors.CodeInternal {
 		t.Fatalf("%v", err)
@@ -57,7 +60,7 @@ func TestOperationsAnalyticsSourceServiceRejectsPickupNumeratorAboveDenominator(
 	stub := &analyticsSourceStub{snap: domain.OperationsAnalyticsSourceSnapshot{
 		ShipmentTotal: 2, OnTimePickupDenominator: 1, OnTimePickupNumerator: 2,
 	}}
-	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New())
+	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New(), domain.AnalyticsReadScope{Kind: domain.AnalyticsScopeTenant})
 	app, ok := err.(*apperrors.AppError)
 	if !ok || app.Code != apperrors.CodeInternal {
 		t.Fatalf("%v", err)
@@ -71,7 +74,7 @@ func TestOperationsAnalyticsSourceServiceRejectsCarrierNumeratorAboveDenominator
 			CarrierCompanyID: uuid.New(), OnTimeDeliveryDenominator: 1, OnTimeDeliveryNumerator: 2,
 		}},
 	}}
-	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New())
+	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New(), domain.AnalyticsReadScope{Kind: domain.AnalyticsScopeTenant})
 	app, ok := err.(*apperrors.AppError)
 	if !ok || app.Code != apperrors.CodeInternal {
 		t.Fatalf("%v", err)
@@ -83,7 +86,7 @@ func TestOperationsAnalyticsSourceServiceRejectsNilCarrier(t *testing.T) {
 		ShipmentTotal: 1,
 		Carriers:      []domain.OperationsAnalyticsCarrierSource{{CarrierCompanyID: uuid.Nil}},
 	}}
-	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New())
+	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New(), domain.AnalyticsReadScope{Kind: domain.AnalyticsScopeTenant})
 	app, ok := err.(*apperrors.AppError)
 	if !ok || app.Code != apperrors.CodeInternal {
 		t.Fatalf("%v", err)
@@ -99,7 +102,7 @@ func TestOperationsAnalyticsSourceServiceRejectsDuplicateCarrier(t *testing.T) {
 			{CarrierCompanyID: carrier},
 		},
 	}}
-	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New())
+	_, err := NewOperationsAnalyticsSourceService(stub).OperationsFoundation(context.Background(), uuid.New(), domain.AnalyticsReadScope{Kind: domain.AnalyticsScopeTenant})
 	app, ok := err.(*apperrors.AppError)
 	if !ok || app.Code != apperrors.CodeInternal {
 		t.Fatalf("%v", err)
@@ -107,7 +110,7 @@ func TestOperationsAnalyticsSourceServiceRejectsDuplicateCarrier(t *testing.T) {
 }
 
 func TestOperationsAnalyticsSourceServiceRequiresTenant(t *testing.T) {
-	_, err := NewOperationsAnalyticsSourceService(&analyticsSourceStub{}).OperationsFoundation(context.Background(), uuid.Nil)
+	_, err := NewOperationsAnalyticsSourceService(&analyticsSourceStub{}).OperationsFoundation(context.Background(), uuid.Nil, domain.AnalyticsReadScope{Kind: domain.AnalyticsScopeTenant})
 	app, ok := err.(*apperrors.AppError)
 	if !ok || app.Code != apperrors.CodeUnauthorized {
 		t.Fatalf("%v", err)

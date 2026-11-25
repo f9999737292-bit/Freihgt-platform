@@ -57,7 +57,7 @@ func NewClient(cfg config.Config) *Client {
 	}
 }
 
-func (c *Client) Fetch(ctx context.Context, tenantID string) (kpi.Snapshot, error) {
+func (c *Client) Fetch(ctx context.Context, tenantID string, scope kpi.ReadScope) (kpi.Snapshot, error) {
 	if c == nil || c.baseURL == "" {
 		return kpi.Snapshot{}, &Error{Reason: "unreachable"}
 	}
@@ -69,6 +69,22 @@ func (c *Client) Fetch(ctx context.Context, tenantID string) (kpi.Snapshot, erro
 	req.Header.Set("X-Internal-Service-Token", c.token)
 	req.Header.Set("X-Internal-Service-Name", callerName)
 	req.Header.Set("X-Tenant-ID", tenantID)
+	switch scope.Kind {
+	case kpi.ScopeTenant:
+		if scope.CompanyID != "" {
+			return kpi.Snapshot{}, &Error{Reason: "inconsistent"}
+		}
+		req.Header.Set("X-Analytics-Scope", kpi.ScopeTenant)
+	case kpi.ScopeShipper, kpi.ScopeCarrier:
+		parsed, err := uuid.Parse(scope.CompanyID)
+		if err != nil || parsed == uuid.Nil {
+			return kpi.Snapshot{}, &Error{Reason: "inconsistent"}
+		}
+		req.Header.Set("X-Analytics-Scope", scope.Kind)
+		req.Header.Set("X-Analytics-Company-ID", parsed.String())
+	default:
+		return kpi.Snapshot{}, &Error{Reason: "inconsistent"}
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -103,6 +119,7 @@ type sourceDocument struct {
 	ReturnCaseCount           *int64           `json:"returnCaseCount"`
 	RedirectCaseCount         *int64           `json:"redirectCaseCount"`
 	Carriers                  *[]sourceCarrier `json:"carriers"`
+	DispositionScope          *string          `json:"dispositionScope"`
 }
 
 type sourceCarrier struct {
@@ -124,8 +141,14 @@ func decodeSnapshot(body []byte, tenantID string) (kpi.Snapshot, error) {
 	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
 		return kpi.Snapshot{}, &Error{Reason: "malformed", Err: err}
 	}
-	if payload.TenantID == nil || payload.ShipmentTotal == nil || payload.OnTimePickupDenominator == nil || payload.OnTimePickupNumerator == nil || payload.OnTimeDeliveryDenominator == nil || payload.OnTimeDeliveryNumerator == nil || payload.ReturnCaseCount == nil || payload.RedirectCaseCount == nil || payload.Carriers == nil {
+	if payload.TenantID == nil || payload.ShipmentTotal == nil || payload.OnTimePickupDenominator == nil || payload.OnTimePickupNumerator == nil || payload.OnTimeDeliveryDenominator == nil || payload.OnTimeDeliveryNumerator == nil || payload.ReturnCaseCount == nil || payload.RedirectCaseCount == nil || payload.Carriers == nil || payload.DispositionScope == nil {
 		return kpi.Snapshot{}, &Error{Reason: "malformed"}
+	}
+	if *payload.DispositionScope != kpi.DispositionScopeTenant && *payload.DispositionScope != kpi.DispositionScopeUnavailable {
+		return kpi.Snapshot{}, &Error{Reason: "malformed"}
+	}
+	if *payload.DispositionScope == kpi.DispositionScopeUnavailable && (*payload.ReturnCaseCount != 0 || *payload.RedirectCaseCount != 0) {
+		return kpi.Snapshot{}, &Error{Reason: "inconsistent"}
 	}
 	if *payload.TenantID != tenantID {
 		return kpi.Snapshot{}, &Error{Reason: "wrong_tenant"}
@@ -150,6 +173,7 @@ func decodeSnapshot(body []byte, tenantID string) (kpi.Snapshot, error) {
 		ReturnCaseCount:           *payload.ReturnCaseCount,
 		RedirectCaseCount:         *payload.RedirectCaseCount,
 		Carriers:                  carriers,
+		DispositionScope:          *payload.DispositionScope,
 	}, nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/freight-platform/analytics-service/internal/config"
+	"github.com/freight-platform/analytics-service/internal/kpi"
 )
 
 const tenantA = "11111111-1111-1111-1111-111111111111"
@@ -34,7 +35,7 @@ func TestClientValidatesSource(t *testing.T) {
 	}))
 	defer server.Close()
 	client := NewClient(config.Config{ShipmentURL: server.URL, SourceCallerToken: "secret", SourceTimeout: time.Second})
-	snap, err := client.Fetch(context.Background(), tenantA)
+	snap, err := client.Fetch(context.Background(), tenantA, kpi.ReadScope{Kind: kpi.ScopeTenant})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,6 +44,34 @@ func TestClientValidatesSource(t *testing.T) {
 	}
 	if err := client.Ready(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestClientSendsServerOwnedCompanyScope(t *testing.T) {
+	const company = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	var scope, gotCompany, clientCompany string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		scope = r.Header.Get("X-Analytics-Scope")
+		gotCompany = r.Header.Get("X-Analytics-Company-ID")
+		clientCompany = r.Header.Get("X-Company-ID")
+		body := completeSource(tenantA, 2, 1, 1, 0, 0)
+		body["dispositionScope"] = "UNAVAILABLE"
+		_ = json.NewEncoder(w).Encode(body)
+	}))
+	defer server.Close()
+	client := NewClient(config.Config{ShipmentURL: server.URL, SourceCallerToken: "secret", SourceTimeout: time.Second})
+	snap, err := client.Fetch(context.Background(), tenantA, kpi.ReadScope{Kind: kpi.ScopeCarrier, CompanyID: company})
+	if err != nil || scope != kpi.ScopeCarrier || gotCompany != company || clientCompany != "" || snap.DispositionScope != kpi.DispositionScopeUnavailable {
+		t.Fatalf("err=%v scope=%s company=%s client=%s snap=%+v", err, scope, gotCompany, clientCompany, snap)
+	}
+	leaked := completeSource(tenantA, 2, 1, 1, 1, 0)
+	leaked["dispositionScope"] = "UNAVAILABLE"
+	raw, err := json.Marshal(leaked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := decodeSnapshot(raw, tenantA); err == nil || err.(*Error).Reason != "inconsistent" {
+		t.Fatalf("unavailable disposition with a case count err=%v", err)
 	}
 }
 
@@ -58,6 +87,7 @@ func TestMissingRequiredSourceFieldsFailClosed(t *testing.T) {
 		"returnCaseCount",
 		"redirectCaseCount",
 		"carriers",
+		"dispositionScope",
 	}
 	for _, field := range fields {
 		t.Run(field+" omitted", func(t *testing.T) {
@@ -100,6 +130,7 @@ func completeSource(tenantID string, shipmentTotal, denominator, numerator, retu
 		"returnCaseCount":           returns,
 		"redirectCaseCount":         redirects,
 		"carriers":                  []any{},
+		"dispositionScope":          "TENANT",
 	}
 }
 
@@ -255,7 +286,7 @@ func TestClientFailClosed(t *testing.T) {
 			}))
 			defer server.Close()
 			client := NewClient(config.Config{ShipmentURL: server.URL, SourceCallerToken: "secret", SourceTimeout: 30 * time.Millisecond})
-			_, err := client.Fetch(context.Background(), tenantA)
+			_, err := client.Fetch(context.Background(), tenantA, kpi.ReadScope{Kind: kpi.ScopeTenant})
 			sourceErr, ok := err.(*Error)
 			if !ok || sourceErr.Reason != tt.reason {
 				t.Fatalf("err=%v", err)

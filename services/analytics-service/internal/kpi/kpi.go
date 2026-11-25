@@ -34,6 +34,21 @@ type Snapshot struct {
 	ReturnCaseCount           int64
 	RedirectCaseCount         int64
 	Carriers                  []CarrierSnapshot
+	DispositionScope          string
+}
+
+const (
+	ScopeTenant  = "TENANT"
+	ScopeShipper = "SHIPPER"
+	ScopeCarrier = "CARRIER"
+
+	DispositionScopeTenant      = "TENANT"
+	DispositionScopeUnavailable = "UNAVAILABLE"
+)
+
+type ReadScope struct {
+	Kind      string
+	CompanyID string
 }
 
 type CarrierSnapshot struct {

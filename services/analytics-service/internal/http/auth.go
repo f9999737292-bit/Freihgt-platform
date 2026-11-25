@@ -16,11 +16,18 @@ import (
 // INTERNAL_SERVICE_TOKEN is not accepted.
 
 const (
-	headerToken      = "X-Internal-Service-Token"
-	headerCaller     = "X-Internal-Service-Name"
-	headerTenant     = "X-Tenant-ID"
-	authorizedCaller = "api-gateway"
+	headerToken            = "X-Internal-Service-Token"
+	headerCaller           = "X-Internal-Service-Name"
+	headerTenant           = "X-Tenant-ID"
+	headerAnalyticsScope   = "X-Analytics-Scope"
+	headerAnalyticsCompany = "X-Analytics-Company-ID"
+	authorizedCaller       = "api-gateway"
 )
+
+type scopeValue struct {
+	Kind      string
+	CompanyID string
+}
 
 func requireGateway(token string) func(http.Handler) http.Handler {
 	expected := strings.TrimSpace(token)
@@ -44,8 +51,34 @@ func requireGateway(token string) func(http.Handler) http.Handler {
 				respond.Error(w, err)
 				return
 			}
-			next.ServeHTTP(w, r.WithContext(withTenant(r.Context(), tenantID)))
+			scope, err := verifiedScope(r.Header.Get(headerAnalyticsScope), r.Header.Get(headerAnalyticsCompany))
+			if err != nil {
+				respond.Error(w, err)
+				return
+			}
+			ctx := withScope(withTenant(r.Context(), tenantID), scope)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+func verifiedScope(kind, companyID string) (scopeValue, error) {
+	kind = strings.TrimSpace(kind)
+	companyID = strings.TrimSpace(companyID)
+	switch kind {
+	case "TENANT":
+		if companyID != "" {
+			return scopeValue{}, apperrors.Forbidden("analytics company scope is not available")
+		}
+		return scopeValue{Kind: kind}, nil
+	case "SHIPPER", "CARRIER":
+		parsed, err := uuid.Parse(companyID)
+		if err != nil || parsed == uuid.Nil {
+			return scopeValue{}, apperrors.Forbidden("analytics company scope is not available")
+		}
+		return scopeValue{Kind: kind, CompanyID: parsed.String()}, nil
+	default:
+		return scopeValue{}, apperrors.Forbidden("analytics company scope is not available")
 	}
 }
 
