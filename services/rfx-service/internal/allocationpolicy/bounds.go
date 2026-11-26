@@ -15,6 +15,9 @@ const (
 
 	// MaxDecimalCoefficientDigits caps coefficient digit count for DoS safety.
 	MaxDecimalCoefficientDigits = 30
+
+	// MaxEvaluationSteps is the hard evaluator step budget (W1.3).
+	MaxEvaluationSteps = 10000
 )
 
 // Counting rules (normative for W1.2 boundary tests):

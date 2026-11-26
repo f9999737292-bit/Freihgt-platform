@@ -31,13 +31,13 @@ func TestValidate_UnknownScoringModel(t *testing.T) {
 		raw  string
 		code string
 	}{
-		{"unknown", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"WEIGHTED_LEGACY","root":{"kind":"SCORE","attr":"a","weight":"1.00"}}`, "UNKNOWN_SCORING_MODEL"},
-		{"legacy_70_30", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"70/30","root":{"kind":"SCORE","attr":"a","weight":"1.00"}}`, "UNKNOWN_SCORING_MODEL"},
-		{"legacy_commercial", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"LEGACY_COMMERCIAL_70_30","root":{"kind":"SCORE","attr":"a","weight":"1.00"}}`, "UNKNOWN_SCORING_MODEL"},
-		{"empty", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"","root":{"kind":"SCORE","attr":"a","weight":"1.00"}}`, "MISSING_SCORING_MODEL"},
-		{"null", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":null,"root":{"kind":"SCORE","attr":"a","weight":"1.00"}}`, "NULL_SCORING_MODEL"},
-		{"wrong_type", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":123,"root":{"kind":"SCORE","attr":"a","weight":"1.00"}}`, "INVALID_SCORING_MODEL_TYPE"},
-		{"missing", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","root":{"kind":"SCORE","attr":"a","weight":"1.00"}}`, "MISSING_SCORING_MODEL"},
+		{"unknown", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"WEIGHTED_LEGACY","root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}}`, "UNKNOWN_SCORING_MODEL"},
+		{"legacy_70_30", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"70/30","root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}}`, "UNKNOWN_SCORING_MODEL"},
+		{"legacy_commercial", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"LEGACY_COMMERCIAL_70_30","root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}}`, "UNKNOWN_SCORING_MODEL"},
+		{"empty", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"","root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}}`, "MISSING_SCORING_MODEL"},
+		{"null", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":null,"root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}}`, "NULL_SCORING_MODEL"},
+		{"wrong_type", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":123,"root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}}`, "INVALID_SCORING_MODEL_TYPE"},
+		{"missing", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}}`, "MISSING_SCORING_MODEL"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -52,14 +52,14 @@ func TestValidate_TieBreakNormalization(t *testing.T) {
   "schema_version":"allocation_policy_ast.v1",
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
-  "root":{"kind":"SCORE","attr":"a","weight":"1.00"}
+  "root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}
 }`)
 	explicit := []byte(`{
   "schema_version":"allocation_policy_ast.v1",
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
   "tie_break":{"strategy":"CARRIER_ID_ASC"},
-  "root":{"kind":"SCORE","attr":"a","weight":"1.00"}
+  "root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}
 }`)
 	p1, err := DecodeAndValidate(omitted)
 	if err != nil {
@@ -81,10 +81,10 @@ func TestValidate_TieBreakNormalization(t *testing.T) {
 		raw  string
 		code string
 	}{
-		{"null", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","tie_break":null,"root":{"kind":"SCORE","attr":"a","weight":"1.00"}}`, "NULL_TIE_BREAK"},
-		{"empty_object", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","tie_break":{},"root":{"kind":"SCORE","attr":"a","weight":"1.00"}}`, "MISSING_TIE_BREAK_STRATEGY"},
-		{"wrong_type", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","tie_break":"CARRIER_ID_ASC","root":{"kind":"SCORE","attr":"a","weight":"1.00"}}`, "INVALID_TIE_BREAK_TYPE"},
-		{"unknown", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","tie_break":{"strategy":"SCORE_DESC"},"root":{"kind":"SCORE","attr":"a","weight":"1.00"}}`, "UNKNOWN_TIE_BREAK"},
+		{"null", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","tie_break":null,"root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}}`, "NULL_TIE_BREAK"},
+		{"empty_object", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","tie_break":{},"root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}}`, "MISSING_TIE_BREAK_STRATEGY"},
+		{"wrong_type", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","tie_break":"CARRIER_ID_ASC","root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}}`, "INVALID_TIE_BREAK_TYPE"},
+		{"unknown", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","tie_break":{"strategy":"SCORE_DESC"},"root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}}`, "UNKNOWN_TIE_BREAK"},
 	}
 	for _, tc := range neg {
 		t.Run(tc.name, func(t *testing.T) {
@@ -109,8 +109,8 @@ func TestValidate_InvalidNodeArity(t *testing.T) {
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
   "root":{"kind":"NOT","args":[
-    {"kind":"SCORE","attr":"a","weight":"0.50"},
-    {"kind":"SCORE","attr":"b","weight":"0.50"}
+    {"kind":"SCORE","attr":"offered_price","weight":"0.50"},
+    {"kind":"SCORE","attr":"contract_fit","weight":"0.50"}
   ]}
 }`)
 	_, err = DecodeAndValidate(raw2)
@@ -134,9 +134,9 @@ func TestValidate_IncompatibleOperandTypes(t *testing.T) {
 		name string
 		raw  string
 	}{
-		{"GT_string", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","root":{"kind":"AND","args":[{"kind":"FILTER","op":"GT","attr":"name","value":{"type":"STRING","string":"x"}},{"kind":"SCORE","attr":"a","weight":"1.00"}]}}`},
-		{"BETWEEN_boolean", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","root":{"kind":"AND","args":[{"kind":"FILTER","op":"BETWEEN","attr":"flag","values":[{"type":"BOOLEAN","boolean":false},{"type":"BOOLEAN","boolean":true}]},{"kind":"SCORE","attr":"a","weight":"1.00"}]}}`},
-		{"EQ_null_literal", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","root":{"kind":"AND","args":[{"kind":"FILTER","op":"EQ","attr":"x","value":{"type":"NULL"}},{"kind":"SCORE","attr":"a","weight":"1.00"}]}}`},
+		{"GT_string", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","root":{"kind":"AND","args":[{"kind":"FILTER","op":"GT","attr":"offered_price","value":{"type":"STRING","string":"x"}},{"kind":"SCORE","attr":"offered_price","weight":"1.00"}]}}`},
+		{"BETWEEN_boolean", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","root":{"kind":"AND","args":[{"kind":"FILTER","op":"BETWEEN","attr":"offered_price","values":[{"type":"BOOLEAN","boolean":false},{"type":"BOOLEAN","boolean":true}]},{"kind":"SCORE","attr":"offered_price","weight":"1.00"}]}}`},
+		{"EQ_null_literal", `{"schema_version":"allocation_policy_ast.v1","policy_id":"p1","scoring_model":"ADDITIVE_WEIGHTS","root":{"kind":"AND","args":[{"kind":"FILTER","op":"EQ","attr":"contract_status","value":{"type":"NULL"}},{"kind":"SCORE","attr":"offered_price","weight":"1.00"}]}}`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -163,7 +163,7 @@ func TestValidate_InvalidDecimalWeight(t *testing.T) {
   "schema_version":"allocation_policy_ast.v1",
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
-  "root":{"kind":"SCORE","attr":"a","weight":"` + tc.w + `"}
+  "root":{"kind":"SCORE","attr":"offered_price","weight":"` + tc.w + `"}
 }`)
 			_, err := DecodeAndValidate(raw)
 			if err == nil {
@@ -187,9 +187,9 @@ func TestValidate_NonUnitWeightSum(t *testing.T) {
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
   "root":{"kind":"AND","args":[
-    {"kind":"SCORE","attr":"a","weight":"0.50"},
-    {"kind":"SCORE","attr":"b","weight":"0.50"},
-    {"kind":"SCORE","attr":"c","weight":"0.10"}
+    {"kind":"SCORE","attr":"offered_price","weight":"0.50"},
+    {"kind":"SCORE","attr":"on_time_score","weight":"0.50"},
+    {"kind":"SCORE","attr":"contract_fit","weight":"0.10"}
   ]}
 }`)
 	_, err := DecodeAndValidate(raw)
@@ -208,7 +208,7 @@ func TestValidate_ImmutableInput(t *testing.T) {
   "schema_version":"allocation_policy_ast.v1",
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
-  "root":{"kind":"SCORE","attr":"a","weight":"1.00"}
+  "root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}
 }`)
 	clone := append([]byte(nil), raw...)
 	if _, err := DecodeAndValidate(raw); err != nil {
@@ -224,7 +224,7 @@ func TestValidate_Concurrent32(t *testing.T) {
   "schema_version":"allocation_policy_ast.v1",
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
-  "root":{"kind":"SCORE","attr":"a","weight":"1.00"}
+  "root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}
 }`)
 	const n = 32
 	errs := make([]error, n)
@@ -255,7 +255,7 @@ func TestValidate_DeterministicErrors(t *testing.T) {
   "schema_version":"allocation_policy_ast.v1",
   "policy_id":"p1",
   "scoring_model":"NOPE",
-  "root":{"kind":"SCORE","attr":"a","weight":"1.00"}
+  "root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}
 }`)
 	var first string
 	for i := 0; i < 8; i++ {
@@ -277,7 +277,7 @@ func TestValidate_NoExternalExecutionSurface(t *testing.T) {
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
   "shell":"rm -rf /",
-  "root":{"kind":"SCORE","attr":"a","weight":"1.00"}
+  "root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}
 }`)
 	_, err := DecodeAndValidate(raw)
 	if err == nil {
@@ -296,7 +296,7 @@ func TestValidate_InvalidActionAttr(t *testing.T) {
   "scoring_model":"ADDITIVE_WEIGHTS",
   "root":{"kind":"AND","args":[
     {"kind":"ACTION","attr":"award_now"},
-    {"kind":"SCORE","attr":"a","weight":"1.00"}
+    {"kind":"SCORE","attr":"offered_price","weight":"1.00"}
   ]}
 }`)
 	_, err := DecodeAndValidate(raw)
@@ -310,9 +310,9 @@ func TestValidate_EXISTSWithoutEval(t *testing.T) {
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
   "root":{"kind":"AND","args":[
-    {"kind":"FILTER","op":"EXISTS","attr":"optional_field"},
-    {"kind":"FILTER","op":"IS_MISSING","attr":"lane_kpi"},
-    {"kind":"SCORE","attr":"a","weight":"1.00"}
+    {"kind":"FILTER","op":"EXISTS","attr":"offered_price"},
+    {"kind":"FILTER","op":"IS_MISSING","attr":"offered_price"},
+    {"kind":"SCORE","attr":"offered_price","weight":"1.00"}
   ]}
 }`)
 	if _, err := DecodeAndValidate(raw); err != nil {
@@ -324,7 +324,7 @@ func TestValidate_MissingRequiredFields(t *testing.T) {
 	_, err := DecodePolicy([]byte(`{
   "schema_version":"allocation_policy_ast.v1",
   "scoring_model":"ADDITIVE_WEIGHTS",
-  "root":{"kind":"SCORE","attr":"a","weight":"1.00"}
+  "root":{"kind":"SCORE","attr":"offered_price","weight":"1.00"}
 }`))
 	assertDecodeCode(t, err, "MISSING_POLICY_ID")
 }

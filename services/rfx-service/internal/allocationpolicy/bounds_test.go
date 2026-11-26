@@ -42,8 +42,8 @@ func TestBounds_INSet64Accepted(t *testing.T) {
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
   "root":{"kind":"AND","args":[
-    {"kind":"FILTER","op":"IN","attr":"code","values":[%s]},
-    {"kind":"SCORE","attr":"a","weight":"1.00"}
+    {"kind":"FILTER","op":"IN","attr":"carrier_id","values":[%s]},
+    {"kind":"SCORE","attr":"offered_price","weight":"1.00"}
   ]}
 }`, strings.Join(vals, ",")))
 	if _, err := DecodeAndValidate(raw); err != nil {
@@ -61,8 +61,8 @@ func TestBounds_INSet65Rejected(t *testing.T) {
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
   "root":{"kind":"AND","args":[
-    {"kind":"FILTER","op":"IN","attr":"code","values":[%s]},
-    {"kind":"SCORE","attr":"a","weight":"1.00"}
+    {"kind":"FILTER","op":"IN","attr":"carrier_id","values":[%s]},
+    {"kind":"SCORE","attr":"offered_price","weight":"1.00"}
   ]}
 }`, strings.Join(vals, ",")))
 	_, err := DecodeAndValidate(raw)
@@ -76,8 +76,8 @@ func TestBounds_String256Accepted(t *testing.T) {
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
   "root":{"kind":"AND","args":[
-    {"kind":"FILTER","op":"EQ","attr":"name","value":{"type":"STRING","string":"%s"}},
-    {"kind":"SCORE","attr":"a","weight":"1.00"}
+    {"kind":"FILTER","op":"EQ","attr":"carrier_id","value":{"type":"STRING","string":"%s"}},
+    {"kind":"SCORE","attr":"offered_price","weight":"1.00"}
   ]}
 }`, s))
 	if _, err := DecodeAndValidate(raw); err != nil {
@@ -92,8 +92,8 @@ func TestBounds_String257Rejected(t *testing.T) {
   "policy_id":"p1",
   "scoring_model":"ADDITIVE_WEIGHTS",
   "root":{"kind":"AND","args":[
-    {"kind":"FILTER","op":"EQ","attr":"name","value":{"type":"STRING","string":"%s"}},
-    {"kind":"SCORE","attr":"a","weight":"1.00"}
+    {"kind":"FILTER","op":"EQ","attr":"carrier_id","value":{"type":"STRING","string":"%s"}},
+    {"kind":"SCORE","attr":"offered_price","weight":"1.00"}
   ]}
 }`, s))
 	_, err := DecodeAndValidate(raw)
@@ -111,7 +111,7 @@ func nestedANDPolicy(depth int) []byte {
 	for i := 1; i < depth; i++ {
 		b.WriteString(`{"kind":"AND","args":[`)
 	}
-	b.WriteString(`{"kind":"SCORE","attr":"a","weight":"1.00"}`)
+	b.WriteString(`{"kind":"SCORE","attr":"offered_price","weight":"1.00"}`)
 	for i := 1; i < depth; i++ {
 		b.WriteString(`]}`)
 	}
@@ -131,9 +131,9 @@ func manySCOREPolicy(n int) []byte {
 	// (non-negative). Sum still 1.00.
 	parts := make([]string, 0, n)
 	for i := 0; i < n-1; i++ {
-		parts = append(parts, fmt.Sprintf(`{"kind":"SCORE","attr":"a%d","weight":"0"}`, i))
+		parts = append(parts, `{"kind":"SCORE","attr":"offered_price","weight":"0"}`)
 	}
-	parts = append(parts, fmt.Sprintf(`{"kind":"SCORE","attr":"a%d","weight":"1.00"}`, n-1))
+	parts = append(parts, `{"kind":"SCORE","attr":"offered_price","weight":"1.00"}`)
 	return []byte(fmt.Sprintf(`{
   "schema_version":"allocation_policy_ast.v1",
   "policy_id":"p1",

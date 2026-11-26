@@ -91,6 +91,12 @@ func validateNode(n *Node, depth int, st *validateState) error {
 	if err := checkStringBound("node_id", n.NodeID); err != nil {
 		return err
 	}
+	// ACTION attrs use the structural shortlist/reserve/exception allowlist, not the KPI catalog.
+	if strings.TrimSpace(n.Attr) != "" && n.Kind != NodeKindAction {
+		if err := validateAttributeUsage(n); err != nil {
+			return err
+		}
+	}
 
 	switch n.Kind {
 	case NodeKindAnd, NodeKindOr:
@@ -370,12 +376,7 @@ func validateDecimalSafety(d *Decimal) error {
 	if d == nil {
 		return validationErr("INVALID_DECIMAL", "decimal is nil")
 	}
-	// shopspring/decimal does not represent NaN/Inf; guard string form defensively.
-	s := d.String()
-	lower := strings.ToLower(s)
-	if strings.Contains(lower, "nan") || strings.Contains(lower, "inf") {
-		return validationErr("INVALID_DECIMAL", "NaN/Infinity decimals are forbidden")
-	}
+	// J-W1.2-G001: bound exponent / coefficient BEFORE any Decimal.String() formatting.
 	exp := d.Exponent()
 	if exp < 0 {
 		exp = -exp
@@ -385,9 +386,14 @@ func validateDecimalSafety(d *Decimal) error {
 			fmt.Sprintf("decimal exponent magnitude %d exceeds max %d", exp, MaxDecimalExponentAbs))
 	}
 	coeff := d.Coefficient()
-	if coeff != nil && len(coeff.String()) > MaxDecimalCoefficientDigits {
-		return validationErr("DECIMAL_PRECISION_EXCEEDED",
-			fmt.Sprintf("decimal coefficient digits exceed max %d", MaxDecimalCoefficientDigits))
+	if coeff != nil {
+		// Digit capacity via BitLen (no full decimal string materialization).
+		// 10^n requires ~ n*log2(10) bits; refuse oversized coefficients first.
+		maxBits := int(MaxDecimalCoefficientDigits)*3322/1000 + 2
+		if coeff.BitLen() > maxBits {
+			return validationErr("DECIMAL_PRECISION_EXCEEDED",
+				fmt.Sprintf("decimal coefficient bit length exceeds safe bound for %d digits", MaxDecimalCoefficientDigits))
+		}
 	}
 	// Reject non-finite float64 views if ever constructed via unsafe paths.
 	if f, exact := d.Float64(); exact && (math.IsNaN(f) || math.IsInf(f, 0)) {

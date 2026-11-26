@@ -1,0 +1,13 @@
+{
+  "schema_version": "allocation_policy_ast.v1",
+  "policy_id": "golden-score",
+  "scoring_model": "ADDITIVE_WEIGHTS",
+  "root": {
+    "kind": "AND",
+    "args": [
+      {"kind": "SCORE", "attr": "offered_price", "weight": "0.40"},
+      {"kind": "SCORE", "attr": "on_time_score", "weight": "0.35"},
+      {"kind": "SCORE", "attr": "contract_fit", "weight": "0.25"}
+    ]
+  }
+}
