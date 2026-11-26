@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 EXPECTED_REPOSITORY = "f9999737292-bit/Freihgt-platform"
 NLO_JOB = "network-optimizer-chain-persistence-integration"
 NLO_SIGNATURE = "embedded postgres: no version found matching 16.4.0"
+PLAYWRIGHT_JOB = "rfx-buyer-xlsx-browser-e2e"
+PLAYWRIGHT_SIGNATURE = "libasound2t64"
 
 EXIT_REPORT_CLEAR = 0
 EXIT_CI_NOT_SUCCESS = 1
@@ -154,6 +156,15 @@ def classify_job(job: dict) -> dict:
         labels = ["KNOWN_ERROR_SIGNATURE", "ENVIRONMENT_SUSPECTED", "ROOT_CAUSE_UNCONFIRMED"]
         signature = "embedded_postgres_no_version_16.4.0"
         ci_result = "FAILURE"
+    elif (
+        conclusion == "failure"
+        and name == PLAYWRIGHT_JOB
+        and PLAYWRIGHT_SIGNATURE in excerpt
+        and "404" in excerpt
+    ):
+        labels = ["KNOWN_ERROR_SIGNATURE", "ENVIRONMENT_SUSPECTED", "ROOT_CAUSE_UNCONFIRMED"]
+        signature = "playwright_apt_404_libasound2t64"
+        ci_result = "FAILURE"
     elif conclusion == "failure":
         labels = ["ROOT_CAUSE_UNCONFIRMED"]
         signature = "unclassified_failure"
@@ -176,6 +187,7 @@ def classify_job(job: dict) -> dict:
         ci_result = "UNKNOWN"
     return {
         "job_name": name,
+        "status": str(job.get("status") or ""),
         "conclusion": conclusion,
         "head_sha": job.get("head_sha"),
         "run_id": job.get("run_id"),
@@ -281,7 +293,26 @@ def run_monitor(
             report.transport_loads = loads
             report.injection_suspected = suspected
             return report
-        for job in run.get("jobs") or []:
+        status = run.get("status")
+        if status is None:
+            status = "completed"
+        if str(status) != "completed":
+            report = _finish_early(EXIT_UNKNOWN, "PENDING", stop_reason, repository, "run_not_completed")
+            report.transport_loads = loads
+            report.injection_suspected = suspected
+            return report
+        if run.get("jobs_incomplete") is True:
+            report = _finish_early(EXIT_UNKNOWN, "UNKNOWN", stop_reason, repository, "jobs_incomplete")
+            report.transport_loads = loads
+            report.injection_suspected = suspected
+            return report
+        jobs = run.get("jobs")
+        if not jobs:
+            report = _finish_early(EXIT_UNKNOWN, "UNKNOWN", stop_reason, repository, "jobs_empty")
+            report.transport_loads = loads
+            report.injection_suspected = suspected
+            return report
+        for job in jobs:
             job_sha = str(job.get("head_sha") or "")
             if job_sha != run_sha:
                 report = _finish_early(EXIT_UNKNOWN, "ERROR", stop_reason, repository, "sha_mismatch")

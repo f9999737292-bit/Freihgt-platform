@@ -72,4 +72,19 @@ RESULT: `Ran 5 tests in 0.010s` `OK`
 | Hosted workflow syntax and permission enforcement | NOT_RUN | Candidate is local only. |
 | Live GitHub API | NOT_RUN | `LiveGitHubTransport` is not armed. |
 | Hosted permission enforcement | NOT_RUN | `J-MON-R2-M003` remains OPEN. |
-| Workflow execution of `src/bintrans_monitor` | NOT_IMPLEMENTED | `J-MON-R2-M001` remains OPEN. `WORKFLOW_CLASSIFIER_INTEGRATION=NOT_IMPLEMENTED`. The workflow fetches GitHub data and does not run the Python classifier. A successful workflow job does not prove that project CI succeeded. |
+| Workflow execution of `src/bintrans_monitor` | LOCAL_ONLY | 0.5a candidate calls `python3 -m bintrans_monitor.cli`. Hosted workflow execution remains NOT_RUN. |
+| PostgreSQL budget emergency-stop proof | NOT_RUN | `BINTRANS_AUTOPILOT_QUEUE_DSN` was unset. |
+
+## 0.5a local rerun
+
+COMMAND:
+
+```text
+py -3 -m unittest discover -s tests -v
+```
+
+Working directory: `D:\Projects\freight-platform-wt\autopilot-monitor-0.5a\tools\bintrans_autopilot_monitor`
+
+RESULT: `Ran 37 tests in 0.050s` `OK`
+
+That is MON-001 through MON-036 and the stop-gate test. These runs do not prove a GitHub-hosted workflow.

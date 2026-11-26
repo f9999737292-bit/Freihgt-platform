@@ -65,6 +65,8 @@ The package does not import `subprocess`, does not call `os.system`, and does no
 
 Static tests and fixture runs do not prove GitHub's enforcement of `permissions` on a hosted runner. That proof waits for a published workflow and was not run. No production secret, deployment, or privileged runner was added.
 
-`J-MON-R2-M003` remains OPEN. `HOSTED_PERMISSION_ENFORCEMENT=NOT_RUN`.
+`J-MON-R2-M001` is addressed in the inactive candidate: the candidate calls the existing Python engine and returns that engine's exit code. Hosted execution of the candidate was not run, so this is not a production closure.
 
-`J-MON-R2-M001` remains OPEN. `WORKFLOW_CLASSIFIER_INTEGRATION=NOT_IMPLEMENTED`. The workflow fetches GitHub data and does not execute this package. A successful workflow job does not prove that project CI succeeded. This document does not call the monitor production-ready.
+`J-MON-R3-L001` is addressed in the candidate: GitHub API bodies go to a temporary directory and are removed on exit. The process prints sanitized rows only. A hosted log review was not run.
+
+`J-MON-R2-M003` remains OPEN. `HOSTED_PERMISSION_ENFORCEMENT=NOT_RUN`. This document does not call the monitor production-ready.
