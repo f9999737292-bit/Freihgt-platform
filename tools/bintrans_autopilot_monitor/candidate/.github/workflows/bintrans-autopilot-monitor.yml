@@ -1,0 +1,50 @@
+name: BINTRANS autopilot monitor
+
+# CANDIDATE. Not published. Not scheduled.
+# workflow_dispatch is the only trigger.
+# This file does not call the write-capable dispatcher and does not call a paid model.
+# GITHUB_TOKEN permissions in this file are not GitHub App installation permissions.
+# The key metadata is omitted: the official workflow syntax fetched on 2026-11-26
+# does not list it. artifact-metadata is a different permission and is not granted.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: bintrans-autopilot-monitor
+  cancel-in-progress: false
+
+jobs:
+  report:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Deny unless the operator stop variable is explicitly false
+        env:
+          AUTOPILOT_EMERGENCY_STOP: ${{ vars.AUTOPILOT_EMERGENCY_STOP }}
+        run: |
+          set -eu
+          if [ "${AUTOPILOT_EMERGENCY_STOP}" != "false" ]; then
+            echo "MONITOR=DENY"
+            echo "REASON=emergency_stop_control_unavailable_or_active"
+            exit 2
+          fi
+          echo "EMERGENCY_STOP_CONTROL=EXPLICIT_FALSE"
+
+      - name: Read workflow runs and open pull requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -eu
+          gh api --method GET "repos/${REPOSITORY}/actions/runs?per_page=20"
+          gh api --method GET "repos/${REPOSITORY}/actions/runs?status=failure&per_page=20"
+          gh api --method GET "repos/${REPOSITORY}/pulls?state=open&per_page=20"
+          echo "MONITOR=REPORT"
+          echo "PAID_CALLS=0"
+          echo "GITHUB_WRITES=0"
