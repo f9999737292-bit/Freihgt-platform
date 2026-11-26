@@ -105,3 +105,13 @@ PROTOTYPE ONLY. The workflow fetches GitHub data but does not execute the Python
 `J-MON-R2-M003` stays OPEN. `HOSTED_PERMISSION_ENFORCEMENT=NOT_RUN`.
 
 This prototype is not production-ready. The candidate YAML remains under `candidate/.github/workflows/` and is not installed as a repository workflow.
+
+## 0.5a classifier integration
+
+The inactive candidate now classifies one `workflow_dispatch` run id. Emergency stop still runs first. The shell then checks the trusted repository and `refs/heads/main`, checks out `github.sha` with a pinned checkout action and `persist-credentials: false`, GETs that run and its job pages into a temporary directory, and runs `python3 -m bintrans_monitor.cli`. The CLI uses `github_adapter.assemble` and the existing `run_monitor` engine. Printed rows keep only the sanitized fields. Raw API JSON is not written to the Actions log. The candidate is still not a repository workflow, and a local test is not hosted permission enforcement.
+
+## 0.5B false-success remediation
+
+Exit 0 requires a completed run whose `conclusion` is `success`, a complete job set, and a success conclusion on every job of the latest confirmed `run_attempt`. Job identity is `job.id` plus `run_id` plus `run_attempt`. The same `name` on two ids does not collapse the rows. A missing id, a conflicting id, a missing attempt, or an incomplete page is `UNKNOWN` or `ERROR`, never `SUCCESS`.
+
+The adapter does not treat a Jobs API body as a log. Known signatures remain local-fixture behavior. `J-0.5A-M002` is not fully closed.

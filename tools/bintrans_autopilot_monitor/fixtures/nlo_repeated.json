@@ -6,12 +6,19 @@
       "name": "CI",
       "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
       "event": "pull_request",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 1,
       "jobs": [
         {
+          "id": 90026,
           "name": "network-optimizer-chain-persistence-integration",
+          "status": "completed",
           "conclusion": "failure",
+          "run_attempt": 1,
           "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
-          "log_excerpt": "embedded postgres: no version found matching 16.4.0"
+          "log_excerpt": "embedded postgres: no version found matching 16.4.0",
+          "log_excerpt_verified": true
         }
       ]
     },
@@ -20,12 +27,19 @@
       "name": "CI",
       "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
       "event": "fixture",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 1,
       "jobs": [
         {
+          "id": 90027,
           "name": "network-optimizer-chain-persistence-integration",
+          "status": "completed",
           "conclusion": "failure",
+          "run_attempt": 1,
           "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
-          "log_excerpt": "embedded postgres: no version found matching 16.4.0"
+          "log_excerpt": "embedded postgres: no version found matching 16.4.0",
+          "log_excerpt_verified": true
         }
       ]
     }

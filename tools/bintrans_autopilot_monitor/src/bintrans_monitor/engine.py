@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 EXPECTED_REPOSITORY = "f9999737292-bit/Freihgt-platform"
 NLO_JOB = "network-optimizer-chain-persistence-integration"
 NLO_SIGNATURE = "embedded postgres: no version found matching 16.4.0"
+PLAYWRIGHT_JOB = "rfx-buyer-xlsx-browser-e2e"
+PLAYWRIGHT_SIGNATURE = "libasound2t64"
 
 EXIT_REPORT_CLEAR = 0
 EXIT_CI_NOT_SUCCESS = 1
@@ -148,11 +150,23 @@ def _finish_early(exit_code: int, ci_result: str, stop_reason: str, repository: 
 
 def classify_job(job: dict) -> dict:
     conclusion = str(job.get("conclusion") or "")
-    excerpt = str(job.get("log_excerpt") or "")
+    # The Jobs API does not return a log body. A signature matches only when
+    # the caller marks a local fixture excerpt as verified. The adapter never does.
+    verified = job.get("log_excerpt_verified") is True
+    excerpt = str(job.get("log_excerpt") or "") if verified else ""
     name = str(job.get("name") or "")
     if conclusion == "failure" and name == NLO_JOB and NLO_SIGNATURE in excerpt:
         labels = ["KNOWN_ERROR_SIGNATURE", "ENVIRONMENT_SUSPECTED", "ROOT_CAUSE_UNCONFIRMED"]
         signature = "embedded_postgres_no_version_16.4.0"
+        ci_result = "FAILURE"
+    elif (
+        conclusion == "failure"
+        and name == PLAYWRIGHT_JOB
+        and PLAYWRIGHT_SIGNATURE in excerpt
+        and "404" in excerpt
+    ):
+        labels = ["KNOWN_ERROR_SIGNATURE", "ENVIRONMENT_SUSPECTED", "ROOT_CAUSE_UNCONFIRMED"]
+        signature = "playwright_apt_404_libasound2t64"
         ci_result = "FAILURE"
     elif conclusion == "failure":
         labels = ["ROOT_CAUSE_UNCONFIRMED"]
@@ -175,10 +189,13 @@ def classify_job(job: dict) -> dict:
         signature = "unknown_conclusion"
         ci_result = "UNKNOWN"
     return {
+        "job_id": job.get("id"),
         "job_name": name,
+        "status": str(job.get("status") or ""),
         "conclusion": conclusion,
         "head_sha": job.get("head_sha"),
         "run_id": job.get("run_id"),
+        "run_attempt": job.get("run_attempt"),
         "workflow_name": job.get("workflow_name"),
         "labels": labels,
         "signature": signature,
@@ -235,6 +252,97 @@ def _overall(observations: list[dict]) -> tuple[str, int]:
     return "UNKNOWN", EXIT_UNKNOWN
 
 
+def _positive_int(value: object) -> int | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    if number <= 0:
+        return None
+    return number
+
+
+def _same_job_record(left: dict, right: dict) -> bool:
+    fields = ("name", "conclusion", "status", "head_sha", "run_attempt")
+    return all(left.get(field) == right.get(field) for field in fields)
+
+
+def _select_attempt_jobs(run: dict, jobs: object) -> tuple[list[dict], str | None, str]:
+    """Keep one confirmed attempt. Do not merge attempts or job names.
+
+    GET /repos/{owner}/{repo}/actions/runs/{run_id} returns the latest attempt
+    in run_attempt. GET .../runs/{run_id}/jobs defaults to filter=latest, so
+    its jobs belong to that attempt and each job has its own id. A rerun
+    creates new job ids. Older attempts are a different endpoint and are
+    ignored when a fixture includes them. Missing ids, missing attempts, and
+    conflicting records for one id fail closed.
+    """
+    selected_attempt = _positive_int(run.get("run_attempt"))
+    if selected_attempt is None:
+        return [], "run_attempt_missing", "ERROR"
+    if not isinstance(jobs, list):
+        return [], "jobs_rejected", "ERROR"
+    selected: list[dict] = []
+    seen: dict[int, dict] = {}
+    for job in jobs:
+        if not isinstance(job, dict):
+            return [], "job_rejected", "ERROR"
+        job_id = _positive_int(job.get("id"))
+        if job_id is None:
+            return [], "job_id_missing", "ERROR"
+        job_attempt = _positive_int(job.get("run_attempt"))
+        if job_attempt is None:
+            return [], "run_attempt_missing", "ERROR"
+        if job_attempt != selected_attempt:
+            continue
+        previous = seen.get(job_id)
+        if previous is not None:
+            if not _same_job_record(previous, job):
+                return [], "job_id_conflict", "ERROR"
+            continue
+        if str(job.get("status") or "") != "completed":
+            return [], "job_status_incomplete", "UNKNOWN"
+        seen[job_id] = job
+        selected.append(job)
+    if not selected:
+        return [], "attempt_jobs_missing", "UNKNOWN"
+    return selected, None, ""
+
+
+def _apply_run_conclusion(run_conclusion: object, rows: list[dict]) -> tuple[str, int]:
+    job_result, job_exit = _overall(rows)
+    conclusion = "" if run_conclusion is None else str(run_conclusion)
+    if conclusion == "failure" or job_result == "FAILURE":
+        return "FAILURE", EXIT_CI_NOT_SUCCESS
+    if conclusion == "timed_out" or job_result == "TIMED_OUT":
+        return "TIMED_OUT", EXIT_CI_NOT_SUCCESS
+    if conclusion == "cancelled" or job_result == "CANCELLED":
+        return "CANCELLED", EXIT_CI_NOT_SUCCESS
+    if job_result != "SUCCESS":
+        return job_result, job_exit
+    completed = all(row.get("status") == "completed" for row in rows)
+    if conclusion == "success" and completed:
+        return "SUCCESS", EXIT_REPORT_CLEAR
+    return "UNKNOWN", EXIT_UNKNOWN
+
+
+def _merge_results(results: list[tuple[str, int]]) -> tuple[str, int]:
+    if not results:
+        return "UNKNOWN", EXIT_UNKNOWN
+    labels = {item[0] for item in results}
+    for label in ("FAILURE", "TIMED_OUT", "CANCELLED"):
+        if label in labels:
+            return label, EXIT_CI_NOT_SUCCESS
+    for label in ("ERROR", "UNKNOWN", "PENDING"):
+        if label in labels:
+            return label, EXIT_UNKNOWN
+    if labels == {"SUCCESS"}:
+        return "SUCCESS", EXIT_REPORT_CLEAR
+    return "UNKNOWN", EXIT_UNKNOWN
+
+
 def run_monitor(
     stop: StopSource,
     transport,
@@ -272,7 +380,7 @@ def run_monitor(
         report.injection_suspected = suspected
         return report
     observations = []
-    seen: set[tuple] = set()
+    run_results: list[tuple[str, int]] = []
     for run in payload.get("runs") or []:
         run_sha = str(run.get("head_sha") or "")
         run_id = run.get("id")
@@ -281,22 +389,51 @@ def run_monitor(
             report.transport_loads = loads
             report.injection_suspected = suspected
             return report
-        for job in run.get("jobs") or []:
+        status = run.get("status")
+        if status is None:
+            status = "completed"
+        if str(status) != "completed":
+            report = _finish_early(EXIT_UNKNOWN, "PENDING", stop_reason, repository, "run_not_completed")
+            report.transport_loads = loads
+            report.injection_suspected = suspected
+            return report
+        if run.get("jobs_incomplete") is True:
+            report = _finish_early(EXIT_UNKNOWN, "UNKNOWN", stop_reason, repository, "jobs_incomplete")
+            report.transport_loads = loads
+            report.injection_suspected = suspected
+            return report
+        jobs = run.get("jobs")
+        if not jobs:
+            report = _finish_early(EXIT_UNKNOWN, "UNKNOWN", stop_reason, repository, "jobs_empty")
+            report.transport_loads = loads
+            report.injection_suspected = suspected
+            return report
+        selected, problem, problem_result = _select_attempt_jobs(run, jobs)
+        if problem:
+            report = _finish_early(EXIT_UNKNOWN, problem_result, stop_reason, repository, problem)
+            report.transport_loads = loads
+            report.injection_suspected = suspected
+            return report
+        start = len(observations)
+        for job in selected:
+            foreign = job.get("run_id")
+            if foreign is not None and _positive_int(foreign) != _positive_int(run_id):
+                report = _finish_early(EXIT_UNKNOWN, "ERROR", stop_reason, repository, "run_mixed")
+                report.transport_loads = loads
+                report.injection_suspected = suspected
+                return report
             job_sha = str(job.get("head_sha") or "")
             if job_sha != run_sha:
                 report = _finish_early(EXIT_UNKNOWN, "ERROR", stop_reason, repository, "sha_mismatch")
                 report.transport_loads = loads
                 report.injection_suspected = suspected
                 return report
-            key = (run_id, job.get("name"))
-            if key in seen:
-                continue
-            seen.add(key)
             item = dict(job)
             item["run_id"] = run_id
             item["head_sha"] = job_sha
             item["workflow_name"] = run.get("name")
             observations.append(classify_job(item))
+        run_results.append(_apply_run_conclusion(run.get("conclusion"), observations[start:]))
     pulls = [
         {
             "number": pull.get("number"),
@@ -306,7 +443,7 @@ def run_monitor(
         }
         for pull in (payload.get("pulls") or [])
     ]
-    ci_result, exit_code = _overall(observations)
+    ci_result, exit_code = _merge_results(run_results)
     groups_map: dict[tuple, list] = {}
     for row in observations:
         if row["signature"] == "success":

@@ -8,8 +8,8 @@ metadata:
 artifact-metadata:
 api.cursor.com
 CURSOR_
-bintrans_autopilot
-actions/checkout
+tools/bintrans_autopilot/
+actions/checkout@v
 schedule:
 pull_request:
 pull_request_target:
