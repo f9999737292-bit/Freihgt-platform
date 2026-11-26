@@ -5,12 +5,23 @@ package allocationpolicy
 // defines the typed surface and decode-time safety gates.
 
 const (
-	// SchemaVersionV1 is the only schema version accepted by W1.1 decode.
+	// SchemaVersionV1 is the only schema version accepted by decode.
 	SchemaVersionV1 = "allocation_policy_ast.v1"
 
 	// MaxJSONPayloadBytes is the hard pre-parse limit for raw policy JSON.
 	MaxJSONPayloadBytes = 65536
+
+	// ScoringModelAdditiveWeights is the only scoring_model allowed in W1
+	// (J-W1.1-M001). Legacy 70/30 remains outside this package.
+	ScoringModelAdditiveWeights = "ADDITIVE_WEIGHTS"
 )
+
+// Allowed ACTION attr flags per W1_AST_SCHEMA §2 (structural only; no executor).
+var allowedActionAttrs = map[string]struct{}{
+	"shortlist": {},
+	"reserve":   {},
+	"exception": {},
+}
 
 // SharePolicyMode controls how preliminary share targets interact with caps.
 // Preliminary shares are not legal obligations.

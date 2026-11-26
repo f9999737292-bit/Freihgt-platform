@@ -1,0 +1,44 @@
+{
+  "schema_version": "allocation_policy_ast.v1",
+  "policy_id": "policy-w12-001",
+  "scoring_model": "ADDITIVE_WEIGHTS",
+  "share_policy_mode": "CAP_ONLY",
+  "tie_break": { "strategy": "CARRIER_ID_ASC" },
+  "root": {
+    "kind": "AND",
+    "args": [
+      {
+        "kind": "FILTER",
+        "op": "EQ",
+        "attr": "contract_status",
+        "value": { "type": "ENUM", "enum": "ACTIVE" }
+      },
+      {
+        "kind": "SCORE",
+        "attr": "offered_price",
+        "weight": "0.40"
+      },
+      {
+        "kind": "SCORE",
+        "attr": "lane_kpi",
+        "weight": "0.35"
+      },
+      {
+        "kind": "SCORE",
+        "attr": "contract_fit",
+        "weight": "0.25"
+      },
+      {
+        "kind": "CAP",
+        "attr": "share_pct",
+        "op": "LTE",
+        "value": { "type": "DECIMAL", "decimal": "0.70" }
+      },
+      {
+        "kind": "ACTION",
+        "attr": "shortlist",
+        "value": { "type": "BOOLEAN", "boolean": true }
+      }
+    ]
+  }
+}

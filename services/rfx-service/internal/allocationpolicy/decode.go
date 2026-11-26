@@ -23,15 +23,17 @@ func decodeErr(code, msg string) error {
 }
 
 // DecodePolicy parses raw JSON into a typed Policy AST.
-// Safety gates (W1.1):
+// Safety gates:
 //   - raw payload size ≤ MaxJSONPayloadBytes before parse
+//   - duplicate JSON keys rejected (J-W1.1-M003)
 //   - unknown schema_version rejected
 //   - unknown JSON fields rejected (DisallowUnknownFields)
-//   - unknown node kinds / operators / value types rejected
+//   - scoring_model allowlist ADDITIVE_WEIGHTS (J-W1.1-M001)
 //   - share_policy_mode defaults to CAP_ONLY when omitted
+//   - tie_break defaults to CARRIER_ID_ASC when omitted (J-W1.1-M004 / §8)
 //   - forbidden SQL / script / HTTP / shell markers rejected
 //   - DECIMAL never accepted as JSON number (float64)
-// Semantic evaluation (EXISTS(NULL), scoring, share math) is out of scope.
+// Full structural validation is ValidatePolicy (W1.2).
 func DecodePolicy(raw []byte) (*Policy, error) {
 	if len(raw) > MaxJSONPayloadBytes {
 		return nil, decodeErr("PAYLOAD_TOO_LARGE",
@@ -44,15 +46,16 @@ func DecodePolicy(raw []byte) (*Policy, error) {
 	if err := rejectForbiddenMarkers(raw); err != nil {
 		return nil, err
 	}
+	if err := rejectDuplicateJSONKeys(raw); err != nil {
+		return nil, err
+	}
 
-	// Wire shape uses pointers so omitted share_policy_mode can default to CAP_ONLY.
 	var wire policyWire
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&wire); err != nil {
 		return nil, mapJSONError(err)
 	}
-	// Reject trailing junk after the top-level value.
 	if err := dec.Decode(&struct{}{}); err != io.EOF {
 		if err == nil {
 			return nil, decodeErr("TRAILING_DATA", "trailing data after top-level JSON value")
@@ -67,8 +70,10 @@ func DecodePolicy(raw []byte) (*Policy, error) {
 	if strings.TrimSpace(wire.PolicyID) == "" {
 		return nil, decodeErr("MISSING_POLICY_ID", "policy_id is required")
 	}
-	if strings.TrimSpace(wire.ScoringModel) == "" {
-		return nil, decodeErr("MISSING_SCORING_MODEL", "scoring_model is required")
+
+	scoringModel, err := parseScoringModel(wire.ScoringModel)
+	if err != nil {
+		return nil, err
 	}
 
 	shareMode := SharePolicyModeDefault
@@ -80,13 +85,11 @@ func DecodePolicy(raw []byte) (*Policy, error) {
 		}
 	}
 
-	if wire.TieBreak == nil {
-		return nil, decodeErr("MISSING_TIE_BREAK", "tie_break is required")
+	tieBreak, err := parseTieBreak(wire.TieBreak)
+	if err != nil {
+		return nil, err
 	}
-	if _, ok := allowedTieBreakStrategies[wire.TieBreak.Strategy]; !ok {
-		return nil, decodeErr("UNKNOWN_TIE_BREAK",
-			fmt.Sprintf("unknown tie_break.strategy %q", wire.TieBreak.Strategy))
-	}
+
 	if wire.Root == nil {
 		return nil, decodeErr("MISSING_ROOT", "root is required")
 	}
@@ -99,20 +102,32 @@ func DecodePolicy(raw []byte) (*Policy, error) {
 	return &Policy{
 		SchemaVersion:   wire.SchemaVersion,
 		PolicyID:        wire.PolicyID,
-		ScoringModel:    wire.ScoringModel,
+		ScoringModel:    scoringModel,
 		SharePolicyMode: shareMode,
-		TieBreak:        TieBreak{Strategy: wire.TieBreak.Strategy},
+		TieBreak:        tieBreak,
 		Root:            *root,
 	}, nil
 }
 
-// policyWire is the JSON decode surface. Pointer fields distinguish omit vs set.
+// DecodeAndValidate decodes then runs W1.2 structural validation.
+func DecodeAndValidate(raw []byte) (*Policy, error) {
+	p, err := DecodePolicy(raw)
+	if err != nil {
+		return nil, err
+	}
+	if err := ValidatePolicy(p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// policyWire is the JSON decode surface. Pointer/RawMessage fields distinguish omit vs set.
 type policyWire struct {
 	SchemaVersion   string           `json:"schema_version"`
 	PolicyID        string           `json:"policy_id"`
-	ScoringModel    string           `json:"scoring_model"`
+	ScoringModel    json.RawMessage  `json:"scoring_model"`
 	SharePolicyMode *SharePolicyMode `json:"share_policy_mode"`
-	TieBreak        *tieBreakWire    `json:"tie_break"`
+	TieBreak        json.RawMessage  `json:"tie_break"`
 	Root            *nodeWire        `json:"root"`
 }
 
@@ -121,14 +136,14 @@ type tieBreakWire struct {
 }
 
 type nodeWire struct {
-	Kind   NodeKind   `json:"kind"`
-	Op     Operator   `json:"op"`
-	Args   []nodeWire `json:"args"`
-	Attr   string     `json:"attr"`
-	Value  *valueWire `json:"value"`
+	Kind   NodeKind    `json:"kind"`
+	Op     Operator    `json:"op"`
+	Args   []nodeWire  `json:"args"`
+	Attr   string      `json:"attr"`
+	Value  *valueWire  `json:"value"`
 	Values []valueWire `json:"values"`
-	Weight *Decimal   `json:"weight"`
-	NodeID string     `json:"node_id"`
+	Weight *Decimal    `json:"weight"`
+	NodeID string      `json:"node_id"`
 }
 
 type valueWire struct {
@@ -138,6 +153,57 @@ type valueWire struct {
 	Enum      *string   `json:"enum"`
 	Timestamp *string   `json:"timestamp"`
 	Decimal   *Decimal  `json:"decimal"`
+}
+
+func parseScoringModel(raw json.RawMessage) (string, error) {
+	if len(raw) == 0 {
+		return "", decodeErr("MISSING_SCORING_MODEL", "scoring_model is required")
+	}
+	trim := bytes.TrimSpace(raw)
+	if bytes.Equal(trim, []byte("null")) {
+		return "", decodeErr("NULL_SCORING_MODEL", "scoring_model must not be null")
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return "", decodeErr("INVALID_SCORING_MODEL_TYPE", "scoring_model must be a JSON string")
+	}
+	if strings.TrimSpace(s) == "" {
+		return "", decodeErr("MISSING_SCORING_MODEL", "scoring_model is required")
+	}
+	if s != ScoringModelAdditiveWeights {
+		// Includes legacy 70/30 labels and any undocumented model names.
+		return "", decodeErr("UNKNOWN_SCORING_MODEL",
+			fmt.Sprintf("unsupported scoring_model %q; required %q", s, ScoringModelAdditiveWeights))
+	}
+	return s, nil
+}
+
+func parseTieBreak(raw json.RawMessage) (TieBreak, error) {
+	// Omitted → documented default (W1_AST_SCHEMA §8 / J-W1.1-M004).
+	if len(raw) == 0 {
+		return TieBreak{Strategy: TieBreakCarrierIDAsc}, nil
+	}
+	trim := bytes.TrimSpace(raw)
+	if bytes.Equal(trim, []byte("null")) {
+		return TieBreak{}, decodeErr("NULL_TIE_BREAK", "tie_break must not be null")
+	}
+	if trim[0] != '{' {
+		return TieBreak{}, decodeErr("INVALID_TIE_BREAK_TYPE", "tie_break must be a JSON object")
+	}
+	var tb tieBreakWire
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&tb); err != nil {
+		return TieBreak{}, mapJSONError(err)
+	}
+	if tb.Strategy == "" {
+		return TieBreak{}, decodeErr("MISSING_TIE_BREAK_STRATEGY", "tie_break.strategy is required when tie_break is present")
+	}
+	if _, ok := allowedTieBreakStrategies[tb.Strategy]; !ok {
+		return TieBreak{}, decodeErr("UNKNOWN_TIE_BREAK",
+			fmt.Sprintf("unknown tie_break.strategy %q", tb.Strategy))
+	}
+	return TieBreak{Strategy: tb.Strategy}, nil
 }
 
 func (n *nodeWire) toNode() (*Node, error) {
@@ -206,7 +272,6 @@ func (v *valueWire) toValue() (*Value, error) {
 
 	switch v.Type {
 	case ValueTypeNull, ValueTypeMissing, ValueTypeNotAvailable:
-		// Sentinel types carry no payload. EXISTS/IS_MISSING evaluation deferred.
 		if v.String != nil || v.Boolean != nil || v.Enum != nil || v.Timestamp != nil || v.Decimal != nil {
 			return nil, decodeErr("INVALID_VALUE_SHAPE",
 				fmt.Sprintf("%s value must not carry a payload field", v.Type))
@@ -244,7 +309,6 @@ func (v *valueWire) toValue() (*Value, error) {
 
 func rejectForbiddenMarkers(raw []byte) error {
 	lower := strings.ToLower(string(raw))
-	// Only reject JSON object keys ( "marker": ), not accidental value substrings.
 	for _, marker := range forbiddenPayloadMarkers {
 		needle := `"` + marker + `":`
 		if strings.Contains(lower, needle) {
