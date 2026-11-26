@@ -30,6 +30,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/richardlehane/mscfb v1.0.7 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/tiendc/go-deepcopy v1.7.2 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/xuri/efp v0.0.1 // indirect
