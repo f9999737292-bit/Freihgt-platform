@@ -1,0 +1,26 @@
+{
+  "repository": "f9999737292-bit/Freihgt-platform",
+  "runs": [
+    {
+      "id": 45708990004,
+      "name": "CI",
+      "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
+      "event": "fixture",
+      "jobs": [
+        {
+          "name": "example-unit",
+          "conclusion": "failure",
+          "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
+          "log_excerpt": "assertion failed in example test"
+        },
+        {
+          "name": "example-unit",
+          "conclusion": "failure",
+          "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
+          "log_excerpt": "duplicate row of the same job"
+        }
+      ]
+    }
+  ],
+  "pulls": []
+}

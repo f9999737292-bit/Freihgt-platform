@@ -1,0 +1,34 @@
+{
+  "repository": "f9999737292-bit/Freihgt-platform",
+  "runs": [
+    {
+      "id": 45708990002,
+      "name": "CI",
+      "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
+      "event": "fixture",
+      "jobs": [
+        {
+          "name": "cancelled-job",
+          "conclusion": "cancelled",
+          "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
+          "log_excerpt": "cancelled by operator"
+        }
+      ]
+    },
+    {
+      "id": 45708990003,
+      "name": "CI",
+      "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
+      "event": "fixture",
+      "jobs": [
+        {
+          "name": "timed-out-job",
+          "conclusion": "timed_out",
+          "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
+          "log_excerpt": "timeout"
+        }
+      ]
+    }
+  ],
+  "pulls": []
+}
