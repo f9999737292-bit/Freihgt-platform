@@ -28,9 +28,11 @@ def github_api_calls(text: str) -> list[str]:
     return calls
 
 
-def permissions_for_calls(calls: list[str]) -> dict[str, str]:
+def permissions_for_calls(calls: list[str], text: str = "") -> dict[str, str]:
     """Map each GET path to the workflow permission that endpoint needs."""
     needed: dict[str, str] = {}
+    if "actions/checkout@" in text:
+        needed["contents"] = "read"
     for call in calls:
         if "/actions/" in call:
             needed["actions"] = "read"
@@ -42,6 +44,8 @@ def permissions_for_calls(calls: list[str]) -> dict[str, str]:
             needed["contents"] = "read"
         else:
             needed[f"unmapped:{call}"] = "read"
+    if "bintrans_monitor.cli" in text:
+        needed["actions"] = "read"
     return needed
 
 
@@ -70,9 +74,13 @@ def inspect_workflow(text: str) -> dict:
             if stripped.startswith(key + ":"):
                 permissions[key] = stripped.split(":", 1)[1].strip()
     calls = github_api_calls(text)
-    required = permissions_for_calls(calls)
+    required = permissions_for_calls(calls, text)
     stop_at = text.find("AUTOPILOT_EMERGENCY_STOP")
     get_at = text.find("gh api --method GET")
+    uses_at = text.find("\n        uses:")
+    if uses_at < 0:
+        uses_at = text.find("\n      uses:")
+    pinned = "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683" in text
     return {
         "triggers": triggers,
         "permissions": permissions,
@@ -85,10 +93,14 @@ def inspect_workflow(text: str) -> dict:
         "timeout_10": "timeout-minutes: 10" in text,
         "forbidden_hits": [snippet for snippet in forbidden_snippets() if snippet in text],
         "dispatch_only": triggers == ["workflow_dispatch"],
-        "permissions_exact": permissions == required and permissions == {"actions": "read", "pull-requests": "read"},
+        "permissions_exact": permissions == required and all(value == "read" for value in permissions.values()),
         "continue_on_error": "continue-on-error" in text,
         "always_if": "if: always()" in text or "always()" in text,
-        "uses_steps": "\n        uses:" in text or "\n      uses:" in text,
+        "uses_steps": uses_at != -1,
+        "checkout_after_stop": stop_at != -1 and uses_at != -1 and stop_at < uses_at,
+        "classifier_invoked": "python3 -m bintrans_monitor.cli" in text,
+        "checkout_pinned": pinned and "persist-credentials: false" in text and "ref: ${{ github.sha }}" in text,
+        "raw_json_logged": "cat \"$tmp" in text or "set -x" in text or "echo \"$GH_TOKEN\"" in text,
     }
 
 

@@ -6,12 +6,19 @@
       "name": "CI",
       "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
       "event": "fixture",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1,
       "jobs": [
         {
+          "id": 90005,
           "name": "example-unit",
+          "status": "completed",
           "conclusion": "success",
+          "run_attempt": 1,
           "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "log_excerpt": "sha does not match the run"
+          "log_excerpt": "sha does not match the run",
+          "log_excerpt_verified": false
         }
       ]
     }

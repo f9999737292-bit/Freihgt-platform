@@ -1,18 +1,27 @@
 name: BINTRANS autopilot monitor
 
-# CANDIDATE. Not published. Not scheduled.
-# workflow_dispatch is the only trigger.
-# This file does not call the write-capable dispatcher and does not call a paid model.
-# GITHUB_TOKEN permissions in this file are not GitHub App installation permissions.
-# The key metadata is omitted: the official workflow syntax fetched on 2026-11-26
-# does not list it. artifact-metadata is a different permission and is not granted.
+# CANDIDATE. Not published. Not scheduled. Not dispatched from this repository path.
+# PROTOTYPE ONLY. This file fetches one Actions run and runs the Python classifier.
+# A green candidate job does not prove that project CI succeeded.
+# PHASE_A_RUNTIME_READY=NO
+# The key metadata is omitted: the official workflow syntax does not list it.
+# artifact-metadata is a different permission and is not granted.
 
 on:
   workflow_dispatch:
+    inputs:
+      run_id:
+        description: Actions run id to classify
+        required: true
+        type: string
+      head_sha:
+        description: Expected 40-character head SHA of that run
+        required: true
+        type: string
 
 permissions:
   actions: read
-  pull-requests: read
+  contents: read
 
 concurrency:
   group: bintrans-autopilot-monitor
@@ -20,7 +29,7 @@ concurrency:
 
 jobs:
   report:
-    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'f9999737292-bit/Freihgt-platform' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -36,15 +45,60 @@ jobs:
           fi
           echo "EMERGENCY_STOP_CONTROL=EXPLICIT_FALSE"
 
-      - name: Read workflow runs and open pull requests
+      - name: Reject an untrusted repository ref or identifier
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          RUN_ID: ${{ inputs.run_id }}
+          EXPECTED_SHA: ${{ inputs.head_sha }}
         run: |
           set -eu
-          gh api --method GET "repos/${REPOSITORY}/actions/runs?per_page=20"
-          gh api --method GET "repos/${REPOSITORY}/actions/runs?status=failure&per_page=20"
-          gh api --method GET "repos/${REPOSITORY}/pulls?state=open&per_page=20"
-          echo "MONITOR=REPORT"
-          echo "PAID_CALLS=0"
-          echo "GITHUB_WRITES=0"
+          if [ "$GITHUB_REPOSITORY" != "f9999737292-bit/Freihgt-platform" ]; then
+            echo "MONITOR_ERROR=repository_rejected"
+            exit 3
+          fi
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "MONITOR_ERROR=ref_rejected"
+            exit 3
+          fi
+          if [ -n "$GITHUB_HEAD_REF" ]; then
+            echo "MONITOR_ERROR=untrusted_head_rejected"
+            exit 3
+          fi
+          printf '%s' "$GITHUB_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$EXPECTED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$RUN_ID" | grep -Eq '^[0-9]{1,12}$'
+
+      - name: Checkout the trusted main commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: f9999737292-bit/Freihgt-platform
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Classify the selected run
+        env:
+          AUTOPILOT_EMERGENCY_STOP: ${{ vars.AUTOPILOT_EMERGENCY_STOP }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ inputs.run_id }}
+          EXPECTED_SHA: ${{ inputs.head_sha }}
+          PYTHONPATH: ${{ github.workspace }}/tools/bintrans_autopilot_monitor/src
+        run: |
+          set -eu
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          gh api --method GET "repos/${REPOSITORY}/actions/runs/${RUN_ID}" > "$tmp/run.json"
+          page=1
+          while [ "$page" -le 50 ]; do
+            gh api --method GET "repos/${REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100&page=${page}" > "$tmp/jobs-${page}.json"
+            count=$(python3 -m bintrans_monitor.cli --jobs-on-page "$tmp/jobs-${page}.json")
+            if [ "$count" -lt 100 ]; then
+              break
+            fi
+            page=$((page + 1))
+          done
+          python3 -m bintrans_monitor.cli --api-run "$tmp/run.json" --api-jobs-dir "$tmp" --run-id "$RUN_ID" --expected-sha "$EXPECTED_SHA" --repository "$REPOSITORY"
