@@ -21,8 +21,15 @@ const (
 	ResourceStatusPublished = "published"
 )
 
-// AuthContext is a verified server-side authority context.
-// It MUST NOT be constructed from client X-Tenant-ID / X-User-ID / X-Company-ID headers.
+// AuthContext is an in-process authority carrier for Evaluate (J-W1.3-M001).
+//
+// TRUST BOUNDARY (normative for future HTTP wiring; NOT implemented in this package):
+//   - JWT/signature verification, membership resolution, and permission mapping MUST be
+//     performed by server-owned gateway/identity layers BEFORE calling NewServerAuthContext.
+//   - TrustedServerOrigin=true is an explicit caller attestation, NOT cryptographic proof.
+//   - Raw client headers X-Tenant-ID / X-User-ID / X-Company-ID MUST NEVER be passed here.
+//   - AUTHCONTEXT_PRODUCTION_TRUST=DEFERRED_GATE until an integration boundary is reviewed.
+//   - PUBLIC_API_READY remains NO for this package.
 type AuthContext struct {
 	TenantID            string
 	ActorID             string
@@ -30,11 +37,12 @@ type AuthContext struct {
 	MembershipVerified  bool
 	MembershipActive    bool
 	Permissions         map[string]struct{}
-	TrustedServerOrigin bool // must be true; forged/header-built contexts fail closed
+	TrustedServerOrigin bool // required true; still not a JWT proof by itself (J-W1.3-M001)
 }
 
 // NewServerAuthContext builds an AuthContext from already-verified server identity.
 // Callers must pass only gateway/JWT-resolved values — never raw client headers.
+// This constructor does not verify JWT; production trust is a deferred integration gate.
 func NewServerAuthContext(tenantID, actorID, companyID string, membershipVerified, membershipActive bool, perms []string) (AuthContext, error) {
 	if strings.TrimSpace(tenantID) == "" || strings.TrimSpace(actorID) == "" {
 		return AuthContext{}, authErr("MISSING_AUTH_CONTEXT", "tenant_id and actor_id are required")

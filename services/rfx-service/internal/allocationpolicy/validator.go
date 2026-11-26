@@ -60,7 +60,49 @@ func ValidatePolicy(p *Policy) error {
 		return validationErr("INVALID_WEIGHT_SUM",
 			fmt.Sprintf("ADDITIVE_WEIGHTS score weights sum to %s; required exactly 1.00", state.weightSum.String()))
 	}
+
+	// J-W1.3-H003: OR/NOT subtrees must be pure HARD (no SCORE/PREFERENCE/…).
+	if err := validateBooleanHardTree(&p.Root, false); err != nil {
+		return err
+	}
 	return nil
+}
+
+// validateBooleanHardTree enforces W1.3 R2 fail-closed boolean structure (J-W1.3-C001/H003).
+// underPureHard=true means we are inside OR or NOT: only FILTER/FLOOR/CAP and pure boolean nodes allowed.
+func validateBooleanHardTree(n *Node, underPureHard bool) error {
+	if n == nil {
+		return validationErr("NIL_NODE", "node is nil")
+	}
+	switch n.Kind {
+	case NodeKindAnd:
+		// AND may mix HARD and non-HARD at top/structural level, but when nested under OR/NOT
+		// the entire AND subtree must itself be pure HARD.
+		childPure := underPureHard
+		for i := range n.Args {
+			if err := validateBooleanHardTree(&n.Args[i], childPure); err != nil {
+				return err
+			}
+		}
+		return nil
+	case NodeKindOr, NodeKindNot:
+		for i := range n.Args {
+			if err := validateBooleanHardTree(&n.Args[i], true); err != nil {
+				return err
+			}
+		}
+		return nil
+	case NodeKindFilter, NodeKindFloor, NodeKindCap:
+		return nil
+	case NodeKindScore, NodeKindPreference, NodeKindFallback, NodeKindApproval, NodeKindAction:
+		if underPureHard {
+			return validationErr("MIXED_HARD_NONHARD_BOOLEAN_TREE",
+				fmt.Sprintf("%s is not a HARD predicate and cannot appear under OR/NOT", n.Kind))
+		}
+		return nil
+	default:
+		return validationErr("UNKNOWN_NODE_KIND", string(n.Kind))
+	}
 }
 
 type validateState struct {

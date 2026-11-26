@@ -277,6 +277,10 @@ func (st *evalState) evalHard(n *Node) (Tri, error) {
 	case NodeKindAnd:
 		acc := TriTrue
 		for i := range n.Args {
+			// Skip non-HARD siblings under AND — they must never prove eligibility.
+			if isNonHardLeaf(n.Args[i].Kind) {
+				continue
+			}
 			t, err := st.evalHard(&n.Args[i])
 			if err != nil {
 				return TriUnknown, err
@@ -285,6 +289,10 @@ func (st *evalState) evalHard(n *Node) (Tri, error) {
 		}
 		return acc, nil
 	case NodeKindOr:
+		// Defensive: OR must be pure HARD (also enforced in ValidatePolicy).
+		if err := validateBooleanHardTree(n, true); err != nil {
+			return TriUnknown, err
+		}
 		acc := TriFalse
 		for i := range n.Args {
 			t, err := st.evalHard(&n.Args[i])
@@ -295,6 +303,9 @@ func (st *evalState) evalHard(n *Node) (Tri, error) {
 		}
 		return acc, nil
 	case NodeKindNot:
+		if err := validateBooleanHardTree(n, true); err != nil {
+			return TriUnknown, err
+		}
 		t, err := st.evalHard(&n.Args[0])
 		if err != nil {
 			return TriUnknown, err
@@ -320,9 +331,21 @@ func (st *evalState) evalHard(n *Node) (Tri, error) {
 		}
 		return t, nil
 	case NodeKindScore, NodeKindPreference, NodeKindFallback, NodeKindApproval, NodeKindAction:
-		return TriTrue, nil // not HARD eligibility predicates
+		// Non-HARD leaves are AND-neutral (skipped by parent AND) / root-no-HARD.
+		// They must never appear under OR/NOT — enforced by ValidatePolicy + OR/NOT guards above.
+		// Returning TRUE here must not be reachable under OR/NOT after those guards.
+		return TriTrue, nil
 	default:
 		return TriUnknown, validationErr("UNKNOWN_NODE_KIND", string(n.Kind))
+	}
+}
+
+func isNonHardLeaf(k NodeKind) bool {
+	switch k {
+	case NodeKindScore, NodeKindPreference, NodeKindFallback, NodeKindApproval, NodeKindAction:
+		return true
+	default:
+		return false
 	}
 }
 
