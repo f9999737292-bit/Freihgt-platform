@@ -329,6 +329,7 @@
       "confirmAward": "Подтвердить награждение",
       "awardSuccess": "Победитель определён",
       "awardFailed": "Не удалось наградить",
+      "awardNotPermitted": "Награждение недоступно для текущей роли или компании",
       "decisionHistory": "История решений",
       "noHistory": "Событий пока нет",
       "transportOrders": "Транспортные заказы",

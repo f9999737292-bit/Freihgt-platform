@@ -5,6 +5,7 @@ import type { EvaluationResponseItem, AuditEventItem, AwardTransportOrderItem } 
 import { formatMoney, sortEvaluationItems } from '~/types/evaluation'
 import { formatRfxDate } from '~/types/rfx'
 import { shouldShowNotFound, isApiUnavailableError } from '~/utils/apiError'
+import { ApiError } from '~/utils/apiClient'
 import type { V3ScoreExplanation, V3ScoreLoadState } from '~/types/rfx-score'
 import { useRfxScoreApi } from '~/composables/useRfxScoreApi'
 import PageHeader from '~/components/ui/PageHeader.vue'
@@ -20,8 +21,8 @@ definePageMeta({ middleware: 'auth', layout: 'default' })
 const route = useRoute()
 const { getRfxEvent } = useRfxApi()
 const { listCompanies } = useCompanies()
-const { setCompany } = useTenantContext()
-const { canManageTenders } = usePermissions()
+const { setCompany, currentCompanyId } = useTenantContext()
+const { canManageTenders, canBuyerAwardManage } = usePermissions()
 const {
   listEvaluationResponses,
   recalculateEvaluation,
@@ -54,6 +55,7 @@ const apiUnavailable = ref(false)
 const showAwardModal = ref(false)
 const showConversionModal = ref(false)
 const awardTarget = ref<EvaluationResponseItem | null>(null)
+const awardCompanyId = ref<string | null>(null)
 const transportOrders = ref<AwardTransportOrderItem[]>([])
 const v3ModelPublished = ref(false)
 const showExplainModal = ref(false)
@@ -206,6 +208,7 @@ async function loadWorkspace() {
 }
 
 async function handleRecalculate() {
+  if (!canBuyerAwardManage()) return
   acting.value = true
   try {
     items.value = await recalculateEvaluation(eventId.value)
@@ -218,6 +221,7 @@ async function handleRecalculate() {
 }
 
 async function toggleShortlist(item: EvaluationResponseItem) {
+  if (!canBuyerAwardManage()) return
   acting.value = true
   try {
     if (item.shortlisted) await removeFromShortlist(item.id)
@@ -231,21 +235,43 @@ async function toggleShortlist(item: EvaluationResponseItem) {
   }
 }
 
+function selectedCompanyMatchesAward(): boolean {
+  if (!awardCompanyId.value) return false
+  return currentCompanyId.value === awardCompanyId.value
+}
+
+function closeAwardConfirm() {
+  showAwardModal.value = false
+  awardTarget.value = null
+  awardCompanyId.value = null
+}
+
 function openAwardConfirm(item: EvaluationResponseItem) {
+  if (!canBuyerAwardManage() || !currentCompanyId.value) return
   awardTarget.value = item
+  awardCompanyId.value = currentCompanyId.value
   showAwardModal.value = true
 }
 
 async function confirmAward() {
-  if (!awardTarget.value) return
+  if (acting.value || !awardTarget.value) return
+  if (!canBuyerAwardManage() || !selectedCompanyMatchesAward()) {
+    closeAwardConfirm()
+    pushToast('error', t('tenders.evaluation.awardNotPermitted'))
+    return
+  }
   acting.value = true
   try {
     await awardResponse(eventId.value, awardTarget.value.id)
     pushToast('success', t('tenders.evaluation.awardSuccess'))
-    showAwardModal.value = false
-    awardTarget.value = null
+    closeAwardConfirm()
     await loadWorkspace()
   } catch (error) {
+    if (error instanceof ApiError && error.status === 403) {
+      closeAwardConfirm()
+      pushToast('error', t('tenders.evaluation.awardNotPermitted'))
+      return
+    }
     pushToast('error', error instanceof Error ? error.message : t('tenders.evaluation.awardFailed'))
   } finally {
     acting.value = false
@@ -287,7 +313,7 @@ onMounted(loadCompanies)
     <PageHeader :title="t('tenders.evaluation.title')" :subtitle="event?.title">
       <template #actions>
         <Button variant="secondary" @click="$router.push(`/tenders/${eventId}`)">{{ t('common.back') }}</Button>
-        <Button v-if="canManageTenders()" :loading="acting" @click="handleRecalculate">
+        <Button v-if="canBuyerAwardManage()" data-testid="evaluation-recalculate" :loading="acting" @click="handleRecalculate">
           {{ t('tenders.evaluation.recalculate') }}
         </Button>
       </template>
@@ -337,9 +363,10 @@ onMounted(loadCompanies)
               <td>{{ item.rank || '—' }}</td>
               <td>
                 <Button
-                  v-if="canManageTenders()"
+                  v-if="canBuyerAwardManage()"
                   size="sm"
                   variant="secondary"
+                  data-testid="evaluation-shortlist"
                   :disabled="acting"
                   @click="toggleShortlist(item)"
                 >
@@ -352,7 +379,7 @@ onMounted(loadCompanies)
               </td>
               <td>
                 <Button
-                  v-if="canManageTenders() && !item.awarded && item.offer_complete"
+                  v-if="canBuyerAwardManage() && !item.awarded && item.offer_complete"
                   size="sm"
                   variant="danger"
                   data-testid="evaluation-award"
@@ -430,7 +457,7 @@ onMounted(loadCompanies)
       </p>
       <template #footer>
         <Button variant="secondary" @click="showAwardModal = false">{{ t('common.cancel') }}</Button>
-        <Button variant="danger" data-testid="evaluation-award-confirm" :loading="acting" @click="confirmAward">{{ t('tenders.evaluation.confirmAward') }}</Button>
+        <Button v-if="canBuyerAwardManage()" variant="danger" data-testid="evaluation-award-confirm" :loading="acting" @click="confirmAward">{{ t('tenders.evaluation.confirmAward') }}</Button>
       </template>
     </Modal>
 
