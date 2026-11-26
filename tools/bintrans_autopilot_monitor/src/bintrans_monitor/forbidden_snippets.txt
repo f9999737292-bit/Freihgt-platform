@@ -1,0 +1,23 @@
+# Snippets that must not appear in the monitor workflow candidate.
+contents: write
+issues: write
+pull-requests: write
+id-token:
+deployments:
+metadata:
+artifact-metadata:
+api.cursor.com
+CURSOR_
+bintrans_autopilot
+actions/checkout
+schedule:
+pull_request:
+pull_request_target:
+repository_dispatch:
+--method POST
+--method PUT
+--method PATCH
+--method DELETE
+self-hosted
+read-all
+write-all

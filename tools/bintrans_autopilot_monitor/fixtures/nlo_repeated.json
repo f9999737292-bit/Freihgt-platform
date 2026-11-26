@@ -1,0 +1,47 @@
+{
+  "repository": "f9999737292-bit/Freihgt-platform",
+  "runs": [
+    {
+      "id": 45708992126,
+      "name": "CI",
+      "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
+      "event": "pull_request",
+      "jobs": [
+        {
+          "name": "network-optimizer-chain-persistence-integration",
+          "conclusion": "failure",
+          "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
+          "log_excerpt": "embedded postgres: no version found matching 16.4.0"
+        }
+      ]
+    },
+    {
+      "id": 90000000002,
+      "name": "CI",
+      "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
+      "event": "fixture",
+      "jobs": [
+        {
+          "name": "network-optimizer-chain-persistence-integration",
+          "conclusion": "failure",
+          "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
+          "log_excerpt": "embedded postgres: no version found matching 16.4.0"
+        }
+      ]
+    }
+  ],
+  "pulls": [
+    {
+      "number": 411,
+      "draft": true,
+      "state": "open",
+      "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619"
+    },
+    {
+      "number": 403,
+      "draft": true,
+      "state": "open",
+      "head_sha": "a068ab6af64f14699304752956a192746dc23bf7"
+    }
+  ]
+}
