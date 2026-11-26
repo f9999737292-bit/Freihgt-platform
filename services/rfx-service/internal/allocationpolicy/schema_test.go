@@ -12,6 +12,12 @@ func TestSchemaConstants_W11Vocabulary(t *testing.T) {
 	if SharePolicyModeDefault != SharePolicyModeCapOnly {
 		t.Fatalf("default share mode=%q", SharePolicyModeDefault)
 	}
+	if ScoringModelAdditiveWeights != "ADDITIVE_WEIGHTS" {
+		t.Fatalf("scoring model=%q", ScoringModelAdditiveWeights)
+	}
+	if MaxASTDepth != 16 || MaxASTNodes != 256 || MaxINSetSize != 64 || MaxStringLength != 256 {
+		t.Fatalf("bounds mismatch depth=%d nodes=%d inset=%d strlen=%d", MaxASTDepth, MaxASTNodes, MaxINSetSize, MaxStringLength)
+	}
 
 	kinds := []NodeKind{
 		NodeKindFilter, NodeKindScore, NodeKindPreference, NodeKindCap,
