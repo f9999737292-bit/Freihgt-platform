@@ -88,3 +88,21 @@ Working directory: `D:\Projects\freight-platform-wt\autopilot-monitor-0.5a\tools
 RESULT: `Ran 37 tests in 0.050s` `OK`
 
 That is MON-001 through MON-036 and the stop-gate test. These runs do not prove a GitHub-hosted workflow.
+
+## 0.5B local rerun
+
+The MON-001 row above is the historical R2 result. The inactive 0.5 candidate grants `actions: read` and `contents: read`. It does not grant `pull-requests: read`.
+
+COMMAND:
+
+```text
+python -m unittest discover -s tests -v
+```
+
+Working directory: `D:\Projects\freight-platform-wt\autopilot-monitor-0.5a\tools\bintrans_autopilot_monitor`
+
+RESULT: `Ran 47 tests in 0.064s` `OK`
+
+The previous 37 tests stayed green. MON-037 through MON-046 were added. MON-037 keeps job `101` success and job `102` failure when both are named `backend`, and the report is `FAILURE` with exit 1. MON-038 keeps a run conclusion of `failure` as `FAILURE` when the visible job succeeded. MON-045 keeps an adapter payload with an NLO-looking excerpt at `unclassified_failure`. These runs do not prove a GitHub-hosted workflow.
+
+Product-backed command, same five tests, working directory `D:\Projects\freight-platform-wt\autopilot-monitor-0.5a\tools\bintrans_autopilot\tests`. `git diff 0d6024f21d863824ed2772112a3f581e30f4171f 3680fc5e5cfcb28f8ac35ef1ab9a0093d5129467 -- tools/bintrans_autopilot .github/workflows` was empty. RESULT: `Ran 5 tests in 0.009s` `OK`. PostgreSQL budget proof remains `NOT_RUN`.

@@ -367,7 +367,15 @@ class MonitorTests(unittest.TestCase):
             (root / f"jobs-{index}.json").write_text(json.dumps(page), encoding="utf-8")
         return root
 
-    def _completed_run(self, run_id, name, conclusion, jobs, workflow="CI"):
+    def _completed_run(self, run_id, name, conclusion, jobs, workflow="CI", attempt=1):
+        del name
+        stamped = []
+        for index, job in enumerate(jobs, start=1):
+            row = dict(job)
+            row.setdefault("id", int(run_id) * 100 + index)
+            row.setdefault("run_attempt", attempt)
+            row.setdefault("status", "completed")
+            stamped.append(row)
         return {
             "id": run_id,
             "name": workflow,
@@ -375,9 +383,38 @@ class MonitorTests(unittest.TestCase):
             "event": "workflow_dispatch",
             "status": "completed",
             "conclusion": conclusion,
+            "run_attempt": attempt,
         }, {
-            "total_count": len(jobs),
-            "jobs": jobs,
+            "total_count": len(stamped),
+            "jobs": stamped,
+        }
+
+    def _direct(self, run_id, conclusion, jobs, attempt=1, status="completed"):
+        return {
+            "repository": EXPECTED_REPOSITORY,
+            "runs": [
+                {
+                    "id": run_id,
+                    "name": "CI",
+                    "head_sha": SHA,
+                    "event": "fixture",
+                    "status": status,
+                    "conclusion": conclusion,
+                    "run_attempt": attempt,
+                    "jobs": jobs,
+                }
+            ],
+            "pulls": [],
+        }
+
+    def _job(self, job_id, name, conclusion, attempt=1, sha=SHA):
+        return {
+            "id": job_id,
+            "name": name,
+            "status": "completed",
+            "conclusion": conclusion,
+            "run_attempt": attempt,
+            "head_sha": sha,
         }
 
     def test_mon_017_api_payload_matches_engine_input(self):
@@ -533,12 +570,13 @@ class MonitorTests(unittest.TestCase):
             "event": "workflow_dispatch",
             "status": "completed",
             "conclusion": "cancelled",
+            "run_attempt": 1,
         }
         page = {
             "total_count": 2,
             "jobs": [
-                {"run_id": 88, "name": "cancelled-job", "status": "completed", "conclusion": "cancelled", "head_sha": SHA},
-                {"run_id": 88, "name": "timed-out-job", "status": "completed", "conclusion": "timed_out", "head_sha": SHA},
+                {"id": 8801, "run_id": 88, "run_attempt": 1, "name": "cancelled-job", "status": "completed", "conclusion": "cancelled", "head_sha": SHA},
+                {"id": 8802, "run_id": 88, "run_attempt": 1, "name": "timed-out-job", "status": "completed", "conclusion": "timed_out", "head_sha": SHA},
             ],
         }
         payload = assemble(run, [page], EXPECTED_REPOSITORY, 88)
@@ -611,7 +649,28 @@ class MonitorTests(unittest.TestCase):
             workflow="CI",
         )
         payload = assemble(run, [page], EXPECTED_REPOSITORY, 45708992126)
-        report = run_monitor(allow(), FixtureTransport(payload), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(payload["runs"][0]["jobs"][0]["log_excerpt"], "")
+        self.assertIs(payload["runs"][0]["jobs"][0]["log_excerpt_verified"], False)
+        hosted = run_monitor(allow(), FixtureTransport(payload), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(hosted.observations[0]["signature"], "unclassified_failure")
+        self.assertNotIn("KNOWN_ERROR_SIGNATURE", hosted.observations[0]["labels"])
+        verified = self._direct(
+            45708992126,
+            "failure",
+            [
+                {
+                    "id": 90026,
+                    "name": "network-optimizer-chain-persistence-integration",
+                    "status": "completed",
+                    "conclusion": "failure",
+                    "run_attempt": 1,
+                    "head_sha": SHA,
+                    "log_excerpt": "embedded postgres: no version found matching 16.4.0",
+                    "log_excerpt_verified": True,
+                }
+            ],
+        )
+        report = run_monitor(allow(), FixtureTransport(verified), EXPECTED_REPOSITORY, expected_sha=SHA)
         row = report.observations[0]
         self.assertEqual(row["labels"], ["KNOWN_ERROR_SIGNATURE", "ENVIRONMENT_SUSPECTED", "ROOT_CAUSE_UNCONFIRMED"])
         self.assertEqual(row["ci_result"], "FAILURE")
@@ -619,24 +678,25 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(report.exit_code, EXIT_CI_NOT_SUCCESS)
 
     def test_mon_031_playwright_apt_404_is_not_a_confirmed_cause(self):
-        known, known_page = self._completed_run(
+        verified = self._direct(
             91,
-            "rfx-buyer-xlsx-browser-e2e",
             "failure",
             [
                 {
-                    "run_id": 91,
+                    "id": 9101,
                     "name": "rfx-buyer-xlsx-browser-e2e",
                     "status": "completed",
                     "conclusion": "failure",
+                    "run_attempt": 1,
                     "head_sha": SHA,
                     "log_excerpt": "Ubuntu APT 404 while fetching libasound2t64 for Playwright Chromium",
+                    "log_excerpt_verified": True,
                 }
             ],
         )
         known_report = run_monitor(
             allow(),
-            FixtureTransport(assemble(known, [known_page], EXPECTED_REPOSITORY, 91)),
+            FixtureTransport(verified),
             EXPECTED_REPOSITORY,
             expected_sha=SHA,
         )
@@ -748,6 +808,174 @@ class MonitorTests(unittest.TestCase):
         text = WORKFLOW.read_text(encoding="utf-8")
         self.assertNotIn("|| true", text)
         self.assertNotIn("continue-on-error", text)
+
+    def test_mon_037_duplicate_job_name_keeps_failure(self):
+        payload = self._direct(
+            501,
+            "failure",
+            [
+                self._job(101, "backend", "success"),
+                self._job(102, "backend", "failure"),
+            ],
+        )
+        report = run_monitor(allow(), FixtureTransport(payload), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual([row["job_id"] for row in report.observations], [101, 102])
+        self.assertEqual(report.ci_result, "FAILURE")
+        self.assertEqual(report.exit_code, EXIT_CI_NOT_SUCCESS)
+        reversed_payload = self._direct(
+            501,
+            "failure",
+            [
+                self._job(102, "backend", "failure"),
+                self._job(101, "backend", "success"),
+            ],
+        )
+        reversed_report = run_monitor(allow(), FixtureTransport(reversed_payload), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(reversed_report.ci_result, "FAILURE")
+        self.assertEqual(reversed_report.exit_code, EXIT_CI_NOT_SUCCESS)
+        self.assertEqual(len(reversed_report.observations), 2)
+
+    def test_mon_038_run_failure_overrides_successful_jobs(self):
+        payload = self._direct(502, "failure", [self._job(201, "backend", "success")])
+        report = run_monitor(allow(), FixtureTransport(payload), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(report.observations[0]["ci_result"], "SUCCESS")
+        self.assertEqual(report.ci_result, "FAILURE")
+        self.assertEqual(report.exit_code, EXIT_CI_NOT_SUCCESS)
+
+    def test_mon_039_run_success_does_not_hide_job_failure(self):
+        payload = self._direct(
+            503,
+            "success",
+            [self._job(301, "backend", "success"), self._job(302, "backend", "failure")],
+        )
+        report = run_monitor(allow(), FixtureTransport(payload), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(report.ci_result, "FAILURE")
+        self.assertEqual(report.exit_code, EXIT_CI_NOT_SUCCESS)
+
+    def test_mon_040_incomplete_or_contradictory_data_is_not_success(self):
+        missing_conclusion = self._direct(504, None, [self._job(401, "backend", "success")])
+        missing = run_monitor(allow(), FixtureTransport(missing_conclusion), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(missing.ci_result, "UNKNOWN")
+        self.assertEqual(missing.exit_code, EXIT_UNKNOWN)
+        incomplete = self._direct(505, "success", [self._job(402, "backend", "success")])
+        incomplete["runs"][0]["jobs_incomplete"] = True
+        incomplete_report = run_monitor(allow(), FixtureTransport(incomplete), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(incomplete_report.ci_result, "UNKNOWN")
+        self.assertEqual(incomplete_report.error, "jobs_incomplete")
+        empty = self._direct(506, "success", [])
+        empty_report = run_monitor(allow(), FixtureTransport(empty), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(empty_report.error, "jobs_empty")
+        self.assertNotEqual(empty_report.ci_result, "SUCCESS")
+        pending = self._direct(507, None, [self._job(403, "backend", "success")], status="in_progress")
+        pending_report = run_monitor(allow(), FixtureTransport(pending), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(pending_report.ci_result, "PENDING")
+        self.assertNotEqual(pending_report.exit_code, 0)
+
+    def test_mon_041_missing_or_duplicate_job_id_fails_closed(self):
+        missing = self._direct(
+            508,
+            "success",
+            [
+                {
+                    "name": "backend",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "run_attempt": 1,
+                    "head_sha": SHA,
+                }
+            ],
+        )
+        missing_report = run_monitor(allow(), FixtureTransport(missing), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(missing_report.error, "job_id_missing")
+        self.assertEqual(missing_report.ci_result, "ERROR")
+        self.assertEqual(missing_report.exit_code, EXIT_UNKNOWN)
+        conflict = self._direct(
+            509,
+            "success",
+            [self._job(101, "backend", "success"), self._job(101, "backend", "failure")],
+        )
+        conflict_report = run_monitor(allow(), FixtureTransport(conflict), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(conflict_report.error, "job_id_conflict")
+        self.assertEqual(conflict_report.ci_result, "ERROR")
+        self.assertNotEqual(conflict_report.exit_code, 0)
+
+    def test_mon_042_run_attempt_mismatch_is_not_success(self):
+        payload = self._direct(510, "success", [self._job(601, "backend", "success", attempt=1)], attempt=2)
+        report = run_monitor(allow(), FixtureTransport(payload), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(report.error, "attempt_jobs_missing")
+        self.assertEqual(report.ci_result, "UNKNOWN")
+        self.assertEqual(report.exit_code, EXIT_UNKNOWN)
+        omitted = self._direct(511, "success", [self._job(602, "backend", "success")])
+        del omitted["runs"][0]["run_attempt"]
+        omitted_report = run_monitor(allow(), FixtureTransport(omitted), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual(omitted_report.error, "run_attempt_missing")
+        self.assertNotEqual(omitted_report.ci_result, "SUCCESS")
+
+    def test_mon_043_latest_attempt_is_selected_after_rerun(self):
+        payload = self._direct(
+            512,
+            "success",
+            [
+                self._job(701, "backend", "failure", attempt=1),
+                self._job(801, "backend", "success", attempt=2),
+            ],
+            attempt=2,
+        )
+        report = run_monitor(allow(), FixtureTransport(payload), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual([row["job_id"] for row in report.observations], [801])
+        self.assertEqual(report.ci_result, "SUCCESS")
+        self.assertEqual(report.exit_code, EXIT_REPORT_CLEAR)
+
+    def test_mon_044_old_success_does_not_hide_new_failure(self):
+        payload = self._direct(
+            513,
+            "failure",
+            [
+                self._job(701, "backend", "success", attempt=1),
+                self._job(802, "backend", "failure", attempt=2),
+            ],
+            attempt=2,
+        )
+        report = run_monitor(allow(), FixtureTransport(payload), EXPECTED_REPOSITORY, expected_sha=SHA)
+        self.assertEqual([row["job_id"] for row in report.observations], [802])
+        self.assertEqual(report.observations[0]["ci_result"], "FAILURE")
+        self.assertEqual(report.ci_result, "FAILURE")
+        self.assertEqual(report.exit_code, EXIT_CI_NOT_SUCCESS)
+
+    def test_mon_045_unverified_log_excerpt_is_not_a_known_signature(self):
+        run, page = self._completed_run(
+            45708992126,
+            "network-optimizer-chain-persistence-integration",
+            "failure",
+            [
+                {
+                    "run_id": 45708992126,
+                    "name": "network-optimizer-chain-persistence-integration",
+                    "status": "completed",
+                    "conclusion": "failure",
+                    "head_sha": SHA,
+                    "log_excerpt": "embedded postgres: no version found matching 16.4.0",
+                }
+            ],
+        )
+        payload = assemble(run, [page], EXPECTED_REPOSITORY, 45708992126)
+        report = run_monitor(allow(), FixtureTransport(payload), EXPECTED_REPOSITORY, expected_sha=SHA)
+        row = report.observations[0]
+        self.assertEqual(row["signature"], "unclassified_failure")
+        self.assertNotIn("KNOWN_ERROR_SIGNATURE", row["labels"])
+        self.assertEqual(row["root_cause"], "UNCONFIRMED")
+        self.assertEqual(report.ci_result, "FAILURE")
+        self.assertEqual(report.exit_code, EXIT_CI_NOT_SUCCESS)
+
+    def test_mon_046_classifier_failure_exits_nonzero(self):
+        root = self._api_dir({"id": 1, "head_sha": SHA, "status": "completed", "conclusion": "success", "run_attempt": 1}, [])
+        (root / "jobs-1.json").write_text("{", encoding="utf-8")
+        code, output = self._cli(
+            ["--api-run", str(root / "run.json"), "--api-jobs-dir", str(root), "--run-id", "1", "--expected-sha", SHA, "--repository", EXPECTED_REPOSITORY]
+        )
+        self.assertEqual(code, EXIT_UNKNOWN)
+        self.assertNotEqual(code, 0)
+        self.assertIn("classifier_failed", output)
 
 
 if __name__ == "__main__":

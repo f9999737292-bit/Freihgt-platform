@@ -8,16 +8,6 @@ from __future__ import annotations
 from bintrans_monitor.engine import EXPECTED_REPOSITORY, MonitorError
 
 PAGE_SIZE = 100
-_EXCERPT_LIMIT = 240
-
-
-def _excerpt(value: object) -> str:
-    if not isinstance(value, str):
-        return ""
-    text = value.replace("\r", " ").replace("\n", " ").strip()
-    if len(text) > _EXCERPT_LIMIT:
-        return ""
-    return text
 
 
 def _job_row(job: dict, run_sha: str, run_id: int) -> dict:
@@ -25,12 +15,17 @@ def _job_row(job: dict, run_sha: str, run_id: int) -> dict:
     if foreign is not None and int(foreign) != int(run_id):
         raise MonitorError("run_mixed")
     head = str(job.get("head_sha") or "")
+    # GET /actions/runs/{run_id}/jobs has no log body. A log_excerpt on the
+    # JSON is not a verified log, and this adapter does not download logs.
     return {
+        "id": job.get("id"),
         "name": str(job.get("name") or ""),
         "conclusion": job.get("conclusion"),
         "status": job.get("status"),
         "head_sha": head,
-        "log_excerpt": _excerpt(job.get("log_excerpt")),
+        "run_attempt": job.get("run_attempt"),
+        "log_excerpt": "",
+        "log_excerpt_verified": False,
         "run_sha_expected": run_sha,
     }
 
@@ -90,6 +85,7 @@ def assemble(
                 "event": str(run.get("event") or ""),
                 "status": str(run.get("status") or ""),
                 "conclusion": run.get("conclusion"),
+                "run_attempt": run.get("run_attempt"),
                 "jobs_incomplete": incomplete,
                 "jobs": jobs,
             }

@@ -6,18 +6,29 @@
       "name": "CI",
       "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
       "event": "fixture",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_attempt": 1,
       "jobs": [
         {
+          "id": 90004,
           "name": "example-unit",
+          "status": "completed",
           "conclusion": "failure",
+          "run_attempt": 1,
           "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
-          "log_excerpt": "assertion failed in example test"
+          "log_excerpt": "assertion failed in example test",
+          "log_excerpt_verified": false
         },
         {
+          "id": 90004,
           "name": "example-unit",
+          "status": "completed",
           "conclusion": "failure",
+          "run_attempt": 1,
           "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
-          "log_excerpt": "duplicate row of the same job"
+          "log_excerpt": "duplicate row of the same job",
+          "log_excerpt_verified": false
         }
       ]
     }

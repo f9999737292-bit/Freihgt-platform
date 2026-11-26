@@ -6,12 +6,19 @@
       "name": "CI",
       "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
       "event": "fixture",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1,
       "jobs": [
         {
+          "id": 90001,
           "name": "docs-only-placeholder",
+          "status": "completed",
           "conclusion": "success",
+          "run_attempt": 1,
           "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
-          "log_excerpt": "job completed"
+          "log_excerpt": "job completed",
+          "log_excerpt_verified": false
         }
       ]
     }

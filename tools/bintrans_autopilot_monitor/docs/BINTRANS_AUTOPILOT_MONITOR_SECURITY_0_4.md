@@ -47,7 +47,7 @@ The job `if` also requires `github.event_name == 'workflow_dispatch'` and `githu
 
 ## Stop before read
 
-The first step exits 2 unless `vars.AUTOPILOT_EMERGENCY_STOP` is exactly `false`. The `gh api --method GET` steps are later in the file. There is no checkout step, so a pull-request head is not checked out.
+The first step exits 2 unless `vars.AUTOPILOT_EMERGENCY_STOP` is exactly `false`. Checkout and the `gh api --method GET` steps are later in the file. Checkout is pinned, uses `repository: f9999737292-bit/Freihgt-platform` and `ref: ${{ github.sha }}`, and sets `persist-credentials: false`. A pull-request head is not checked out.
 
 ## Untrusted data
 
@@ -70,3 +70,11 @@ Static tests and fixture runs do not prove GitHub's enforcement of `permissions`
 `J-MON-R3-L001` is addressed in the candidate: GitHub API bodies go to a temporary directory and are removed on exit. The process prints sanitized rows only. A hosted log review was not run.
 
 `J-MON-R2-M003` remains OPEN. `HOSTED_PERMISSION_ENFORCEMENT=NOT_RUN`. This document does not call the monitor production-ready.
+
+## 0.5B current candidate
+
+This section describes the inactive 0.5 candidate. The R2 permission paragraph above describes the earlier unpublished candidate.
+
+The 0.5 candidate grants `actions: read` and `contents: read`. `contents: read` is present because the candidate checks out the trusted repository SHA. It does not grant `pull-requests: read`, `issues: read`, `metadata: read`, or any write permission. `J-0.5A-L001` is this wording difference: the historical MON-001 row in the R2 test report still says `pull-requests: read`.
+
+The candidate does not download job logs. A Jobs API response without a verified excerpt cannot become `KNOWN_ERROR_SIGNATURE`. `J-0.5A-M002` is not fully closed. No live log permission was added.

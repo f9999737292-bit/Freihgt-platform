@@ -6,12 +6,19 @@
       "name": "CI",
       "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
       "event": "fixture",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "run_attempt": 1,
       "jobs": [
         {
+          "id": 90002,
           "name": "cancelled-job",
+          "status": "completed",
           "conclusion": "cancelled",
+          "run_attempt": 1,
           "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
-          "log_excerpt": "cancelled by operator"
+          "log_excerpt": "cancelled by operator",
+          "log_excerpt_verified": false
         }
       ]
     },
@@ -20,12 +27,19 @@
       "name": "CI",
       "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
       "event": "fixture",
+      "status": "completed",
+      "conclusion": "timed_out",
+      "run_attempt": 1,
       "jobs": [
         {
+          "id": 90003,
           "name": "timed-out-job",
+          "status": "completed",
           "conclusion": "timed_out",
+          "run_attempt": 1,
           "head_sha": "0755e2f29c92a96fdf14c4444aa8e3d815c17619",
-          "log_excerpt": "timeout"
+          "log_excerpt": "timeout",
+          "log_excerpt_verified": false
         }
       ]
     }
