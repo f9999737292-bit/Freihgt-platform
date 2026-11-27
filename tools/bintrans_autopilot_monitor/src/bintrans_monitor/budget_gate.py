@@ -516,6 +516,20 @@ class BudgetGate:
         if reason:
             raise BudgetDeny(reason)
 
+    def record_security_incident(self, reason: str, run_id: str = "") -> None:
+        """Block the campaign and keep every reserve. This does not release minutes."""
+        if not isinstance(reason, str) or not reason or len(reason) > 80:
+            raise BudgetDeny("identity_rejected")
+        if any(char not in "abcdefghijklmnopqrstuvwxyz0123456789_" for char in reason):
+            raise BudgetDeny("identity_rejected")
+        if run_id:
+            _identity(run_id, "run_id")
+        with _tx(self._conn):
+            campaign = self._campaign()
+            self._block(campaign["campaign_id"], reason)
+            _audit(self._conn, campaign["campaign_id"], None, "security_incident", reason + ":" + run_id)
+        raise BudgetDeny(reason)
+
     def snapshot(self, dispatch_id: str) -> DispatchOutcome:
         row = self._require(dispatch_id)
         return DispatchOutcome(

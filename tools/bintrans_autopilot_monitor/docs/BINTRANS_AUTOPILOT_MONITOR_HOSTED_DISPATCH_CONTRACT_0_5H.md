@@ -20,7 +20,15 @@ The ledger identity limit is 80 characters, so the workflow uses that tighter bo
 
 Checkout uses the pinned `actions/checkout` commit, `repository: f9999737292-bit/Freihgt-platform`, `ref: inputs.expected_head_sha`, and `persist-credentials: false`. Each job has `timeout-minutes` of at most 10.
 
-The guard does not stop GitHub from scheduling the run. A branch can move after the adapter reads the commit and before GitHub resolves `ref`. The wrong head can consume Actions minutes until the guard exits. `REF_MUTATION_RACE_PROTECTION=DETECT_AFTER_START`. `SHA_GUARD` is not a prevention of that start.
+The guard does not stop GitHub from scheduling the run. A branch can move after the adapter reads the commit and before GitHub resolves `ref`. The wrong head can consume Actions minutes until the guard exits. `REF_MUTATION_RACE_PROTECTION=DETECT_AFTER_START`. `SHA_GUARD` is not a prevention of that start. A commit read that returns a different SHA raises `ref_changed` and does not POST. That reserve stays held.
+
+## Trusted actor and event
+
+GitHub `actor` is the account that started the workflow run. `triggering_actor` is the account that caused this attempt. A rerun can change `triggering_actor` while `actor` stays the same. `TrustedDispatchPrincipal` supplies the numeric actor id, repository id, workflow id, and branch from configuration. Those values are not workflow inputs.
+
+A trusted correlation requires `repository.id`, `workflow_id`, `head_sha`, `head_branch`, `event`, `actor.id`, `triggering_actor.id`, the run id, `run_attempt`, `campaign_id`, and `budget_dispatch_id`. A missing field is `missing_identity`. A different actor id is `actor_rejected` even when the login matches. A different triggering actor is `triggering_actor_rejected`. `event` must be `workflow_dispatch`. `run_attempt` must be 1. A matching actor id does not release a reserve and does not prove the budget gate.
+
+`inspect_run_inventory` returns every supplied run. Filtering the list by actor or event is rejected. An external dispatch, a manual rerun, an unknown actor, an unexpected event, a repeated correlation id, a run without a reservation, or a wrong SHA stays visible and is an incident. The campaign is blocked and the reserve is not released.
 
 ## Correlation
 

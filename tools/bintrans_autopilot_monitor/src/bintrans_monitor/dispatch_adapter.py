@@ -38,6 +38,30 @@ class TrustedRefBinding:
 
 
 @dataclass(frozen=True)
+class TrustedDispatchPrincipal:
+    """Dispatch identity from operator configuration, never from workflow inputs.
+
+    GitHub `actor` is the account that started the workflow run. `triggering_actor`
+    is the account that caused this attempt; a rerun can change it while `actor`
+    stays unchanged. Acceptance uses these numeric ids. A login is not identity,
+    and a matching actor id does not prove the budget gate.
+    """
+
+    actor_id: int
+    repository_id: int
+    workflow_id: int
+    head_branch: str
+
+
+@dataclass(frozen=True)
+class RunInspection:
+    run_id: str
+    disposition: str
+    code: str
+    incident: bool
+
+
+@dataclass(frozen=True)
 class TransportResponse:
     status: int
     body: Mapping[str, object] | None = None
@@ -102,6 +126,13 @@ class GitHubReadAdapter:
     def read_run(self, run_id: str) -> Mapping[str, object]:
         path = f"/repos/{self.repository}/actions/runs/{run_id}"
         return self._get(path)
+
+    def list_runs_path(self, page: int = 1) -> str:
+        if not isinstance(page, int) or isinstance(page, bool) or page < 1 or page > 50:
+            raise BudgetDeny("usage_incomplete")
+        path = f"/repos/{self.repository}/actions/workflows/{self.workflow}/runs?per_page=100&page={page}"
+        _reject_filtered_inventory(path)
+        return path
 
     def read_jobs(self, run_id: str, page: int) -> Mapping[str, object]:
         if not isinstance(page, int) or isinstance(page, bool) or page < 1 or page > 50:
@@ -214,7 +245,7 @@ class GitHubDispatchAdapter(DispatchAdapter):
         except Exception as exc:
             raise DispatchNotSent(redact(str(exc))) from None
         if commit.redirected or commit.body is None or commit.body.get("sha") != request.expected_sha:
-            raise DispatchNotSent("sha_unbound")
+            raise BudgetDeny("ref_changed")
         path = f"/repos/{self.repository}/actions/workflows/{self.workflow}/dispatches"
         _assert_allowed("POST", path, self.repository, self.workflow)
         body = {
@@ -261,33 +292,96 @@ def correlate_run(
     workflow: str,
     campaign_id: str | None = None,
     repository: str | None = None,
+    trusted: TrustedDispatchPrincipal | None = None,
 ) -> str:
     """Match one Actions run by its visible run name or an explicit correlation field.
 
     The run name is the value GitHub returns as name/display_title for run-name.
     A match is not authorization. Zero or several matches stay unknown.
-    created_at and list position are ignored.
+    created_at and list position are ignored. When trusted is set, actor, event,
+    and the other run fields are mandatory. A run that carries this dispatch id
+    is never dropped because its actor or event fails.
     """
+    decision, inspections = inspect_run_inventory(
+        runs,
+        dispatch_id=dispatch_id,
+        expected_sha=expected_sha,
+        workflow=workflow,
+        campaign_id=campaign_id,
+        repository=repository,
+        trusted=trusted,
+    )
+    del inspections
+    if decision.startswith("run:"):
+        return decision[4:]
+    raise BudgetDeny(decision)
+
+
+def inspect_run_inventory(
+    runs: Sequence[Mapping[str, object]],
+    *,
+    dispatch_id: str,
+    expected_sha: str,
+    workflow: str,
+    campaign_id: str | None = None,
+    repository: str | None = None,
+    trusted: TrustedDispatchPrincipal | None = None,
+) -> tuple[str, tuple[RunInspection, ...]]:
+    """Inspect every supplied run. Actor and event filters must not remove one first."""
+    inspections: list[RunInspection] = []
     matches: list[str] = []
-    mismatch = ""
+    incident = ""
     for run in runs:
-        kind, run_id, failure = _classify_correlation(
+        inspection = _inspect_run(
             run,
             dispatch_id=dispatch_id,
             expected_sha=expected_sha,
             workflow=workflow,
             campaign_id=campaign_id,
             repository=repository,
+            trusted=trusted,
         )
-        if kind == "match" and run_id:
-            matches.append(run_id)
-        elif kind == "mismatch" and not mismatch:
-            mismatch = failure or "sha_mismatch"
-    if mismatch:
-        raise BudgetDeny(mismatch)
+        inspections.append(inspection)
+        if inspection.disposition == "match":
+            matches.append(inspection.run_id)
+        elif inspection.incident and not incident:
+            incident = inspection.code
+    if incident:
+        return incident, tuple(inspections)
     if len(matches) != 1:
-        raise BudgetDeny("dispatch_unknown")
-    return matches[0]
+        return "dispatch_unknown", tuple(inspections)
+    return "run:" + matches[0], tuple(inspections)
+
+
+def _inspect_run(
+    run: Mapping[str, object],
+    *,
+    dispatch_id: str,
+    expected_sha: str,
+    workflow: str,
+    campaign_id: str | None,
+    repository: str | None,
+    trusted: TrustedDispatchPrincipal | None,
+) -> RunInspection:
+    run_id = run.get("id")
+    identity = str(run_id) if isinstance(run_id, (str, int)) and not isinstance(run_id, bool) else ""
+    kind, failure = _classify_correlation(
+        run,
+        dispatch_id=dispatch_id,
+        expected_sha=expected_sha,
+        workflow=workflow,
+        campaign_id=campaign_id,
+        repository=repository,
+        trusted=trusted,
+    )
+    if kind == "match":
+        return RunInspection(identity, "match", "match", False)
+    if kind == "mismatch":
+        return RunInspection(identity, "mismatch", failure or "sha_mismatch", True)
+    external = _external_signal(run, workflow=workflow, trusted=trusted)
+    if external:
+        return RunInspection(identity, "external", external, True)
+    return RunInspection(identity, "unrelated", "", False)
 
 
 def _classify_correlation(
@@ -298,10 +392,11 @@ def _classify_correlation(
     workflow: str,
     campaign_id: str | None,
     repository: str | None,
-) -> tuple[str, str, str]:
+    trusted: TrustedDispatchPrincipal | None,
+) -> tuple[str, str]:
     parsed = _correlation_tokens(run)
     if parsed is None or parsed[1] != dispatch_id:
-        return "ignore", "", ""
+        return "ignore", ""
     run_campaign, _dispatch, named_sha = parsed
     run_id = run.get("id")
     identity = str(run_id) if isinstance(run_id, (str, int)) and not isinstance(run_id, bool) else ""
@@ -309,23 +404,143 @@ def _classify_correlation(
     head_sha = run.get("head_sha")
     observed_sha = head_sha if isinstance(head_sha, str) else named_sha
     attempt = run.get("run_attempt")
-    repo = run.get("repository")
+    repo_name = _repository_name(run)
     failure = ""
-    if campaign_id is not None and run_campaign != campaign_id:
+    if trusted is not None:
+        failure = _trusted_failure(run, trusted, observed_sha, expected_sha, identity, attempt)
+    if not failure and campaign_id is not None and run_campaign != campaign_id:
         failure = "campaign_rejected"
-    elif named_sha not in (None, expected_sha) or observed_sha != expected_sha:
+    elif not failure and (named_sha not in (None, expected_sha) or observed_sha != expected_sha):
         failure = "sha_mismatch"
-    elif workflow and not workflow_name.endswith(workflow):
+    elif not failure and workflow and not workflow_name.endswith(workflow):
         failure = "workflow_rejected"
-    elif repository is not None and repo not in (None, repository):
+    elif not failure and repository is not None and repo_name not in (None, repository):
         failure = "repository_rejected"
-    elif attempt not in (None, 1):
+    elif not failure and attempt not in (None, 1):
         failure = "rerun_without_reservation"
-    elif not identity:
+    elif not failure and not identity:
         failure = "dispatch_unknown"
     if failure:
-        return "mismatch", "", failure
-    return "match", identity, ""
+        return "mismatch", failure
+    return "match", ""
+
+
+def _trusted_failure(
+    run: Mapping[str, object],
+    trusted: TrustedDispatchPrincipal,
+    observed_sha: object,
+    expected_sha: str,
+    identity: str,
+    attempt: object,
+) -> str:
+    actor_id = _user_id(run.get("actor"))
+    triggering_id = _user_id(run.get("triggering_actor"))
+    repository_id = _repository_id(run)
+    workflow_id = _positive_int(run.get("workflow_id"))
+    head_branch = run.get("head_branch")
+    event = run.get("event")
+    if (
+        actor_id is None
+        or triggering_id is None
+        or repository_id is None
+        or workflow_id is None
+        or not isinstance(head_branch, str)
+        or not head_branch
+        or not isinstance(event, str)
+        or not event
+        or not isinstance(observed_sha, str)
+        or not identity
+        or not isinstance(attempt, int)
+        or isinstance(attempt, bool)
+    ):
+        return "missing_identity"
+    if actor_id != trusted.actor_id:
+        return "actor_rejected"
+    if triggering_id != trusted.actor_id:
+        return "triggering_actor_rejected"
+    if event != "workflow_dispatch":
+        return "event_rejected"
+    if attempt != 1:
+        return "rerun_without_reservation"
+    if observed_sha != expected_sha:
+        return "sha_mismatch"
+    if _branch_name(head_branch) != _branch_name(trusted.head_branch):
+        return "ref_rejected"
+    if repository_id != trusted.repository_id:
+        return "repository_rejected"
+    if workflow_id != trusted.workflow_id:
+        return "workflow_rejected"
+    return ""
+
+
+def _external_signal(
+    run: Mapping[str, object],
+    *,
+    workflow: str,
+    trusted: TrustedDispatchPrincipal | None,
+) -> str:
+    if trusted is None:
+        return ""
+    workflow_name = str(run.get("workflow") or run.get("path") or "")
+    workflow_id = _positive_int(run.get("workflow_id"))
+    on_workflow = bool(workflow) and (workflow_name.endswith(workflow) or workflow_id == trusted.workflow_id)
+    if not on_workflow:
+        return ""
+    event = run.get("event")
+    attempt = run.get("run_attempt")
+    actor_id = _user_id(run.get("actor"))
+    if isinstance(attempt, int) and not isinstance(attempt, bool) and attempt != 1:
+        return "rerun_without_reservation"
+    if isinstance(event, str) and event != "workflow_dispatch":
+        return "event_rejected"
+    if event == "workflow_dispatch" and actor_id is None:
+        return "external_dispatch"
+    if actor_id is not None and actor_id != trusted.actor_id:
+        return "external_dispatch"
+    return ""
+
+
+def _user_id(value: object) -> int | None:
+    if not isinstance(value, Mapping):
+        return None
+    return _positive_int(value.get("id"))
+
+
+def _repository_id(run: Mapping[str, object]) -> int | None:
+    repository = run.get("repository")
+    if isinstance(repository, Mapping):
+        found = _positive_int(repository.get("id"))
+        if found is not None:
+            return found
+    return _positive_int(run.get("repository_id"))
+
+
+def _repository_name(run: Mapping[str, object]) -> str | None:
+    repository = run.get("repository")
+    if isinstance(repository, str):
+        return repository
+    if isinstance(repository, Mapping):
+        full_name = repository.get("full_name")
+        if isinstance(full_name, str):
+            return full_name
+    return None
+
+
+def _positive_int(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return None
+    return value
+
+
+def _branch_name(value: str) -> str:
+    if value.startswith("refs/heads/"):
+        return value[len("refs/heads/") :]
+    return value
+
+
+def _reject_filtered_inventory(path: str) -> None:
+    if "actor=" in path or "event=" in path or "head_sha=" in path:
+        raise BudgetDeny("inventory_filter_rejected")
 
 
 def _correlation_tokens(run: Mapping[str, object]) -> tuple[str | None, str, str | None] | None:
@@ -372,12 +587,26 @@ def _assert_allowed(method: str, path: str, repository: str, workflow: str) -> N
         return
     if method == "GET" and rest[:2] == ["actions", "runs"] and len(rest) == 3 and query == "":
         return
+    if method == "GET" and rest[:3] == ["actions", "workflows", workflow] and len(rest) == 4 and rest[3] == "runs":
+        _reject_filtered_inventory(path)
+        if _unfiltered_runs_query(query):
+            return
+        raise BudgetDeny("inventory_filter_rejected")
     if method == "GET" and rest[:2] == ["actions", "runs"] and len(rest) == 4 and rest[3] == "jobs":
         if query == "" or _jobs_query(query):
             return
     if method == "POST" and rest[:2] == ["actions", "runs"] and len(rest) == 4 and rest[3] == "cancel" and query == "":
         return
     raise BudgetDeny("endpoint_rejected")
+
+
+def _unfiltered_runs_query(query: str) -> bool:
+    if query == "per_page=100":
+        return True
+    if not query.startswith("per_page=100&page="):
+        return False
+    page = query[len("per_page=100&page=") :]
+    return page.isdigit() and 1 <= int(page) <= 50
 
 
 def _jobs_query(query: str) -> bool:
