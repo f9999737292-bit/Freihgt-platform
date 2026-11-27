@@ -8,7 +8,7 @@ This runbook is the operator sequence for a future isolated proof. It does not s
 | --- | --- | --- |
 | Exact `false` check | The next run exits 2 when the variable is missing, `true`, or any value other than `false`, before checkout and again before GET. | A step whose environment was already captured. |
 | Operator cancellation | The Actions UI cancel of each queued or in-progress monitor run. | A new run that someone dispatches after the cancel. |
-| Dispatch lock in the budget ledger | A second dispatch is denied while one run is non-terminal. | This lock is not implemented. The workflow concurrency group can queue a run instead of rejecting it. |
+| Dispatch lock in the budget ledger | A second local dispatch is denied while one ledger row is non-terminal, while usage is unknown, or while recovery is required. | A person who can start the workflow in GitHub can still create a billed run. The workflow concurrency group can queue a run instead of rejecting it. |
 
 `STOP_NEW_RUNS_GUARANTEE=NEXT_RUN_EXITS_2_UNLESS_VALUE_IS_EXACT_FALSE`. That is not a lock against a person pressing dispatch. `STOP_IN_FLIGHT_GUARANTEE=NOT_PROVEN_OPERATOR_CANCEL_ONLY`.
 
@@ -23,6 +23,12 @@ This runbook is the operator sequence for a future isolated proof. It does not s
 7. Record the run ids, the cancel times, and the terminal conclusions. Do not copy tokens or raw API bodies into the incident note.
 8. Leave the variable at `true` and leave dispatch denied until a separate controller GO says to continue.
 
-## Future TOCTOU control, not implemented
+## Local third stop check, and the remaining window
+
+The budget gate reads stop before reserve, before the intent row, and again immediately before the adapter call. It reads stop again when the process opens the ledger after a restart. Unknown stop denies. If stop changes after the intent row and before the call, the local row is cancelled and the adapter is not called. If stop changes after the call may have left the process, the reserve stays and the row is unknown. The operator cancel sequence above is still required.
+
+There is a window between that last local read and the moment a request would be written to the network. An extra local read does not make the GitHub API call atomic, and it does not cancel a request that has already been accepted. `STOP_IN_FLIGHT_GUARANTEE=NOT_PROVEN_OPERATOR_CANCEL_ONLY`.
+
+## Workflow-file check, not implemented
 
 The candidate reads the variable into the step environment when the step starts. The classify step does not read it again between jobs pages. A later change could, between pages, GET a repository file with the `contents: read` permission the candidate already has, and exit 2 unless that file says exactly `false`. That shrinks the window to one page. It does not stop a `gh api` process that has already started, and it does not replace operator cancellation. This stage does not edit the workflow. `STOP_TOCTOU_REMEDIATION_PROPOSAL=CONTENTS_READ_STOP_FILE_BETWEEN_PAGES_PLUS_OPERATOR_CANCEL`.

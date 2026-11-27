@@ -1,6 +1,6 @@
 # Budget gate 0.5F
 
-Local SQLite admission gate for a future isolated Actions proof. It does not dispatch GitHub, does not read a token, and does not change the candidate workflow. The product PostgreSQL budget controller is not reused: it belongs to the autopilot package, stores cents, and is not an Actions-minute ledger.
+Local SQLite admission gate for a future isolated Actions proof. It does not call GitHub, does not read a token, and does not change the candidate workflow. The offline dispatch adapter is a separate module and its real transport is disabled. The product PostgreSQL budget controller is not reused: it belongs to the autopilot package, stores cents, and is not an Actions-minute ledger.
 
 Run the local tests from `tools/bintrans_autopilot_monitor`:
 
@@ -12,7 +12,7 @@ The tests use a temporary database and `FakeDispatchAdapter`. They do not open a
 
 ## Components
 
-`src/bintrans_monitor/budget_gate.py` holds the ledger, the reservation transaction, the dispatch state machine, the adapter interface, the fake adapter, reconciliation, the emergency-stop check, and the audit table. There is no live adapter. `LIVE_DISPATCH_CREDENTIAL_CONFIGURED=NO`. The monitor job token stays read-only. A future dispatch credential would be a separate principal and is not configured here.
+`src/bintrans_monitor/budget_gate.py` holds the ledger, the reservation transaction, the dispatch state machine, the adapter interface, the fake adapter, reconciliation, the emergency-stop checks, and the audit table. `src/bintrans_monitor/dispatch_adapter.py` is the offline dispatch boundary added in 0.5G. Its real transport raises before any connection. `LIVE_CREDENTIALS_CONFIGURED=NO`. The monitor job token stays read-only. Dispatch and cancel principals are separate classifications and are not configured with a secret.
 
 A new campaign file is created only by `initialize_campaign`. `BudgetGate.open` never creates a file. A missing file, a file that is not a database, or a database that fails `integrity_check` denies. A short SQLite lock denies rather than reserving without the lock.
 
@@ -34,7 +34,7 @@ The gate can notice a run id that has no row, a second attempt, a different SHA,
 
 ## Emergency stop
 
-Stop is read before reserve, again before the intent row, again immediately before the fake adapter, and on open. Unknown stop denies. If the adapter may already have been called, the reserve stays for reconciliation or operator cancellation. This local flag does not cancel a GitHub workflow. The emergency-stop runbook remains the in-flight procedure. No stop file was added to the candidate workflow.
+Stop is read before reserve, again before the intent row, a third time immediately before the adapter call, and again on open after a process restart. Unknown stop denies. If stop is on before the call, and the call has not been made, the local row is `CANCELLED_BEFORE_DISPATCH`. If the call may already have been made, the reserve stays, the row is `DISPATCH_UNKNOWN`, and further reserves deny. That third read does not atomically stop the GitHub API. The emergency-stop runbook remains the in-flight procedure. No stop file was added to the candidate workflow. Ledger backup and restore rules are in `BINTRANS_AUTOPILOT_MONITOR_LEDGER_INTEGRITY_RUNBOOK_0_5G.md`.
 
 ## D1-D6 reserves
 

@@ -6,7 +6,9 @@ import the product autopilot package. A missing or damaged ledger denies.
 
 from __future__ import annotations
 
+import os
 import sqlite3
+import stat
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -18,7 +20,7 @@ MAX_SINGLE_JOB_MINUTES = 10
 MAX_CONCURRENT_RUNS = 1
 PAID_AI_BUDGET = 0
 OVERHEAD_MINUTES = 1
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 ACTIVE_STATUSES = (
     "RESERVED",
@@ -53,6 +55,10 @@ class BudgetDeny(Exception):
     def __init__(self, code: str):
         super().__init__(code)
         self.code = code
+
+
+class DispatchNotSent(BudgetDeny):
+    """The adapter rejected the call before any dispatch POST was attempted."""
 
 
 @dataclass(frozen=True)
@@ -97,7 +103,8 @@ class FakeDispatchAdapter(DispatchAdapter):
         self._result = result
         self.calls = 0
 
-    def dispatch(self, request: DispatchRequest) -> AdapterResult:
+    def dispatch(self, request: DispatchRequest, binding: object | None = None) -> AdapterResult:
+        del binding
         self.calls += 1
         if isinstance(self._result, Exception):
             raise self._result
@@ -151,8 +158,8 @@ def initialize_campaign(
                 INSERT INTO campaign (
                     campaign_id, repository, workflow, expected_sha,
                     total_limit, max_single_job, max_concurrent, paid_ai_budget,
-                    stop_state, blocked, block_reason, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unknown', 0, '', ?)
+                    stop_state, blocked, block_reason, recovery_state, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unknown', 0, '', 'ACTIVE', ?)
                 """,
                 (
                     campaign_id,
@@ -173,6 +180,7 @@ def initialize_campaign(
         raise
     else:
         conn.close()
+        _restrict_ledger_permissions(path)
 
 
 class BudgetGate:
@@ -255,16 +263,31 @@ class BudgetGate:
             _audit(self._conn, campaign["campaign_id"], request.dispatch_id, "reserved", str(reserved))
         return DispatchOutcome(request.dispatch_id, "RESERVED", reserved)
 
-    def dispatch(self, request: DispatchRequest, adapter: DispatchAdapter) -> DispatchOutcome:
+    def dispatch(
+        self,
+        request: DispatchRequest,
+        adapter: DispatchAdapter,
+        before_adapter=None,
+        binding: object | None = None,
+    ) -> DispatchOutcome:
         row = self._require(request.dispatch_id)
         if row["status"] != "RESERVED":
             raise BudgetDeny("invalid_transition")
+        if self._campaign_read()["recovery_state"] != "ACTIVE":
+            raise BudgetDeny("recovery_required")
         self._mark_intent_or_cancel(request)
+        if before_adapter is not None:
+            before_adapter()
+        self._cancel_if_stop_before_call(request)
         row = self._require(request.dispatch_id)
         if row["status"] == "CANCELLED_BEFORE_DISPATCH":
-            raise BudgetDeny("emergency_stop")
+            code = "stop_unknown" if self._read_stop() == "unknown" else "emergency_stop"
+            raise BudgetDeny(code)
         try:
-            result = adapter.dispatch(request)
+            result = adapter.dispatch(request, binding)
+        except DispatchNotSent as exc:
+            self._cancel_unsent(request.dispatch_id)
+            raise
         except ResponseLost as exc:
             self._mark_unknown(request.dispatch_id, "response_lost")
             raise BudgetDeny("dispatch_unknown") from exc
@@ -277,6 +300,9 @@ class BudgetGate:
         except Exception as exc:
             self._mark_unknown(request.dispatch_id, "malformed_response")
             raise BudgetDeny("dispatch_unknown") from exc
+        if self._read_stop() != "off":
+            self._hold_after_possible_send(request.dispatch_id, "stop_after_possible_dispatch")
+            raise BudgetDeny("dispatch_unknown")
         return self._apply_adapter_result(request, result)
 
     def note_usage_delayed(self, dispatch_id: str) -> DispatchOutcome:
@@ -318,13 +344,11 @@ class BudgetGate:
                     denied = "reconcile_conflict"
             elif row["status"] not in ("RUNNING", "DISPATCH_UNKNOWN", "TERMINAL_PENDING_RECONCILIATION", "DISPATCH_CONFIRMED"):
                 denied = "invalid_transition"
-            elif row["run_id"] not in (None, run_id) or (row["run_attempt"] not in (None, run_attempt)):
+            elif row["run_id"] not in (None, run_id):
                 self._block(row["campaign_id"], "run_id_mismatch")
                 denied = "run_id_mismatch"
-            elif run_attempt != 1:
-                self._block(row["campaign_id"], "rerun_without_reservation")
-                denied = "rerun_without_reservation"
             else:
+                unauthorized_attempt = run_attempt != 1
                 for job_id, minutes, conclusion in parsed:
                     self._conn.execute(
                         "INSERT INTO dispatch_jobs (dispatch_id, job_id, minutes, conclusion) VALUES (?, ?, ?, ?)",
@@ -341,7 +365,11 @@ class BudgetGate:
                 )
                 fresh = self._lock_dispatch(dispatch_id)
                 self._move(fresh, "RECONCILED", "OVERRUN" if consumed > reserved else "RECONCILED")
-                if consumed > reserved:
+                if unauthorized_attempt:
+                    self._block(row["campaign_id"], "rerun_without_reservation")
+                    _audit(self._conn, row["campaign_id"], dispatch_id, "unauthorized_attempt_charged", str(consumed))
+                    denied = "rerun_without_reservation"
+                elif consumed > reserved:
                     self._block(row["campaign_id"], "budget_overrun")
                     _audit(self._conn, row["campaign_id"], dispatch_id, "budget_overrun", str(consumed))
                 else:
@@ -436,6 +464,8 @@ class BudgetGate:
         return self._require(dispatch_id)
 
     def _admit(self, campaign: sqlite3.Row, request: DispatchRequest, reserved: int) -> None:
+        if campaign["recovery_state"] != "ACTIVE":
+            raise BudgetDeny("recovery_required")
         if campaign["stop_state"] == "unknown":
             raise BudgetDeny("stop_unknown")
         if campaign["stop_state"] != "off":
@@ -497,6 +527,176 @@ class BudgetGate:
             if campaign["stop_state"] != "off":
                 self._move(row, "CANCELLED_BEFORE_DISPATCH", "NOT_STARTED", confirmed=0)
                 _audit(self._conn, campaign["campaign_id"], request.dispatch_id, "cancelled_before_dispatch", "stop_before_adapter")
+
+    def _cancel_if_stop_before_call(self, request: DispatchRequest) -> None:
+        with _tx(self._conn):
+            campaign = self._campaign()
+            row = self._lock_dispatch(request.dispatch_id)
+            if row["status"] != "DISPATCH_INTENT_RECORDED":
+                return
+            if campaign["stop_state"] == "off":
+                return
+            self._move(row, "CANCELLED_BEFORE_DISPATCH", "NOT_STARTED", confirmed=0)
+            _audit(
+                self._conn,
+                campaign["campaign_id"],
+                request.dispatch_id,
+                "stop_before_adapter",
+                campaign["stop_state"],
+            )
+
+    def _read_stop(self) -> str:
+        return str(self._campaign_read()["stop_state"])
+
+    def _hold_after_possible_send(self, dispatch_id: str, reason: str) -> None:
+        with _tx(self._conn):
+            row = self._lock_dispatch(dispatch_id)
+            if row["status"] == "DISPATCH_INTENT_RECORDED":
+                self._move(row, "DISPATCH_UNKNOWN", "USAGE_UNKNOWN")
+            self._block(row["campaign_id"], reason)
+            _audit(self._conn, row["campaign_id"], dispatch_id, "stop_after_possible_dispatch", reason)
+
+    def _cancel_unsent(self, dispatch_id: str) -> None:
+        with _tx(self._conn):
+            row = self._lock_dispatch(dispatch_id)
+            if row["status"] != "DISPATCH_INTENT_RECORDED":
+                self._block(row["campaign_id"], "dispatch_unknown")
+                return
+            self._move(row, "CANCELLED_BEFORE_DISPATCH", "NOT_STARTED", confirmed=0)
+            _audit(self._conn, row["campaign_id"], dispatch_id, "not_sent", "adapter_rejected_before_post")
+
+    def recovery_state(self) -> str:
+        return str(self._campaign_read()["recovery_state"])
+
+    def apply_trusted_usage(self, dispatch_id: str, report: Mapping[str, object]) -> DispatchOutcome:
+        if "minutes" in report or "consumed_minutes" in report:
+            raise BudgetDeny("usage_untrusted")
+        if report.get("source") != "actions_billing" or report.get("billing_authoritative") is not True:
+            raise BudgetDeny("usage_untrusted")
+        if report.get("estimated_only") is True:
+            self.note_usage_delayed(dispatch_id)
+            raise BudgetDeny("usage_untrusted")
+        if report.get("terminal") is not True or report.get("jobs_complete") is not True or report.get("pages_complete") is not True:
+            self.note_usage_delayed(dispatch_id)
+            raise BudgetDeny("usage_incomplete")
+        jobs = report.get("jobs")
+        if not isinstance(jobs, list):
+            raise BudgetDeny("usage_untrusted")
+        campaign = self._campaign_read()
+        if (
+            report.get("repository") != campaign["repository"]
+            or report.get("workflow") != campaign["workflow"]
+            or report.get("expected_sha") != campaign["expected_sha"]
+        ):
+            raise BudgetDeny("identity_rejected")
+        run_id = report.get("run_id")
+        run_attempt = report.get("run_attempt")
+        if not isinstance(run_id, str) or isinstance(run_attempt, bool) or not isinstance(run_attempt, int):
+            raise BudgetDeny("usage_untrusted")
+        return self.reconcile(dispatch_id, jobs, run_id=run_id, run_attempt=run_attempt)
+
+    def record_external_consumption(
+        self,
+        *,
+        dispatch_id: str,
+        idempotency_key: str,
+        run_id: str,
+        run_attempt: int,
+        jobs: Sequence[Mapping[str, object]],
+    ) -> None:
+        if self.recovery_state() != "RECOVERY_REQUIRED":
+            raise BudgetDeny("invalid_transition")
+        _identity(dispatch_id, "dispatch_id")
+        _identity(idempotency_key, "idempotency_key")
+        _identity(run_id, "run_id")
+        if not isinstance(run_attempt, int) or isinstance(run_attempt, bool) or run_attempt < 1:
+            raise BudgetDeny("run_attempt_rejected")
+        parsed = _parse_jobs(jobs)
+        consumed = sum(minutes for _, minutes, _ in parsed)
+        if consumed < 1 or consumed > TOTAL_LIMIT:
+            raise BudgetDeny("reserve_invalid")
+        fingerprint = _fingerprint(parsed)
+        with _tx(self._conn):
+            campaign = self._campaign()
+            if campaign["recovery_state"] != "RECOVERY_REQUIRED":
+                raise BudgetDeny("invalid_transition")
+            now = _now()
+            self._conn.execute(
+                """
+                INSERT INTO dispatches (
+                    dispatch_id, campaign_id, idempotency_key, repository, workflow,
+                    expected_sha, reserved_minutes, confirmed_consumed_minutes,
+                    run_id, run_attempt, status, reconciliation_status,
+                    usage_fingerprint, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'RECONCILED', 'RECONCILED', ?, ?, ?)
+                """,
+                (
+                    dispatch_id,
+                    campaign["campaign_id"],
+                    idempotency_key,
+                    campaign["repository"],
+                    campaign["workflow"],
+                    campaign["expected_sha"],
+                    consumed,
+                    consumed,
+                    run_id,
+                    run_attempt,
+                    fingerprint,
+                    now,
+                    now,
+                ),
+            )
+            for job_id, minutes, conclusion in parsed:
+                self._conn.execute(
+                    "INSERT INTO dispatch_jobs (dispatch_id, job_id, minutes, conclusion) VALUES (?, ?, ?, ?)",
+                    (dispatch_id, job_id, minutes, conclusion),
+                )
+            _audit(self._conn, campaign["campaign_id"], dispatch_id, "external_consumption_recorded", str(consumed))
+
+    def attest_external_reconciliation(self) -> None:
+        with _tx(self._conn):
+            campaign = self._campaign()
+            if campaign["recovery_state"] != "RECOVERY_REQUIRED":
+                raise BudgetDeny("invalid_transition")
+            _audit(self._conn, campaign["campaign_id"], None, "external_reconciliation_attested", "operator")
+
+    def release_recovery(self, *, controller_go: bool, external_state_known: bool) -> None:
+        if controller_go is not True or external_state_known is not True:
+            raise BudgetDeny("recovery_required")
+        with _tx(self._conn):
+            campaign = self._campaign()
+            if campaign["recovery_state"] != "RECOVERY_REQUIRED":
+                raise BudgetDeny("invalid_transition")
+            attested = self._conn.execute(
+                """
+                SELECT event_id FROM audit_events
+                WHERE campaign_id = ? AND event_type = 'external_reconciliation_attested'
+                """,
+                (campaign["campaign_id"],),
+            ).fetchone()
+            if attested is None:
+                raise BudgetDeny("recovery_required")
+            active = self._conn.execute(
+                f"SELECT COUNT(*) AS n FROM dispatches WHERE status IN ({','.join('?' for _ in ACTIVE_STATUSES)})",
+                ACTIVE_STATUSES,
+            ).fetchone()
+            if int(active["n"]) > 0:
+                raise BudgetDeny("recovery_required")
+            if int(campaign["blocked"]) and campaign["block_reason"] != "recovery_required":
+                raise BudgetDeny("campaign_blocked")
+            before = _confirmed_total(self._conn, campaign["campaign_id"])
+            self._conn.execute(
+                """
+                UPDATE campaign
+                SET recovery_state = 'ACTIVE', blocked = 0, block_reason = ''
+                WHERE campaign_id = ? AND recovery_state = 'RECOVERY_REQUIRED'
+                """,
+                (campaign["campaign_id"],),
+            )
+            after = _confirmed_total(self._conn, campaign["campaign_id"])
+            if after != before:
+                raise BudgetDeny("corrupted_ledger")
+            _audit(self._conn, campaign["campaign_id"], None, "recovery_released", "controller_go")
 
     def _apply_adapter_result(self, request: DispatchRequest, result: AdapterResult) -> DispatchOutcome:
         denied = ""
@@ -562,6 +762,8 @@ class BudgetGate:
             campaign = self._campaign()
             if campaign["stop_state"] not in ("off", "on", "unknown"):
                 raise BudgetDeny("stop_unknown")
+            if campaign["stop_state"] != "off":
+                _audit(self._conn, campaign["campaign_id"], None, "stop_rechecked", campaign["stop_state"])
             rows = self._conn.execute(
                 "SELECT * FROM dispatches WHERE status = 'DISPATCH_INTENT_RECORDED'"
             ).fetchall()
@@ -598,6 +800,18 @@ class BudgetGate:
             (reason, campaign_id),
         )
         _audit(self._conn, campaign_id, None, "campaign_blocked", reason)
+
+
+def _confirmed_total(conn: sqlite3.Connection, campaign_id: str) -> int:
+    row = conn.execute(
+        """
+        SELECT COALESCE(SUM(confirmed_consumed_minutes), 0) AS n
+        FROM dispatches
+        WHERE campaign_id = ? AND status = 'RECONCILED'
+        """,
+        (campaign_id,),
+    ).fetchone()
+    return int(row["n"])
 
 
 def _available(conn: sqlite3.Connection, campaign_id: str, total_limit: int) -> int:
@@ -689,8 +903,12 @@ def _require_healthy(conn: sqlite3.Connection) -> None:
     row = conn.execute("SELECT schema_version FROM schema_meta").fetchone()
     if row is None or int(row["schema_version"]) != SCHEMA_VERSION:
         raise BudgetDeny("corrupted_ledger")
-    campaign = conn.execute("SELECT campaign_id, stop_state, total_limit FROM campaign").fetchone()
+    campaign = conn.execute(
+        "SELECT campaign_id, stop_state, total_limit, recovery_state FROM campaign"
+    ).fetchone()
     if campaign is None or int(campaign["total_limit"]) != TOTAL_LIMIT:
+        raise BudgetDeny("corrupted_ledger")
+    if campaign["recovery_state"] not in ("ACTIVE", "RECOVERY_REQUIRED"):
         raise BudgetDeny("corrupted_ledger")
 
 
@@ -721,9 +939,9 @@ def _tx(conn: sqlite3.Connection) -> Iterator[None]:
 
 _SCHEMA = """
 CREATE TABLE schema_meta (
-    schema_version INTEGER NOT NULL CHECK (schema_version = 1)
+    schema_version INTEGER NOT NULL CHECK (schema_version = 2)
 );
-INSERT INTO schema_meta (schema_version) VALUES (1);
+INSERT INTO schema_meta (schema_version) VALUES (2);
 CREATE TABLE campaign (
     campaign_id TEXT PRIMARY KEY,
     repository TEXT NOT NULL,
@@ -736,6 +954,7 @@ CREATE TABLE campaign (
     stop_state TEXT NOT NULL CHECK (stop_state IN ('off', 'on', 'unknown')),
     blocked INTEGER NOT NULL CHECK (blocked IN (0, 1)),
     block_reason TEXT NOT NULL,
+    recovery_state TEXT NOT NULL CHECK (recovery_state IN ('ACTIVE', 'RECOVERY_REQUIRED')),
     created_at TEXT NOT NULL
 );
 CREATE TABLE dispatches (
@@ -776,3 +995,136 @@ CREATE TABLE audit_events (
     created_at TEXT NOT NULL
 );
 """
+
+
+def _restrict_ledger_permissions(path: Path) -> None:
+    try:
+        os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
+        os.chmod(path.parent, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+    except OSError:
+        return
+
+
+def guarded_ledger_path(path: Path, root: Path) -> Path:
+    if not root.exists() or not root.is_dir() or root.is_symlink():
+        raise BudgetDeny("unsafe_ledger_path")
+    if path.is_symlink():
+        raise BudgetDeny("unsafe_ledger_path")
+    root_real = root.resolve()
+    parent = path.parent
+    if parent.is_symlink():
+        raise BudgetDeny("unsafe_ledger_path")
+    try:
+        parent_real = parent.resolve()
+    except OSError as exc:
+        raise BudgetDeny("unsafe_ledger_path") from exc
+    try:
+        parent_real.relative_to(root_real)
+    except ValueError as exc:
+        raise BudgetDeny("unsafe_ledger_path") from exc
+    candidate = parent_real / path.name
+    if candidate.is_symlink():
+        raise BudgetDeny("unsafe_ledger_path")
+    return candidate
+
+
+def _verify_backup(path: Path) -> None:
+    try:
+        conn = sqlite3.connect(path, timeout=5.0, isolation_level=None)
+    except sqlite3.Error as exc:
+        raise BudgetDeny("corrupted_ledger") from exc
+    try:
+        conn.row_factory = sqlite3.Row
+        try:
+            check = conn.execute("PRAGMA integrity_check").fetchone()
+            row = conn.execute("SELECT schema_version FROM schema_meta").fetchone()
+        except sqlite3.DatabaseError as exc:
+            raise BudgetDeny("corrupted_ledger") from exc
+        if check is None or check[0] != "ok" or row is None or int(row["schema_version"]) != SCHEMA_VERSION:
+            raise BudgetDeny("corrupted_ledger")
+    finally:
+        conn.close()
+
+
+def backup_ledger(source: Path, destination: Path, root: Path) -> None:
+    source_path = guarded_ledger_path(source, root)
+    destination_path = guarded_ledger_path(destination, root)
+    if source_path.resolve() == destination_path.resolve() or destination_path.exists():
+        raise BudgetDeny("unsafe_ledger_path")
+    if not source_path.is_file():
+        raise BudgetDeny("missing_ledger")
+    src = sqlite3.connect(source_path, timeout=5.0, isolation_level=None)
+    try:
+        src.row_factory = sqlite3.Row
+        _prepare(src)
+        try:
+            src.execute("PRAGMA wal_checkpoint(FULL)")
+        except sqlite3.OperationalError as exc:
+            text = str(exc).lower()
+            if "locked" not in text and "busy" not in text:
+                raise BudgetDeny("corrupted_ledger") from exc
+        dest = sqlite3.connect(destination_path, timeout=5.0, isolation_level=None)
+        try:
+            src.backup(dest)
+        finally:
+            dest.close()
+    finally:
+        src.close()
+    try:
+        _verify_backup(destination_path)
+    except BudgetDeny:
+        destination_path.unlink(missing_ok=True)
+        raise
+    _restrict_ledger_permissions(destination_path)
+
+
+def restore_ledger(backup: Path, destination: Path, root: Path, *, expected_campaign_id: str) -> None:
+    backup_path = guarded_ledger_path(backup, root)
+    destination_path = guarded_ledger_path(destination, root)
+    if backup_path.resolve() == destination_path.resolve():
+        raise BudgetDeny("unsafe_ledger_path")
+    _verify_backup(backup_path)
+    src = sqlite3.connect(backup_path, timeout=5.0, isolation_level=None)
+    try:
+        src.row_factory = sqlite3.Row
+        identity = src.execute("SELECT campaign_id FROM campaign").fetchone()
+        if identity is None or identity["campaign_id"] != expected_campaign_id:
+            raise BudgetDeny("campaign_identity_mismatch")
+        created = not destination_path.exists()
+        dest = sqlite3.connect(destination_path, timeout=5.0, isolation_level=None)
+        try:
+            dest.row_factory = sqlite3.Row
+            src.backup(dest)
+            dest.execute("PRAGMA foreign_keys = ON")
+            with _tx(dest):
+                dest.execute(
+                    """
+                    UPDATE campaign
+                    SET recovery_state = 'RECOVERY_REQUIRED', blocked = 1, block_reason = 'recovery_required'
+                    """
+                )
+                campaign = dest.execute("SELECT campaign_id FROM campaign").fetchone()
+                _audit(dest, campaign["campaign_id"], None, "ledger_restored", "recovery_required")
+        except Exception:
+            dest.close()
+            if created:
+                destination_path.unlink(missing_ok=True)
+            raise
+        else:
+            dest.close()
+    finally:
+        src.close()
+    _verify_backup(destination_path)
+    _restrict_ledger_permissions(destination_path)
+
+
+def open_expected(path: Path, root: Path, campaign_id: str) -> BudgetGate:
+    guarded = guarded_ledger_path(path, root)
+    gate = BudgetGate.open(guarded)
+    try:
+        if gate._campaign_read()["campaign_id"] != campaign_id:
+            raise BudgetDeny("campaign_identity_mismatch")
+    except BudgetDeny:
+        gate.close()
+        raise
+    return gate
