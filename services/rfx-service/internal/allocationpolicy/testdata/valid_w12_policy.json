@@ -20,7 +20,7 @@
       },
       {
         "kind": "SCORE",
-        "attr": "lane_kpi",
+        "attr": "on_time_score",
         "weight": "0.35"
       },
       {
