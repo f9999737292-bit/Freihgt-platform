@@ -292,7 +292,7 @@ def correlate_run(
     workflow: str,
     campaign_id: str | None = None,
     repository: str | None = None,
-    trusted: TrustedDispatchPrincipal | None = None,
+    trusted: TrustedDispatchPrincipal,
 ) -> str:
     """Match one Actions run by its visible run name or an explicit correlation field.
 

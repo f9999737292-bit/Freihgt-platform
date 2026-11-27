@@ -22,6 +22,7 @@ from bintrans_monitor.dispatch_adapter import (  # noqa: E402
     GitHubDispatchAdapter,
     OfflineTransport,
     TransportResponse,
+    TrustedDispatchPrincipal,
     TrustedRefBinding,
     correlate_run,
 )
@@ -29,6 +30,7 @@ from bintrans_monitor.dispatch_adapter import (  # noqa: E402
 SHA = "ab" * 20
 OTHER_SHA = "cd" * 20
 REPO = "example/budget-lab"
+TRUSTED = TrustedDispatchPrincipal(actor_id=4242, repository_id=1001, workflow_id=77, head_branch="main")
 WORKFLOW = "monitor-budget"
 REF = "refs/heads/main"
 DISPATCH_WORKFLOW = ROOT / "candidate" / ".github" / "workflows" / "bintrans-autopilot-budget-dispatch.yml"
@@ -59,8 +61,14 @@ def _named(run_id: str, dispatch_id: str, **overrides: object) -> dict[str, obje
         "name": f"bintrans-budget camp-1 {dispatch_id} {SHA}",
         "display_title": f"bintrans-budget camp-1 {dispatch_id} {SHA}",
         "head_sha": SHA,
+        "head_branch": "main",
+        "event": "workflow_dispatch",
         "workflow": WORKFLOW,
+        "workflow_id": 77,
         "repository": REPO,
+        "repository_id": 1001,
+        "actor": {"id": 4242, "login": "dispatch-bot"},
+        "triggering_actor": {"id": 4242, "login": "dispatch-bot"},
         "run_attempt": 1,
         "created_at": "2026-11-27T00:01:00Z",
     }
@@ -135,17 +143,17 @@ class HostedContractTests(unittest.TestCase):
             _named("bound-run", "corr-1", created_at="2026-11-27T00:01:00Z"),
         ]
         self.assertEqual(
-            correlate_run(runs, dispatch_id="corr-1", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1", repository=REPO),
+            correlate_run(runs, dispatch_id="corr-1", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1", trusted=TRUSTED, repository=REPO),
             "bound-run",
         )
 
     def test_corr_002_missing_or_ambiguous_correlation_keeps_the_reserve(self):
         with self.assertRaises(BudgetDeny) as missing:
-            correlate_run([], dispatch_id="corr-2", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1")
+            correlate_run([], dispatch_id="corr-2", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1", trusted=TRUSTED)
         self.assertEqual(missing.exception.code, "dispatch_unknown")
         duplicated = [_named("one", "corr-2"), _named("two", "corr-2")]
         with self.assertRaises(BudgetDeny) as ambiguous:
-            correlate_run(duplicated, dispatch_id="corr-2", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1")
+            correlate_run(duplicated, dispatch_id="corr-2", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1", trusted=TRUSTED)
         self.assertEqual(ambiguous.exception.code, "dispatch_unknown")
 
         def handler(method: str, path: str, body):
@@ -174,15 +182,15 @@ class HostedContractTests(unittest.TestCase):
     def test_corr_003_wrong_identity_blocks_reconciliation(self):
         wrong_sha = [_named("run-sha", "corr-3", head_sha=OTHER_SHA, name=f"bintrans-budget camp-1 corr-3 {OTHER_SHA}", display_title=f"bintrans-budget camp-1 corr-3 {OTHER_SHA}")]
         with self.assertRaises(BudgetDeny) as sha:
-            correlate_run(wrong_sha, dispatch_id="corr-3", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1", repository=REPO)
+            correlate_run(wrong_sha, dispatch_id="corr-3", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1", trusted=TRUSTED, repository=REPO)
         self.assertEqual(sha.exception.code, "sha_mismatch")
         wrong_workflow = [_named("run-wf", "corr-3", workflow="other-workflow")]
         with self.assertRaises(BudgetDeny) as workflow:
-            correlate_run(wrong_workflow, dispatch_id="corr-3", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1")
+            correlate_run(wrong_workflow, dispatch_id="corr-3", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1", trusted=TRUSTED)
         self.assertEqual(workflow.exception.code, "workflow_rejected")
         wrong_attempt = [_named("run-try", "corr-3", run_attempt=2)]
         with self.assertRaises(BudgetDeny) as attempt:
-            correlate_run(wrong_attempt, dispatch_id="corr-3", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1")
+            correlate_run(wrong_attempt, dispatch_id="corr-3", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1", trusted=TRUSTED)
         self.assertEqual(attempt.exception.code, "rerun_without_reservation")
         request = _request("corr-3")
         self.gate.reserve(request)
@@ -229,7 +237,7 @@ class HostedContractTests(unittest.TestCase):
     def test_external_run_and_ref_race_do_not_release_a_reserve(self):
         decoy = [_named("moved", "race-1", head_sha=OTHER_SHA, name=f"bintrans-budget camp-1 race-1 {OTHER_SHA}", display_title=f"bintrans-budget camp-1 race-1 {OTHER_SHA}", created_at="2026-11-27T00:09:00Z")]
         with self.assertRaises(BudgetDeny) as raced:
-            correlate_run(decoy, dispatch_id="race-1", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1", repository=REPO)
+            correlate_run(decoy, dispatch_id="race-1", expected_sha=SHA, workflow=WORKFLOW, campaign_id="camp-1", trusted=TRUSTED, repository=REPO)
         self.assertEqual(raced.exception.code, "sha_mismatch")
         seen: dict[str, object] = {}
 

@@ -33,6 +33,7 @@ from bintrans_monitor.dispatch_adapter import (  # noqa: E402
     OfflineTransport,
     RealGitHubTransport,
     TransportResponse,
+    TrustedDispatchPrincipal,
     TrustedRefBinding,
     correlate_run,
 )
@@ -42,6 +43,7 @@ OTHER_SHA = "cd" * 20
 REPO = "example/budget-lab"
 WORKFLOW = "monitor-budget"
 REF = "refs/heads/main"
+TRUSTED = TrustedDispatchPrincipal(actor_id=4242, repository_id=1001, workflow_id=77, head_branch="main")
 TOKEN = "ghp_" + "ExampleToken123"
 REAL_GITHUB_API_CALLS = 0
 
@@ -437,13 +439,14 @@ class LedgerAndAdapterTests(unittest.TestCase):
             {"id": "older", "created_at": "2026-11-27T00:01:00Z", "head_sha": SHA, "workflow": WORKFLOW},
         ]
         with self.assertRaises(BudgetDeny) as caught:
-            correlate_run(runs, dispatch_id="a7", expected_sha=SHA, workflow=WORKFLOW)
+            correlate_run(runs, dispatch_id="a7", expected_sha=SHA, workflow=WORKFLOW, trusted=TRUSTED)
         self.assertEqual(caught.exception.code, "dispatch_unknown")
-        runs.append({"id": "bound", "created_at": "2026-11-27T00:00:00Z", "head_sha": SHA, "workflow": WORKFLOW, "budget_dispatch_id": "a7"})
-        self.assertEqual(correlate_run(runs, dispatch_id="a7", expected_sha=SHA, workflow=WORKFLOW), "bound")
-        runs.append({"id": "second", "created_at": "2026-11-27T00:04:00Z", "head_sha": SHA, "workflow": WORKFLOW, "budget_dispatch_id": "a7"})
-        with self.assertRaises(BudgetDeny):
-            correlate_run(runs, dispatch_id="a7", expected_sha=SHA, workflow=WORKFLOW)
+        runs.append({"id": "bound", "created_at": "2026-11-27T00:00:00Z", "head_sha": SHA, "workflow": WORKFLOW, "budget_dispatch_id": "a7", "head_branch": "main", "event": "workflow_dispatch", "workflow_id": 77, "repository_id": 1001, "actor": {"id": 4242, "login": "dispatch-bot"}, "triggering_actor": {"id": 4242, "login": "dispatch-bot"}, "run_attempt": 1})
+        self.assertEqual(correlate_run(runs, dispatch_id="a7", expected_sha=SHA, workflow=WORKFLOW, trusted=TRUSTED), "bound")
+        runs.append({"id": "second", "created_at": "2026-11-27T00:04:00Z", "head_sha": SHA, "workflow": WORKFLOW, "budget_dispatch_id": "a7", "head_branch": "main", "event": "workflow_dispatch", "workflow_id": 77, "repository_id": 1001, "actor": {"id": 4242, "login": "dispatch-bot"}, "triggering_actor": {"id": 4242, "login": "dispatch-bot"}, "run_attempt": 1})
+        with self.assertRaises(BudgetDeny) as ambiguous:
+            correlate_run(runs, dispatch_id="a7", expected_sha=SHA, workflow=WORKFLOW, trusted=TRUSTED)
+        self.assertEqual(ambiguous.exception.code, "dispatch_unknown")
 
     def test_adapter_008_dispatch_post_is_not_retried(self):
         def handler(method: str, path: str, body):
