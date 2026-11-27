@@ -57,6 +57,7 @@ def _request(dispatch_id: str, **overrides: object) -> DispatchRequest:
         "per_job_minutes": 10,
         "paid_ai_calls": 0,
         "run_attempt": 1,
+        "campaign_id": "camp-1",
     }
     values.update(overrides)
     return DispatchRequest(**values)  # type: ignore[arg-type]
@@ -356,8 +357,10 @@ class LedgerAndAdapterTests(unittest.TestCase):
         self.assertEqual(result.kind, "unconfirmed")
         self.assertEqual(seen["path"], f"/repos/{REPO}/actions/workflows/{WORKFLOW}/dispatches")
         self.assertEqual(seen["body"]["ref"], "main")
-        self.assertEqual(seen["body"]["inputs"], {"head_sha": SHA})
-        self.assertNotIn("budget_dispatch_id", seen["body"]["inputs"])
+        self.assertEqual(
+            seen["body"]["inputs"],
+            {"budget_dispatch_id": "a1", "campaign_id": "camp-1", "expected_head_sha": SHA},
+        )
         self.assertEqual(sum(1 for method, _path in transport.calls if method == "POST"), 1)
 
     def test_adapter_002_forbidden_repository_is_not_sent(self):

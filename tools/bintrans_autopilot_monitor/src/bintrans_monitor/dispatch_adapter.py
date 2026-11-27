@@ -22,6 +22,10 @@ from bintrans_monitor.budget_gate import (
 )
 
 _SHA = re.compile(r"^[0-9a-f]{40}$")
+_TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
+_RUN_NAME = re.compile(
+    r"^bintrans-budget ([A-Za-z0-9][A-Za-z0-9._-]{0,79}) ([A-Za-z0-9][A-Za-z0-9._-]{0,79}) ([0-9a-f]{40})$"
+)
 _SECRET = re.compile(r"ghp_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|Bearer [A-Za-z0-9._\-]+")
 
 
@@ -183,6 +187,10 @@ class GitHubDispatchAdapter(DispatchAdapter):
             raise DispatchNotSent("repository_rejected")
         if request.workflow != self.workflow:
             raise DispatchNotSent("workflow_rejected")
+        if not _TOKEN.fullmatch(request.campaign_id):
+            raise DispatchNotSent("campaign_rejected")
+        if not _TOKEN.fullmatch(request.dispatch_id):
+            raise DispatchNotSent("identity_rejected")
         if request.expected_sha != self.expected_sha or not _SHA.fullmatch(request.expected_sha):
             raise DispatchNotSent("sha_unbound")
         if not isinstance(binding, TrustedRefBinding):
@@ -209,7 +217,14 @@ class GitHubDispatchAdapter(DispatchAdapter):
             raise DispatchNotSent("sha_unbound")
         path = f"/repos/{self.repository}/actions/workflows/{self.workflow}/dispatches"
         _assert_allowed("POST", path, self.repository, self.workflow)
-        body = {"ref": _ref_name(binding.ref), "inputs": {"head_sha": request.expected_sha}}
+        body = {
+            "ref": _ref_name(binding.ref),
+            "inputs": {
+                "budget_dispatch_id": request.dispatch_id,
+                "campaign_id": request.campaign_id,
+                "expected_head_sha": request.expected_sha,
+            },
+        }
         self._posted.add(request.dispatch_id)
         try:
             response = self.transport.exchange("POST", path, body)
@@ -244,20 +259,92 @@ def correlate_run(
     dispatch_id: str,
     expected_sha: str,
     workflow: str,
+    campaign_id: str | None = None,
+    repository: str | None = None,
 ) -> str:
+    """Match one Actions run by its visible run name or an explicit correlation field.
+
+    The run name is the value GitHub returns as name/display_title for run-name.
+    A match is not authorization. Zero or several matches stay unknown.
+    created_at and list position are ignored.
+    """
     matches: list[str] = []
+    mismatch = ""
     for run in runs:
-        if (
-            run.get("budget_dispatch_id") == dispatch_id
-            and run.get("head_sha") == expected_sha
-            and str(run.get("workflow", "")).endswith(workflow)
-        ):
-            run_id = run.get("id")
-            if isinstance(run_id, str) and run_id:
-                matches.append(run_id)
+        kind, run_id, failure = _classify_correlation(
+            run,
+            dispatch_id=dispatch_id,
+            expected_sha=expected_sha,
+            workflow=workflow,
+            campaign_id=campaign_id,
+            repository=repository,
+        )
+        if kind == "match" and run_id:
+            matches.append(run_id)
+        elif kind == "mismatch" and not mismatch:
+            mismatch = failure or "sha_mismatch"
+    if mismatch:
+        raise BudgetDeny(mismatch)
     if len(matches) != 1:
         raise BudgetDeny("dispatch_unknown")
     return matches[0]
+
+
+def _classify_correlation(
+    run: Mapping[str, object],
+    *,
+    dispatch_id: str,
+    expected_sha: str,
+    workflow: str,
+    campaign_id: str | None,
+    repository: str | None,
+) -> tuple[str, str, str]:
+    parsed = _correlation_tokens(run)
+    if parsed is None or parsed[1] != dispatch_id:
+        return "ignore", "", ""
+    run_campaign, _dispatch, named_sha = parsed
+    run_id = run.get("id")
+    identity = str(run_id) if isinstance(run_id, (str, int)) and not isinstance(run_id, bool) else ""
+    workflow_name = str(run.get("workflow") or run.get("path") or "")
+    head_sha = run.get("head_sha")
+    observed_sha = head_sha if isinstance(head_sha, str) else named_sha
+    attempt = run.get("run_attempt")
+    repo = run.get("repository")
+    failure = ""
+    if campaign_id is not None and run_campaign != campaign_id:
+        failure = "campaign_rejected"
+    elif named_sha not in (None, expected_sha) or observed_sha != expected_sha:
+        failure = "sha_mismatch"
+    elif workflow and not workflow_name.endswith(workflow):
+        failure = "workflow_rejected"
+    elif repository is not None and repo not in (None, repository):
+        failure = "repository_rejected"
+    elif attempt not in (None, 1):
+        failure = "rerun_without_reservation"
+    elif not identity:
+        failure = "dispatch_unknown"
+    if failure:
+        return "mismatch", "", failure
+    return "match", identity, ""
+
+
+def _correlation_tokens(run: Mapping[str, object]) -> tuple[str | None, str, str | None] | None:
+    for key in ("name", "display_title"):
+        value = run.get(key)
+        if isinstance(value, str):
+            parsed = _RUN_NAME.fullmatch(value)
+            if parsed:
+                return parsed.group(1), parsed.group(2), parsed.group(3)
+    field = run.get("budget_dispatch_id")
+    if not isinstance(field, str) or not field:
+        return None
+    campaign = run.get("campaign_id")
+    sha = run.get("head_sha")
+    return (
+        campaign if isinstance(campaign, str) else None,
+        field,
+        sha if isinstance(sha, str) else None,
+    )
 
 
 def _ref_name(ref: str) -> str:

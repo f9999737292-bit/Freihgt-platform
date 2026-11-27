@@ -41,9 +41,9 @@ _TRANSITIONS = {
         "REJECTED",
         "CANCELLED_BEFORE_DISPATCH",
     },
-    "DISPATCH_CONFIRMED": {"RUNNING", "TERMINAL_PENDING_RECONCILIATION", "RECONCILED"},
-    "RUNNING": {"TERMINAL_PENDING_RECONCILIATION", "RECONCILED"},
-    "DISPATCH_UNKNOWN": {"TERMINAL_PENDING_RECONCILIATION", "RECONCILED"},
+    "DISPATCH_CONFIRMED": {"RUNNING", "TERMINAL_PENDING_RECONCILIATION", "RECONCILED", "RESERVATION_HELD"},
+    "RUNNING": {"TERMINAL_PENDING_RECONCILIATION", "RECONCILED", "RESERVATION_HELD"},
+    "DISPATCH_UNKNOWN": {"TERMINAL_PENDING_RECONCILIATION", "RECONCILED", "RUNNING"},
     "TERMINAL_PENDING_RECONCILIATION": {"RECONCILED"},
     "RECONCILED": set(),
     "REJECTED": set(),
@@ -72,6 +72,7 @@ class DispatchRequest:
     per_job_minutes: int
     paid_ai_calls: int = 0
     run_attempt: int = 1
+    campaign_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -380,6 +381,108 @@ class BudgetGate:
             raise BudgetDeny(denied)
         return DispatchOutcome(dispatch_id, "RECONCILED", reserved, run_id, run_attempt)
 
+    def bind_observed_run(
+        self,
+        dispatch_id: str,
+        *,
+        run_id: str,
+        run_attempt: int,
+        expected_sha: str,
+        repository: str,
+        workflow: str,
+    ) -> DispatchOutcome:
+        _identity(run_id, "run_id")
+        _sha(expected_sha)
+        if not isinstance(run_attempt, int) or isinstance(run_attempt, bool) or run_attempt < 1:
+            raise BudgetDeny("run_attempt_rejected")
+        denied = ""
+        reserved = 0
+        with _tx(self._conn):
+            row = self._lock_dispatch(dispatch_id)
+            reserved = int(row["reserved_minutes"])
+            campaign = self._campaign()
+            if row["status"] == "RUNNING" and row["run_id"] == run_id and int(row["run_attempt"] or 0) == 1:
+                _audit(self._conn, campaign["campaign_id"], dispatch_id, "correlation_replay", run_id)
+            elif row["status"] != "DISPATCH_UNKNOWN":
+                denied = "invalid_transition"
+            elif (
+                repository != campaign["repository"]
+                or workflow != campaign["workflow"]
+                or expected_sha != campaign["expected_sha"]
+                or expected_sha != row["expected_sha"]
+            ):
+                self._block(campaign["campaign_id"], "sha_mismatch")
+                denied = "sha_mismatch"
+            elif run_attempt != 1:
+                self._block(campaign["campaign_id"], "rerun_without_reservation")
+                denied = "rerun_without_reservation"
+            else:
+                self._conn.execute(
+                    "UPDATE dispatches SET run_id = ?, run_attempt = ?, updated_at = ? WHERE dispatch_id = ?",
+                    (run_id, 1, _now(), dispatch_id),
+                )
+                fresh = self._lock_dispatch(dispatch_id)
+                self._move(fresh, "RUNNING", "NOT_STARTED")
+                _audit(self._conn, campaign["campaign_id"], dispatch_id, "correlation_bound", run_id)
+        if denied:
+            raise BudgetDeny(denied)
+        return DispatchOutcome(dispatch_id, "RUNNING", reserved, run_id, 1)
+
+    def retain_full_reservation(
+        self,
+        dispatch_id: str,
+        *,
+        run_id: str,
+        run_attempt: int,
+        repository: str,
+        workflow: str,
+        expected_sha: str,
+    ) -> DispatchOutcome:
+        """Hold the whole reserve. Job duration is not written as billing usage."""
+        _identity(run_id, "run_id")
+        _sha(expected_sha)
+        if not isinstance(run_attempt, int) or isinstance(run_attempt, bool) or run_attempt < 1:
+            raise BudgetDeny("run_attempt_rejected")
+        denied = ""
+        reserved = 0
+        with _tx(self._conn):
+            row = self._lock_dispatch(dispatch_id)
+            reserved = int(row["reserved_minutes"])
+            campaign = self._campaign()
+            if row["confirmed_consumed_minutes"] is not None:
+                self._block(campaign["campaign_id"], "billing_conflict")
+                denied = "billing_conflict"
+            elif row["status"] == "RESERVATION_HELD" and row["run_id"] == run_id and int(row["run_attempt"] or 0) == run_attempt:
+                _audit(self._conn, campaign["campaign_id"], dispatch_id, "reservation_hold_replay", str(reserved))
+            elif row["status"] != "RUNNING":
+                denied = "invalid_transition"
+            elif (
+                repository != row["repository"]
+                or workflow != row["workflow"]
+                or expected_sha != row["expected_sha"]
+                or row["run_id"] not in (None, run_id)
+            ):
+                self._block(campaign["campaign_id"], "sha_mismatch")
+                denied = "sha_mismatch"
+            elif run_attempt != 1:
+                self._block(campaign["campaign_id"], "rerun_without_reservation")
+                denied = "rerun_without_reservation"
+            else:
+                self._conn.execute(
+                    """
+                    UPDATE dispatches
+                    SET run_id = ?, run_attempt = ?, confirmed_consumed_minutes = NULL, updated_at = ?
+                    WHERE dispatch_id = ?
+                    """,
+                    (run_id, 1, _now(), dispatch_id),
+                )
+                fresh = self._lock_dispatch(dispatch_id)
+                self._move(fresh, "RESERVATION_HELD", "RESERVATION_HELD")
+                _audit(self._conn, campaign["campaign_id"], dispatch_id, "full_reservation_retained", str(reserved))
+        if denied:
+            raise BudgetDeny(denied)
+        return DispatchOutcome(dispatch_id, "RESERVATION_HELD", reserved, run_id, run_attempt)
+
     def observe_external_run(
         self,
         *,
@@ -476,6 +579,7 @@ class BudgetGate:
             request.repository != campaign["repository"]
             or request.workflow != campaign["workflow"]
             or request.expected_sha != campaign["expected_sha"]
+            or (request.campaign_id != "" and request.campaign_id != campaign["campaign_id"])
         ):
             raise BudgetDeny("identity_rejected")
         existing_id = self._conn.execute(
@@ -831,7 +935,15 @@ def _available(conn: sqlite3.Connection, campaign_id: str, total_limit: int) -> 
         """,
         (campaign_id, *ACTIVE_STATUSES),
     ).fetchone()
-    return int(total_limit) - int(consumed["n"]) - int(reserved["n"])
+    held = conn.execute(
+        """
+        SELECT COALESCE(SUM(reserved_minutes), 0) AS n
+        FROM dispatches
+        WHERE campaign_id = ? AND status = 'RESERVATION_HELD'
+        """,
+        (campaign_id,),
+    ).fetchone()
+    return int(total_limit) - int(consumed["n"]) - int(reserved["n"]) - int(held["n"])
 
 
 def _parse_jobs(jobs: Sequence[Mapping[str, object]]) -> list[tuple[str, int, str]]:

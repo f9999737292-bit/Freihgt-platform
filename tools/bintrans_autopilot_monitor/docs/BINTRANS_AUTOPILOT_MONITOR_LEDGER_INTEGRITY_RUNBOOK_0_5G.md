@@ -32,6 +32,7 @@ This procedure does not protect against a host administrator who can replace the
 ## Do not
 
 - Do not copy only the `.sqlite` file while a WAL exists and then open that copy as the campaign.
+- Do not replace the live file by copying an old snapshot over it outside `restore_ledger`. A direct copy can leave `recovery_state=ACTIVE` and is not a recovery. `J-MON-J-F001` remains that host-admin residual.
 - Do not delete the WAL or SHM to "repair" a database that still opens and passes `integrity_check`.
 - Do not raise `MAX_TOTAL_ACTIONS_MINUTES` above 60 to hide a restore.
 - Do not resume dispatch because the restored file looks valid.

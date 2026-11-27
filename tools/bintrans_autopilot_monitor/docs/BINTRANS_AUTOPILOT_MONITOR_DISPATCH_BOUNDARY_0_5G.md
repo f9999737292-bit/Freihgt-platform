@@ -43,11 +43,9 @@ Any other method, any absolute URL, any other repository, any other path, and an
 
 The public workflow endpoint, checked on 2026-11-27 at `https://docs.github.com/en/rest/actions/workflows`, says `ref` is a branch or tag name. It does not accept a raw commit SHA as `ref`. The same page, for API version `2026-03-10`, describes a successful body that includes `workflow_run_id`. Older descriptions of this endpoint use an empty 204. The adapter therefore does not put the expected SHA in `ref`, and it does not substitute an unbound branch name. An empty 204 and a body that only carries `workflow_run_id` are both unconfirmed. Neither proves that the expected SHA ran.
 
-Before the POST it reads `/repos/{owner}/{name}/git/commits/{sha}`. The returned object SHA must equal the expected SHA, and the caller must pass a `TrustedRefBinding` whose ref is the allowlisted ref and whose object SHA is that same SHA. The POST body uses the branch or tag name as `ref` and the existing `head_sha` input for the SHA. If the read does not match, the POST is not sent.
+Before the POST it reads `/repos/{owner}/{name}/git/commits/{sha}`. The returned object SHA must equal the expected SHA, and the caller must pass a `TrustedRefBinding` whose ref is the allowlisted ref and whose object SHA is that same SHA. The POST body uses the branch or tag name as `ref`. The dispatch candidate added in 0.5H receives `budget_dispatch_id`, `campaign_id`, and `expected_head_sha`. The classifier candidate still has only `run_id` and `head_sha` and is not the dispatch target. If the commit read does not match, the POST is not sent.
 
-The current candidate workflow inputs are `run_id` and `head_sha`. It has no input that echoes a local dispatch id. A 204 response with an empty body is not proof that a particular run started. Correlation accepts a run only when `budget_dispatch_id`, `head_sha`, and the workflow all match exactly one row. Zero matches or several matches stay `DISPATCH_UNKNOWN`. The adapter does not choose a run by `created_at` or by list position.
-
-`PROPOSAL=ADD_WORKFLOW_INPUT_budget_dispatch_id`. That input is not added in this stage. It needs a separate controller GO and a workflow change. Until it exists, a hosted dispatch of the current candidate cannot be correlated and must stay unknown.
+A 204 response with an empty body is not proof that a particular run started. Correlation reads the run name GitHub shows for `run-name`, or an explicit correlation field in an offline fixture. Exactly one run may match. Zero or several matches stay `DISPATCH_UNKNOWN`. The adapter does not choose a run by `created_at` or by list position. A matching name is not authorization; repository, workflow, SHA, and `run_attempt` are checked again.
 
 ## Usage
 
