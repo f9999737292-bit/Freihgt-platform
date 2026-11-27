@@ -350,34 +350,55 @@ func isNonHardLeaf(k NodeKind) bool {
 }
 
 func (st *evalState) evalComparison(n *Node) (Tri, error) {
-	if n.Op == OpEXISTS || n.Op == OpISMissing {
-		return TriUnknown, validationErr("CONTRACT_DECISION_REQUIRED",
-			"EXISTS/IS_MISSING evaluation blocked until CONTROLLER_EXISTS_NULL_FREEZE")
-	}
-	spec, ok := LookupAttribute(n.Attr)
-	if !ok {
-		return TriUnknown, validationErr("UNKNOWN_ATTRIBUTE", n.Attr)
-	}
-	if spec.TestOnly && !st.allowTestOnly {
-		return TriUnknown, validationErr("TEST_ONLY_ATTRIBUTE", n.Attr)
-	}
-	if spec.Availability == AttrNotAvailable {
-		st.unavailable = appendUnique(st.unavailable, n.Attr)
-		return TriUnknown, nil
+	rv, err := st.resolveAttr(n.Attr)
+	if err != nil {
+		return TriUnknown, err
 	}
 
-	rv, ok := st.attrs[n.Attr]
-	if !ok {
-		rv = RuntimeValue{Status: AttrStatusMissing}
+	// Controller freeze 2026-11-27: EXISTS / IS_MISSING status table.
+	switch n.Op {
+	case OpEXISTS:
+		switch rv.Status {
+		case AttrStatusPresent, AttrStatusNull:
+			return TriTrue, nil
+		case AttrStatusMissing, AttrStatusNotAvailable:
+			st.unavailable = appendUnique(st.unavailable, n.Attr)
+			return TriFalse, nil
+		default:
+			return TriUnknown, validationErr("INVALID_ATTRIBUTE_STATUS", string(rv.Status))
+		}
+	case OpISMissing:
+		switch rv.Status {
+		case AttrStatusPresent, AttrStatusNull:
+			return TriFalse, nil
+		case AttrStatusMissing, AttrStatusNotAvailable:
+			st.unavailable = appendUnique(st.unavailable, n.Attr)
+			return TriTrue, nil
+		default:
+			return TriUnknown, validationErr("INVALID_ATTRIBUTE_STATUS", string(rv.Status))
+		}
 	}
+
+	// Ordinary comparisons: NULL / MISSING / NOT_AVAILABLE ⇒ UNKNOWN (not TRUE/FALSE).
 	switch rv.Status {
-	case AttrStatusMissing, AttrStatusNotAvailable:
+	case AttrStatusMissing, AttrStatusNotAvailable, AttrStatusNull:
 		st.unavailable = appendUnique(st.unavailable, n.Attr)
 		return TriUnknown, nil
-	case AttrStatusNull:
-		// Disputed EXISTS(NULL)/compare-on-NULL semantics — fail closed without inventing TRUE/FALSE.
-		return TriUnknown, validationErr("CONTRACT_DECISION_REQUIRED",
-			"NULL attribute comparison blocked until CONTROLLER_EXISTS_NULL_FREEZE")
+	case AttrStatusPresent:
+		// continue
+	default:
+		return TriUnknown, validationErr("INVALID_ATTRIBUTE_STATUS",
+			fmt.Sprintf("unknown AttrStatus %q", rv.Status))
+	}
+
+	// Literal sentinel RHS (typed NULL/MISSING/NOT_AVAILABLE) ⇒ UNKNOWN for value-ops.
+	if n.Value != nil && isSentinelType(n.Value.Type) {
+		return TriUnknown, nil
+	}
+	for i := range n.Values {
+		if isSentinelType(n.Values[i].Type) {
+			return TriUnknown, nil
+		}
 	}
 
 	switch n.Op {
@@ -447,6 +468,41 @@ func (st *evalState) evalComparison(n *Node) (Tri, error) {
 		return TriFalse, nil
 	default:
 		return TriUnknown, validationErr("UNKNOWN_OPERATOR", string(n.Op))
+	}
+}
+
+// resolveAttr applies catalog gates and status normalization.
+// Catalog Availability=NOT_AVAILABLE overrides any fabricated PRESENT payload.
+// Missing map keys become MISSING. Unknown AttrStatus fails closed.
+func (st *evalState) resolveAttr(name string) (RuntimeValue, error) {
+	spec, ok := LookupAttribute(name)
+	if !ok {
+		return RuntimeValue{}, validationErr("UNKNOWN_ATTRIBUTE", name)
+	}
+	if spec.TestOnly && !st.allowTestOnly {
+		return RuntimeValue{}, validationErr("TEST_ONLY_ATTRIBUTE", name)
+	}
+	rv, ok := st.attrs[name]
+	if !ok {
+		rv = RuntimeValue{Status: AttrStatusMissing}
+	}
+	if spec.Availability == AttrNotAvailable {
+		// Evidence policy wins: refuse fabricated KPI / PRESENT injection.
+		rv.Status = AttrStatusNotAvailable
+		rv.HasDecimal = false
+		rv.String = ""
+		rv.Enum = ""
+		rv.Timestamp = ""
+		rv.Boolean = false
+	}
+	switch rv.Status {
+	case AttrStatusPresent, AttrStatusMissing, AttrStatusNull, AttrStatusNotAvailable:
+		return rv, nil
+	case "":
+		return RuntimeValue{}, validationErr("INVALID_ATTRIBUTE_STATUS", "empty AttrStatus")
+	default:
+		return RuntimeValue{}, validationErr("INVALID_ATTRIBUTE_STATUS",
+			fmt.Sprintf("unknown AttrStatus %q", rv.Status))
 	}
 }
 
