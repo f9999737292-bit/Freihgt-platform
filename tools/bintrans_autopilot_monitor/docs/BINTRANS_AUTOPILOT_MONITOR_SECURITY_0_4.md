@@ -93,3 +93,5 @@ Checkout uses `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683`, `repo
 The first step exits 2 unless `vars.AUTOPILOT_EMERGENCY_STOP` is exactly `false`, and that step is before checkout. The classify step repeats the same exact-`false` test before `mktemp` and before either GET. This document does not claim that changing the repository variable stops a step that has already started. That behavior was not hosted-tested.
 
 The candidate does not call Cursor, a paid model, or the product dispatcher. It does not download job logs. A Jobs API body without a verified excerpt stays `unclassified_failure`. Local fixture runs and static YAML checks do not close `J-MON-R2-M003`. `HOSTED_PERMISSION_ENFORCEMENT=NOT_RUN`.
+
+`J-MON-J-L001=CLOSED` on the documentation delta. Agent J accepted that delta as docs-only. The closure does not close hosted permission enforcement.

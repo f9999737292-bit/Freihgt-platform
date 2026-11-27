@@ -19,12 +19,11 @@ Option A, an isolated test repository, is the recommended place for the first ho
 
 `ISOLATED_REPOSITORY_REQUIRED=YES` for the first hosted permission probes. No probe in this stage touches a BINTRANS pull request, branch, or workflow.
 
-## Limits proposed for a later GO
+## Limits
 
-- One job, `ubuntu-latest`, `timeout-minutes: 10`, so one run cannot bill more than 10 minutes.
-- Concurrency group stays a single group with `cancel-in-progress: false`. The operator cancels a run by hand when a scenario says to cancel it.
-- Proposed cap: 26 runs and 60 Actions minutes. A stop-denied run should exit in seconds. A classify run is expected to finish well under 10 minutes. Dollar cost is `UNKNOWN` until the test repository is public or private. Public standard runners are not given a dollar figure here. A private repository consumes the owner's included minutes.
-- No schedule. No matrix that fans out by itself.
+`SUPERSEDED_BY_0_5E`. `J-MON-J-B001` rejected a campaign of 26 runs against a 60 minute cap with no reservation ledger. The current limits and the admission rule are in `BINTRANS_AUTOPILOT_MONITOR_HOSTED_BUDGET_RUNBOOK_0_5E.md`. An operator note is not the limiter.
+
+The candidate still has one job, `ubuntu-latest`, and `timeout-minutes: 10`. The concurrency group does not reject a second dispatch. It can queue one. That is not a budget gate.
 
 ## Permission matrix
 
@@ -66,7 +65,23 @@ GitHub resolves `vars` into the step environment when the step is prepared. This
 | STOP-009 | Set the variable to `true` after the run has started. | Later steps may or may not observe it. Record the actual result. Do not call a guess a pass. | A universal in-flight stop. |
 | STOP-010 | Operator cancels the run. | The run ends as cancelled. | That the classifier exited 2 by itself. |
 
-`STOP_RUNTIME_GUARANTEE=NOT_PROVEN_FOR_IN_FLIGHT_RUN`. `STOP_REMEDIATION_REQUIRED=YES` as a controller decision, not as a code change in this stage. The proposal, if the controller wants a stronger stop later, is a runbook that says: cancel the workflow run to stop work already in progress. A code change that re-reads a stop source between pages is not authorized here.
+`STOP_RUNTIME_GUARANTEE=NOT_PROVEN_FOR_IN_FLIGHT_RUN`. The operator sequence is `BINTRANS_AUTOPILOT_MONITOR_EMERGENCY_STOP_RUNBOOK_0_5E.md`. Changing the repository variable is not a proven stop for a step that has already started.
+
+## 0.5E dispatch grouping
+
+Every row above stays mandatory. Grouping only shares a run across checks that can be observed together. It does not delete a check.
+
+| Dispatch | Checks | Reservation |
+| --- | --- | --- |
+| D1 | STOP-001, STOP-005, STOP-006. Variable unset. | 11 |
+| D2 | STOP-002. Variable `true`. STOP-005 and STOP-006 are recorded again. | 11 |
+| D3 | STOP-004. One invalid value. Local tests still cover the other spellings. | 11 |
+| D4 | One fixture job so D5 has a completed run to read. Timeout 2 minutes. | 3 |
+| D5 | STOP-003, HOSTED-001, HOSTED-002, HOSTED-011, HOSTED-012, HOSTED-013, HOSTED-014, HOSTED-015, HOSTED-016. After the first GET, the operator sets the variable and records STOP-007, STOP-008, and STOP-009, then cancels the run for STOP-010. | 11 |
+| D6 | HOSTED-004, HOSTED-005, HOSTED-006, HOSTED-007, HOSTED-008, HOSTED-009, HOSTED-010. One throwaway job in the isolated repository. It is not a change to the candidate file. | 11 |
+| D7 | HOSTED-003 page 2, a run with at least 101 jobs. | Denied under the 1-minute-per-job floor. |
+
+D1 through D6 reserve 58 minutes. That fits in 60 only when each run is reconciled before the next one starts. HOSTED-003's short-page stop is visible in D5, because that run has fewer than 100 jobs. The live page-2 fetch is not in those 58 minutes. A 101-job fixture is at least 101 minutes under the fail-closed floor, so it is `CONTROLLER_DECISION` and is not dispatched by this plan.
 
 ## PostgreSQL budget boundary
 
