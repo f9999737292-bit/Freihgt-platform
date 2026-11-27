@@ -36,9 +36,10 @@ type Node struct {
 	NodeID string    `json:"node_id,omitempty"`
 }
 
-// Value is a strictly typed AST literal. Sentinel states NULL / MISSING /
-// NOT_AVAILABLE are representable without evaluating EXISTS(NULL) semantics
-// (evaluation deferred pending Agent J confirmation).
+// Value is a strictly typed AST literal. Sentinel types NULL / MISSING /
+// NOT_AVAILABLE may appear as decode shapes; commercial EQ/NE/... reject
+// sentinel RHS at validate. Runtime attribute status uses the controller
+// freeze table (CONTROLLER_EXISTS_NULL_FREEZE=YES, 2026-11-27).
 type Value struct {
 	Type      ValueType `json:"type"`
 	String    *string   `json:"string,omitempty"`

@@ -47,7 +47,7 @@ func init() {
 
 	cmpAll := []Operator{OpEQ, OpNE, OpGT, OpGTE, OpLT, OpLTE, OpIN, OpNOTIN, OpBETWEEN}
 	eqSet := []Operator{OpEQ, OpNE, OpIN, OpNOTIN}
-	// EXISTS/IS_MISSING listed for catalog completeness; evaluator blocks until controller freeze.
+	// EXISTS/IS_MISSING allowed; runtime status table is CONTROLLER_EXISTS_NULL_FREEZE=YES.
 	presence := []Operator{OpEXISTS, OpISMissing}
 
 	register(AttributeSpec{

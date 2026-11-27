@@ -126,7 +126,7 @@ func TestEvaluate_TrustBoundary_RequiresValidatedPolicy(t *testing.T) {
 	}
 }
 
-func TestEvaluate_EXISTS_BlockedContractDecision(t *testing.T) {
+func TestEvaluate_EXISTS_PresentEligible(t *testing.T) {
 	raw := []byte(`{
   "schema_version":"allocation_policy_ast.v1","policy_id":"p","scoring_model":"ADDITIVE_WEIGHTS",
   "root":{"kind":"AND","args":[
@@ -138,14 +138,19 @@ func TestEvaluate_EXISTS_BlockedContractDecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = Evaluate(EvaluateRequest{
+	res, err := Evaluate(EvaluateRequest{
 		Policy: vp,
 		Auth: EvalAuthRequest{Auth: testAuth(t, PermAllocationSimulate), CampaignOwnerCompanyID: "co1", PolicyOwnerCompanyID: "co1", ResourceStatus: ResourceStatusDraft},
 		Candidate: CandidateInput{CarrierID: "c1", TenantID: "t1", Attrs: map[string]RuntimeValue{
 			"offered_price": {Status: AttrStatusPresent, Type: ValueTypeDecimal, Decimal: decimal.RequireFromString("10"), HasDecimal: true},
 		}},
 	})
-	assertDecodeCode(t, err, "CONTRACT_DECISION_REQUIRED")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Eligible || res.ScoreTotal == nil {
+		t.Fatalf("EXISTS(PRESENT) must allow eligibility: %#v", res)
+	}
 }
 
 func TestEvaluate_NestedANDOR_W1004(t *testing.T) {
