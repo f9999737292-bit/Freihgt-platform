@@ -36,6 +36,24 @@ REF = "refs/heads/main"
 DISPATCH_WORKFLOW = ROOT / "candidate" / ".github" / "workflows" / "bintrans-autopilot-budget-dispatch.yml"
 CLASSIFIER = ROOT / "candidate" / ".github" / "workflows" / "bintrans-autopilot-monitor.yml"
 ACTIVE = ROOT.parents[1] / ".github" / "workflows" / "bintrans-autopilot-budget-dispatch.yml"
+LAB_REPOSITORY = "f9999737292-bit/bintrans-autopilot-security-lab"
+PRODUCT_REPOSITORY = "f9999737292-bit/Freihgt-platform"
+LAB_DISPATCH_FIXTURE = ROOT / "tests" / "fixtures" / "lab-budget-dispatch.yml"
+LAB_MONITOR_FIXTURE = ROOT / "tests" / "fixtures" / "lab-monitor.yml"
+
+
+def assert_isolated_repository_binding(test: unittest.TestCase, text: str, allowed: str) -> None:
+    test.assertEqual(allowed, LAB_REPOSITORY)
+    test.assertNotEqual(allowed, PRODUCT_REPOSITORY)
+    test.assertNotIn(PRODUCT_REPOSITORY, text)
+    test.assertNotIn("inputs.repository", text)
+    test.assertNotIn("repository_dispatch:", text)
+    repository_lines = [line.strip() for line in text.splitlines() if line.strip().startswith("repository:")]
+    test.assertTrue(repository_lines)
+    test.assertTrue(all(line == "repository: " + allowed for line in repository_lines), repository_lines)
+    test.assertIn("github.repository == '" + allowed + "'", text)
+    test.assertIn('if [ "$GITHUB_REPOSITORY" != "' + allowed + '" ]; then', text)
+    test.assertIn("exit 3", text)
 
 
 def _request(dispatch_id: str, **overrides: object) -> DispatchRequest:
@@ -136,6 +154,31 @@ class HostedContractTests(unittest.TestCase):
         self.assertIn("MONITOR_EXECUTED=NO", text)
         self.assertIn("MONITOR_API_CALLS=0", text)
         self.assertIn("RESULT=REJECTED", text)
+
+    def test_wf_static_004_isolated_repository_binding(self):
+        dispatch = LAB_DISPATCH_FIXTURE.read_text(encoding="utf-8")
+        monitor = LAB_MONITOR_FIXTURE.read_text(encoding="utf-8")
+        for text in (dispatch, monitor):
+            assert_isolated_repository_binding(self, text, LAB_REPOSITORY)
+        self.assertEqual(dispatch.count("github.repository == '" + LAB_REPOSITORY + "'"), 2)
+        self.assertIn("ref: ${{ inputs.expected_head_sha }}", dispatch)
+        self.assertLess(dispatch.find("SHA_GUARD=FAIL"), dispatch.find("actions/checkout@"))
+        self.assertFalse(ACTIVE.exists())
+        mutated = dispatch.replace(LAB_REPOSITORY, PRODUCT_REPOSITORY)
+        with self.assertRaises(AssertionError):
+            assert_isolated_repository_binding(self, mutated, LAB_REPOSITORY)
+        foreign = [_named("foreign", "corr-4", repository=PRODUCT_REPOSITORY)]
+        with self.assertRaises(BudgetDeny) as caught:
+            correlate_run(
+                foreign,
+                dispatch_id="corr-4",
+                expected_sha=SHA,
+                workflow=WORKFLOW,
+                campaign_id="camp-1",
+                repository=LAB_REPOSITORY,
+                trusted=TRUSTED,
+            )
+        self.assertEqual(caught.exception.code, "repository_rejected")
 
     def test_corr_001_one_visible_run_name_binds_that_run_id(self):
         runs = [

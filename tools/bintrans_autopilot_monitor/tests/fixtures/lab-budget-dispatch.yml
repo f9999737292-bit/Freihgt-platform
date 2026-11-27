@@ -1,0 +1,114 @@
+name: BINTRANS autopilot budget dispatch
+
+# CANDIDATE. Not published. Not scheduled. Not dispatched from this repository path.
+# This file is the dispatch contract. It is not the classifier candidate.
+# A green job does not prove project CI, and it does not prove GitHub billing.
+
+run-name: bintrans-budget ${{ inputs.campaign_id }} ${{ inputs.budget_dispatch_id }} ${{ inputs.expected_head_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      budget_dispatch_id:
+        description: Ledger dispatch id
+        required: true
+        type: string
+      campaign_id:
+        description: Ledger campaign id
+        required: true
+        type: string
+      expected_head_sha:
+        description: Exact 40-character head SHA required for this run
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: bintrans-autopilot-budget-dispatch
+  cancel-in-progress: false
+
+jobs:
+  sha-guard:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'f9999737292-bit/bintrans-autopilot-security-lab' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Reject a missing SHA, a bad id, a stop, or a different head before checkout
+        env:
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          BUDGET_DISPATCH_ID: ${{ inputs.budget_dispatch_id }}
+          CAMPAIGN_ID: ${{ inputs.campaign_id }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          AUTOPILOT_EMERGENCY_STOP: ${{ vars.AUTOPILOT_EMERGENCY_STOP }}
+        run: |
+          set -eu
+          printf '%s' "$EXPECTED_HEAD_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$GITHUB_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$BUDGET_DISPATCH_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$'
+          printf '%s' "$CAMPAIGN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$'
+          if [ "${AUTOPILOT_EMERGENCY_STOP}" != "false" ]; then
+            echo "SHA_GUARD=FAIL"
+            echo "CHECKOUT_EXECUTED=NO"
+            echo "MONITOR_EXECUTED=NO"
+            echo "MONITOR_API_CALLS=0"
+            echo "RESULT=REJECTED"
+            exit 2
+          fi
+          if [ "$GITHUB_REPOSITORY" != "f9999737292-bit/bintrans-autopilot-security-lab" ]; then
+            echo "SHA_GUARD=FAIL"
+            echo "CHECKOUT_EXECUTED=NO"
+            echo "MONITOR_EXECUTED=NO"
+            echo "MONITOR_API_CALLS=0"
+            echo "RESULT=REJECTED"
+            exit 3
+          fi
+          if [ "$GITHUB_SHA" != "$EXPECTED_HEAD_SHA" ]; then
+            echo "SHA_GUARD=FAIL"
+            echo "CHECKOUT_EXECUTED=NO"
+            echo "MONITOR_EXECUTED=NO"
+            echo "MONITOR_API_CALLS=0"
+            echo "RESULT=REJECTED"
+            exit 4
+          fi
+          echo "SHA_GUARD=PASS"
+
+  trusted-checkout:
+    needs: sha-guard
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'f9999737292-bit/bintrans-autopilot-security-lab' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Repeat the SHA guard before checkout
+        env:
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          GITHUB_SHA: ${{ github.sha }}
+          AUTOPILOT_EMERGENCY_STOP: ${{ vars.AUTOPILOT_EMERGENCY_STOP }}
+        run: |
+          set -eu
+          if [ "${AUTOPILOT_EMERGENCY_STOP}" != "false" ]; then
+            echo "SHA_GUARD=FAIL"
+            echo "CHECKOUT_EXECUTED=NO"
+            echo "MONITOR_EXECUTED=NO"
+            echo "MONITOR_API_CALLS=0"
+            echo "RESULT=REJECTED"
+            exit 2
+          fi
+          if [ "$GITHUB_SHA" != "$EXPECTED_HEAD_SHA" ]; then
+            echo "SHA_GUARD=FAIL"
+            echo "CHECKOUT_EXECUTED=NO"
+            echo "MONITOR_EXECUTED=NO"
+            echo "MONITOR_API_CALLS=0"
+            echo "RESULT=REJECTED"
+            exit 4
+          fi
+      - name: Checkout the trusted SHA
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: f9999737292-bit/bintrans-autopilot-security-lab
+          ref: ${{ inputs.expected_head_sha }}
+          persist-credentials: false
+          fetch-depth: 1
