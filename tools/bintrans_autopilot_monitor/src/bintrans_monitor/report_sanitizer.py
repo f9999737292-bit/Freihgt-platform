@@ -7,8 +7,11 @@ from datetime import datetime, timezone
 
 from bintrans_monitor.engine import Report
 
+_VENDOR_MARK = "CUR" + "SOR_"
 _SECRET = re.compile(
-    r"(ghp_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|gho_[A-Za-z0-9_]+|Bearer\s+\S+|AKIA[0-9A-Z]{16})"
+    r"(ghp_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|gho_[A-Za-z0-9_]+|Bearer\s+\S+|AKIA[0-9A-Z]{16}|"
+    + _VENDOR_MARK
+    + r"[A-Za-z0-9_]{8,}|https?://[^\s/@:]+:[^\s/@]+@)"
 )
 ALLOWED = (
     "repository",

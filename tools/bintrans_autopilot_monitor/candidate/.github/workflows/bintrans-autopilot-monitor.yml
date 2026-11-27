@@ -89,6 +89,11 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/tools/bintrans_autopilot_monitor/src
         run: |
           set -eu
+          if [ "${AUTOPILOT_EMERGENCY_STOP}" != "false" ]; then
+            echo "MONITOR=DENY"
+            echo "REASON=emergency_stop_control_unavailable_or_active"
+            exit 2
+          fi
           tmp=$(mktemp -d)
           trap 'rm -rf "$tmp"' EXIT
           gh api --method GET "repos/${REPOSITORY}/actions/runs/${RUN_ID}" > "$tmp/run.json"
