@@ -10,7 +10,7 @@ The workflow file stays inside this tree. It is not installed at `.github/workfl
 
 | Path | Role |
 | --- | --- |
-| `candidate/.github/workflows/bintrans-autopilot-monitor.yml` | Unpublished `workflow_dispatch` candidate. Permissions are `actions: read` and `pull-requests: read`. |
+| `candidate/.github/workflows/bintrans-autopilot-monitor.yml` | Unpublished `workflow_dispatch` candidate. The R2 copy granted `actions: read` and `pull-requests: read`. The current 0.5 file grants `actions: read` and `contents: read` only. |
 | `src/bintrans_monitor/__init__.py` | Package exports. |
 | `src/bintrans_monitor/engine.py` | Read-only classifier. Stop gate runs before a transport load. |
 | `src/bintrans_monitor/workflow_static.py` | Derives required permissions from the GET paths. |
@@ -30,3 +30,14 @@ The workflow file stays inside this tree. It is not installed at `.github/workfl
 | `MANIFEST.sha256` | SHA256 of every file above except itself. |
 
 Hashes are in `MANIFEST.sha256`. Reproduce a row with SHA256 of the file bytes. Do not hash `__pycache__`.
+
+## Current 0.5 candidate
+
+`CURRENT_CANDIDATE`. The table above is the R2 inventory plus the permission correction required by `J-MON-J-L001`. The file list that this tree actually hashes is `MANIFEST.sha256`.
+
+The current workflow file does not grant `pull-requests: read`. It grants `contents: read` because checkout is pinned to `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683` with `persist-credentials: false` and `ref: ${{ github.sha }}`. Its GitHub API calls are only:
+
+- `GET repos/${REPOSITORY}/actions/runs/${RUN_ID}`
+- `GET repos/${REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100&page=${page}`
+
+There is no `/pulls` call and no `/issues` call. The candidate is still not installed at `.github/workflows/bintrans-autopilot-monitor.yml`. Hosted permission enforcement remains `NOT_RUN`.

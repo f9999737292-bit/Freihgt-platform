@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -43,9 +44,31 @@ def jobs_on_page(path: Path) -> int:
     return len(jobs)
 
 
+_PAGE_LIMIT = 50
+_RUN_ID = re.compile(r"[0-9]{1,12}")
+_SHA = re.compile(r"[0-9a-f]{40}")
+
+
+def _page_index(path: Path) -> int:
+    number = path.stem.removeprefix("jobs-")
+    if not number.isdigit() or str(int(number)) != number:
+        raise MonitorError("jobs_page_rejected")
+    value = int(number)
+    if value < 1 or value > _PAGE_LIMIT:
+        raise MonitorError("jobs_page_limit")
+    return value
+
+
 def _load_pages(directory: Path) -> list[dict]:
-    paths = sorted(directory.glob("jobs-*.json"))
-    return [json.loads(path.read_text(encoding="utf-8")) for path in paths]
+    """Load jobs-1.json, jobs-2.json, ... in numeric order, at most 50 pages."""
+    indexed = [(_page_index(path), path) for path in directory.glob("jobs-*.json")]
+    if len(indexed) > _PAGE_LIMIT:
+        raise MonitorError("jobs_page_limit")
+    indexed.sort(key=lambda item: item[0])
+    expected = list(range(1, len(indexed) + 1))
+    if [item[0] for item in indexed] != expected:
+        raise MonitorError("jobs_page_order")
+    return [json.loads(path.read_text(encoding="utf-8")) for _, path in indexed]
 
 
 def _emit(document: dict) -> None:
@@ -122,4 +145,8 @@ def _flags(args: list[str]) -> dict[str, str]:
     for required in ("api_run", "api_jobs_dir", "run_id", "expected_sha"):
         if required not in found:
             raise ValueError("cli_rejected")
+    if _RUN_ID.fullmatch(found["run_id"]) is None:
+        raise ValueError("cli_rejected")
+    if _SHA.fullmatch(found["expected_sha"]) is None:
+        raise ValueError("cli_rejected")
     return found
