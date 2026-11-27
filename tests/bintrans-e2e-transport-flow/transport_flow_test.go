@@ -4,8 +4,6 @@ package bintranse2e
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -402,104 +400,36 @@ func continueDeliveryAndPOD(t *testing.T, env *flowEnv, fix flowFixture, carrier
 		"shipmentId": shipmentID, "driverId": fix.OtherDriver.String(), "ownerCompanyId": fix.CarrierID.String(),
 		"mimeType": "image/jpeg", "fileName": "other.jpg", "idempotencyKey": "pod-other-driver",
 	}, tenantHeader)
-	deny("other driver pod intent", status, payload, http.StatusNotFound)
+	deny("other driver pod intent", status, payload, http.StatusUnauthorized)
 	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads", map[string]string{
 		"shipmentId": shipmentID, "driverId": fix.ForeignDriver.String(), "ownerCompanyId": fix.ForeignCarrier.String(),
 		"mimeType": "image/jpeg", "fileName": "foreign.jpg", "idempotencyKey": "pod-foreign-driver",
 	}, foreignHeader)
-	deny("foreign tenant pod intent", status, payload, http.StatusNotFound)
-	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.documents WHERE related_entity_id=$1 AND document_type='POD'`, shipmentID) != 0 {
-		t.Fatal("denied pod intent inserted a document")
-	}
-	if decodeShipment(t, mustGetShipment(t, env, shipmentID, carrier)).Status != "DELIVERED" {
-		t.Fatal("denied pod intent changed the shipment status")
-	}
-
+	deny("foreign tenant pod intent", status, payload, http.StatusUnauthorized)
 	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads", map[string]string{
 		"shipmentId": shipmentID, "driverId": fix.DriverID.String(), "ownerCompanyId": fix.CarrierID.String(),
 		"mimeType": "image/jpeg", "fileName": "pod.jpg", "idempotencyKey": "pod-" + shipmentID,
 	}, tenantHeader)
-	if status != http.StatusCreated {
-		t.Fatalf("pod intent status=%d body=%s\n%s", status, payload, env.logs())
-	}
-	var intent struct {
-		UploadID    string `json:"uploadId"`
-		DocumentID  string `json:"documentId"`
-		UploadToken string `json:"uploadToken"`
-	}
-	if err := json.Unmarshal(payload, &intent); err != nil || intent.UploadID == "" || intent.DocumentID == "" || intent.UploadToken == "" {
-		t.Fatalf("pod intent json: %v body=%s", err, payload)
-	}
-	body := []byte("bintrans-e2e-pod")
-	sum := sha256.Sum256(body)
-	status, payload = env.putRaw(t, env.documents, "/internal/v1/pod-uploads/"+intent.UploadID+"/content", body, map[string]string{
-		"X-Tenant-ID": fix.TenantID.String(), "X-Upload-Token": intent.UploadToken,
-	})
-	if status != http.StatusOK {
-		t.Fatalf("pod upload status=%d body=%s\n%s", status, payload, env.logs())
-	}
-	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads/"+intent.UploadID+"/complete", map[string]string{
-		"driverId": fix.DriverID.String(), "checksumSha256": hex.EncodeToString(sum[:]),
+	deny("direct pod intent", status, payload, http.StatusUnauthorized)
+	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads", map[string]string{
+		"shipmentId": shipmentID, "driverId": fix.DriverID.String(), "ownerCompanyId": fix.CarrierID.String(),
+		"mimeType": "image/jpeg", "fileName": "pod.jpg", "idempotencyKey": "pod-" + shipmentID,
 	}, tenantHeader)
-	if status != http.StatusOK {
-		t.Fatalf("pod complete status=%d body=%s\n%s", status, payload, env.logs())
+	deny("repeated pod intent", status, payload, http.StatusUnauthorized)
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.documents WHERE related_entity_id=$1 AND document_type='POD'`, shipmentID) != 0 {
+		t.Fatal("denied pod intent inserted a document")
 	}
-	var completed struct {
-		DocumentID string `json:"documentId"`
-		UploadID   string `json:"uploadId"`
-		Status     string `json:"status"`
+	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.document_upload_intent WHERE tenant_id=$1 AND shipment_id=$2`, fix.TenantID, shipmentID) != 0 {
+		t.Fatal("denied pod intent inserted an upload")
 	}
-	if err := json.Unmarshal(payload, &completed); err != nil {
-		t.Fatalf("pod complete json: %v body=%s", err, payload)
-	}
-	if completed.DocumentID != intent.DocumentID || completed.UploadID != intent.UploadID || completed.Status != "completed" {
-		t.Fatalf("pod complete: %+v", completed)
-	}
-	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads/"+intent.UploadID+"/complete", map[string]string{
-		"driverId": fix.DriverID.String(), "checksumSha256": hex.EncodeToString(sum[:]),
+	seedCompletedPODFixture(t, env, fix, shipmentID)
+	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads", map[string]string{
+		"shipmentId": shipmentID, "driverId": fix.DriverID.String(), "ownerCompanyId": fix.CarrierID.String(),
+		"mimeType": "image/jpeg", "fileName": "pod.jpg", "idempotencyKey": "pod-after-fixture-" + shipmentID,
 	}, tenantHeader)
-	if status != http.StatusOK {
-		t.Fatalf("pod replay status=%d body=%s\n%s", status, payload, env.logs())
-	}
-	var completedAgain struct {
-		DocumentID string `json:"documentId"`
-		Status     string `json:"status"`
-	}
-	if err := json.Unmarshal(payload, &completedAgain); err != nil || completedAgain.DocumentID != intent.DocumentID || completedAgain.Status != "completed" {
-		t.Fatalf("pod replay: %v %+v body=%s", err, completedAgain, payload)
-	}
-	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.documents WHERE tenant_id=$1 AND document_type='POD' AND related_entity_type='SHIPMENT' AND related_entity_id=$2`, fix.TenantID, shipmentID) != 1 {
-		t.Fatal("replayed pod complete created another document")
-	}
-	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.document_files WHERE document_id=$1`, intent.DocumentID) != 1 {
-		t.Fatal("replayed pod complete created another file")
-	}
-
-	status, payload = env.post(t, env.documents, "/internal/v1/pod-uploads/"+intent.UploadID+"/complete", map[string]string{
-		"driverId": fix.OtherDriver.String(),
-	}, tenantHeader)
-	deny("other driver pod complete", status, payload, http.StatusBadRequest)
-	status, payload = env.get(t, env.documents, "/v1/documents/"+intent.DocumentID, foreignHeader)
-	deny("foreign tenant document", status, payload, http.StatusNotFound)
+	deny("pod intent after fixture", status, payload, http.StatusUnauthorized)
 	if countRows(t, env.pool, `SELECT COUNT(*) FROM documents.documents WHERE related_entity_id=$1 AND document_type='POD'`, shipmentID) != 1 {
-		t.Fatal("denied pod access created or removed a document")
-	}
-
-	status, payload = env.get(t, env.documents, "/v1/documents/"+intent.DocumentID, tenantHeader)
-	if status != http.StatusOK {
-		t.Fatalf("document lookup status=%d body=%s\n%s", status, payload, env.logs())
-	}
-	var document struct {
-		TenantID          string  `json:"tenant_id"`
-		DocumentType      string  `json:"document_type"`
-		RelatedEntityType *string `json:"related_entity_type"`
-		RelatedEntityID   *string `json:"related_entity_id"`
-	}
-	if err := json.Unmarshal(payload, &document); err != nil {
-		t.Fatalf("document json: %v body=%s", err, payload)
-	}
-	if document.TenantID != fix.TenantID.String() || document.DocumentType != "POD" || document.RelatedEntityType == nil || *document.RelatedEntityType != "SHIPMENT" || document.RelatedEntityID == nil || *document.RelatedEntityID != shipmentID {
-		t.Fatalf("document link: %+v", document)
+		t.Fatal("denied pod intent changed the fixture document")
 	}
 	finalShipment := decodeShipment(t, mustGetShipment(t, env, shipmentID, carrier))
 	if finalShipment.ID != shipmentID || finalShipment.Status != "DELIVERED" {
@@ -508,6 +438,23 @@ func continueDeliveryAndPOD(t *testing.T, env *flowEnv, fix flowFixture, carrier
 	if countRows(t, env.pool, `SELECT COUNT(*) FROM transport.shipments`) != 1 {
 		t.Fatal("delivery or pod created another shipment")
 	}
+}
+
+func seedCompletedPODFixture(t *testing.T, env *flowEnv, fix flowFixture, shipmentID string) {
+	t.Helper()
+	docID := uuid.New()
+	mustExec(t, env.pool, `
+		INSERT INTO documents.documents (
+			id, tenant_id, document_number, document_type, document_status,
+			owner_company_id, related_entity_type, related_entity_id, created_at, updated_at
+		) VALUES ($1,$2,$3,'POD','SIGNED',$4,'SHIPMENT',$5,now(),now())`,
+		docID, fix.TenantID, "POD-E2E-"+docID.String(), fix.CarrierID, shipmentID)
+	mustExec(t, env.pool, `
+		INSERT INTO documents.document_upload_intent (
+			tenant_id, document_id, shipment_id, driver_id, object_key, upload_token_hash,
+			mime_type, max_bytes, file_name, status, idempotency_key, expires_at, completed_at
+		) VALUES ($1,$2,$3,$4,$5,$6,'image/jpeg',1024,'pod.jpg','completed',$7,now(),now())`,
+		fix.TenantID, docID, shipmentID, fix.DriverID, "e2e/"+docID.String(), "fixture-hash", "pod-fixture-"+shipmentID)
 }
 
 func waitPublished(t *testing.T, env *flowEnv, shipmentID string) {

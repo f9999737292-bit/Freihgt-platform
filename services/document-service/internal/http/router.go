@@ -42,23 +42,24 @@ func NewRouter(
 		DB:          db,
 	})
 
+	denyWrite := handlers.DenyUnprovenDocumentWrite(internalAuth)
 	r.Route("/v1/documents", func(r chi.Router) {
-		r.Post("/", documentHandler.Create)
+		r.With(denyWrite).Post("/", documentHandler.Create)
 		r.Get("/", documentHandler.List)
 		r.Get("/{id}", documentHandler.GetByID)
-		r.Post("/{id}/versions", documentHandler.CreateVersion)
-		r.Post("/{id}/files", documentHandler.AddFile)
-		r.Post("/{id}/attachments", attachmentHandler.Create)
+		r.With(denyWrite).Post("/{id}/versions", documentHandler.CreateVersion)
+		r.With(denyWrite).Post("/{id}/files", documentHandler.AddFile)
+		r.With(denyWrite).Post("/{id}/attachments", attachmentHandler.Create)
 		r.Get("/{id}/attachments/{attachmentId}", attachmentHandler.Get)
 		r.Get("/{id}/attachments/{attachmentId}/content", attachmentHandler.Content)
-		r.Post("/{id}/attachments/{attachmentId}/finalize", attachmentHandler.Finalize)
-		r.Post("/{id}/attachments/{attachmentId}/signatures", attachmentHandler.AttachSignature)
+		r.With(denyWrite).Post("/{id}/attachments/{attachmentId}/finalize", attachmentHandler.Finalize)
+		r.With(denyWrite).Post("/{id}/attachments/{attachmentId}/signatures", attachmentHandler.AttachSignature)
 		r.Get("/{id}/attachments/{attachmentId}/signatures/{signatureId}", attachmentHandler.GetSignature)
-		r.Post("/{id}/ready-for-signing", documentHandler.ReadyForSigning)
-		r.Post("/{id}/signing-sessions", signingHandler.CreateSession)
+		r.With(denyWrite).Post("/{id}/ready-for-signing", documentHandler.ReadyForSigning)
+		r.With(denyWrite).Post("/{id}/signing-sessions", signingHandler.CreateSession)
 		r.Post("/{id}/signing-recovery", handlers.RejectSigningRecovery)
-		r.Post("/{id}/cancel", documentHandler.Cancel)
-		r.Post("/{id}/archive", documentHandler.Archive)
+		r.With(denyWrite).Post("/{id}/cancel", documentHandler.Cancel)
+		r.With(denyWrite).Post("/{id}/archive", documentHandler.Archive)
 	})
 
 	r.Route("/v1/shipper/documents", func(r chi.Router) {
@@ -79,13 +80,13 @@ func NewRouter(
 
 	r.Route("/v1/signing-sessions", func(r chi.Router) {
 		r.Get("/{id}", signingHandler.GetSession)
-		r.Post("/{id}/signatures", signingHandler.AddSignature)
+		r.With(denyWrite).Post("/{id}/signatures", signingHandler.AddSignature)
 	})
 
 	r.Route("/internal/v1/pod-uploads", func(r chi.Router) {
-		r.Post("/", podHandler.CreateIntent)
-		r.Put("/{uploadId}/content", podHandler.UploadContent)
-		r.Post("/{uploadId}/complete", podHandler.Complete)
+		r.With(denyWrite).Post("/", podHandler.CreateIntent)
+		r.With(denyWrite).Put("/{uploadId}/content", podHandler.UploadContent)
+		r.With(denyWrite).Post("/{uploadId}/complete", podHandler.Complete)
 	})
 
 	actionHandler := handlers.NewPODActionEvidenceHandler(actionSvc)
