@@ -19,8 +19,8 @@ func validationErr(code, msg string) error {
 // ValidatePolicy performs W1.2 structural validation on an already-decoded Policy.
 // It does not evaluate filters/scores, does not fingerprint, and does not execute ACTION.
 //
-// EXISTS(NULL) evaluation is intentionally NOT implemented
-// (EXISTS_NULL_DECISION=AWAITING_J_CONFIRMATION).
+// EXISTS / IS_MISSING status semantics are applied at Evaluate time
+// (CONTROLLER_EXISTS_NULL_FREEZE=YES, 2026-11-27).
 func ValidatePolicy(p *Policy) error {
 	if p == nil {
 		return validationErr("NIL_POLICY", "policy is nil")

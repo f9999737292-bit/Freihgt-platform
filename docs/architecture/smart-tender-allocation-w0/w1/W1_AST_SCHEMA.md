@@ -131,31 +131,52 @@ Eval of comparisons returns `TRUE` | `FALSE` | `UNKNOWN`.
 
 | Situation | Result |
 |---|---|
-| Any operand MISSING / NULL where op needs value | `UNKNOWN` (unless op is EXISTS/IS_MISSING) |
-| Attribute status UNKNOWN/NOT_AVAILABLE | `UNKNOWN` |
+| Any operand MISSING / NULL / NOT_AVAILABLE where op needs a concrete value | `UNKNOWN` (unless op is `EXISTS` / `IS_MISSING`) |
 | Incompatible types | **Reject policy eval** (fail-closed) — not silent coerce |
+| Unknown / empty AttrStatus | **Evaluation error** (`INVALID_ATTRIBUTE_STATUS`) — never default to PRESENT |
 
 **AND:** FALSE wins; else UNKNOWN if any UNKNOWN; else TRUE.  
 **OR:** TRUE wins; else UNKNOWN if any UNKNOWN; else FALSE.  
 **NOT:** NOT TRUE=FALSE; NOT FALSE=TRUE; NOT UNKNOWN=UNKNOWN.  
 
 HARD FILTER: outcome `FALSE` or `UNKNOWN` ⇒ **not eligible** (fail-closed for HARD).  
-SCORE component encountering UNKNOWN ⇒ that component contribution rejected unless FALLBACK rewrites attr first.
+SCORE cannot bypass HARD. SCORE components require PRESENT decimal evidence; catalog `NOT_AVAILABLE` KPI attrs refuse fabrication.
 
 **No implicit conversions** that change commercial meaning (e.g. string `"10"` vs decimal `10`).
 
+### 6.1.1 Attribute status model (Controller freeze 2026-11-27)
+
+| Status | Meaning |
+|---|---|
+| `PRESENT` | Concrete value available |
+| `NULL` | Attribute **key is present**, value explicitly NULL — **not** MISSING |
+| `MISSING` | Attribute absent from available data (including absent `CandidateInput.Attrs` key) |
+| `NOT_AVAILABLE` | No confirmed evidence source; catalog policy may force this even if a caller injects a numeric payload |
+
+### 6.1.2 `EXISTS` / `IS_MISSING` (normative — CONTROLLER_EXISTS_NULL_FREEZE=YES)
+
+| Attribute status | `EXISTS` | `IS_MISSING` |
+|---|---|---|
+| `PRESENT` | `TRUE` | `FALSE` |
+| `NULL` | `TRUE` | `FALSE` |
+| `MISSING` | `FALSE` | `TRUE` |
+| `NOT_AVAILABLE` | `FALSE` | `TRUE` |
+
+`IS_MISSING(NOT_AVAILABLE)=TRUE` means **data unavailable**, not that the carrier fails a KPI threshold.
+
 ### 6.2 Compatibility table
 
-| Operator | decimal | string | boolean | enum | timestamp | missing/null | unknown-status |
-|---|---|---|---|---|---|---|---|
-| EQ / NE | ✓ | ✓ | ✓ | ✓ | ✓ | UNKNOWN | UNKNOWN |
-| GT/GTE/LT/LTE | ✓ | ✗ | ✗ | ✗ | ✓ | UNKNOWN | UNKNOWN |
-| IN / NOT_IN | ✓ (set) | ✓ | ✓ | ✓ | ✓ | UNKNOWN | UNKNOWN |
-| BETWEEN | ✓ | ✗ | ✗ | ✗ | ✓ | UNKNOWN | UNKNOWN |
-| EXISTS | attr present (incl. null?) — **present & not MISSING** | same | same | same | same | FALSE if MISSING | FALSE if NOT_AVAILABLE mapped as missing |
-| IS_MISSING | TRUE if MISSING/NOT_AVAILABLE | same | same | same | same | TRUE | TRUE for NOT_AVAILABLE |
+| Operator | decimal | string | boolean | enum | timestamp | NULL/MISSING/NOT_AVAILABLE attr |
+|---|---|---|---|---|---|---|
+| EQ / NE | ✓ | ✓ | ✓ | ✓ | ✓ | `UNKNOWN` |
+| GT/GTE/LT/LTE | ✓ | ✗ | ✗ | ✗ | ✓ | `UNKNOWN` |
+| IN / NOT_IN | ✓ (set) | ✓ | ✓ | ✓ | ✓ | `UNKNOWN` |
+| BETWEEN | ✓ | ✗ | ✗ | ✗ | ✓ | `UNKNOWN` |
+| EXISTS | status table §6.1.2 | same | same | same | same | see §6.1.2 |
+| IS_MISSING | status table §6.1.2 | same | same | same | same | see §6.1.2 |
 
 ✗ = incompatible operand types ⇒ **validation/eval error**.
+AST literal RHS of type `NULL`/`MISSING`/`NOT_AVAILABLE` for value comparisons remains validation-rejected where the schema forbids that literal shape; runtime attribute **status** NULL/MISSING/NOT_AVAILABLE yields `UNKNOWN` for value-ops.
 
 ---
 
