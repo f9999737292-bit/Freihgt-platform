@@ -76,12 +76,14 @@ Every row above stays mandatory. Grouping only shares a run across checks that c
 | D1 | STOP-001, STOP-005, STOP-006. Variable unset. | 11 |
 | D2 | STOP-002. Variable `true`. STOP-005 and STOP-006 are recorded again. | 11 |
 | D3 | STOP-004. One invalid value. Local tests still cover the other spellings. | 11 |
-| D4 | One fixture job so D5 has a completed run to read. Timeout 2 minutes. | 3 |
-| D5 | STOP-003, HOSTED-001, HOSTED-002, HOSTED-011, HOSTED-012, HOSTED-013, HOSTED-014, HOSTED-015, HOSTED-016. After the first GET, the operator sets the variable and records STOP-007, STOP-008, and STOP-009, then cancels the run for STOP-010. | 11 |
+| D4 | Separate fixture workflow, not the monitor workflow. One job, timeout 2 minutes, plus 1 overhead minute. Its reservation is not part of D5. | 3 |
+| D5 | Monitor workflow. STOP-003, HOSTED-001, HOSTED-002, HOSTED-011, HOSTED-012, HOSTED-013, HOSTED-014, HOSTED-015, HOSTED-016, and the short-page HOSTED-003 observation. STOP-007, STOP-008, STOP-009, then STOP-010. | 11 |
 | D6 | HOSTED-004, HOSTED-005, HOSTED-006, HOSTED-007, HOSTED-008, HOSTED-009, HOSTED-010. One throwaway job in the isolated repository. It is not a change to the candidate file. | 11 |
 | D7 | HOSTED-003 page 2, a run with at least 101 jobs. | Denied under the 1-minute-per-job floor. |
 
-D1 through D6 reserve 58 minutes. That fits in 60 only when each run is reconciled before the next one starts. HOSTED-003's short-page stop is visible in D5, because that run has fewer than 100 jobs. The live page-2 fetch is not in those 58 minutes. A 101-job fixture is at least 101 minutes under the fail-closed floor, so it is `CONTROLLER_DECISION` and is not dispatched by this plan.
+`J-MON-J-E001` asked to count the fixture as its own billed workflow. D4 is that workflow: 1 job, 2 minute timeout, 1 overhead minute, reserve 3. D1, D2, D3, and D5 are four monitor-workflow runs at 11 each. D6 is a separate write-probe workflow at 11. The six reservations are 11+11+11+3+11+11 = 58. They fit in 60 only when each run is reconciled before the next one starts. A manual rerun is another reservation of the same size and is denied when the remainder is too small.
+
+HOSTED-003's short-page stop is visible in D5. `LOCAL_FULL_PAGINATION_TEST=PASS` from the offline page-order tests. `HOSTED_SINGLE_PAGE_TEST=PLANNED` on D5. `HOSTED_LIVE_PAGE2=DEFERRED_D7`. `HOSTED_003_FULL_ACCEPTANCE=NO`. A 101-job fixture is at least 101 minutes under the fail-closed floor, so D7 is not dispatched.
 
 ## PostgreSQL budget boundary
 

@@ -1,6 +1,6 @@
 # Hosted budget control runbook 0.5E
 
-This runbook defines the only admission rule for a future isolated hosted proof. It does not dispatch a workflow. A written checklist is not a technical limiter. `J-MON-J-B001` stays open until an independent review accepts this design. The gate below is not implemented.
+This runbook defines the admission rule for a future isolated hosted proof. It does not dispatch a workflow. A written checklist is not the limiter. The local SQLite gate in `BINTRANS_AUTOPILOT_MONITOR_BUDGET_GATE_0_5F.md` now enforces the reservation rules on this machine. It does not call GitHub, and a direct Actions dispatch can still spend minutes. `BYPASS_PREVENTION_HOSTED=NOT_PROVEN`.
 
 ## Caps
 
@@ -45,6 +45,6 @@ D1 through D6 in the 0.5D plan reserve 58 minutes if each run is reconciled befo
 
 A live HOSTED-003 page-2 proof needs at least 101 jobs. Under the one-minute floor that is at least 101 minutes, which is above 60. This plan does not dispatch that fixture. The controller decides whether to raise the cap, or to accept the local page-order tests plus the short-page hosted observation as the page-2 deferral. Dropping the check silently is not allowed.
 
-## Proposed gate, not built
+## Local gate
 
-A separate controller-side ledger, outside the monitor job, should hold the remaining minutes and the dispatch lock. It reads usage after each terminal run and performs the compare-and-swap above. It must not add a PAT or a write token to the monitor job. Building that ledger needs its own controller GO. `BUDGET_RUNTIME_ENFORCEMENT=NOT_IMPLEMENTED`. `BUDGET_IMPLEMENTATION_REQUIRED=YES`.
+The 0.5F component is a separate SQLite ledger outside the monitor job. It reserves minutes in one transaction, keeps the reserve when dispatch outcome or usage is unknown, and does not add a credential to the monitor token. The live usage API is not connected. Hosted prevention of a direct Actions dispatch remains `NOT_PROVEN`.
