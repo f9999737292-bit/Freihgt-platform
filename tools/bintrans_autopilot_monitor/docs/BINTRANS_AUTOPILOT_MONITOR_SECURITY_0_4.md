@@ -22,15 +22,17 @@ The permissions table and the YAML example list `actions`, `artifact-metadata`, 
 
 ## R2 least privilege
 
-The candidate's `gh api --method GET` calls are only:
+`HISTORICAL_R2_CANDIDATE_NOT_CURRENT`. This section records the unpublished R2 candidate. It is not the 0.5 candidate. The current contract is the section `0.5 current candidate` below.
+
+The R2 candidate's `gh api --method GET` calls were only:
 
 - `repos/${REPOSITORY}/actions/runs`
 - `repos/${REPOSITORY}/actions/runs?status=failure`
 - `repos/${REPOSITORY}/pulls?state=open`
 
-There is no `/issues` request and no checkout. `J-MON-M001` asked to drop `issues: read` or to justify an issues call. The call is not used, so `issues: read` is removed. `contents: read` is also removed: no contents or git endpoint is called.
+The R2 candidate had no `/issues` request and no checkout. `J-MON-M001` asked to drop `issues: read` or to justify an issues call. The call was not used, so `issues: read` was removed. `contents: read` was also absent from that R2 file: it did not call a contents endpoint and did not check out code.
 
-Granted workflow permissions:
+R2 granted workflow permissions:
 
 ```yaml
 actions: read
@@ -71,10 +73,23 @@ Static tests and fixture runs do not prove GitHub's enforcement of `permissions`
 
 `J-MON-R2-M003` remains OPEN. `HOSTED_PERMISSION_ENFORCEMENT=NOT_RUN`. This document does not call the monitor production-ready.
 
-## 0.5B current candidate
+## 0.5 current candidate
 
-This section describes the inactive 0.5 candidate. The R2 permission paragraph above describes the earlier unpublished candidate.
+`CURRENT_CANDIDATE`. This section describes `candidate/.github/workflows/bintrans-autopilot-monitor.yml` as it exists after the 0.5C preflight. `J-MON-J-L001` asked to stop describing that file with the R2 permission and route list.
 
-The 0.5 candidate grants `actions: read` and `contents: read`. `contents: read` is present because the candidate checks out the trusted repository SHA. It does not grant `pull-requests: read`, `issues: read`, `metadata: read`, or any write permission. `J-0.5A-L001` is this wording difference: the historical MON-001 row in the R2 test report still says `pull-requests: read`.
+Granted workflow permissions, and why each one is present:
 
-The candidate does not download job logs. A Jobs API response without a verified excerpt cannot become `KNOWN_ERROR_SIGNATURE`. `J-0.5A-M002` is not fully closed. No live log permission was added.
+| Key | Value | Why it is granted |
+| --- | --- | --- |
+| `actions` | `read` | `GET /repos/${REPOSITORY}/actions/runs/${RUN_ID}` and `GET /repos/${REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100&page=${page}`. |
+| `contents` | `read` | The pinned checkout reads the trusted repository tree at `ref: ${{ github.sha }}`. |
+
+Not granted: `pull-requests`, `issues`, `metadata`, `checks`, `statuses`, `id-token`, `deployments`, `artifact-metadata`, any `write`, `read-all`, `write-all`. The candidate does not call `/pulls` or `/issues`.
+
+The only `gh api` commands are `--method GET`. There is no `POST`, `PUT`, `PATCH`, or `DELETE`. Jobs pagination stops at 50 pages. The selected run id and the expected head SHA are operator inputs. The job `if` requires `workflow_dispatch`, `refs/heads/main`, and `f9999737292-bit/Freihgt-platform`.
+
+Checkout uses `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683`, `repository: f9999737292-bit/Freihgt-platform`, `ref: ${{ github.sha }}`, and `persist-credentials: false`. A pull-request head is not checked out.
+
+The first step exits 2 unless `vars.AUTOPILOT_EMERGENCY_STOP` is exactly `false`, and that step is before checkout. The classify step repeats the same exact-`false` test before `mktemp` and before either GET. This document does not claim that changing the repository variable stops a step that has already started. That behavior was not hosted-tested.
+
+The candidate does not call Cursor, a paid model, or the product dispatcher. It does not download job logs. A Jobs API body without a verified excerpt stays `unclassified_failure`. Local fixture runs and static YAML checks do not close `J-MON-R2-M003`. `HOSTED_PERMISSION_ENFORCEMENT=NOT_RUN`.
