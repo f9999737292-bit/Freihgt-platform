@@ -1,2 +1,10 @@
 __pycache__/
 *.pyc
+
+# Local runtime state. Do not commit these files, and do not delete an existing journal or ledger to recover.
+state/*.jsonl
+state/*.lock
+
+# Local emergency-stop marker. git clean -fd does not remove an ignored file.
+# git clean -fdx does. Replacing the checkout can remove it too. This ignore rule is not a control against someone who can edit the work tree.
+EMERGENCY_STOP
